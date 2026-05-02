@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
-import svgToDataUri from "mini-svg-data-uri";
-import flattenColorPalette from "tailwindcss/lib/util/flattenColorPalette";
+import { flattenColorPalette } from "./src/utils/colors";
+const svgToDataUri = require("mini-svg-data-uri");
 
 export default {
 	darkMode: ["class"],
@@ -20,24 +20,6 @@ export default {
 			}
 		},
 		extend: {
-			fontFamily: {
-				sans: [
-					'"Plus Jakarta Sans"',
-					'-apple-system',
-					'BlinkMacSystemFont',
-					'"Segoe UI"',
-					'Roboto',
-					'"Helvetica Neue"',
-					'Arial',
-					'sans-serif',
-					'"Apple Color Emoji"',
-					'"Segoe UI Emoji"',
-					'"Segoe UI Symbol"',
-				],
-				display: ['Inter', 'sans-serif'],
-				timer: ['Outfit', 'sans-serif'],
-			},
-
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -72,14 +54,6 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				warning: {
-					DEFAULT: 'hsl(var(--warning))',
-					foreground: 'hsl(var(--warning-foreground))'
-				},
-				success: {
-					DEFAULT: 'hsl(var(--success))',
-					foreground: 'hsl(var(--success-foreground))'
-				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -88,28 +62,28 @@ export default {
 					accent: 'hsl(var(--sidebar-accent))',
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))',
-					muted: 'hsl(var(--sidebar-muted))'
+					ring: 'hsl(var(--sidebar-ring))'
 				},
 				app: {
-					'blue': '#1EAEDB',
-					'light-blue': '#33C3F0',
-					'background': '#FFFFFF',
-					'gray': '#F1F1F1',
-					'text': '#333333',
-					'success': '#4CAF50',
-					'warning': '#FFC107',
-					'danger': '#F44336',
-					'pending': '#FFD700',
-					'progress': '#4CAF50'
+					blue: 'hsl(var(--primary))',
+					progress: 'hsl(var(--success))',
 				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))',
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))',
+				},
+				'content-muted': 'hsl(var(--content-muted))',
+				'card-muted': 'hsl(var(--card-muted))',
+				'border-strong': 'hsl(var(--border-strong))',
 				brand: {
-					blue: '#2563EB',
-					dark: '#1E293B',
-					green: '#16A34A',
-					light: '#F8FAFC'
+					blue: 'hsl(var(--brand-blue))',
+					green: 'hsl(var(--brand-green))',
+					light: 'hsl(var(--brand-light))',
 				},
-				'content-muted': 'hsl(var(--content-muted))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -118,42 +92,25 @@ export default {
 			},
 			keyframes: {
 				'accordion-down': {
-					from: { height: '0' },
-					to: { height: 'var(--radix-accordion-content-height)' }
+					from: {
+						height: '0'
+					},
+					to: {
+						height: 'var(--radix-accordion-content-height)'
+					}
 				},
 				'accordion-up': {
-					from: { height: 'var(--radix-accordion-content-height)' },
-					to: { height: '0' }
-				},
-				'breathing': {
-					'0%, 100%': { opacity: '1' },
-					'50%': { opacity: '0.6' }
-				},
-				'flip-in': {
-					'0%': { transform: 'rotateY(90deg)', opacity: '0' },
-					'100%': { transform: 'rotateY(0deg)', opacity: '1' }
-				},
-				'slide-up': {
-					'0%': { transform: 'translateY(20px)', opacity: '0' },
-					'100%': { transform: 'translateY(0)', opacity: '1' }
-				},
-				'scale-in': {
-					'0%': { transform: 'scale(0.9)', opacity: '0' },
-					'100%': { transform: 'scale(1)', opacity: '1' }
-				},
-				'pulse-subtle': {
-					'0%, 100%': { opacity: '1', transform: 'scale(1)' },
-					'50%': { opacity: '0.8', transform: 'scale(0.995)' }
+					from: {
+						height: 'var(--radix-accordion-content-height)'
+					},
+					to: {
+						height: '0'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out',
-				'breathing': 'breathing 4s ease-in-out infinite',
-				'flip-in': 'flip-in 0.5s ease-out',
-				'slide-up': 'slide-up 0.4s ease-out',
-				'scale-in': 'scale-in 0.3s ease-out',
-				'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite'
+				'accordion-up': 'accordion-up 0.2s ease-out'
 			}
 		}
 	},
@@ -162,7 +119,9 @@ export default {
 		function ({ addBase, theme }: { addBase: any, theme: any }) {
 			const allColors = flattenColorPalette(theme("colors"));
 			const newVars = Object.fromEntries(
-				Object.entries(allColors).map(([key, val]) => [`--${key}`, val])
+				Object.entries(allColors)
+					.filter(([_, val]) => typeof val === "string" && !val.includes("var("))
+					.map(([key, val]) => [`--${key}`, val])
 			);
 
 			addBase({

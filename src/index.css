@@ -75,6 +75,11 @@
     --user-menu-icon: #94a3b8;
     --user-menu-separator: rgba(0, 0, 0, 0.06);
     --user-menu-border: rgba(0, 0, 0, 0.08);
+
+    /* Brand Colors */
+    --brand-blue: 217 91% 60%; /* #3b82f6 */
+    --brand-green: 161 68% 39%; /* #10b981 */
+    --brand-light: 210 40% 98%; /* #f8fafc */
   }
 
   .dark {

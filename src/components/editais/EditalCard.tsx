@@ -48,8 +48,11 @@ export const EditalCard = ({
         if (daysLeft === null || daysLeft === undefined || isNaN(daysLeft)) {
             return { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30', label: 'Definir data da prova', icon: 'calendar' };
         }
+        
+        const examDateFormatted = edital.examDate ? new Date(edital.examDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '';
+        
         if (daysLeft <= 0) {
-            return { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', label: 'Prova vencida', icon: 'alert' };
+            return { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', label: `Prova vencida${examDateFormatted ? ` em ${examDateFormatted}` : ''}`, icon: 'alert' };
         }
         if (daysLeft <= 15) {
             return { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30', label: `${daysLeft} dias para a prova`, icon: 'alert' };
@@ -80,92 +83,93 @@ export const EditalCard = ({
                 <div className="absolute inset-0 rounded-[inherit] ring-[3px] ring-primary shadow-[0_0_20px_rgba(14,165,233,0.3)] animate-pulse-subtle pointer-events-none z-50" />
             )}
 
-            {/* Excluir - Topo Direito */}
-            <button
-                onClick={onDelete}
-                disabled={isProcessing}
-                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-secondary/50 dark:bg-zinc-800/50 border border-border dark:border-white/5 hover:bg-red-500/10 text-content-muted hover:text-red-400 rounded-lg transition-all z-10 disabled:opacity-50"
-                title="Excluir edital"
-            >
-                {isProcessing && !edital.mergedIntoCycle ? (
-                    <Loader2 size={16} className="animate-spin text-red-500" />
-                ) : (
-                    <Trash2 size={16} />
+            {/* Ações Topo Direito */}
+            <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+                {edital.sourceId && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSync?.();
+                        }}
+                        disabled={isProcessing}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-50 ${
+                            hasUpdate 
+                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 animate-pulse border border-emerald-400' 
+                                : 'bg-secondary/50 dark:bg-zinc-800/50 border border-border dark:border-white/5 text-content-muted hover:text-emerald-400'
+                        }`}
+                        title={hasUpdate ? "Atualização disponível!" : "Sincronizar com edital base"}
+                    >
+                        {isProcessing && edital.sourceId ? (
+                            <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                            <RefreshCw size={16} className={hasUpdate ? "animate-spin-slow" : ""} />
+                        )}
+                    </button>
                 )}
-            </button>
-
-            {/* Sincronizar - Topo Direito (lado da lixeira) */}
-            {edital.sourceId && (
+                
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        onSync?.();
+                        onEdit?.();
                     }}
                     disabled={isProcessing}
-                    className={`absolute top-4 right-14 w-8 h-8 flex items-center justify-center rounded-lg transition-all z-10 disabled:opacity-50 ${
-                        hasUpdate 
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 animate-pulse border border-emerald-400' 
-                            : 'bg-secondary/50 dark:bg-zinc-800/50 border border-border dark:border-white/5 text-content-muted hover:text-emerald-400'
-                    }`}
-                    title={hasUpdate ? "Atualização disponível!" : "Sincronizar com edital base"}
+                    className="w-8 h-8 flex items-center justify-center bg-secondary/50 dark:bg-zinc-800/50 border border-border dark:border-white/5 hover:text-primary hover:bg-primary/10 text-content-muted rounded-lg transition-all disabled:opacity-50"
+                    title="Editar edital"
                 >
-                    {isProcessing && edital.sourceId ? (
-                        <Loader2 size={16} className="animate-spin" />
+                    <Edit2 size={16} />
+                </button>
+
+                <button
+                    onClick={onDelete}
+                    disabled={isProcessing}
+                    className="w-8 h-8 flex items-center justify-center bg-secondary/50 dark:bg-zinc-800/50 border border-border dark:border-white/5 hover:bg-red-500/10 text-content-muted hover:text-red-400 rounded-lg transition-all disabled:opacity-50"
+                    title="Excluir edital"
+                >
+                    {isProcessing && !edital.mergedIntoCycle ? (
+                        <Loader2 size={16} className="animate-spin text-red-500" />
                     ) : (
-                        <RefreshCw size={16} className={hasUpdate ? "animate-spin-slow" : ""} />
+                        <Trash2 size={16} />
                     )}
                 </button>
-            )}
-            
+            </div>
 
             <div className="p-4 md:p-5">
-                <div className="flex items-start gap-4 mb-4">
-                    <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
-                        <GraduationCap className="text-primary" size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0 pr-6">
-                        <h3 className="text-[15px] font-black text-foreground tracking-tight truncate uppercase flex items-center gap-2">
-                            {displayOrgan}
-                            {edital.year && (
-                                <span className="text-[11px] text-primary font-bold bg-primary/5 px-2 py-0.5 rounded-lg border border-primary/10 tracking-normal">
-                                    {edital.year}
-                                </span>
+                <div className="flex items-start mb-3">
+                    <div className="flex-1 min-w-0 pr-32">
+                        <div className="flex flex-col min-w-0">
+                            <h3 className="text-[15px] font-black text-foreground tracking-tight truncate uppercase flex items-center gap-x-2">
+                                <span>{displayOrgan}</span>
+                                {edital.year && (
+                                    <>
+                                        <span className="text-content-muted font-normal">•</span>
+                                        <span className="text-foreground">{edital.year}</span>
+                                    </>
+                                )}
+                            </h3>
+                            {displayPosition && (
+                                <p className="text-[11px] text-content-muted font-bold tracking-tight uppercase truncate">
+                                    {displayPosition}
+                                </p>
                             )}
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEdit?.();
-                                }}
-                                disabled={isProcessing}
-                                className="w-6 h-6 flex items-center justify-center text-content-muted hover:text-primary hover:bg-primary/10 rounded-md transition-all shrink-0 ml-1"
-                                title="Editar edital"
-                            >
-                                <Edit2 size={14} />
-                            </button>
-                        </h3>
-                        {displayPosition && (
-                            <p className="text-[11px] text-content-muted font-bold tracking-tight mt-0.5 uppercase truncate">
-                                {displayPosition}
-                            </p>
-                        )}
-                        <div className="flex items-center gap-2 mt-2">
-                            {edital.sourceId ? (
-                                <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded-md border bg-blue-500/10 text-blue-500 border-blue-500/20">
-                                    CÓPIA • SISTEMA
-                                </span>
-                            ) : edital.isImported ? (
-                                <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded-md border bg-purple-500/10 text-purple-500 border-purple-500/20">
-                                    CÓPIA • IA
-                                </span>
-                            ) : (
-                                <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded-md border bg-zinc-500/10 text-zinc-500 border-zinc-500/20">
-                                    MANUAL
-                                </span>
-                            )}
-                            <span className="text-[10px] text-content-muted">•</span>
-                            <span className="text-[10px] text-content-muted font-medium">{createdDate}</span>
                         </div>
                     </div>
+                </div>
+
+                <div className="flex items-center justify-between border-b border-border dark:border-white/5 pb-3 mb-4">
+                    <span className="text-[10px] text-content-muted font-medium">{createdDate}</span>
+                    {edital.sourceId ? (
+                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-500">
+                            CÓPIA • SISTEMA
+                        </span>
+                    ) : edital.isImported ? (
+                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-purple-500">
+                            CÓPIA • IA
+                        </span>
+                    ) : (
+                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-500">
+                            MANUAL
+                        </span>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 mb-4">
@@ -196,13 +200,10 @@ export const EditalCard = ({
                             />
                         </div>
                     </div>
-
-                    <div className="bg-secondary dark:bg-white/5 rounded-2xl p-3 border border-border dark:border-white/5">
-                        <div className="flex items-center gap-2 mb-2">
-                             <Timer size={12} className="text-content-muted/80" />
-                            <span className="text-[9px] font-bold text-content-muted/80 uppercase tracking-widest">Tempo</span>
-                        </div>
-                        <div className="text-base font-bold text-foreground leading-none">
+                    
+                    <div className="bg-secondary dark:bg-white/5 rounded-2xl p-3 border border-border dark:border-white/5 flex flex-col items-center justify-center text-center">
+                        <span className="text-[9px] font-bold text-content-muted/80 uppercase tracking-widest mb-1">Tempo</span>
+                        <div className="text-2xl font-black text-sky-400 leading-none">
                             {studyTimeLabel}
                         </div>
                         <p className="text-[10px] text-content-muted mt-1 font-bold lowercase tracking-tight">
@@ -211,12 +212,12 @@ export const EditalCard = ({
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-4 min-h-[52px] justify-center">
+                <div className="grid grid-cols-2 gap-3 justify-center">
                     {metrics.subjectsCount > 0 ? (
-                        <div className="flex items-center gap-2">
+                        <>
                             <button
                                 onClick={onViewSubjects}
-                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-secondary dark:bg-zinc-800/80 border border-border dark:border-white/5 hover:bg-secondary-strong dark:hover:bg-zinc-700 text-content-muted hover:text-foreground dark:hover:text-content-main rounded-xl transition-all text-xs font-bold"
+                                className="flex items-center justify-center gap-2 py-1.5 bg-secondary dark:bg-zinc-800/80 border border-border dark:border-white/5 hover:bg-secondary-strong dark:hover:bg-zinc-700 text-content-muted hover:text-foreground dark:hover:text-content-main rounded-xl transition-all text-xs font-bold"
                             >
                                 <Eye size={14} />
                                 Ver Matérias
@@ -224,7 +225,7 @@ export const EditalCard = ({
                             <button
                                 onClick={edital.mergedIntoCycle ? onUnloadCycle : onLoadCycle}
                                 disabled={isProcessing}
-                                className={`flex-[1.8] relative flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all text-xs font-bold shadow-lg overflow-hidden disabled:opacity-80 disabled:cursor-not-allowed ${
+                                className={`relative flex items-center justify-center gap-2 py-1.5 rounded-xl transition-all text-xs font-bold shadow-lg overflow-hidden disabled:opacity-80 disabled:cursor-not-allowed ${
                                     edital.mergedIntoCycle
                                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 shadow-none'
                                         : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
@@ -260,26 +261,25 @@ export const EditalCard = ({
                                     )}
                                 </div>
                             </button>
-                        </div>
+                        </>
                     ) : (
-                        <div className="flex items-center gap-2">
+                        <>
                             <button
                                 onClick={onViewSubjects}
-                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-secondary dark:bg-zinc-800/80 border border-border dark:border-white/5 hover:bg-secondary-strong dark:hover:bg-zinc-700 text-content-muted hover:text-foreground rounded-xl transition-all text-xs font-bold"
+                                className="flex items-center justify-center gap-2 py-1.5 bg-secondary dark:bg-zinc-800/80 border border-border dark:border-white/5 hover:bg-secondary-strong dark:hover:bg-zinc-700 text-content-muted hover:text-foreground rounded-xl transition-all text-xs font-bold"
                             >
                                 <Eye size={14} />
-                                Ver Matérias
+                                Ver
                             </button>
 
-                            <div className="flex-[1.8] flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                            <div className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
                                 <AlertTriangle size={14} className="text-amber-400 shrink-0" />
-                                <span className="text-[11px] font-bold text-amber-400 leading-tight">Edital sem matérias, aguarde.</span>
+                                <span className="text-[11px] font-bold text-amber-400 leading-tight">Sem matérias</span>
                             </div>
-                        </div>
+                        </>
                     )}
-
-
                 </div>
+
 
                 {/* Detalhes do Progresso de Remoção */}
                 {isProcessing && processingProgress?.message && (

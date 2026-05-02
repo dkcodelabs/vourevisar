@@ -231,7 +231,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
               size="sm"
               variant="ghost"
               onClick={handleNotesClick}
-              className={`h-8 w-8 p-0 ${hasNotes ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 hover:text-gray-600'}`}
+              className={`h-8 w-8 p-0 ${hasNotes ? 'text-primary/50 hover:text-primary' : 'text-gray-400 hover:text-gray-600'}`}
               title={hasNotes ? "Ver/Editar Nota" : "Adicionar Nota"}
             >
               <FileText className="h-4 w-4" />
@@ -294,7 +294,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
                 size="sm"
                 variant="ghost"
                 onClick={handleNotesClick}
-                className={`h-8 w-8 p-0 ${hasNotes ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`h-8 w-8 p-0 ${hasNotes ? 'text-primary/50 hover:text-primary' : 'text-gray-400 hover:text-gray-600'}`}
                 title={hasNotes ? "Ver/Editar Nota" : "Adicionar Nota"}
               >
                 <FileText className="h-4 w-4" />

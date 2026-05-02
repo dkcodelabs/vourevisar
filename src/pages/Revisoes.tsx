@@ -502,7 +502,7 @@ export const Revisoes = () => {
           Nenhum edital carregado no ciclo
         </h2>
         <p className="text-base text-content-muted leading-relaxed font-medium mb-8 max-w-lg mx-auto">
-          Você não possui um edital carregado no ciclo ativo. Vá até a aba "Meus Editais" para iniciar o seu planejamento de estudos e gerar seu histórico de revisões.
+          Você não possui um edital carregado no ciclo ativo. Vá até a aba "Matriz de Estudos" para iniciar o seu planejamento de estudos e gerar seu histórico de revisões.
         </p>
         <button
           onClick={() => navigate('/meus-editais')}

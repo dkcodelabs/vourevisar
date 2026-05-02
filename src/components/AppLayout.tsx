@@ -32,7 +32,7 @@ import { features } from "@/lib/features";
 
 const routeTitles: Record<string, string> = {
   "/dashboard": "Painel",
-  "/meus-editais": "Meus Editais",
+  "/meus-editais": "Matriz de Estudos",
   "/ciclo-estudos": "Ciclo de Estudos",
   "/revisoes": "Revisões",
   "/materias": "Matérias",

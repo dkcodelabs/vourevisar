@@ -55,7 +55,7 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onDelete, onNotesClick }) 
                 variant="ghost"
                 size="sm"
                 onClick={() => onNotesClick(topic)}
-                className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800"
+                className="h-6 w-6 p-0 text-primary/50 hover:text-primary"
               >
                 <FileText className="h-4 w-4" />
               </Button>

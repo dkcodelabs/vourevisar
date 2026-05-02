@@ -124,7 +124,7 @@ export const AdminEditalSubjectsModal = ({
                             user_id: userId,
                             type: 'update_edital',
                             category: 'sistema',
-                            title: 'Meus editais',
+                            title: 'Matriz de Estudos',
                             message: `O edital ${(edital as any).organ || 'que você segue'} foi atualizado.`,
                             action_url: `/meus-editais?sourceId=${edital?.id}`,
                             read: false,

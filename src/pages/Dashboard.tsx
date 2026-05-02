@@ -282,7 +282,7 @@ const Dashboard = () => {
                             className="h-10 px-5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg flex items-center gap-2"
                         >
                             <BookOpen className="w-4 h-4" />
-                            Ir para Meus Editais
+                            Ir para Matriz de Estudos
                         </Button>
                     </div>
                 ) : (

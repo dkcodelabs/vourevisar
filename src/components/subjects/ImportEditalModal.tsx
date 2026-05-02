@@ -31,9 +31,11 @@ interface ImportEditalModalProps {
     userEditais?: UserEdital[];
     initialTab?: 'ready' | 'ia' | 'manual';
     manualModeChildren?: React.ReactNode;
+    /** Exibe o banner de boas-vindas quando o usuário ainda não tem nenhum plano cadastrado */
+    isFirstAccess?: boolean;
 }
 
-export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren }: ImportEditalModalProps) => {
+export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren, isFirstAccess = false }: ImportEditalModalProps) => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'ready' | 'ia' | 'manual'>(initialTab);
     const [showSuggestSlide, setShowSuggestSlide] = useState(false);
@@ -705,48 +707,95 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-7xl h-[85vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="relative w-full max-w-7xl h-[85vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
-                <div className="p-6 border-b border-black/5 dark:border-white/5 flex items-center justify-between shrink-0">
-                    <div>
-                        <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
-                            {activeTab === 'ready' ? 'Editais Prontos' : activeTab === 'ia' ? 'Importar com IA' : 'Criar Edital'}
+                <div className="px-6 py-3 border-b border-black/5 dark:border-white/5 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 tracking-normal border-r border-border/50 dark:border-white/10 pr-3">
+                            {activeTab === 'ready' ? 'Catálogo Oficial' : activeTab === 'ia' ? 'Importar com IA' : 'Criar Manualmente'}
                         </h2>
-                        <p className="text-sm text-content-muted font-medium mt-1">
-                            {activeTab === 'ready' 
-                                ? 'Escolha um edital pronto do nosso catálogo oficial.' 
-                                : activeTab === 'ia' 
-                                    ? 'Use nossa inteligência artificial para extrair conteúdos de textos.' 
-                                    : 'Cadastre manualmente as matérias e tópicos do seu edital.'}
+                        <p className="text-[11px] text-content-muted font-medium italic hidden md:block">
+                            {activeTab === 'ready' ? 'Milhares de concursos já organizados pela nossa equipe.' : activeTab === 'ia' ? 'Extraia matérias e tópicos de PDFs ou sites automaticamente.' : 'Monte sua própria matriz de estudos e organize seu conteúdo do zero.'}
                         </p>
                     </div>
-                    <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
-                        <X size={20} />
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
+                        <X size={16} />
                     </button>
                 </div>
 
                 <div className="p-6 overflow-y-auto no-scrollbar flex-1">
-                    <div className="flex gap-2 bg-secondary dark:bg-zinc-900/50 p-1.5 rounded-2xl mb-8 w-fit mx-auto border border-border dark:border-white/5">
+
+                    {/* ── Banner de Boas-vindas (primeiro acesso) ── */}
+                    {isFirstAccess && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.35, ease: 'easeOut' }}
+                            className="mb-6 rounded-2xl overflow-hidden relative"
+                        >
+                            {/* Fundo gradiente */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-primary/8 to-emerald-500/5 dark:from-emerald-500/15 dark:via-primary/10 dark:to-emerald-500/8" />
+                            <div className="absolute inset-0 border border-emerald-500/20 dark:border-emerald-500/25 rounded-2xl" />
+
+                            <div className="relative flex items-center gap-4 px-5 py-4">
+                                {/* Ícone */}
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                                    <Info size={18} className="text-emerald-600 dark:text-emerald-400" />
+                                </div>
+
+                                {/* Texto */}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-black text-zinc-800 dark:text-zinc-100 leading-tight">
+                                        Você ainda não possui nenhuma Matriz de Estudos ativa.
+                                    </p>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5 leading-relaxed">
+                                        Escolha uma das formas abaixo para importar seu primeiro plano de estudos e organizar sua preparação.
+                                    </p>
+                                </div>
+
+                                {/* Badge "Primeiro acesso" */}
+                                <div className="shrink-0 hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Primeiro acesso</span>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* ── Abas estilo segmented control elegante ── */}
+                    <div className="flex bg-secondary/30 dark:bg-[#18181B] p-1.5 rounded-full mx-auto w-fit mb-8 border border-border dark:border-white/[0.04]">
                         <button
                             onClick={() => setActiveTab('ready')}
-                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'ready' ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-primary hover:bg-primary/10'}`}
+                            className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
+                                activeTab === 'ready'
+                                    ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+                                    : 'text-content-muted hover:text-foreground border border-transparent'
+                            }`}
                         >
                             <FileText size={14} />
-                            Editais Prontos
+                            Catálogo Oficial
                         </button>
                         <button
                             onClick={() => setActiveTab('ia')}
-                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'ia' ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-primary hover:bg-primary/10'}`}
+                            className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
+                                activeTab === 'ia'
+                                    ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+                                    : 'text-content-muted hover:text-foreground border border-transparent'
+                            }`}
                         >
                             <Sparkles size={14} />
                             Importar com IA
                         </button>
                         <button
                             onClick={() => setActiveTab('manual')}
-                            className={`px-5 py-2.5 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'manual' ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-primary hover:bg-primary/10'}`}
+                            className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
+                                activeTab === 'manual'
+                                    ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+                                    : 'text-content-muted hover:text-foreground border border-transparent'
+                            }`}
                         >
                             <Plus size={14} />
-                            Criar Edital
+                            Criar Manualmente
                         </button>
                     </div>
 
@@ -792,38 +841,27 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                             )}
 
                             <div className="space-y-4">
-                                <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-content-muted" size={18} />
-                                        <input
-                                            type="text"
-                                            placeholder="Buscar concurso (ex: PCES, PMES, INSS...)"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full h-14 bg-secondary dark:bg-zinc-950 border border-border dark:border-white/5 rounded-[20px] pl-14 pr-6 text-sm font-medium focus:outline-none focus:border-primary/40 transition-all text-content-main placeholder:text-content-muted/50"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            setSuggestConcurso("");
-                                            setSuggestionSent(false);
-                                            setShowSuggestSlide(true);
-                                        }}
-                                        className="h-14 px-5 bg-secondary dark:bg-white/5 text-foreground hover:bg-secondary/80 border border-border dark:border-white/10 text-[10px] font-bold uppercase tracking-wider rounded-[20px] transition-all flex items-center gap-2 shrink-0 hover:border-primary/30"
-                                    >
-                                        <Sparkles className="text-primary" size={14} />
-                                        Sugerir
-                                    </button>
+                                {/* Busca */}
+                                <div className="relative w-full">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-content-muted" size={18} />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por concurso, órgão ou cargo..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full h-12 bg-black/5 dark:bg-[#09090B] border border-border dark:border-white/[0.05] rounded-xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-all text-content-main placeholder:text-content-muted/40"
+                                    />
                                 </div>
-                                <div className="flex flex-wrap gap-2 overflow-x-auto no-scrollbar pb-2">
+                                {/* Filtros */}
+                                <div className="flex flex-wrap items-center gap-6 px-2 border-b border-border/40 dark:border-white/[0.02]">
                                     {['Todos', 'Carreiras Policiais', 'Tribunais', 'Bancárias', 'Administrativo', 'Educação'].map(cat => (
                                         <button
                                             key={cat}
                                             onClick={() => setSelectedCategory(cat)}
-                                            className={`px-4 py-2 rounded-xl text-[10px] font-bold transition-all tracking-wider border uppercase ${
+                                            className={`transition-all text-[10px] font-black uppercase tracking-widest px-1 py-3 border-b-2 -mb-[1px] ${
                                                 selectedCategory === cat 
-                                                ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' 
-                                                : 'bg-secondary dark:bg-zinc-800/20 border-border dark:border-white/5 text-content-muted hover:border-primary/30 hover:text-foreground'
+                                                ? 'text-[#0ea5e9] border-[#0ea5e9]' 
+                                                : 'text-content-muted border-transparent hover:text-foreground hover:border-white/10'
                                             }`}
                                         >
                                             {cat}
@@ -846,7 +884,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         <motion.div 
                                             key={edital.id} 
                                             whileHover={isAlreadyImported ? {} : { scale: 1.01 }}
-                                            className={`p-4 rounded-2xl group border transition-all relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4 ${
+                                            className={`px-4 py-2.5 rounded-2xl group border transition-all relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4 ${
                                                 isAlreadyImported 
                                                 ? 'border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10' 
                                                 : 'border-border dark:border-white/5 bg-secondary/30 dark:bg-zinc-800/20 hover:bg-secondary/50 dark:hover:bg-zinc-800/50 hover:border-primary/30'
@@ -855,29 +893,27 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             {/* Glow effect on hover */}
                                             <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity blur-xl z-0" />
                                             
-                                            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0 z-10 hidden sm:flex">
-                                                <FileText size={20} className="text-primary" />
+                                            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center shrink-0 z-10">
+                                                <FileText size={16} className="text-primary" />
                                             </div>
 
-                                            <div className="flex-1 min-w-0 z-10 w-full border-b border-white/5 sm:border-b-0 pb-3 sm:pb-0">
-                                                <div className="flex items-center gap-2">
-                                                    <h4 className="font-bold text-content-main text-sm sm:text-base tracking-tight uppercase group-hover:text-primary transition-colors truncate">
-                                                        {edital.organ}
-                                                    </h4>
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border shrink-0 ${
-                                                        edital.status === 'PÓS-EDITAL' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                                                        edital.status === 'PREVISTO' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
-                                                        'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                                                    }`}>
-                                                        {edital.status === 'published' ? 'PUBLICADO' : edital.status} {edital.year}
-                                                    </span>
-                                                    {isAlreadyImported && (
-                                                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md border bg-emerald-500 text-white border-emerald-500 flex items-center gap-1 shadow-sm">
-                                                            <CheckCircle2 size={10} /> JÁ IMPORTADO
-                                                        </span>
-                                                    )}
+                                            <div className="flex-1 min-w-0 z-10 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                <h4 className="font-bold text-content-main text-[13px] tracking-tight uppercase group-hover:text-primary transition-colors truncate">
+                                                    {edital.organ}
+                                                </h4>
+                                                
+                                                <div className="flex items-center gap-2 text-[11px] text-content-muted font-medium">
+                                                    <span className="opacity-20">•</span>
+                                                    <span className="truncate">{edital.position}</span>
+                                                    <span className="opacity-20">•</span>
+                                                    <span className="shrink-0 font-black text-zinc-400 dark:text-zinc-500">{edital.year}</span>
                                                 </div>
-                                                <p className="text-xs text-content-muted font-medium mt-0.5 truncate">{edital.position}</p>
+
+                                                {isAlreadyImported && (
+                                                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shrink-0 uppercase tracking-tighter ml-auto">
+                                                        <CheckCircle2 size={10} /> JÁ IMPORTADO
+                                                    </span>
+                                                )}
                                             </div>
 
                                             <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto z-10">
@@ -886,13 +922,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                          <div className="flex items-center gap-4">
                                                              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 group-hover:border-primary/20 transition-all">
                                                                  <Database size={12} className="text-primary/60" />
-                                                                 <span className="text-[10px] font-black text-content-muted dark:text-zinc-400 group-hover:text-foreground dark:group-hover:text-zinc-200 transition-colors uppercase">
+                                                                 <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 group-hover:text-foreground dark:group-hover:text-zinc-200 transition-colors uppercase">
                                                                      {edital.subjects.length} MATÉRIAS
                                                                  </span>
                                                              </div>
                                                              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 group-hover:border-primary/20 transition-all">
                                                                  <Info size={12} className="text-primary/60" />
-                                                                 <span className="text-[10px] font-black text-content-muted dark:text-zinc-400 group-hover:text-foreground dark:group-hover:text-zinc-200 transition-colors uppercase">
+                                                                 <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 group-hover:text-foreground dark:group-hover:text-zinc-200 transition-colors uppercase">
                                                                       {edital.subjects.reduce((acc: number, s: { name: string; topics?: { name: string }[] }) => acc + (s.topics?.length || 0), 0)} TÓPICOS
                                                                  </span>
                                                              </div>
@@ -925,23 +961,71 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     })}
                                 </div>
                             ) : (
-                                <div className="py-16 text-center">
-                                    <div className="w-20 h-20 bg-secondary dark:bg-zinc-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
-                                        <Search className="text-content-muted" size={32} />
+                                <div className="py-12 text-center max-w-sm mx-auto">
+                                    <div className="w-16 h-16 bg-secondary dark:bg-zinc-800/50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                                        <Search className="text-content-muted" size={26} />
                                     </div>
-                                    <p className="text-lg font-black text-content-main mb-2 tracking-tight">SEM RESULTADOS</p>
+
                                     {searchQuery.trim() ? (
-                                        <p className="text-sm text-content-muted font-medium mb-6">Não encontramos concursos para <span className="text-foreground font-bold">&ldquo;{searchQuery}&rdquo;</span></p>
+                                        <>
+                                            <p className="text-base font-black text-foreground mb-1 tracking-tight">
+                                                Nenhum resultado para &ldquo;{searchQuery}&rdquo;
+                                            </p>
+                                            <p className="text-sm text-content-muted font-medium leading-relaxed mb-6">
+                                                Esse concurso ainda não está no catálogo. Você pode sugerir a inclusão, ou criar o seu plano de outra forma:
+                                            </p>
+
+                                            {/* Ações alternativas */}
+                                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-5">
+                                                <button
+                                                    onClick={() => setActiveTab('ia')}
+                                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all"
+                                                >
+                                                    <Sparkles size={13} />
+                                                    Importar com IA
+                                                </button>
+                                                <button
+                                                    onClick={() => setActiveTab('manual')}
+                                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-secondary dark:bg-white/5 hover:bg-secondary/80 text-foreground text-[11px] font-bold uppercase tracking-wider rounded-xl border border-border transition-all"
+                                                >
+                                                    <Plus size={13} />
+                                                    Criar Manualmente
+                                                </button>
+                                            </div>
+
+                                            {/* Sugestão discreta */}
+                                            <button
+                                                onClick={handleOpenSuggest}
+                                                className="inline-flex items-center gap-1.5 text-[11px] text-content-muted hover:text-foreground transition-colors font-medium"
+                                            >
+                                                <MessageSquare size={12} />
+                                                Sugerir inclusão desse concurso no catálogo
+                                            </button>
+                                        </>
                                     ) : (
-                                        <p className="text-sm text-content-muted font-medium mb-6">Ainda não há editais no catálogo. Seja o primeiro a sugerir!</p>
+                                        <>
+                                            <p className="text-base font-black text-foreground mb-1 tracking-tight">Catálogo vazio</p>
+                                            <p className="text-sm text-content-muted font-medium leading-relaxed mb-6">
+                                                Ainda não há planos disponíveis no catálogo. Seja o primeiro a sugerir ou crie o seu!
+                                            </p>
+                                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                                                <button
+                                                    onClick={handleOpenSuggest}
+                                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all"
+                                                >
+                                                    <MessageSquare size={13} />
+                                                    Sugerir ao catálogo
+                                                </button>
+                                                <button
+                                                    onClick={() => setActiveTab('manual')}
+                                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-secondary dark:bg-white/5 hover:bg-secondary/80 text-foreground text-[11px] font-bold uppercase tracking-wider rounded-xl border border-border transition-all"
+                                                >
+                                                    <Plus size={13} />
+                                                    Criar Manualmente
+                                                </button>
+                                            </div>
+                                        </>
                                     )}
-                                    <button
-                                        onClick={handleOpenSuggest}
-                                        className="inline-flex items-center gap-2 text-[11px] font-bold text-primary/80 hover:text-primary transition-colors uppercase tracking-widest bg-primary/10 hover:bg-primary/20 px-6 py-3 rounded-full"
-                                    >
-                                        <MessageSquare size={14} />
-                                        Sugerir Edital
-                                    </button>
                                 </div>
                             )}
                         </div>

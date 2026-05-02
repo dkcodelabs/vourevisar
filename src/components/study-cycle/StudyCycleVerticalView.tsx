@@ -177,9 +177,9 @@ const TopicRow: React.FC<TopicRowProps> = ({
         <button
           onClick={onOpenNotes}
           className={`p-1 transition-colors rounded ${
-            topic.notes && topic.notes.trim() !== '' && topic.notes !== '<p><br></p>'
-              ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
-              : 'text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400'
+            (typeof topic.notes === 'string' ? topic.notes : (topic.notes as any)?.content)?.trim() && (typeof topic.notes === 'string' ? topic.notes : (topic.notes as any)?.content) !== '<p><br></p>'
+              ? 'text-primary/50 hover:text-primary'
+              : 'text-gray-400 hover:text-primary/70'
           }`}
           aria-label={`Anotações para ${topic.name}`}
         >

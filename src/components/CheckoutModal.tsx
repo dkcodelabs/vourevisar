@@ -241,7 +241,7 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
         onClick={handleGoToEditais}
         className="w-full max-w-sm bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm py-3 rounded-xl transition-all active:scale-95 shadow-lg shadow-blue-600/20"
       >
-        Ir para Meus Editais →
+        Ir para Matriz de Estudos →
       </button>
     </div>
   );

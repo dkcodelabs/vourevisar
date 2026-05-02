@@ -79,7 +79,7 @@ interface NavItem {
 const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
   const mainItems: NavItem[] = [
     { to: "/dashboard", label: "Painel", icon: LayoutDashboard, end: true },
-    { to: "/meus-editais", label: "Meus Editais", icon: Library },
+    { to: "/meus-editais", label: "Matriz de Estudos", icon: Library },
     { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: RotateCcw },
     { to: "/revisoes", label: "Revisões", icon: Clock },
     { to: "/materias", label: "Matérias", icon: Book },

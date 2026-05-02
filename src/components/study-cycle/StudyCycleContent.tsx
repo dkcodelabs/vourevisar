@@ -588,7 +588,7 @@ export const StudyCycleContent: React.FC = () => {
               Nenhum edital carregado no ciclo
             </h2>
             <p className="text-base text-content-muted leading-relaxed font-medium mb-8 max-w-lg mx-auto">
-              Você precisa carregar um edital no seu ciclo de estudos para iniciar o estudo e revisão. Vá até a tela "Meus Editais" para começar.
+              Você precisa carregar um edital no seu ciclo de estudos para iniciar o estudo e revisão. Vá até a tela "Matriz de Estudos" para começar.
             </p>
             <button
               onClick={() => navigate('/meus-editais')}

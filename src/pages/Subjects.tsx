@@ -29,19 +29,43 @@ import NotesModal from '@/components/reviews/NotesModal';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
-// useCycleViewManagement removido — funcionalidade de duplicação descontinuada
-import { useCycleStatus } from '@/hooks/useCycleStatus';
-import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
+
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { errorService } from '@/lib/errors/errorService';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
-import { useAIStatus } from '@/hooks/useAIStatus';
+
 import { useMergeData } from '@/hooks/useMergeData';
 import { SubjectSparkline } from '@/components/subjects/SubjectSparkline';
 import { fetchTopicReviewStats } from '@/services/topicReviewService';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
+import { useStudyCycleV2, CycleSubjectState } from '@/hooks/useStudyCycleV2';
+import { CycleDashboardV2 } from '@/components/dashboard/CycleDashboardV2';
+
+export type CycleV2Tag = 'Não Estudada' | 'Estudada Hoje' | 'Estudada' | 'Em Revisão';
+
+const getCycleV2Tag = (subject: Subject, state: CycleSubjectState | undefined): CycleV2Tag => {
+  if (subject.topics.length === 0) return 'Não Estudada';
+
+  const allTopicsStarted = subject.topics.length > 0 && subject.topics.every(t => 
+    t.completed || 
+    t.first_studied_at || 
+    t.firstStudiedAt || 
+    (t.reviewCount && t.reviewCount > 0) || 
+    ((t as any).review_count && (t as any).review_count > 0)
+  );
+
+  if (allTopicsStarted) return 'Em Revisão';
+
+  if (state?.completed_in_current_rotation) {
+    const today = new Date().toISOString().split('T')[0];
+    if (state.last_studied_date === today) return 'Estudada Hoje';
+    return 'Estudada';
+  }
+
+  return 'Não Estudada';
+};
 
 const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) {
@@ -97,6 +121,7 @@ const Subjects = () => {
   const { user } = useAuth();
   const { originsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, getOriginsForSubject, refresh, isLoading: isOriginsLoading } = useEditalOriginsWithMerge();
   const { getUnifiedSubjectName, isSubjectMerged, getSubjectOrigins, revertSubjectMerge, getSubjectMergeInfo, dynamicUnificationMap } = useMergeData();
+  const { activeCycle, activeRotation, subjectStates, fetchActiveCycleData, markSubjectAsStudied, finishCurrentRotation, initializeCycle } = useStudyCycleV2();
   const navigate = useNavigate();
   // Estado local simples - sem contextos
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -280,7 +305,7 @@ const Subjects = () => {
     editais: Array<{ id: string; name: string; is_imported: boolean; source_id: string | null }>;
   }>({ isOpen: false, subjectId: null, subjectName: null, editais: [] });
 
-  const { aiStatus, checkAIStatus } = useAIStatus();
+
 
   // Cache simples no localStorage
   const loadSubjects = useCallback(async (ignoreCache: boolean = false) => {
@@ -485,7 +510,7 @@ const Subjects = () => {
 
   // Estado para o modal de upload de conteúdo
   const [contentUploadModal, setContentUploadModal] = useState(false);
-  const [showManualInput, setShowManualInput] = useState(false);
+
 
   // Estado para o modal de anotações de matéria
   const [subjectNotesModal, setSubjectNotesModal] = useState<{
@@ -564,14 +589,7 @@ const Subjects = () => {
     }
   };
 
-  // Hook para gerenciar visualizações duplicadas no ciclo
-  // Duplicação de matéria removida — useCycleViewManagement descontinuado
 
-  // Hook para gerenciar status do ciclo de estudos
-  const { isSubjectStudied, getNextSuggestedSubject, markSubjectAsStudied, isNextSuggested } = useCycleStatus();
-
-  // Hook para tracking de sessões de estudo
-  const { recordStudySession } = useStudySessionTracking();
 
   // Estado para armazenar o ciclo atual e contar visualizações
   const [userCycle, setUserCycle] = useState<any>(null);
@@ -628,7 +646,8 @@ const Subjects = () => {
         // Garantir que carregamos tudo na primeira montagem
         await Promise.all([
           loadSubjects(), 
-          loadUserCycle(), 
+          loadUserCycle(),
+          fetchActiveCycleData(),
           repairOrphanedSubjects(user.id)
         ]);
         setLoading(false);
@@ -1454,7 +1473,7 @@ const Subjects = () => {
                   <h3 className="text-lg font-bold text-foreground mb-2">Nenhuma matéria ativa</h3>
                   <p className="text-content-muted max-w-sm mx-auto mb-6">
                     Todas as matérias foram ocultadas ou o edital foi removido do ciclo. Ative matérias via
-                    &ldquo;Meus Editais&rdquo; ou carregue um edital no ciclo.
+                    &ldquo;Matriz de Estudos&rdquo; ou carregue um edital no ciclo.
                   </p>
                   <button
                     onClick={() => navigate('/meus-editais')}
@@ -1471,6 +1490,12 @@ const Subjects = () => {
                 {displayList.map((item, index) => {
                   const { subject } = item;
                   const calculatedStatus = calculateSubjectStatus(subject);
+                  
+                  // V2 Integration
+                  const unifiedSubjectId = getUnifiedSubjectId(subject.id, dynamicUnificationMap);
+                  const stateV2 = subjectStates.find(s => s.subject_id === unifiedSubjectId);
+                  const tagV2 = getCycleV2Tag(subject, stateV2);
+
                   const isEditing = editingSubjectId === subject.id;
                   const position = index + 1;
 
@@ -1493,7 +1518,7 @@ const Subjects = () => {
                             <div className="flex items-center gap-3">
                               {/* Action icon */}
                               <div
-                                className="cursor-move text-content-muted hover:text-primary transition-colors p-1 -ml-2"
+                                className="cursor-move text-primary/80 hover:text-primary transition-colors p-1 -ml-2"
                                 onClick={(e) => e.stopPropagation()}
                                 {...listeners}
                                 {...attributes}
@@ -1520,7 +1545,7 @@ const Subjects = () => {
                                                   } 
                                                 });
                                               }}
-                                              className="p-1 hover:bg-primary/10 rounded transition-colors text-content-muted hover:text-primary"
+                                              className="p-1 hover:bg-primary/10 rounded transition-colors text-primary/80 hover:text-primary"
                                             >
                                               <ExternalLink size={13} strokeWidth={2.5} />
                                             </button>
@@ -1532,9 +1557,24 @@ const Subjects = () => {
                                       </TooltipProvider>
 
                                       <h4
-                                        className="text-xs font-black uppercase tracking-widest text-primary/80 truncate max-w-[200px] sm:max-w-xs"
+                                        className="text-xs font-black uppercase tracking-widest text-primary/80 truncate max-w-[200px] sm:max-w-xs flex items-center gap-2"
                                       >
-                                      {getUnifiedSubjectName(subject.id, subject.name).toUpperCase()}
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            await markSubjectAsStudied(unifiedSubjectId);
+                                          }}
+                                          className="flex-shrink-0 transition-colors"
+                                          title={tagV2 === 'Estudada Hoje' ? "Já estudada hoje" : "Marcar como Estudada Hoje"}
+                                          disabled={tagV2 === 'Estudada Hoje'}
+                                        >
+                                          {tagV2 === 'Estudada Hoje' ? (
+                                            <CheckCircle2 size={16} className="text-emerald-500" strokeWidth={2.5} />
+                                          ) : (
+                                            <Circle size={16} strokeWidth={2.5} className={tagV2 === 'Estudada' ? "text-primary/50" : "text-content-muted/40 hover:text-emerald-500"} />
+                                          )}
+                                        </button>
+                                        {getUnifiedSubjectName(subject.id, subject.name).toUpperCase()}
                                       </h4>
 
                                       {isSubjectMerged(subject.id) && (
@@ -1573,9 +1613,19 @@ const Subjects = () => {
                                           <Link2Off size={14} />
                                         </button>
                                       )}
-                                      {calculatedStatus === 'Concluída' && (
-                                        <Badge variant="outline" className="text-[8px] px-1 bg-green-500/10 text-green-500 border-green-500/20">
-                                      CONCLUÍDO
+                                      {tagV2 === 'Estudada Hoje' && (
+                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-emerald-900/30 text-emerald-400 border-emerald-800 tracking-wider">
+                                          ESTUDADA HOJE
+                                        </Badge>
+                                      )}
+                                      {tagV2 === 'Estudada' && (
+                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-gray-800 text-gray-300 border-gray-700 tracking-wider">
+                                          ESTUDADA
+                                        </Badge>
+                                      )}
+                                      {tagV2 === 'Em Revisão' && (
+                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-orange-900/30 text-orange-400 border-orange-800 tracking-wider">
+                                          EM REVISÃO
                                         </Badge>
                                       )}
                                       <span className="text-[10px] text-content-muted font-semibold tabular-nums">
@@ -1652,15 +1702,15 @@ const Subjects = () => {
                                         </div>
                                       </div>
                                       <div className="pt-1.5 mt-1.5 border-t border-border/50">
-                                        <p className="text-[10px] font-medium text-content-muted">Status: <span className="text-primary font-bold uppercase">{calculatedStatus}</span></p>
+                                        <p className="text-[10px] font-medium text-content-muted">Status: <span className="text-primary font-bold uppercase">{tagV2}</span></p>
                                       </div>
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
 
-                              {/* Ícones de ação — aparecem no hover, iguais ao padrão dos tópicos */}
-                              <div className="flex items-center gap-0.5 transition-opacity duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+                              {/* Ícones de ação — sempre visíveis */}
+                              <div className="flex items-center gap-0.5 transition-opacity duration-300">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1668,7 +1718,7 @@ const Subjects = () => {
                                     setIsNotesModalOpen(true);
                                   }}
                                   title="Anotações"
-                                  className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-content-muted hover:text-primary"
+                                  className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-primary/80 hover:text-primary"
                                 >
                                   <FileText size={14} />
                                 </button>
@@ -1681,7 +1731,7 @@ const Subjects = () => {
                                   e.stopPropagation();
                                   toggleExpand(item.id);
                                 }}
-                                className={`p-1.5 hover:bg-primary/10 rounded-lg transition-all text-content-muted hover:text-primary ${
+                                className={`p-1.5 hover:bg-primary/10 rounded-lg transition-all text-primary/80 hover:text-primary ${
                                   expandedSubjectIds.includes(item.id) ? 'rotate-180 text-primary' : ''
                                 }`}
                               >
@@ -1780,13 +1830,13 @@ const Subjects = () => {
 
                                           {/* Botões de ação — deslizam da direita no hover, posicionados antes do stats */}
                                           {isActive && (
-                                            <div className="absolute right-[80px] flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0 pointer-events-none group-hover/topic:pointer-events-auto">
+                                            <div className={`absolute ${hasStarted ? "right-[92px]" : "right-[36px]"} flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0 pointer-events-none group-hover/topic:pointer-events-auto`}>
                                               {/* IA */}
-                                              <button className="h-6 px-2 flex items-center gap-1 rounded bg-primary/10 text-primary hover:bg-primary transition-all hover:text-white text-[9px] font-bold uppercase tracking-tight">
+                                              <button className="h-6 px-2 flex items-center gap-1 rounded bg-primary/5 text-primary/70 hover:bg-primary transition-all hover:text-white text-[9px] font-bold uppercase tracking-tight">
                                                 <Wand2 size={10} /> IA
                                               </button>
 
-                                              <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-0.5"></div>
+                                              <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-2"></div>
 
                                               {/* Anotação */}
                                               <button
@@ -1798,14 +1848,16 @@ const Subjects = () => {
                                                     subjectName: subject.name
                                                   });
                                                 }}
-                                                className={`p-1 transition-colors ${topic.notes && topic.notes.trim() !== '' && topic.notes !== '<p><br></p>'
-                                                  ? 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
-                                                  : 'text-gray-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400'
+                                                className={`p-1 transition-colors ${(typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() && (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
+                                                  ? 'text-primary/50 hover:text-primary'
+                                                  : 'text-gray-400 hover:text-primary/70'
                                                   }`}
                                                 title={`Anotações para ${topic.name}`}
                                               >
                                                 <FileText size={16} />
                                               </button>
+
+                                              <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-2"></div>
                                             </div>
                                           )}
 
@@ -1819,9 +1871,9 @@ const Subjects = () => {
 
                                             return (
                                               <div className={`flex items-center gap-2 mr-2 transition-opacity ${isCompleted ? 'opacity-40' : ''}`} title={tooltipText}>
-                                                <DifficultyBarsCompact level={currentLevel} size="xs" />
-                                                <div className="flex items-center gap-1 text-[9px] font-bold text-content-muted/40 tabular-nums">
-                                                  <RotateCcw size={8} className={showHardAlert ? "text-orange-400" : "text-content-muted/30"} />
+                                                <DifficultyBarsCompact level={currentLevel} size="sm" />
+                                                <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums">
+                                                  <RotateCcw size={10} className={showHardAlert ? "text-orange-400" : "text-content-muted/40"} />
                                                   <span className={showHardAlert ? "text-orange-400" : ""}>{reviewCount}</span>
                                                 </div>
                                               </div>
@@ -1842,10 +1894,10 @@ const Subjects = () => {
                                                         e.stopPropagation();
                                                         openReviewModal(topic.id);
                                                       }}
-                                                      className="flex-shrink-0 w-6 h-6 rounded-full border border-primary/20 bg-primary/5 hover:border-primary/50 hover:bg-primary/15 hover:shadow-[0_0_12px_rgba(59,130,246,0.3)] text-primary/50 hover:text-primary transition-all duration-300 flex items-center justify-center ml-0.5 group"
+                                                      className="flex-shrink-0 w-6 h-6 rounded-full border border-primary/40 bg-primary/10 hover:border-primary/60 hover:bg-primary/20 hover:shadow-[0_0_12px_rgba(59,130,246,0.3)] text-primary hover:text-primary transition-all duration-300 flex items-center justify-center ml-0.5 group"
                                                       title="Iniciar Estudo"
                                                     >
-                                                      <Play size={10} className="ml-[1px] opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                                                      <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
                                                     </button>
                                                   );
                                                 } else {
@@ -1855,7 +1907,7 @@ const Subjects = () => {
                                                         e.stopPropagation();
                                                         navigate(`/revisoes?topicId=${topic.id}`);
                                                       }}
-                                                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40 transition-all shadow-sm border border-indigo-200 dark:border-indigo-800/60 ml-0.5"
+                                                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30 transition-all shadow-sm border border-primary/30 dark:border-primary/40 ml-0.5"
                                                       title="Ir para Revisões"
                                                     >
                                                       <ArrowRight size={12} />
@@ -1920,8 +1972,24 @@ const Subjects = () => {
       <div className="flex-1 flex flex-col relative w-full">
 
         {/* Header Outside Card */}
-        <main className="flex-1 px-4 md:px-8 pb-8 pt-0">
-          {!isImportEditalModalOpen && mainSubjectUI}
+        <main className="flex-1 px-4 md:px-8 pb-8 pt-0 flex flex-col xl:flex-row gap-8">
+          <div className="flex-1 min-w-0">
+            {!isImportEditalModalOpen && mainSubjectUI}
+          </div>
+
+          {!isImportEditalModalOpen && (
+            <aside className="w-full xl:w-[30%] min-w-[320px] shrink-0">
+              <div className="sticky top-6">
+                <CycleDashboardV2
+                  activeRotation={activeRotation}
+                  subjectStates={subjectStates}
+                  subjects={localSubjects}
+                  onFinishRotation={finishCurrentRotation}
+                  onInitializeCycle={initializeCycle}
+                />
+              </div>
+            </aside>
+          )}
         </main>
 
         {/* Modals positioned within the layout */}

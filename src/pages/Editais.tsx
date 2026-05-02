@@ -201,7 +201,6 @@ const Editais = () => {
                 setSubjectsModal({ 
                     isOpen: true, 
                     edital: targetEdital,
-                    // Passamos o subjectId para o modal expandi-lo automaticamente
                     initialExpandedSubjectId: location.state.highlightSubjectId 
                 });
             }
@@ -215,6 +214,13 @@ const Editais = () => {
             window.history.replaceState({}, document.title);
         }
     }, [location.state, editais]);
+
+    // ── Auto-abre o modal de importação na primeira visita (zero editais) ──
+    useEffect(() => {
+        if (dataLoaded && editais.length === 0 && !location.state?.openImportModal) {
+            setIsImportModalOpen(true);
+        }
+    }, [dataLoaded, editais.length]);
 
     // ── Fetch editais do Supabase ──
     const fetchEditais = useCallback(async () => {
@@ -1550,7 +1556,7 @@ const Editais = () => {
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
                                 <input
                                     type="text"
-                                    placeholder="Buscar edital..."
+                                    placeholder="Buscar matriz..."
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
                                     className="w-full h-9 bg-secondary border border-border dark:border-white/5 rounded-xl pl-9 pr-3 text-xs font-medium focus:outline-none focus:border-primary/40 transition-all text-foreground placeholder:text-content-muted/50 shadow-sm"
@@ -1606,7 +1612,7 @@ const Editais = () => {
                                 className="flex items-center gap-1.5 h-9 px-4 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-lg shadow-emerald-500/20"
                             >
                                 <Plus size={14} />
-                                Adicionar Edital
+                                NOVA MATRIZ
                             </button>
                         </div>
                     </div>
@@ -1624,7 +1630,7 @@ const Editais = () => {
                             <Database size={14} className="text-primary shrink-0" />
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs font-bold text-foreground">
-                                    Mostrando editais do ciclo
+                                    Mostrando matrizes do ciclo
                                 </p>
                                 <p className="text-[10px] text-content-muted mt-0.5">
                                     Clique em &ldquo;Ver Matérias&rdquo; para adicionar matérias e tópicos
@@ -1653,7 +1659,7 @@ const Editais = () => {
                     </div>
                     <div className="flex-1">
                         <p className="text-xs font-bold leading-tight">
-                            Você tem editais cadastrados, mas nenhum está carregado no seu ciclo ativo de estudos.
+                            Você tem matrizes cadastradas, mas nenhuma está carregada no seu ciclo ativo de estudos.
                         </p>
                         <p className="text-[10px] font-medium opacity-80">
                             Clique em <span className="font-bold">"Carregar Ciclo"</span> em um edital abaixo para começar seu planejamento inteligente!
@@ -1667,55 +1673,49 @@ const Editais = () => {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="glow-card p-8 md:p-16 flex flex-col items-center justify-center text-center border border-border bg-card shadow-xl rounded-2xl overflow-hidden relative"
+                    className="flex flex-col items-center justify-center text-center py-20 px-8 relative"
                 >
-                    {/* Elementos Decorativos de Fundo */}
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
-                    <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl" />
-
-                    <div className="relative">
-                        <div className="w-16 h-16 bg-secondary dark:bg-white/5 rounded-2xl flex items-center justify-center mb-6 mx-auto rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
-                            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center shadow-sm">
-                                <Library className="text-primary" size={28} />
-                            </div>
-                        </div>
-                    </div>
-
                     {editais.length === 0 ? (
-                        <div className="max-w-xl mx-auto space-y-4 relative">
+                        /* Tela de boas-vindas: o modal abre automaticamente — essa é só a backdrop */
+                        <div className="max-w-md mx-auto space-y-6">
+                            {/* Ícone animado */}
+                            <motion.div
+                                animate={{ rotate: [0, 3, -3, 0] }}
+                                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                                className="w-20 h-20 bg-gradient-to-br from-primary/20 to-emerald-500/10 rounded-[28px] flex items-center justify-center mx-auto shadow-xl"
+                            >
+                                <Library className="text-primary" size={36} />
+                            </motion.div>
+
                             <div>
-                                <h2 className="text-xl md:text-2xl font-black text-foreground tracking-tight mb-3">
-                                    Vamos começar sua aprovação?
+                                <h2 className="text-2xl font-black text-foreground tracking-tight mb-2">
+                                    Bem-vindo à Matriz de Estudos
                                 </h2>
                                 <p className="text-sm text-content-muted leading-relaxed font-medium">
-                                    Parece que você ainda não tem nenhum edital. <br className="hidden md:block" />
-                                    Importe um edital pronto da nossa biblioteca ou use nossa IA para estruturar um do zero!
+                                    Vamos configurar seu plano de estudos agora mesmo.
                                 </p>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
-                                <button
-                                    onClick={() => setIsImportModalOpen(true)}
-                                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-500/25 hover:-translate-y-1 active:scale-95"
-                                >
-                                    <Plus size={16} />
-                                    Importar Primeiro Edital
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => setIsImportModalOpen(true)}
+                                className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-500/25 hover:-translate-y-1 active:scale-95"
+                            >
+                                <Plus size={15} />
+                                Adicionar Matriz
+                            </button>
 
-                            <div className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Benefícios compactos */}
+                            <div className="flex items-center justify-center gap-6 pt-2">
                                 {[
-                                    { icon: GraduationCap, title: 'Foco Total', desc: 'Conteúdo organizado' },
-                                    { icon: Target, title: 'Ciclos IA', desc: 'Estudo adaptativo' },
-                                    { icon: Clock, title: 'Evolução', desc: 'Acompanhe seu progresso' }
+                                    { icon: GraduationCap, label: 'Conteúdo organizado' },
+                                    { icon: Target, label: 'Estudo adaptativo' },
+                                    { icon: Clock, label: 'Acompanhe o progresso' },
                                 ].map((item, i) => (
-                                    <div key={i} className="flex flex-col items-center gap-1.5">
-                                        <div className="w-7 h-7 rounded-lg bg-secondary dark:bg-white/5 flex items-center justify-center mb-1">
-                                            <item.icon size={12} className="text-primary/60" />
+                                    <div key={i} className="flex flex-col items-center gap-1">
+                                        <div className="w-8 h-8 rounded-xl bg-secondary dark:bg-white/5 flex items-center justify-center">
+                                            <item.icon size={14} className="text-primary/60" />
                                         </div>
-                                        <h3 className="text-[9px] font-bold uppercase tracking-wider text-foreground">{item.title}</h3>
-                                        <p className="text-[9px] text-content-muted font-medium">{item.desc}</p>
+                                        <p className="text-[9px] text-content-muted font-medium max-w-[70px] leading-tight text-center">{item.label}</p>
                                     </div>
                                 ))}
                             </div>
@@ -1727,7 +1727,7 @@ const Editais = () => {
                                     Nenhum resultado para "{searchQuery}"
                                 </h2>
                                 <p className="text-sm text-content-muted font-medium">
-                                    Não encontramos nenhum edital nos seus registros com esse nome. Deseja sugerir a inclusão desse concurso?
+                                    Não encontramos nenhuma matriz nos seus registros com esse nome. Deseja sugerir a inclusão desse concurso?
                                 </p>
                             </div>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -1739,7 +1739,7 @@ const Editais = () => {
                                     className="flex items-center gap-2 px-6 py-3 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all text-sm font-bold rounded-xl"
                                 >
                                     <Sparkles size={18} />
-                                    Sugerir Edital
+                                    Sugerir Matriz
                                 </button>
                                 <button
                                     onClick={() => setSearchQuery("")}
@@ -1757,14 +1757,14 @@ const Editais = () => {
                             <div>
                                 <h2 className="text-xl font-bold text-foreground tracking-tight mb-2">
                                     {filterCycle
-                                        ? "Nenhum edital no ciclo atual"
+                                        ? "Nenhuma matriz no ciclo atual"
                                         : (searchQuery || activeFilter !== 'all'
-                                            ? "Nenhum edital encontrado"
+                                            ? "Nenhuma matriz encontrada"
                                             : "Sua biblioteca está vazia")}
                                 </h2>
                                 <p className="text-sm text-content-muted font-medium max-w-[280px] mx-auto leading-relaxed">
                                     {filterCycle
-                                        ? "Você está visualizando apenas editais integrados ao seu ciclo. Desative o filtro de ciclo para ver todos."
+                                        ? "Você está visualizando apenas matrizes integradas ao seu ciclo. Desative o filtro de ciclo para ver todos."
                                         : "Tente ajustar os termos da busca ou os filtros de categoria acima."}
                                 </p>
                             </div>
@@ -2001,6 +2001,7 @@ const Editais = () => {
                 subjects={subjects}
                 userEditais={editais}
                 onImport={handleImportDone}
+                isFirstAccess={editais.length === 0}
             />
 
             {/* ── Modal Ver Matérias ── */}
