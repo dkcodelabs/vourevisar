@@ -187,40 +187,37 @@ const Editais = () => {
 
     // ── Efeito para abrir modal baseado no estado de navegação ──
     useEffect(() => {
-        if (location.state?.openImportModal) {
+        // Usar uma flag temporária para evitar re-execução indesejada ao mudar o array de editais
+        const state = location.state;
+        if (!state) return;
+
+        if (state.openImportModal) {
             setIsImportModalOpen(true);
-            if (location.state?.importTab) {
-                setImportModalTab(location.state.importTab);
+            if (state.importTab) {
+                setImportModalTab(state.importTab);
             }
         }
         
         // Abre modal de matérias de um edital específico
-        if (location.state?.openEditalId && editais.length > 0) {
-            const targetEdital = editais.find(e => e.id === location.state.openEditalId);
+        if (state.openEditalId && editais.length > 0) {
+            const targetEdital = editais.find(e => e.id === state.openEditalId);
             if (targetEdital) {
                 setSubjectsModal({ 
                     isOpen: true, 
                     edital: targetEdital,
-                    initialExpandedSubjectId: location.state.highlightSubjectId 
+                    initialExpandedSubjectId: state.highlightSubjectId 
                 });
             }
         }
 
-        if (location.state?.filterCycle) {
+        if (state.filterCycle) {
             setFilterCycle(true);
         }
-        // Limpa o estado para evitar que reabra ao atualizar a página
-        if (location.state?.openImportModal || location.state?.filterCycle || location.state?.openEditalId) {
-            window.history.replaceState({}, document.title);
-        }
-    }, [location.state, editais]);
 
-    // ── Auto-abre o modal de importação na primeira visita (zero editais) ──
-    useEffect(() => {
-        if (dataLoaded && editais.length === 0 && !location.state?.openImportModal) {
-            setIsImportModalOpen(true);
-        }
-    }, [dataLoaded, editais.length]);
+        // Limpa o estado imediatamente para não disparar novamente
+        window.history.replaceState({}, document.title);
+    }, [location.state, editais.length > 0]); // Só re-executa se o estado mudar ou se os editais carregarem pela primeira vez
+
 
     // ── Fetch editais do Supabase ──
     const fetchEditais = useCallback(async () => {
@@ -1676,50 +1673,93 @@ const Editais = () => {
                     className="flex flex-col items-center justify-center text-center py-20 px-8 relative"
                 >
                     {editais.length === 0 ? (
-                        /* Tela de boas-vindas: o modal abre automaticamente — essa é só a backdrop */
-                        <div className="max-w-md mx-auto space-y-6">
-                            {/* Ícone animado */}
-                            <motion.div
-                                animate={{ rotate: [0, 3, -3, 0] }}
-                                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                                className="w-20 h-20 bg-gradient-to-br from-primary/20 to-emerald-500/10 rounded-[28px] flex items-center justify-center mx-auto shadow-xl"
-                            >
-                                <Library className="text-primary" size={36} />
-                            </motion.div>
-
-                            <div>
-                                <h2 className="text-2xl font-black text-foreground tracking-tight mb-2">
-                                    Bem-vindo à Matriz de Estudos
-                                </h2>
-                                <p className="text-sm text-content-muted leading-relaxed font-medium">
-                                    Vamos configurar seu plano de estudos agora mesmo.
-                                </p>
+                        isImportModalOpen ? (
+                            <div className="w-full text-left">
+                                <ImportEditalModal
+                                    isOpen={isImportModalOpen}
+                                    onClose={() => setIsImportModalOpen(false)}
+                                    initialTab={importModalTab}
+                                    subjects={subjects}
+                                    userEditais={editais}
+                                    onImport={handleImportDone}
+                                    isFirstAccess={true}
+                                    inlineMode={true}
+                                />
                             </div>
+                        ) : (
+                            <div className="max-w-5xl mx-auto w-full space-y-12">
+                                <div className="text-center space-y-3">
+                                    <h1 className="text-3xl font-semibold text-white tracking-tight">
+                                        Você ainda não possui nenhum Edital ativo
+                                    </h1>
+                                    <p className="text-content-muted text-base">
+                                        Escolha uma das opções abaixo para configurar sua preparação.
+                                    </p>
+                                </div>
 
-                            <button
-                                onClick={() => setIsImportModalOpen(true)}
-                                className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-500/25 hover:-translate-y-1 active:scale-95"
-                            >
-                                <Plus size={15} />
-                                Adicionar Matriz
-                            </button>
-
-                            {/* Benefícios compactos */}
-                            <div className="flex items-center justify-center gap-6 pt-2">
-                                {[
-                                    { icon: GraduationCap, label: 'Conteúdo organizado' },
-                                    { icon: Target, label: 'Estudo adaptativo' },
-                                    { icon: Clock, label: 'Acompanhe o progresso' },
-                                ].map((item, i) => (
-                                    <div key={i} className="flex flex-col items-center gap-1">
-                                        <div className="w-8 h-8 rounded-xl bg-secondary dark:bg-white/5 flex items-center justify-center">
-                                            <item.icon size={14} className="text-primary/60" />
-                                        </div>
-                                        <p className="text-[9px] text-content-muted font-medium max-w-[70px] leading-tight text-center">{item.label}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                                {/* Card 1: Catálogo Oficial */}
+                                <motion.button
+                                    whileHover={{ y: -4 }}
+                                    onClick={() => {
+                                        setImportModalTab('ready');
+                                        setIsImportModalOpen(true);
+                                    }}
+                                    className="relative flex flex-col items-center text-center p-8 bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-cyan-500/50 rounded-[32px] transition-all group overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="absolute top-4 right-4 bg-cyan-400 text-black text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wider">
+                                        RECOMENDADO
                                     </div>
-                                ))}
+                                    <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-6 text-cyan-400 group-hover:scale-110 transition-transform">
+                                        <Library size={32} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-3">Catálogo Oficial</h3>
+                                    <p className="text-sm text-content-muted font-medium leading-relaxed">
+                                        Acesse editais já mapeados e organizados pela nossa equipe.
+                                    </p>
+                                </motion.button>
+
+                                {/* Card 2: Importar Edital com IA */}
+                                <motion.button
+                                    whileHover={{ y: -4 }}
+                                    onClick={() => {
+                                        setImportModalTab('ia');
+                                        setIsImportModalOpen(true);
+                                    }}
+                                    className="relative flex flex-col items-center text-center p-8 bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-emerald-500/50 rounded-[32px] transition-all group overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 text-emerald-400 group-hover:scale-110 transition-transform">
+                                        <Sparkles size={32} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-3">Importar Edital com IA</h3>
+                                    <p className="text-sm text-content-muted font-medium leading-relaxed">
+                                        Suba o PDF do seu edital e deixe nossa IA organizar os tópicos para você automaticamente.
+                                    </p>
+                                </motion.button>
+
+                                {/* Card 3: Criar Manualmente */}
+                                <motion.button
+                                    whileHover={{ y: -4 }}
+                                    onClick={() => {
+                                        setImportModalTab('manual');
+                                        setIsImportModalOpen(true);
+                                    }}
+                                    className="relative flex flex-col items-center text-center p-8 bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-amber-500/50 rounded-[32px] transition-all group overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6 text-amber-400 group-hover:scale-110 transition-transform">
+                                        <Plus size={32} />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-3">Criar Manualmente</h3>
+                                    <p className="text-sm text-content-muted font-medium leading-relaxed">
+                                        Para editais específicos ou personalizados. Tenha controle total sobre cada matéria e assunto.
+                                    </p>
+                                </motion.button>
                             </div>
                         </div>
+                        )
                     ) : searchQuery.trim() ? (
                         <div className="max-w-md mx-auto space-y-6">
                             <div>
@@ -1992,17 +2032,19 @@ const Editais = () => {
             </AnimatePresence>
 
             {/* ── Modal de Importação ── */}
-            <ImportEditalModal
-                isOpen={isImportModalOpen}
-                onClose={() => {
-                    setIsImportModalOpen(false);
-                }}
-                initialTab={importModalTab}
-                subjects={subjects}
-                userEditais={editais}
-                onImport={handleImportDone}
-                isFirstAccess={editais.length === 0}
-            />
+            {editais.length > 0 && (
+                <ImportEditalModal
+                    isOpen={isImportModalOpen}
+                    onClose={() => {
+                        setIsImportModalOpen(false);
+                    }}
+                    initialTab={importModalTab}
+                    subjects={subjects}
+                    userEditais={editais}
+                    onImport={handleImportDone}
+                    isFirstAccess={false}
+                />
+            )}
 
             {/* ── Modal Ver Matérias ── */}
             {subjectsModal.edital && (

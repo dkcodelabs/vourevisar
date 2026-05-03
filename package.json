@@ -85,6 +85,7 @@
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "@supabase/mcp-server-supabase": "^0.7.0",
+    "@swc/core": "^1.15.33",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.15",
     "@testing-library/jest-dom": "^6.9.1",

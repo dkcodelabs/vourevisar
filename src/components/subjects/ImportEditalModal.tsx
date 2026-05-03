@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileText, Sparkles, Loader2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info, Eye } from 'lucide-react';
+import { Search, FileText, Sparkles, Loader2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info, Eye, ArrowLeft, BookOpen, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Subject } from '@/types';
 import { UserEdital } from '@/pages/Editais';
@@ -33,9 +33,11 @@ interface ImportEditalModalProps {
     manualModeChildren?: React.ReactNode;
     /** Exibe o banner de boas-vindas quando o usuário ainda não tem nenhum plano cadastrado */
     isFirstAccess?: boolean;
+    /** Renderiza o modal de forma inline sem os wrappers fixed e overlay */
+    inlineMode?: boolean;
 }
 
-export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren, isFirstAccess = false }: ImportEditalModalProps) => {
+export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren, isFirstAccess = false, inlineMode = false }: ImportEditalModalProps) => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'ready' | 'ia' | 'manual'>(initialTab);
     const [showSuggestSlide, setShowSuggestSlide] = useState(false);
@@ -693,24 +695,32 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen && !inlineMode) return null;
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={onClose}
-                className="absolute inset-0 bg-black/80 backdrop-blur-md"
-            />
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-7xl h-[85vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-            >
-                <div className="px-6 py-3 border-b border-black/5 dark:border-white/5 flex items-center justify-between shrink-0">
+    const modalInnerContent = (
+        <>
+            {inlineMode ? (
+                <div className="px-2 pt-1 pb-4 flex items-center shrink-0">
+                    <button onClick={onClose} className="flex items-center gap-2 text-content-muted hover:text-foreground transition-colors font-semibold text-sm">
+                        <ArrowLeft size={16} />
+                        Voltar
+                        <span className="text-foreground ml-2 font-bold hidden sm:inline-block">
+                            • {activeTab === 'ready' ? 'Catálogo Oficial' : activeTab === 'ia' ? 'Importar com IA' : 'Criar Manualmente'}
+                        </span>
+                    </button>
+                </div>
+            ) : (
+                <div className="px-6 py-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between shrink-0 bg-white dark:bg-[#18181A]">
                     <div className="flex items-center gap-3">
+                        {inlineMode && (
+                            <button 
+                                onClick={onClose}
+                                className="mr-2 p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-2"
+                            >
+                                <ArrowLeft size={16} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Voltar</span>
+                            </button>
+                        )}
                         <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 tracking-normal border-r border-border/50 dark:border-white/10 pr-3">
                             {activeTab === 'ready' ? 'Catálogo Oficial' : activeTab === 'ia' ? 'Importar com IA' : 'Criar Manualmente'}
                         </h2>
@@ -718,12 +728,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                             {activeTab === 'ready' ? 'Milhares de concursos já organizados pela nossa equipe.' : activeTab === 'ia' ? 'Extraia matérias e tópicos de PDFs ou sites automaticamente.' : 'Monte sua própria matriz de estudos e organize seu conteúdo do zero.'}
                         </p>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
-                        <X size={16} />
-                    </button>
+                    {!inlineMode && (
+                        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
+                            <X size={16} />
+                        </button>
+                    )}
                 </div>
+            )}
 
-                <div className="p-6 overflow-y-auto no-scrollbar flex-1">
+            <div className={`overflow-y-auto no-scrollbar flex-1 ${inlineMode ? 'pb-12 pt-0' : 'pt-2 px-6 pb-6'}`}>
 
                     {/* ── Banner de Boas-vindas (primeiro acesso) ── */}
                     {isFirstAccess && (
@@ -763,44 +776,46 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     )}
 
                     {/* ── Abas estilo segmented control elegante ── */}
-                    <div className="flex bg-secondary/30 dark:bg-[#18181B] p-1.5 rounded-full mx-auto w-fit mb-8 border border-border dark:border-white/[0.04]">
-                        <button
-                            onClick={() => setActiveTab('ready')}
-                            className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
-                                activeTab === 'ready'
-                                    ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
-                                    : 'text-content-muted hover:text-foreground border border-transparent'
-                            }`}
-                        >
-                            <FileText size={14} />
-                            Catálogo Oficial
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('ia')}
-                            className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
-                                activeTab === 'ia'
-                                    ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
-                                    : 'text-content-muted hover:text-foreground border border-transparent'
-                            }`}
-                        >
-                            <Sparkles size={14} />
-                            Importar com IA
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('manual')}
-                            className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
-                                activeTab === 'manual'
-                                    ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
-                                    : 'text-content-muted hover:text-foreground border border-transparent'
-                            }`}
-                        >
-                            <Plus size={14} />
-                            Criar Manualmente
-                        </button>
-                    </div>
+                    {!isFirstAccess && (
+                        <div className="flex bg-secondary/30 dark:bg-[#18181B] p-1.5 rounded-full mx-auto w-fit mb-8 border border-border dark:border-white/[0.04]">
+                            <button
+                                onClick={() => setActiveTab('ready')}
+                                className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
+                                    activeTab === 'ready'
+                                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+                                        : 'text-content-muted hover:text-foreground border border-transparent'
+                                }`}
+                            >
+                                <FileText size={14} />
+                                Catálogo Oficial
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('ia')}
+                                className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
+                                    activeTab === 'ia'
+                                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+                                        : 'text-content-muted hover:text-foreground border border-transparent'
+                                }`}
+                            >
+                                <Sparkles size={14} />
+                                Importar com IA
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('manual')}
+                                className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
+                                    activeTab === 'manual'
+                                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+                                        : 'text-content-muted hover:text-foreground border border-transparent'
+                                }`}
+                            >
+                                <Plus size={14} />
+                                Criar Manualmente
+                            </button>
+                        </div>
+                    )}
 
                     {activeTab === 'ready' ? (
-                        <div className="space-y-8">
+                        <div className="space-y-6">
                             {pendingExtraction && (
                                 <motion.div 
                                     initial={{ opacity: 0, y: -8 }}
@@ -881,24 +896,21 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         const isAlreadyImported = userEditais.some(ue => ue.sourceId === edital.id);
                                         
                                         return (
-                                        <motion.div 
+                                        <div 
                                             key={edital.id} 
-                                            whileHover={isAlreadyImported ? {} : { scale: 1.01 }}
-                                            className={`px-4 py-2.5 rounded-2xl group border transition-all relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4 ${
+                                            className={`px-4 py-2.5 rounded-2xl border transition-all relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4 ${
                                                 isAlreadyImported 
                                                 ? 'border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10' 
                                                 : 'border-border dark:border-white/5 bg-secondary/30 dark:bg-zinc-800/20 hover:bg-secondary/50 dark:hover:bg-zinc-800/50 hover:border-primary/30'
                                             }`}
                                         >
-                                            {/* Glow effect on hover */}
-                                            <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity blur-xl z-0" />
                                             
                                             <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center shrink-0 z-10">
                                                 <FileText size={16} className="text-primary" />
                                             </div>
 
                                             <div className="flex-1 min-w-0 z-10 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                <h4 className="font-bold text-content-main text-[13px] tracking-tight uppercase group-hover:text-primary transition-colors truncate">
+                                                <h4 className="font-bold text-content-main text-[13px] tracking-tight uppercase transition-colors truncate">
                                                     {edital.organ}
                                                 </h4>
                                                 
@@ -920,15 +932,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                  <div className="flex items-center gap-3">
                                                      {edital.subjects && edital.subjects.length > 0 ? (
                                                          <div className="flex items-center gap-4">
-                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 group-hover:border-primary/20 transition-all">
+                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 transition-all">
                                                                  <Database size={12} className="text-primary/60" />
-                                                                 <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 group-hover:text-foreground dark:group-hover:text-zinc-200 transition-colors uppercase">
+                                                                 <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 uppercase">
                                                                      {edital.subjects.length} MATÉRIAS
                                                                  </span>
                                                              </div>
-                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 group-hover:border-primary/20 transition-all">
+                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 transition-all">
                                                                  <Info size={12} className="text-primary/60" />
-                                                                 <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 group-hover:text-foreground dark:group-hover:text-zinc-200 transition-colors uppercase">
+                                                                 <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 uppercase">
                                                                       {edital.subjects.reduce((acc: number, s: { name: string; topics?: { name: string }[] }) => acc + (s.topics?.length || 0), 0)} TÓPICOS
                                                                  </span>
                                                              </div>
@@ -949,14 +961,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                     disabled={isLoadingReady || isAlreadyImported}
                                                     className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${
                                                         isAlreadyImported 
-                                                        ? 'bg-emerald-500/20 text-emerald-500 cursor-default opacity-100' 
-                                                        : 'bg-primary/10 text-primary opacity-80 sm:opacity-0 sm:group-hover:opacity-100 scale-100 sm:scale-75 sm:group-hover:scale-100 hover:bg-primary hover:text-white disabled:opacity-50'
+                                                        ? 'bg-emerald-500/20 text-emerald-500 cursor-default' 
+                                                        : 'bg-primary/10 text-primary hover:bg-primary hover:text-white disabled:opacity-50'
                                                     }`}
                                                 >
                                                     {isLoadingReady ? <Loader2 className="animate-spin" size={16} /> : isAlreadyImported ? <CheckCircle2 size={16} /> : <Plus size={16} />}
                                                 </button>
                                             </div>
-                                        </motion.div>
+                                        </div>
                                         );
                                     })}
                                 </div>
@@ -1030,7 +1042,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                             )}
                         </div>
                     ) : activeTab === 'ia' ? (
-                        <div className="space-y-8">
+                        <div className="space-y-6">
                             {pendingExtraction && pendingExtraction.source === 'db' && iaStage !== 'processing' && (
                                 <motion.div
                                     initial={{ opacity: 0, y: -8 }}
@@ -1136,7 +1148,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         {pdfFile && !isComplementMode ? (
                                             <div className="w-full h-44 bg-secondary/50 dark:bg-zinc-950/30 border border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center text-center transition-all px-4">
                                                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3">
-                                                    <FileText size={20} className="text-primary animate-pulse" />
+                                                    <FileText size={20} className="text-primary" />
                                                 </div>
                                                 <h4 className="text-sm font-black text-content-main mb-1">Arquivo PDF Anexado</h4>
                                                 <p className="text-xs text-content-muted font-medium mb-4 truncate max-w-full px-4">{pdfFile.name}</p>
@@ -1160,18 +1172,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     </div>
 
                                     <div className="pt-2 flex flex-col items-center w-full max-w-[800px] gap-3">
-                                        {(!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim()) && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, y: 5 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className="flex items-center gap-2 px-4 py-2 bg-amber-500/5 rounded-xl border border-amber-500/10 w-full justify-center mb-1"
-                                            >
-                                                <Info size={12} className="text-amber-500/70" />
-                                                <p className="text-[9px] text-amber-500/70 font-bold uppercase tracking-widest">
-                                                    Preencha as informações do edital para iniciar a estruturação do edital.
-                                                </p>
-                                            </motion.div>
-                                        )}
                                         <button
                                             onClick={handleIaImport}
                                             disabled={
@@ -1185,7 +1185,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                     : (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim())
                                                 ) 
                                                 ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80' 
-                                                : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20 hover:scale-[1.01] active:scale-95'
+                                                : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20 active:scale-95'
                                             }`}
                                         >
                                             <Sparkles size={16} />
@@ -1274,7 +1274,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                                     <div className="space-y-2 pr-2 no-scrollbar">
                                         {aiResult.map((subj, sIdx) => (
-                                            <div key={subj.id} className="p-3 rounded-xl bg-secondary/40 dark:bg-zinc-800/40 border border-border dark:border-white/5 group hover:border-primary/20 transition-all">
+                                            <div key={subj.id} className="p-3 rounded-xl bg-secondary/40 dark:bg-zinc-800/40 border border-border dark:border-white/5 transition-all">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2 flex-1 min-w-0">
                                                         <input
@@ -1341,13 +1341,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             </div>
                                         ))}
                                     </div>
-
                                     {/* Botão removido daqui para o rodapé fixo */}
                                 </motion.div>
                             )}
                         </div>
                     ) : (
-                        <div className="space-y-8 w-full pt-4 pb-12">
+                        <div className="space-y-6 w-full pt-0 pb-12">
                             {pendingExtraction && (
                                 <motion.div 
                                     initial={{ opacity: 0, y: -8 }}
@@ -1386,83 +1385,73 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     </div>
                                 </motion.div>
                             )}
-                            {/* Normal Manual Mode: Create new edital */}
-                            <div className="flex flex-col gap-4 max-w-md mx-auto">
-                                        {/* Origin Field */}
-                                        <div className="space-y-2 group">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Origem / Instituição</label>
-                                            <div className="relative">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                                    <Database size={16} />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    value={manualOrigin}
-                                                    onChange={(e) => setManualOrigin(e.target.value)}
-                                                    placeholder="Ex: PC-ES, INSS..."
-                                                    className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                                />
-                                            </div>
-                                        </div>
 
-                                        {/* Position Field */}
-                                        <div className="space-y-2 group">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Cargo / Função</label>
-                                            <div className="relative">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                                    <Sparkles size={16} />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    value={manualPosition}
-                                                    onChange={(e) => setManualPosition(e.target.value)}
-                                                    placeholder="Ex: Agente, Analista..."
-                                                    className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Year Field */}
-                                        <div className="space-y-2 group">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Ano do Edital</label>
-                                            <div className="relative">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                                    <CalendarDays size={16} />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    value={manualYear}
-                                                    onChange={(e) => setManualYear(e.target.value.replace(/\D/g, ''))}
-                                                    inputMode="numeric"
-                                                    maxLength={4}
-                                                    placeholder="Ex: 2024"
-                                                    className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Exam Date Field */}
-                                        <div className="space-y-2 group">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1 group-hover:text-primary/60 transition-colors">Data da Prova</label>
-                                            <div className="relative">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40">
-                                                    <CalendarDays size={16} />
-                                                </div>
-                                                <input
-                                                    type="date"
-                                                    value={examDate}
-                                                    onChange={(e) => setExamDate(e.target.value)}
-                                                    className="w-full h-12 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl pl-12 pr-4 text-xs font-bold text-content-main outline-none transition-all shadow-inner"
-                                                />
-                                            </div>
+                            {/* Novo Layout Criar Manualmente - Duas Colunas */}
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 max-w-5xl mx-auto w-full">
+                                {/* Coluna Esquerda: Informação */}
+                                <div className="md:col-span-5 bg-secondary/50 dark:bg-white-[0.02] rounded-3xl p-8 flex flex-col justify-center items-start border border-border/50 dark:border-white/5 relative overflow-hidden">
+                                    <h3 className="text-3xl font-black text-foreground mb-4 leading-tight tracking-tight">Criar<br/>Manualmente</h3>
+                                    <p className="text-sm text-content-muted font-medium mb-12">
+                                        Monte sua própria matriz de estudos e organize seu conteúdo do zero para exames e concursos públicos. Preencha os campos com as informações do seu edital.
+                                    </p>
+                                    <div className="w-full flex justify-center text-primary/20 dark:text-white/10 mt-auto">
+                                        <div className="relative transform -rotate-6">
+                                            <BookOpen size={140} strokeWidth={1} />
+                                            <Settings className="absolute -bottom-4 -right-4 text-emerald-500/80" size={64} strokeWidth={1.5} />
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div className="pt-6 flex flex-col items-center gap-4 max-w-md mx-auto">
+                                {/* Coluna Direita: Formulário */}
+                                <div className="md:col-span-7 flex flex-col justify-center space-y-6 bg-card dark:bg-zinc-900/40 rounded-3xl p-8 border border-border/50 dark:border-white/5">
+                                    <div className="space-y-2 group">
+                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Origem / Instituição</label>
+                                        <input
+                                            type="text"
+                                            placeholder="EX: PC-ES, INSS, Banco do Brasil"
+                                            value={manualOrigin}
+                                            onChange={(e) => setManualOrigin(e.target.value)}
+                                            className="w-full h-12 bg-transparent border border-border dark:border-white/10 focus:border-primary/50 rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all placeholder:font-medium placeholder:text-content-muted/30"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2 group">
+                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo / Função</label>
+                                        <input
+                                            type="text"
+                                            placeholder="EX: AGENTE, ANALISTA, TÉCNICO"
+                                            value={manualPosition}
+                                            onChange={(e) => setManualPosition(e.target.value)}
+                                            className="w-full h-12 bg-transparent border border-border dark:border-white/10 focus:border-primary/50 rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all placeholder:font-medium placeholder:text-content-muted/30"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2 group">
+                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano do Edital</label>
+                                        <input
+                                            type="text"
+                                            placeholder="EX: 2024"
+                                            value={manualYear}
+                                            onChange={(e) => setManualYear(e.target.value)}
+                                            className="w-full h-12 bg-transparent border border-border dark:border-white/10 focus:border-primary/50 rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all placeholder:font-medium placeholder:text-content-muted/30"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2 group">
+                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Data da Prova</label>
+                                        <input
+                                            type="date"
+                                            value={examDate}
+                                            onChange={(e) => setExamDate(e.target.value)}
+                                            className="w-full h-12 bg-transparent border border-border dark:border-white/10 focus:border-primary/50 rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30"
+                                        />
+                                    </div>
+
+                                    <div className="pt-4">
                                         <button
                                             onClick={handleSaveManual}
                                             disabled={!manualOrigin.trim() || !manualPosition.trim() || !manualYear.trim() || importingManual}
-                                            className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-3 justify-center text-xs uppercase tracking-widest"
+                                            className="w-full h-[52px] bg-[#22c55e] hover:bg-[#16a34a] text-white font-black text-[12px] rounded-xl shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-2 justify-center uppercase tracking-widest border-b-[3px] border-[#15803d] active:border-b-0 active:mt-[3px]"
                                         >
                                             {importingManual ? (
                                                 <>
@@ -1471,43 +1460,45 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Plus size={16} />
+                                                    <Plus size={18} strokeWidth={3} />
                                                     CRIAR EDITAL
                                                 </>
                                             )}
                                         </button>
-                                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 rounded-xl border border-emerald-500/10 w-full justify-center">
-                                            <Info size={12} className="text-emerald-500/70" />
-                                            <p className="text-[9px] text-emerald-500/70 font-bold uppercase tracking-widest">
+                                        
+                                        <div className="mt-4 flex items-center gap-2 justify-center text-content-muted">
+                                            <Info size={13} className="opacity-70" />
+                                            <p className="text-[10px] uppercase tracking-widest font-bold opacity-70">
                                                 Você poderá adicionar matérias e tópicos logo após a criação.
                                             </p>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* ── Fixed Footer for Import ── */}
-                {activeTab === 'ia' && iaStage === 'review' && (
-                    <div className="px-6 py-4 border-t border-border dark:border-white/5 bg-card dark:bg-zinc-900 rounded-b-[32px] flex justify-center shrink-0">
-                        <button
-                            onClick={handleSaveAiResult}
-                            disabled={isSavingAi}
-                            className="w-full max-w-sm py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-2xl shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-3 justify-center uppercase tracking-[0.1em]"
-                        >
-                            {isSavingAi ? (
-                                <><Loader2 className="animate-spin" size={18} /> SALVANDO EDITAL...</>
-                            ) : (
-                                <>
-                                    <CheckCircle2 size={18} />
-                                    {isComplementMode ? 'ADICIONAR AO EDITAL' : 'IMPORTAR SELECIONADOS'}
-                                </>
-                            )}
-                        </button>
-                    </div>
-                )}
-            </motion.div>
-
+            {/* ── Fixed Footer for Import ── */}
+            {activeTab === 'ia' && iaStage === 'review' && (
+                <div className="px-6 py-4 border-t border-border dark:border-white/5 bg-card dark:bg-zinc-900 rounded-b-[32px] flex justify-center shrink-0">
+                    <button
+                        onClick={handleSaveAiResult}
+                        disabled={isSavingAi}
+                        className="w-full max-w-sm py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-2xl shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-3 justify-center uppercase tracking-[0.1em]"
+                    >
+                        {isSavingAi ? (
+                            <><Loader2 className="animate-spin" size={18} /> SALVANDO EDITAL...</>
+                        ) : (
+                            <>
+                                <CheckCircle2 size={18} />
+                                {isComplementMode ? 'ADICIONAR AO EDITAL' : 'IMPORTAR SELECIONADOS'}
+                            </>
+                        )}
+                    </button>
+                </div>
+            )}
+            
             {/* ── Sugerir Edital Drawer ── */}
             <AnimatePresence>
                 {showSuggestSlide && (
@@ -1606,6 +1597,38 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     </>
                 )}
             </AnimatePresence>
+        </>
+    );
+
+    if (inlineMode) {
+        return (
+            <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="w-full max-w-5xl mx-auto flex flex-col relative min-h-[60vh]"
+            >
+                {modalInnerContent}
+            </motion.div>
+        );
+    }
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="relative w-full max-w-7xl h-[85vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+                {modalInnerContent}
+            </motion.div>
         </div>
     );
 };
