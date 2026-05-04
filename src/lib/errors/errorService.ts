@@ -33,13 +33,13 @@ class ErrorService {
         const err = error as any;
         // 1. AbortController cancellations (Client or Browser side)
         if (err?.name === 'AbortError') return true;
-        if (error?.code === 20) return true; // DOMException: AbortError
-        if (error?.message?.includes('The user aborted a request')) return true;
+        if (err?.code === 20) return true; // DOMException: AbortError
+        if (err?.message?.includes('The user aborted a request')) return true;
 
         // 2. Network Transitions (ERR_NETWORK_CHANGED)
         // Browsers often kill active fetches when network interface changes state.
         // We catch common strings thrown by Chrome/Fetch when this happens.
-        const msg = (error?.message || '').toLowerCase();
+        const msg = (err?.message || '').toLowerCase();
         if (msg.includes('net::err_network_changed')) return true;
         
         // 3. Silent Supabase Artifacts

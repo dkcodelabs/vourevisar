@@ -11,7 +11,7 @@ export interface TopicReviewHistoryEntry {
   reviewed_at: string;
   created_at: string;
   study_duration_minutes?: number | null;
-  difficulty_numeric?: number | null;
+  difficulty_numeric: number | null;
   memory_stability_after_review?: number | null;
   interval_after_review?: number | null;
   trend_delta?: number | null;
@@ -27,7 +27,7 @@ export interface TopicReviewHistory {
   totalStudyTime: number;
   latestTrendLabel?: string;
   latestTrendDelta?: number | null;
-  rawEntries?: (TopicReviewHistoryEntry & { difficulty_numeric: number })[];
+  rawEntries?: TopicReviewHistoryEntry[];
 }
 
 export interface ReviewEntry {
