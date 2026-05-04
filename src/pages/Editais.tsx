@@ -1670,7 +1670,7 @@ const Editais = () => {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex flex-col items-center justify-center text-center py-20 px-8 relative"
+                    className={`flex flex-col items-center justify-center text-center relative ${isImportModalOpen ? 'pt-0 pb-12 px-2' : 'py-20 px-8'}`}
                 >
                     {editais.length === 0 ? (
                         isImportModalOpen ? (
@@ -1682,7 +1682,6 @@ const Editais = () => {
                                     subjects={subjects}
                                     userEditais={editais}
                                     onImport={handleImportDone}
-                                    isFirstAccess={true}
                                     inlineMode={true}
                                 />
                             </div>
@@ -2042,7 +2041,6 @@ const Editais = () => {
                     subjects={subjects}
                     userEditais={editais}
                     onImport={handleImportDone}
-                    isFirstAccess={false}
                 />
             )}
 

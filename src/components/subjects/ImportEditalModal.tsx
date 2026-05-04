@@ -31,13 +31,11 @@ interface ImportEditalModalProps {
     userEditais?: UserEdital[];
     initialTab?: 'ready' | 'ia' | 'manual';
     manualModeChildren?: React.ReactNode;
-    /** Exibe o banner de boas-vindas quando o usuário ainda não tem nenhum plano cadastrado */
-    isFirstAccess?: boolean;
     /** Renderiza o modal de forma inline sem os wrappers fixed e overlay */
     inlineMode?: boolean;
 }
 
-export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren, isFirstAccess = false, inlineMode = false }: ImportEditalModalProps) => {
+export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren, inlineMode = false }: ImportEditalModalProps) => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'ready' | 'ia' | 'manual'>(initialTab);
     const [showSuggestSlide, setShowSuggestSlide] = useState(false);
@@ -700,7 +698,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const modalInnerContent = (
         <>
             {inlineMode ? (
-                <div className="px-2 pt-1 pb-4 flex items-center shrink-0">
+                <div className="px-2 pt-6 pb-4 flex items-center shrink-0">
                     <button onClick={onClose} className="flex items-center gap-2 text-content-muted hover:text-foreground transition-colors font-semibold text-sm">
                         <ArrowLeft size={16} />
                         Voltar
@@ -737,82 +735,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             )}
 
             <div className={`overflow-y-auto no-scrollbar flex-1 ${inlineMode ? 'pb-12 pt-0' : 'pt-2 px-6 pb-6'}`}>
-
-                    {/* ── Banner de Boas-vindas (primeiro acesso) ── */}
-                    {isFirstAccess && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.35, ease: 'easeOut' }}
-                            className="mb-6 rounded-2xl overflow-hidden relative"
-                        >
-                            {/* Fundo gradiente */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-primary/8 to-emerald-500/5 dark:from-emerald-500/15 dark:via-primary/10 dark:to-emerald-500/8" />
-                            <div className="absolute inset-0 border border-emerald-500/20 dark:border-emerald-500/25 rounded-2xl" />
-
-                            <div className="relative flex items-center gap-4 px-5 py-4">
-                                {/* Ícone */}
-                                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                                    <Info size={18} className="text-emerald-600 dark:text-emerald-400" />
-                                </div>
-
-                                {/* Texto */}
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-black text-zinc-800 dark:text-zinc-100 leading-tight">
-                                        Você ainda não possui nenhuma Matriz de Estudos ativa.
-                                    </p>
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5 leading-relaxed">
-                                        Escolha uma das formas abaixo para importar seu primeiro plano de estudos e organizar sua preparação.
-                                    </p>
-                                </div>
-
-                                {/* Badge "Primeiro acesso" */}
-                                <div className="shrink-0 hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Primeiro acesso</span>
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {/* ── Abas estilo segmented control elegante ── */}
-                    {!isFirstAccess && (
-                        <div className="flex bg-secondary/30 dark:bg-[#18181B] p-1.5 rounded-full mx-auto w-fit mb-8 border border-border dark:border-white/[0.04]">
-                            <button
-                                onClick={() => setActiveTab('ready')}
-                                className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
-                                    activeTab === 'ready'
-                                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
-                                        : 'text-content-muted hover:text-foreground border border-transparent'
-                                }`}
-                            >
-                                <FileText size={14} />
-                                Catálogo Oficial
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('ia')}
-                                className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
-                                    activeTab === 'ia'
-                                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
-                                        : 'text-content-muted hover:text-foreground border border-transparent'
-                                }`}
-                            >
-                                <Sparkles size={14} />
-                                Importar com IA
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('manual')}
-                                className={`flex items-center gap-2 px-6 py-2.5 text-[10px] font-bold rounded-full transition-all tracking-wide ${
-                                    activeTab === 'manual'
-                                        ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
-                                        : 'text-content-muted hover:text-foreground border border-transparent'
-                                }`}
-                            >
-                                <Plus size={14} />
-                                Criar Manualmente
-                            </button>
-                        </div>
-                    )}
 
                     {activeTab === 'ready' ? (
                         <div className="space-y-6">
@@ -1077,120 +999,156 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     <span className="text-[10px] text-content-muted font-medium">Carregando extração pendente...</span>
                                 </div>
                             ) : iaStage === 'input' && !pendingExtraction ? (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 w-full flex flex-col items-center">
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full">
+                                    <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
+                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 w-full">
+                                            {/* Coluna Esquerda: Informação */}
+                                            <div className="md:col-span-5 bg-secondary/50 dark:bg-white-[0.02] rounded-3xl p-8 flex flex-col justify-center items-start border border-border/50 dark:border-white/5 relative overflow-hidden">
+                                                <h3 className="text-3xl font-black text-foreground mb-4 leading-tight tracking-tight">Importar<br/>com IA</h3>
+                                                <p className="text-sm text-content-muted font-medium mb-12">
+                                                    Copie e cole o texto do seu edital ou envie o arquivo PDF, e a nossa IA fará todo o trabalho de estruturação da sua matriz de estudos.
+                                                </p>
+                                                <div className="w-full flex justify-center text-primary/20 dark:text-white/10 mt-auto">
+                                                    <div className="relative transform -rotate-6">
+                                                        <Sparkles size={140} strokeWidth={1} />
+                                                        <Settings className="absolute -bottom-4 -right-4 text-primary/80" size={64} strokeWidth={1.5} />
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-[800px] px-2 mb-2">
-                                        <div className="space-y-1.5 group">
-                                            <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Instituição</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    value={iaOrigin}
-                                                    onChange={(e) => setIaOrigin(e.target.value)}
-                                                    placeholder="Ex: PC-ES"
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                                />
+                                            {/* Coluna Direita: Formulário */}
+                                            <div className="md:col-span-7 flex flex-col justify-start bg-card dark:bg-zinc-900/40 rounded-3xl p-8 border border-border/50 dark:border-white/5">
+                                                <div className="-mt-2 mb-8 flex items-center gap-2">
+                                                    <div className="w-1.5 h-5 bg-primary rounded-full"></div>
+                                                    <h4 className="text-sm font-black text-foreground uppercase tracking-widest">Dados do Edital</h4>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 w-full">
+                                                    {/* Primeira Coluna: Instituição e Cargo */}
+                                                    <div className="sm:col-span-8 space-y-6">
+                                                        <div className="space-y-2 group">
+                                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Instituição</label>
+                                                            <input
+                                                                type="text"
+                                                                value={iaOrigin}
+                                                                onChange={(e) => setIaOrigin(e.target.value)}
+                                                                placeholder="EX: PC-ES"
+                                                                className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-2 group">
+                                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo</label>
+                                                            <input
+                                                                type="text"
+                                                                value={iaPosition}
+                                                                onChange={(e) => setIaPosition(e.target.value)}
+                                                                placeholder="EX: INVESTIGADOR"
+                                                                className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Segunda Coluna: Ano e Data da Prova */}
+                                                    <div className="sm:col-span-4 space-y-6">
+                                                        <div className="space-y-2 group">
+                                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano</label>
+                                                            <input
+                                                                type="text"
+                                                                value={iaYear}
+                                                                onChange={(e) => setIaYear(e.target.value.replace(/\D/g, ''))}
+                                                                inputMode="numeric"
+                                                                maxLength={4}
+                                                                placeholder="EX: 2024"
+                                                                className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-2 group">
+                                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Data da Prova</label>
+                                                            <input
+                                                                type="date"
+                                                                value={examDate}
+                                                                onChange={(e) => setExamDate(e.target.value)}
+                                                                className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-1.5 group">
-                                            <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    value={iaPosition}
-                                                    onChange={(e) => setIaPosition(e.target.value)}
-                                                    placeholder="Ex: Investigador"
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                                />
-                                            </div>
-                                        </div>
+                                        <div className="w-full bg-card dark:bg-zinc-900/40 rounded-3xl p-8 border border-border/50 dark:border-white/5 flex flex-col space-y-6">
+                                            <div className="w-full space-y-4">
+                                                <div className="flex items-center justify-between px-2">
+                                                    <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em]">
+                                                        {isComplementMode ? 'Texto do Conteúdo Adicional' : 'Documento ou Texto'}
+                                                    </label>
+                                                    
+                                                    {!isComplementMode && (
+                                                        <div className="relative overflow-hidden group/upload">
+                                                            <input 
+                                                                type="file" 
+                                                                accept="application/pdf"
+                                                                onChange={handleFileChange}
+                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                                                title="Fazer upload de PDF" 
+                                                            />
+                                                            <button type="button" className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider">
+                                                                <FileText size={12} />
+                                                                {pdfFile ? 'Trocar PDF' : 'Anexar PDF (até 5MB)'}
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
 
-                                        <div className="space-y-1.5 group">
-                                            <label className="text-[9px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    value={iaYear}
-                                                    onChange={(e) => setIaYear(e.target.value.replace(/\D/g, ''))}
-                                                    inputMode="numeric"
-                                                    maxLength={4}
-                                                    placeholder="Ex: 2024"
-                                                    className="w-full bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-xl px-3 py-2 text-xs font-bold text-content-main outline-none transition-all shadow-inner uppercase"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="w-full max-w-[800px] space-y-4">
-                                        <div className="flex items-center justify-between px-2">
-                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em]">
-                                                {isComplementMode ? 'Texto do Conteúdo Adicional' : 'Documento ou Texto'}
-                                            </label>
-                                            
-                                            {!isComplementMode && (
-                                                <div className="relative overflow-hidden group/upload">
-                                                    <input 
-                                                        type="file" 
-                                                        accept="application/pdf"
-                                                        onChange={handleFileChange}
-                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                                                        title="Fazer upload de PDF" 
+                                                {pdfFile && !isComplementMode ? (
+                                                    <div className="w-full h-44 bg-secondary/50 dark:bg-white-[0.02] border border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center text-center transition-all px-4">
+                                                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3">
+                                                            <FileText size={20} className="text-primary" />
+                                                        </div>
+                                                        <h4 className="text-sm font-black text-content-main mb-1">Arquivo PDF Anexado</h4>
+                                                        <p className="text-xs text-content-muted font-medium mb-4 truncate max-w-full px-4">{pdfFile.name}</p>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setPdfFile(null)} 
+                                                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold rounded-xl transition-colors uppercase tracking-wider flex items-center gap-1.5"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                            Remover
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <textarea
+                                                        value={inputText}
+                                                        onChange={(e) => setInputText(e.target.value)}
+                                                        placeholder={isComplementMode ? "Cole aqui APENAS os tópicos da matéria (sem nome da matéria)..." : "Cole aqui o texto do conteúdo programático do edital.\n\nSe preferir, deixe este campo vazio e anexe o documento do edital no botão 'ANEXAR PDF' acima."}
+                                                        className="w-full h-64 bg-secondary/50 dark:bg-white-[0.02] border-none rounded-2xl p-6 text-sm leading-relaxed font-medium text-content-main outline-none transition-all resize-none focus:bg-secondary/80 dark:focus:bg-white/[0.04] placeholder:text-content-muted/50"
                                                     />
-                                                    <button type="button" className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider">
-                                                        <FileText size={12} />
-                                                        {pdfFile ? 'Trocar PDF' : 'Anexar PDF (até 5MB)'}
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
+                                                )}
+                                            </div>
 
-                                        {pdfFile && !isComplementMode ? (
-                                            <div className="w-full h-44 bg-secondary/50 dark:bg-zinc-950/30 border border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center text-center transition-all px-4">
-                                                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3">
-                                                    <FileText size={20} className="text-primary" />
-                                                </div>
-                                                <h4 className="text-sm font-black text-content-main mb-1">Arquivo PDF Anexado</h4>
-                                                <p className="text-xs text-content-muted font-medium mb-4 truncate max-w-full px-4">{pdfFile.name}</p>
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => setPdfFile(null)} 
-                                                    className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold rounded-xl transition-colors uppercase tracking-wider flex items-center gap-1.5"
+                                            <div className="pt-2 flex justify-end w-full">
+                                                <button
+                                                    onClick={handleIaImport}
+                                                    disabled={
+                                                        isComplementMode 
+                                                            ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
+                                                            : (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim())
+                                                    }
+                                                    className={`px-8 h-12 font-black rounded-2xl transition-all flex items-center gap-2 justify-center text-[11px] uppercase tracking-widest ${
+                                                        (isComplementMode 
+                                                            ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
+                                                            : (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim())
+                                                        ) 
+                                                        ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80' 
+                                                        : 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 active:scale-95'
+                                                    }`}
                                                 >
-                                                    <Trash2 size={12} />
-                                                    Remover
+                                                    <Sparkles size={16} />
+                                                    {isComplementMode ? 'Estruturar e Adicionar ao Edital' : 'Estruturar com IA'}
                                                 </button>
                                             </div>
-                                        ) : (
-                                            <textarea
-                                                value={inputText}
-                                                onChange={(e) => setInputText(e.target.value)}
-                                                placeholder={isComplementMode ? "Cole aqui APENAS os tópicos da matéria (sem nome da matéria)..." : "Cole aqui o texto do conteúdo programático do edital..."}
-                                                className="w-full h-44 bg-secondary dark:bg-zinc-950/50 border border-border dark:border-white/5 focus:border-primary/40 rounded-2xl p-4 text-xs font-medium text-content-main outline-none transition-all resize-none no-scrollbar shadow-inner"
-                                            />
-                                        )}
-                                    </div>
-
-                                    <div className="pt-2 flex flex-col items-center w-full max-w-[800px] gap-3">
-                                        <button
-                                            onClick={handleIaImport}
-                                            disabled={
-                                                isComplementMode 
-                                                    ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
-                                                    : (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim())
-                                            }
-                                            className={`w-full py-4 font-black rounded-[20px] shadow-lg transition-all flex items-center gap-2 justify-center text-[11px] uppercase tracking-widest ${
-                                                (isComplementMode 
-                                                    ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
-                                                    : (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim())
-                                                ) 
-                                                ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80' 
-                                                : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20 active:scale-95'
-                                            }`}
-                                        >
-                                            <Sparkles size={16} />
-                                            {isComplementMode ? 'Estruturar e Adicionar ao Edital' : 'Estruturar com IA'}
-                                        </button>
+                                        </div>
                                     </div>
                                 </motion.div>
                             ) : null}
@@ -1403,48 +1361,60 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                 </div>
 
                                 {/* Coluna Direita: Formulário */}
-                                <div className="md:col-span-7 flex flex-col justify-center space-y-6 bg-card dark:bg-zinc-900/40 rounded-3xl p-8 border border-border/50 dark:border-white/5">
-                                    <div className="space-y-2 group">
-                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Origem / Instituição</label>
-                                        <input
-                                            type="text"
-                                            placeholder="EX: PC-ES, INSS, Banco do Brasil"
-                                            value={manualOrigin}
-                                            onChange={(e) => setManualOrigin(e.target.value)}
-                                            className="w-full h-12 bg-transparent border border-border dark:border-white/10 focus:border-primary/50 rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all placeholder:font-medium placeholder:text-content-muted/30"
-                                        />
+                                <div className="md:col-span-7 flex flex-col justify-start space-y-6 bg-card dark:bg-zinc-900/40 rounded-3xl p-8 border border-border/50 dark:border-white/5">
+                                    <div className="mb-2 flex items-center gap-2">
+                                        <div className="w-1.5 h-5 bg-primary rounded-full"></div>
+                                        <h4 className="text-sm font-black text-foreground uppercase tracking-widest">Dados do Edital</h4>
                                     </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-6">
+                                        {/* Primeira Coluna: Instituição e Cargo */}
+                                        <div className="sm:col-span-8 space-y-6">
+                                            <div className="space-y-2 group">
+                                                <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Origem / Instituição</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="EX: PC-ES, INSS, Banco do Brasil"
+                                                    value={manualOrigin}
+                                                    onChange={(e) => setManualOrigin(e.target.value)}
+                                                    className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                />
+                                            </div>
 
-                                    <div className="space-y-2 group">
-                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo / Função</label>
-                                        <input
-                                            type="text"
-                                            placeholder="EX: AGENTE, ANALISTA, TÉCNICO"
-                                            value={manualPosition}
-                                            onChange={(e) => setManualPosition(e.target.value)}
-                                            className="w-full h-12 bg-transparent border border-border dark:border-white/10 focus:border-primary/50 rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all placeholder:font-medium placeholder:text-content-muted/30"
-                                        />
-                                    </div>
+                                            <div className="space-y-2 group">
+                                                <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo / Função</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="EX: AGENTE, ANALISTA, TÉCNICO"
+                                                    value={manualPosition}
+                                                    onChange={(e) => setManualPosition(e.target.value)}
+                                                    className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                />
+                                            </div>
+                                        </div>
 
-                                    <div className="space-y-2 group">
-                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano do Edital</label>
-                                        <input
-                                            type="text"
-                                            placeholder="EX: 2024"
-                                            value={manualYear}
-                                            onChange={(e) => setManualYear(e.target.value)}
-                                            className="w-full h-12 bg-transparent border border-border dark:border-white/10 focus:border-primary/50 rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all placeholder:font-medium placeholder:text-content-muted/30"
-                                        />
-                                    </div>
+                                        {/* Segunda Coluna: Ano e Data */}
+                                        <div className="sm:col-span-4 space-y-6">
+                                            <div className="space-y-2 group">
+                                                <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano do Edital</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="EX: 2024"
+                                                    value={manualYear}
+                                                    onChange={(e) => setManualYear(e.target.value)}
+                                                    className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                />
+                                            </div>
 
-                                    <div className="space-y-2 group">
-                                        <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Data da Prova</label>
-                                        <input
-                                            type="date"
-                                            value={examDate}
-                                            onChange={(e) => setExamDate(e.target.value)}
-                                            className="w-full h-12 bg-transparent border border-border dark:border-white/10 focus:border-primary/50 rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30"
-                                        />
+                                            <div className="space-y-2 group">
+                                                <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Data da Prova</label>
+                                                <input
+                                                    type="date"
+                                                    value={examDate}
+                                                    onChange={(e) => setExamDate(e.target.value)}
+                                                    className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="pt-4">

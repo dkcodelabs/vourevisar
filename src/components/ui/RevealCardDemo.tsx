@@ -7,12 +7,39 @@ import {
     HoverRevealCard,
     StatsRevealCard,
     SubjectRevealCard,
+    WelcomeBanner,
 } from "@/components/ui"
 
 // ============ Página de Demonstração ============
 const RevealCardDemo: React.FC = () => {
     return (
         <div className="p-8 space-y-12 max-w-7xl mx-auto">
+            {/* Seção 0: Welcome Banners */}
+            <section>
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <TrendingUp className="text-primary" size={24} />
+                    Welcome Banners (Banners de Boas-vindas)
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                    Banners elegantes para exibir mensagens de onboarding, alertas ou informações de boas-vindas.
+                </p>
+
+                <div className="space-y-6">
+                    <WelcomeBanner
+                        title="Você ainda não possui nenhuma Matriz de Estudos ativa."
+                        description="Escolha uma das formas abaixo para importar seu primeiro plano de estudos e organizar sua preparação."
+                        badgeText="Primeiro acesso"
+                    />
+
+                    <WelcomeBanner
+                        title="Bem-vindo ao Novo Dashboard!"
+                        description="Agora você pode acompanhar seu progresso de forma muito mais detalhada com os novos gráficos de desempenho."
+                        badgeText="Novidade"
+                        className="bg-blue-500/5 dark:bg-blue-500/10 border-blue-500/20"
+                    />
+                </div>
+            </section>
+
             {/* Header */}
             <div className="text-center mb-12">
                 <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
