@@ -27,7 +27,7 @@ export interface TopicReviewHistory {
   totalStudyTime: number;
   latestTrendLabel?: string;
   latestTrendDelta?: number | null;
-  rawEntries?: TopicReviewHistoryEntry[];
+  rawEntries?: (TopicReviewHistoryEntry & { difficulty_numeric: number })[];
 }
 
 export interface ReviewEntry {
