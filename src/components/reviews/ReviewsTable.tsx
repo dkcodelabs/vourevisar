@@ -11,7 +11,6 @@ import { useTopicReview } from '@/hooks/useTopicReview';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from '@/lib/toast';
 import NotesModal from './NotesModal';
-import RegisterQuestionsButton from './RegisterQuestionsButton';
 
 interface Topic {
   id: string;

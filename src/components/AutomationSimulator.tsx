@@ -70,7 +70,7 @@ export function AutomationSimulator({
                     id: data.id,
                     timestamp: new Date(data.last_trend_check_at),
                     topico_original: data.name,
-                    materia: data.subjects?.name || 'Geral',
+                    materia: (data.subjects as any)?.name || 'Geral',
                     total_volume: data.total_volume || 0,
                     maior_sub_topico: data.skip_reason || '-',
                     status: data.status === 'processed' ? 'success' :

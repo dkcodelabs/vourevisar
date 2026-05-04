@@ -788,7 +788,7 @@ export async function processNextPendingTopic(
             console.warn('⚠️ Validação IA falhou, continuando processamento:', validationError)
         }
 
-        const result = await calcularNotaTendencia(
+        const result = await calcularNotaImportancia(
             subjectName,
             topicData.name,
             '',

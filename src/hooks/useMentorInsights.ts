@@ -32,7 +32,7 @@ const getTrendLabel = (stability: number, reviewCount: number): MentorTrendLabel
 export const useMentorInsights = (): MentorInsights => {
   const { subjects, isDataLoaded } = useApp();
   const { userCycle } = useStudyCycleData();
-  const { data: userSettings } = useUserSettings();
+  const { settings: userSettings } = useUserSettings();
 
   const [criticalAlerts, setCriticalAlerts] = useState<MentorAlert[]>([]);
   const [allCriticals, setAllCriticals] = useState<MentorAlert[]>([]);

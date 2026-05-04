@@ -33,7 +33,6 @@ export function usePlanConfigs(): UsePlanConfigsReturn {
       setLoading(true);
       setError(null);
 
-      // @ts-expect-error - Table not in generated types yet
       const { data, error: fetchError } = await supabase
         .from('plan_configs')
         .select('*')

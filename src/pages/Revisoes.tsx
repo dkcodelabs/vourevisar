@@ -283,11 +283,16 @@ export const Revisoes = () => {
     const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics, ...consolidatedTopics];
     const totalTopics = topics.length; // Modified to include all topics
     const totalSubjects = subjects.length; // Added
+    const completedReviews = completedTopics.length + consolidatedTopics.length;
+    const totalScheduledReviews = delayedTopics.length + todayTopics.length + futureTopics.length + completedReviews;
     return {
       today: todayTopics.length,
       overdue: delayedTopics.length,
       future: futureTopics.length,
       completedTopicsCount: consolidatedTopics.length,
+      completedReviews,
+      totalScheduledReviews,
+      startedTopicsCount: allTopics.length,
       focusCount: focusTopics.length,
       totalTopics,
       totalSubjects,

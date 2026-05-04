@@ -2404,9 +2404,10 @@ const Subjects = () => {
         onClose={closeDifficultyModal}
         topicName={difficultyModalData.topicName}
         subjectName={difficultyModalData.subjectName}
-        currentDifficulty={difficultyModalData.currentDifficulty}
+        initialDifficulty={difficultyModalData.currentDifficulty}
         reviewStage={difficultyModalData.reviewStage}
         reviewCount={difficultyModalData.reviewCount}
+        onSubmit={() => {}}
         onConfirmReview={(difficulty) => {
           markTopicAsReviewed(difficultyModalData.topicId, difficulty);
           closeDifficultyModal();

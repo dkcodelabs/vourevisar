@@ -42,7 +42,6 @@ export const asaasService = {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Usuário não autenticado');
 
-      // @ts-expect-error - RPC ainda não está nos types gerados
       const { data, error } = await supabase.rpc('validate_coupon', {
         target_coupon_code: code,
       });
