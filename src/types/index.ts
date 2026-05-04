@@ -51,6 +51,7 @@ export interface Topic {
   parent_topic_id?: string | null;
   is_hidden?: boolean;
   edital_id?: string;
+  origin_id?: string;
   total_volume?: number | null;
 }
 
