@@ -126,9 +126,10 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                             </div>
                         </div>
 
-                                <span className="text-sm text-gray-600">
-                                    {completedSubjects} Matérias Concluídas
-                                </span>
+                        <div>
+                            <span className="text-sm text-gray-600">
+                                {completedSubjects} Matérias Concluídas
+                            </span>
 
                             {/* Barra de Progresso Verde Unificada */}
                             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -171,9 +172,10 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                             </div>
                         </div>
 
-                                <span className="text-sm text-gray-600">
-                                    {completedTopics} Tópicos Concluídos
-                                </span>
+                        <div>
+                            <span className="text-sm text-gray-600">
+                                {completedTopics} Tópicos Concluídos
+                            </span>
 
                             {/* Barra de Progresso Verde Unificada */}
                             <div className="w-full bg-gray-200 rounded-full h-2">
