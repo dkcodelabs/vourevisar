@@ -14,8 +14,9 @@ export const useTopicOperations = (
 ) => {
   const { recordTopicCompletion } = useStudySessionTracking();
 
-  const addTopic = async (topicData: { subject_id: string; name: string; position?: number }) => {
+  const addTopic = async (subjectId: string, topicData: Omit<Topic, 'id'>) => {
     if (!user) return;
+    const finalSubjectId = topicData.subject_id || subjectId;
 
     try {
       console.log('📝 addTopic - Adding topic:', { topicData });
@@ -26,7 +27,7 @@ export const useTopicOperations = (
         const { data: subjectData } = await supabase
           .from('subjects')
           .select('edital_id')
-          .eq('id', topicData.subject_id)
+          .eq('id', finalSubjectId)
           .single();
         finalEditalId = subjectData?.edital_id;
       }
@@ -34,7 +35,7 @@ export const useTopicOperations = (
       const { error } = await supabase
         .from('topics')
         .insert({
-          subject_id: topicData.subject_id,
+          subject_id: finalSubjectId,
           edital_id: finalEditalId,
           name: topicData.name,
           position: topicData.position,
@@ -50,11 +51,11 @@ export const useTopicOperations = (
       if (error) throw error;
 
       console.log('✅ addTopic - Success, refreshing data...');
-      await loadTopics(topicData.subject_id);
+      await loadTopics(finalSubjectId);
       await refreshData();
 
       window.dispatchEvent(new CustomEvent('topicUpdated', {
-        detail: { action: 'add', subjectId: topicData.subject_id }
+        detail: { action: 'add', subjectId: finalSubjectId }
       }));
 
       toast.success('Tópico adicionado com sucesso!');
