@@ -19,6 +19,8 @@ interface EditalOriginData {
     year?: string;
 }
 
+type OriginInfo = { name: string; organ?: string; isImported: boolean; sourceId?: string };
+
 export const useEditalOriginsWithMerge = () => {
     const { user } = useAuth();
     const { userCycle, isLoading: isCycleLoading } = useCycleState();
@@ -135,7 +137,7 @@ export const useEditalOriginsWithMerge = () => {
             const allIdsInMerge = [primaryId, ...mergedIds];
             
             // Coletar todas as origens de todos os IDs envolvidos
-            const allOrigins: { name: string; isImported: boolean; sourceId?: string }[] = [];
+            const allOrigins: OriginInfo[] = [];
             
             // 1. Origens mapeadas via subject_ids nos editais (Scan inicial)
             for (const id of allIdsInMerge) {
@@ -215,7 +217,7 @@ export const useEditalOriginsWithMerge = () => {
             const mergedIds = merge.merged_topic_ids || [];
             const allIdsInMerge = [primaryId, ...mergedIds];
             
-            const allOrigins: { name: string; isImported: boolean; sourceId?: string }[] = [];
+            const allOrigins: OriginInfo[] = [];
 
             // 1. Origens explícitas no registro de merge de tópico
             if (merge.source_edital_ids && merge.source_edital_ids.length > 0) {
