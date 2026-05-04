@@ -99,7 +99,7 @@ export function useCycleStatsData(open: boolean) {
 
       // Fallback: se ciclo_atual vazio, buscar via topics com first_studied_at
       if (allSubjects.length === 0) {
-        const { data: topicSubjects, error: tsErr } = await supabase
+        const { data: topicSubjects, error: tsErr } = await (supabase as any)
           .from('topics')
           .select('subject_id, subjects!inner(id, name)')
           .not('first_studied_at', 'is', null)
