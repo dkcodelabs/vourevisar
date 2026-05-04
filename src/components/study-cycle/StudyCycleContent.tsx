@@ -539,7 +539,7 @@ export const StudyCycleContent: React.FC = () => {
                 onTopicUpdate={refreshCycleData}
                 isActionable={isActionableSection}
                 isStudyFocus={false}
-                viewMode={viewMode}
+                viewMode={viewMode === 'grid' ? 'grid' : 'list'}
                 isExpanded={expandedSubjects.has(subject.id)}
                 onToggleExpand={() => handleToggleExpand(subject.id)}
                 onCheckboxClick={handleCheckboxClick}
