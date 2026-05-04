@@ -80,8 +80,8 @@ export const useOptimisticTopics = (
         nextReview: data.next_review ? new Date(data.next_review) : undefined,
         firstStudiedAt: data.first_studied_at ? new Date(data.first_studied_at) : undefined,
         lastReviewedAt: data.last_reviewed_at ? new Date(data.last_reviewed_at) : undefined,
-        first_studied_at: data.first_studied_at ? new Date(data.first_studied_at) : undefined,
-        last_reviewed_at: data.last_reviewed_at ? new Date(data.last_reviewed_at) : undefined,
+        first_studied_at: data.first_studied_at,
+        last_reviewed_at: data.last_reviewed_at,
         is_completed: data.completed,
         notes: data.notes ? (data.notes as TopicNotes) : undefined
       };
