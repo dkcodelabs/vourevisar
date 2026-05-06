@@ -69,7 +69,7 @@ export function SubjectSparkline({ subjectId }: SubjectSparklineProps) {
   // Se não houver histórico, mostrar placeholder sutil
   if (points.length < 2) {
     return (
-      <div className="hidden sm:flex flex-col items-center gap-0.5 opacity-20 filter grayscale" title="Aguardando dados de revisão">
+      <div className="hidden sm:flex flex-col items-center gap-0.5 opacity-70 filter grayscale" title="Aguardando dados de revisão">
         <LineChart width={72} height={28} data={[{ v: 2 }, { v: 2 }]} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
           <Line
             type="monotone"
@@ -80,7 +80,7 @@ export function SubjectSparkline({ subjectId }: SubjectSparklineProps) {
             dot={false}
           />
         </LineChart>
-        <span className="text-[8px] font-bold text-slate-400">Evoluindo...</span>
+        <span className="text-[8px] font-bold text-gray-300">Evoluindo...</span>
       </div>
     );
   }

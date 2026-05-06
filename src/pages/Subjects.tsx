@@ -1758,11 +1758,15 @@ const Subjects = () => {
                                     const isActive = topic.is_active !== false;
                                     const iconClass = getTopicIconClass(topic);
 
-                                    // Determina o estado visual do checkbox
+                                    // Marcador visual read-only: a conclusão só acontece pelo fluxo iniciado no botão de ação.
                                     const reviewCount = Math.max(topic.reviewCount || 0, topicStats.get(topic.id)?.reviewCount || 0);
                                     const hasStarted = reviewCount > 0;
-                                    const checkboxState: 'empty' | 'dot' | 'check' =
+                                    const statusState: 'empty' | 'dot' | 'check' =
                                       isCompleted ? 'check' : hasStarted ? 'dot' : 'empty';
+                                    const statusLabel =
+                                      statusState === 'check' ? 'Tópico concluído' :
+                                      statusState === 'dot' ? 'Tópico em estudo' :
+                                      'Tópico não iniciado';
 
                                     return (
                                       <div
@@ -1774,22 +1778,21 @@ const Subjects = () => {
                                       >
                                         <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
 
-                                          {/* Checkbox 3-estados */}
-                                          <div className="flex-shrink-0">
-                                            {checkboxState === 'empty' && (
-                                              <div className="w-[14px] h-[14px] rounded-[3px] border border-zinc-600 dark:border-zinc-500 bg-zinc-800/60 dark:bg-zinc-900/60" />
+                                          {/* Indicador de status read-only */}
+                                          <div
+                                            className="flex-shrink-0 cursor-default select-none pointer-events-none"
+                                            role="img"
+                                            aria-label={statusLabel}
+                                            title={`${statusLabel}. Use o botão de ação à direita para estudar ou revisar.`}
+                                          >
+                                            {statusState === 'empty' && (
+                                              <div className="h-5 w-1 rounded-full bg-content-muted/25" />
                                             )}
-                                            {checkboxState === 'dot' && (
-                                              <div className="w-[14px] h-[14px] rounded-[3px] border border-primary/50 bg-primary/10 flex items-center justify-center">
-                                                <div className="w-[5px] h-[5px] rounded-full bg-primary" />
-                                              </div>
+                                            {statusState === 'dot' && (
+                                              <div className="h-5 w-1 rounded-full bg-primary/70 shadow-[0_0_10px_rgba(59,130,246,0.25)]" />
                                             )}
-                                            {checkboxState === 'check' && (
-                                              <div className="w-[14px] h-[14px] rounded-[3px] border border-emerald-500/60 bg-emerald-500/15 flex items-center justify-center">
-                                                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                                                  <path d="M1 3.5L3.5 6L8 1" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                              </div>
+                                            {statusState === 'check' && (
+                                              <div className="h-5 w-1 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(34,197,94,0.25)]" />
                                             )}
                                           </div>
 
@@ -1894,8 +1897,9 @@ const Subjects = () => {
                                                         e.stopPropagation();
                                                         openReviewModal(topic.id);
                                                       }}
-                                                      className="flex-shrink-0 w-6 h-6 rounded-full border border-primary/40 bg-primary/10 hover:border-primary/60 hover:bg-primary/20 hover:shadow-[0_0_12px_rgba(59,130,246,0.3)] text-primary hover:text-primary transition-all duration-300 flex items-center justify-center ml-0.5 group"
-                                                      title="Iniciar Estudo"
+                                                      className="flex-shrink-0 w-7 h-7 rounded-full border border-primary/45 bg-primary/12 hover:border-primary/70 hover:bg-primary/25 hover:shadow-[0_0_14px_rgba(59,130,246,0.35)] text-primary transition-all duration-300 flex items-center justify-center ml-0.5 group"
+                                                      title="Iniciar estudo do tópico"
+                                                      aria-label={`Iniciar estudo do tópico ${topic.name}`}
                                                     >
                                                       <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
                                                     </button>
@@ -1907,8 +1911,9 @@ const Subjects = () => {
                                                         e.stopPropagation();
                                                         navigate(`/revisoes?topicId=${topic.id}`);
                                                       }}
-                                                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30 transition-all shadow-sm border border-primary/30 dark:border-primary/40 ml-0.5"
-                                                      title="Ir para Revisões"
+                                                      className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30 transition-all shadow-sm border border-primary/30 dark:border-primary/40 ml-0.5"
+                                                      title="Ir para revisões do tópico"
+                                                      aria-label={`Ir para revisões do tópico ${topic.name}`}
                                                     >
                                                       <ArrowRight size={12} />
                                                     </button>
