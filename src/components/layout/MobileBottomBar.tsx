@@ -1,13 +1,11 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Clock, Target, List } from "lucide-react";
+import { LayoutDashboard, Clock, Target } from "lucide-react";
 
 const mobileNavItems = [
     { to: "/dashboard", label: "Painel", icon: LayoutDashboard },
     { to: "/ciclo-estudos", label: "Ciclo", icon: Target },
     { to: "/revisoes", label: "Revisões", icon: Clock },
-    { to: "/materias", label: "Matérias", icon: BookOpen },
-    { to: "/topicos", label: "Tópicos", icon: List },
 ];
 
 export const MobileBottomBar = () => {

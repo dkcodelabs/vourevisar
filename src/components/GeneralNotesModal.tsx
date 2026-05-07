@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Plus, Calendar as CalendarIcon, Trash2, Save, Edit2, Check, X, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import Quill from 'quill';
+import 'quill/dist/quill.snow.css';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
@@ -172,7 +172,9 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ selectedDate, onDateSel
 
 const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, onOpenTopicNotes, onOpenSubjectNotes, onRequestReopen }) => {
     const { user } = useAuth();
-    const quillRef = useRef<ReactQuill>(null);
+    const editorContainerRef = useRef<HTMLDivElement>(null);
+    const quillRef = useRef<Quill | null>(null);
+    const isApplyingContentRef = useRef(false);
     const calendarRef = useRef<HTMLDivElement>(null);
     const [notes, setNotes] = useState<TopicNotes | undefined>();
     const [currentContent, setCurrentContent] = useState('');
@@ -780,7 +782,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
     const checkOverflow = () => {
         if (quillRef.current) {
-            const quill = quillRef.current.getEditor();
+            const quill = quillRef.current;
             const editorElement = quill.root.querySelector('.ql-editor');
             const containerElement = quill.root;
 
@@ -803,7 +805,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
             checkOverflow();
 
             if (quillRef.current) {
-                const quill = quillRef.current.getEditor();
+                const quill = quillRef.current;
                 const selection = quill.getSelection();
                 if (selection) {
                     // Scroll para a posição do cursor com margem extra
@@ -825,6 +827,83 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
             }
         }, 10);
     };
+
+    useEffect(() => {
+        if (!isOpen || activeTab !== 'notes' || !editorContainerRef.current || quillRef.current) {
+            return;
+        }
+
+        const editorElement = document.createElement('div');
+        editorContainerRef.current.appendChild(editorElement);
+
+        const isMobile = window.innerWidth < 640;
+        const quill = new Quill(editorElement, {
+            theme: 'snow',
+            readOnly: isLoading || isSaving,
+            placeholder: 'Comece a escrever suas anotações gerais...',
+            modules: {
+                toolbar: isMobile ? [
+                    ['bold', 'italic', 'underline'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['link']
+                ] : [
+                    [{ header: [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ background: [] }],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['link'],
+                    ['clean']
+                ]
+            }
+        });
+
+        quillRef.current = quill;
+        isApplyingContentRef.current = true;
+        quill.root.innerHTML = currentContent || '';
+        isApplyingContentRef.current = false;
+
+        quill.on('text-change', () => {
+            if (isApplyingContentRef.current) return;
+
+            const html = quill.root.innerHTML;
+            handleContentChange(html === '<p><br></p>' ? '' : html);
+        });
+
+        setTimeout(checkOverflow, 50);
+
+        return () => {
+            quillRef.current = null;
+            if (editorContainerRef.current) {
+                editorContainerRef.current.innerHTML = '';
+            }
+        };
+    }, [isOpen, activeTab]);
+
+    useEffect(() => {
+        if (!quillRef.current) return;
+
+        if (isLoading || isSaving) {
+            quillRef.current.disable();
+        } else {
+            quillRef.current.enable();
+        }
+    }, [isLoading, isSaving]);
+
+    useEffect(() => {
+        if (!quillRef.current || isApplyingContentRef.current) return;
+
+        const nextContent = currentContent || '';
+        const currentEditorContent = quillRef.current.root.innerHTML === '<p><br></p>'
+            ? ''
+            : quillRef.current.root.innerHTML;
+
+        if (currentEditorContent !== nextContent) {
+            isApplyingContentRef.current = true;
+            quillRef.current.root.innerHTML = nextContent;
+            isApplyingContentRef.current = false;
+            setTimeout(checkOverflow, 50);
+        }
+    }, [currentContent]);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -894,7 +973,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                     --modal-quill-fade-overlay: linear-gradient(transparent, hsl(215 28% 17% / 0.95));
                 }
 
-                /* ReactQuill Container - Bordas consistentes */
+                /* Quill Container - Bordas consistentes */
                 .ql-container {
                     height: 358px !important;
                     border: 1px solid var(--modal-quill-border) !important;
@@ -905,7 +984,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                     transition: border-color 0.2s ease-in-out;
                 }
                 
-                /* ReactQuill Toolbar - Bordas consistentes */
+                /* Quill Toolbar - Bordas consistentes */
                 .ql-toolbar {
                     border: 1px solid var(--modal-quill-border) !important;
                     border-bottom: none !important;
@@ -998,7 +1077,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                     box-shadow: none !important;
                 }
                 
-                /* Forçar altura do componente ReactQuill */
+                /* Forçar altura do componente Quill */
                 .quill {
                     height: 400px !important;
                 }
@@ -1074,36 +1153,10 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                             <TabsContent value="notes" className="flex-1 overflow-hidden mt-2 sm:mt-4">
                                 <div className="h-full max-h-[300px] sm:max-h-[400px]">
                                     <div className="bg-white dark:bg-slate-800 rounded-lg h-full">
-                                        <ReactQuill
-                                            ref={quillRef}
-                                            theme="snow"
-                                            value={currentContent}
-                                            onChange={handleContentChange}
-                                            readOnly={isLoading || isSaving}
+                                        <div
+                                            ref={editorContainerRef}
                                             className="h-full text-sm sm:text-base"
                                             style={{ height: window.innerWidth < 640 ? '300px' : '400px' }}
-                                            modules={{
-                                                toolbar: window.innerWidth < 640 ? [
-                                                    ['bold', 'italic', 'underline'],
-                                                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                                                    ['link']
-                                                ] : [
-                                                    [{ 'header': [1, 2, 3, false] }],
-                                                    ['bold', 'italic', 'underline', 'strike'],
-                                                    [{ 'background': [] }],
-                                                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                                                    ['link'],
-                                                    ['clean']
-                                                ]
-                                            }}
-                                            formats={[
-                                                'header',
-                                                'bold', 'italic', 'underline', 'strike',
-                                                'background',
-                                                'list', 'bullet',
-                                                'link'
-                                            ]}
-                                            placeholder="Comece a escrever suas anotações gerais..."
                                         />
                                     </div>
                                 </div>

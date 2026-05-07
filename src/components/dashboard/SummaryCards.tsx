@@ -77,8 +77,8 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
                 </Card>
             </div>
 
-            {/* Card de Matérias */}
-            <div onClick={() => navigate('/materias')} className="cursor-pointer group">
+            {/* Card de Ciclo */}
+            <div onClick={() => navigate('/ciclo-estudos')} className="cursor-pointer group">
                 <Card className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 h-full relative overflow-hidden">
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
                     <CardContent className="p-6">
@@ -87,7 +87,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
                                 <div className="p-2 bg-blue-50 rounded-lg">
                                     <BookOpen className="h-5 w-5 text-blue-500" />
                                 </div>
-                                <span className="font-bold text-gray-900 text-lg">Matérias</span>
+                                <span className="font-bold text-gray-900 text-lg">Ciclo de Estudos</span>
                             </div>
                             <div className="text-right">
                                 <div className="text-xs text-gray-500 font-medium mb-0.5">Progresso</div>
@@ -111,7 +111,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
             </div>
 
             {/* Card de Tópicos */}
-            <div onClick={() => navigate('/topicos')} className="cursor-pointer group">
+            <div onClick={() => navigate('/ciclo-estudos')} className="cursor-pointer group">
                 <Card className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 h-full relative overflow-hidden">
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-green-500"></div>
                     <CardContent className="p-6">

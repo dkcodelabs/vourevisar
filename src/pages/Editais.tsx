@@ -2974,7 +2974,7 @@ const Editais = () => {
                                     <button
                                         onClick={() => {
                                             setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false });
-                                            navigate('/materias');
+                                            navigate('/ciclo-estudos');
                                         }}
                                         className="w-full py-4 rounded-xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 transition-all active:scale-95"
                                     >

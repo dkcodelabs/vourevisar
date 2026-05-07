@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, BookOpen, Calendar, List, Clock, TrendingUp, Timer, Menu, Target, Settings, LucideIcon, StickyNote
+  LayoutDashboard, Calendar, Clock, TrendingUp, Timer, Menu, Target, Settings, LucideIcon, StickyNote
 } from "lucide-react";
 import { FocusTimer } from './FocusTimer';
 import { UserProfileNav } from './UserProfileNav';
@@ -25,8 +25,6 @@ const getNavItems = (isAdmin: boolean): NavItem[] => {
     { to: "/dashboard", label: "Painel", icon: LayoutDashboard, end: true },
     { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: Target },
     { to: "/revisoes", label: "Revisões", icon: Clock },
-    { to: "/materias", label: "Matérias", icon: BookOpen },
-    { to: "/topicos", label: "Tópicos", icon: List },
     { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
   ];
 
@@ -41,11 +39,6 @@ const useNavigation = () => {
   const isItemActive = React.useCallback((item: NavItem) => {
     if (item.end) {
       return location.pathname === item.to;
-    }
-
-    // Para tópicos, considerar ativo se estiver em /topicos ou /materias/*/topicos
-    if (item.to === '/topicos') {
-      return location.pathname === '/topicos' || location.pathname.includes('/topicos');
     }
 
     // Para matérias, considerar ativo apenas se estiver exatamente em /materias

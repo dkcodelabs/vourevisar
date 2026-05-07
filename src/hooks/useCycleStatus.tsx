@@ -318,7 +318,7 @@ export const useCycleStatus = () => {
 
           console.log('🔔 DISPARANDO MENSAGEM DE NOVO CICLO');
           console.log(`🎉 Novo ciclo iniciado - última matéria do ciclo completada`);
-          // A mensagem de novo ciclo é exibida pelo componente StudyCycleContent
+          // A mensagem de novo ciclo é exibida pela tela ativa de estudos
         }
       }
 

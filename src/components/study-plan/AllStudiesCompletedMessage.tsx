@@ -89,7 +89,7 @@ const AllStudiesCompletedMessage: React.FC = () => {
   };
 
   const handleAddNewSubjects = () => {
-    navigate('/materias');
+    navigate('/ciclo-estudos');
   };
 
   const handleViewStatistics = () => {

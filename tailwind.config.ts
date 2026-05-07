@@ -1,5 +1,4 @@
 import type { Config } from "tailwindcss";
-import { flattenColorPalette } from "./src/utils/colors";
 const svgToDataUri = require("mini-svg-data-uri");
 
 export default {
@@ -116,18 +115,6 @@ export default {
 	},
 	plugins: [
 		require("tailwindcss-animate"),
-		function ({ addBase, theme }: { addBase: any, theme: any }) {
-			const allColors = flattenColorPalette(theme("colors"));
-			const newVars = Object.fromEntries(
-				Object.entries(allColors)
-					.filter(([_, val]) => typeof val === "string" && !val.includes("var("))
-					.map(([key, val]) => [`--${key}`, val])
-			);
-
-			addBase({
-				":root": newVars,
-			});
-		},
 		function ({ matchUtilities, theme }: { matchUtilities: any, theme: any }) {
 			matchUtilities(
 				{
@@ -147,7 +134,7 @@ export default {
 						)}")`,
 					}),
 				},
-				{ values: flattenColorPalette(theme("backgroundColor")), type: "color" }
+				{ type: "color" }
 			);
 		},
 	],
