@@ -328,7 +328,7 @@ export const CompactSubjectAccordion: React.FC<CompactSubjectAccordionProps> = R
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                navigate(`/materias/${subject.id}/topicos`);
+                                                navigate('/ciclo-estudos');
                                             }}
                                             className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors whitespace-nowrap"
                                         >

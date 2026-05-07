@@ -4,7 +4,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -23,9 +23,7 @@ import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import ResetPassword from "@/pages/ResetPassword";
 import ConfirmEmail from "@/pages/ConfirmEmail";
-import Topics from "@/pages/Topics";
 import Revisoes from "@/pages/Revisoes";
-import StudyCycle from "@/pages/StudyCycle";
 import Editais from "@/pages/Editais";
 import Planos from "@/pages/Planos";
 import RevealCardDemo from "@/components/ui/RevealCardDemo";
@@ -96,10 +94,10 @@ const App = () => {
                           <Route path="meus-editais" element={<Editais />} />
                           <Route path="materias" element={<Subjects />} />
                           <Route path="estatisticas" element={<Statistics />} />
-                          <Route path="materias/:subjectId/topicos" element={<Topics />} />
-                          <Route path="topicos" element={<Topics />} />
+                          <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
+                          <Route path="topicos" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="revisoes" element={<Revisoes />} />
-                          <Route path="ciclo-estudos" element={<StudyCycle />} />
+                          <Route path="ciclo-estudos" element={<Subjects />} />
 
                           {/* Admin Routes - Protected */}
                           <Route element={<AdminRoute />}>

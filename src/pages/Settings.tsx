@@ -397,10 +397,10 @@ const Settings = () => {
                       type="button"
                       variant="outline"
                       className="w-full text-xs py-1.5"
-                      onClick={() => navigate('/materias')}
+                      onClick={() => navigate('/ciclo-estudos')}
                     >
                       <BookOpen className="h-3.5 w-3.5 mr-1.5" />
-                      Gerenciar Matérias
+                      Gerenciar Ciclo
                     </GradientButton>
                   </div>
                 </SettingsCard>

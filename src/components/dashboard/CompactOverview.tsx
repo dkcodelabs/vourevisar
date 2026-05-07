@@ -145,10 +145,10 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                         <Button
                             size="sm"
                             className="w-full sm:w-auto sm:min-w-[200px] mx-auto flex justify-center items-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
-                            onClick={() => navigate('/materias')}
+                            onClick={() => navigate('/ciclo-estudos')}
                         >
                             <BookOpen className="h-4 w-4 mr-2" />
-                            Ver Matérias
+                            Ver Ciclo
                         </Button>
                     </div>
                 </CardContent>
@@ -191,10 +191,10 @@ export const CompactOverview: React.FC<CompactOverviewProps> = ({
                         <Button
                             size="sm"
                             className="w-full sm:w-auto sm:min-w-[200px] mx-auto flex justify-center items-center bg-green-500 hover:bg-green-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
-                            onClick={() => navigate('/topicos')}
+                            onClick={() => navigate('/ciclo-estudos')}
                         >
                             <Target className="h-4 w-4 mr-2" />
-                            Ver Tópicos
+                            Ver Ciclo
                         </Button>
                     </div>
                 </CardContent>

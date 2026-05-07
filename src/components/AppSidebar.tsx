@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Book, Calendar, Users, Settings, List, Clock,
+  LayoutDashboard, Calendar, Users, Settings, Clock,
   Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
   ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Monitor, FileSearch,
   MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Layers, Bot
@@ -82,8 +82,6 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
     { to: "/meus-editais", label: "Meus Editais", icon: Library },
     { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: RotateCcw },
     { to: "/revisoes", label: "Revisões", icon: Clock },
-    { to: "/materias", label: "Matérias", icon: Book },
-    { to: "/topicos", label: "Tópicos", icon: List },
     { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
     { to: "/reveal-cards", label: "Componentes UI", icon: Layers },
   ];
@@ -121,9 +119,6 @@ export function AppSidebar() {
   const isItemActive = (item: NavItem) => {
     if (item.end) {
       return location.pathname === item.to;
-    }
-    if (item.to === '/topicos') {
-      return location.pathname === '/topicos' || location.pathname.includes('/topicos');
     }
     if (item.to === '/materias') {
       return location.pathname === '/materias';

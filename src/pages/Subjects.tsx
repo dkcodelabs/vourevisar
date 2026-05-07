@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Progress } from "@/components/ui/progress";
 import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, Circle, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ExternalLink } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
@@ -40,88 +39,48 @@ import { fetchTopicReviewStats } from '@/services/topicReviewService';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
-import { useStudyCycleV2, CycleSubjectState } from '@/hooks/useStudyCycleV2';
-import { CycleDashboardV2 } from '@/components/dashboard/CycleDashboardV2';
 
-export type CycleV2Tag = 'Não Estudada' | 'Estudada Hoje' | 'Estudada' | 'Em Revisão';
+type SubjectTab = 'all' | 'in_progress' | 'completed' | 'vertical';
+type SubjectVisualTag = 'Não Estudada' | 'Em Estudo' | 'Em Revisão' | 'Concluída';
 
-const getCycleV2Tag = (subject: Subject, state: CycleSubjectState | undefined): CycleV2Tag => {
-  if (subject.topics.length === 0) return 'Não Estudada';
+const isTopicStarted = (topic: Topic) =>
+  Boolean(topic.first_studied_at) ||
+  Boolean(topic.firstStudiedAt) ||
+  (topic.reviewCount || 0) > 0 ||
+  (topic.review_count || 0) > 0 ||
+  Boolean(topic.reviewStage) ||
+  Boolean(topic.review_stage) ||
+  Boolean(topic.nextReview) ||
+  Boolean(topic.next_review) ||
+  topic.completed === true ||
+  topic.is_completed === true;
 
-  const allTopicsStarted = subject.topics.length > 0 && subject.topics.every(t => 
-    t.completed || 
-    t.first_studied_at || 
-    t.firstStudiedAt || 
-    (t.reviewCount && t.reviewCount > 0) || 
-    ((t as any).review_count && (t as any).review_count > 0)
-  );
-
-  if (allTopicsStarted) return 'Em Revisão';
-
-  if (state?.completed_in_current_rotation) {
-    const today = new Date().toISOString().split('T')[0];
-    if (state.last_studied_date === today) return 'Estudada Hoje';
-    return 'Estudada';
-  }
-
-  return 'Não Estudada';
-};
+const isTopicCompleted = (topic: Topic) =>
+  topic.completed === true ||
+  topic.is_completed === true ||
+  topic.reviewStage === 'Concluído' ||
+  topic.review_stage === 'Concluído';
 
 const calculateSubjectStatus = (subject: Subject): Status => {
-  if (subject.topics.length === 0) {
-    return 'Nova';
-  }
-
-  // Agora "Concluída" exige que todos os tópicos tenham completado o ciclo SRS
-  const allTopicsSRSCompleted = subject.topics.every(topic =>
-    topic.completed === true || topic.reviewStage === 'Concluído'
-  );
-
-  if (allTopicsSRSCompleted) {
-    return 'Concluída';
-  }
-
-  // Consideramos "Em Estudo" se pelo menos um tópico foi iniciado
-  const hasStartedTopics = subject.topics.some(topic =>
-    (topic.reviewCount > 0 || topic.review_count > 0) ||
-    (topic.reviewStage && topic.reviewStage !== '') ||
-    (topic.nextReview !== undefined && topic.nextReview !== null) ||
-    topic.completed === true ||
-    topic.firstStudiedAt || topic.first_studied_at
-  );
-
-  if (hasStartedTopics) {
-    return 'Em Estudo';
-  }
-
+  if (subject.topics.length === 0) return 'Nova';
+  if (subject.topics.every(isTopicCompleted)) return 'Concluída';
+  if (subject.topics.some(isTopicStarted)) return 'Em Estudo';
   return 'Nova';
 };
 
-const getStatusColor = (status: Status) => {
-  switch (status) {
-    case 'Nova': return 'bg-secondary text-content-muted border-border';
-    case 'Em Estudo': return 'bg-primary/10 text-primary border-primary/20';
-    case 'Concluída': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
-    default: return 'bg-secondary text-content-muted border-border';
-  }
+const getSubjectVisualTag = (subject: Subject): SubjectVisualTag => {
+  if (subject.topics.length === 0) return 'Não Estudada';
+  if (subject.topics.every(isTopicCompleted)) return 'Concluída';
+  if (subject.topics.every(isTopicStarted)) return 'Em Revisão';
+  if (subject.topics.some(isTopicStarted)) return 'Em Estudo';
+  return 'Não Estudada';
 };
-
-const getStatusBorderColor = (status: Status) => {
-  switch (status) {
-    case 'Nova': return 'border-l-slate-300';
-    case 'Em Estudo': return 'border-l-blue-500';
-    case 'Concluída': return 'border-l-green-500';
-    default: return 'border-l-slate-300';
-  }
-};
-
 
 
 const Subjects = () => {
   const { user } = useAuth();
   const { originsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, getOriginsForSubject, refresh, isLoading: isOriginsLoading } = useEditalOriginsWithMerge();
   const { getUnifiedSubjectName, isSubjectMerged, getSubjectOrigins, revertSubjectMerge, getSubjectMergeInfo, dynamicUnificationMap } = useMergeData();
-  const { activeCycle, activeRotation, subjectStates, fetchActiveCycleData, markSubjectAsStudied, finishCurrentRotation, initializeCycle } = useStudyCycleV2();
   const navigate = useNavigate();
   // Estado local simples - sem contextos
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -362,16 +321,6 @@ const Subjects = () => {
     }
   }, [user]);
 
-  // Fetch topic stats separately after subjects load to colorize the review count icons
-  useEffect(() => {
-    const allTopicIds = subjects.flatMap(s => s.topics.map(t => t.id));
-    if (allTopicIds.length === 0) {
-      setTopicStats(new Map());
-      return;
-    }
-    fetchTopicReviewStats(allTopicIds).then(setTopicStats);
-  }, [subjects]);
-
   const refreshData = useCallback(async () => {
     if (user) {
       localStorage.removeItem(`subjects_${user.id}`);
@@ -381,6 +330,16 @@ const Subjects = () => {
       window.dispatchEvent(new CustomEvent('subjectUpdated', { detail: { source: 'Subjects' } }));
     }
   }, [user, loadSubjects, refresh]);
+
+  // Fetch topic stats separately after subjects load to colorize review affordances.
+  useEffect(() => {
+    const allTopicIds = subjects.flatMap(s => s.topics.map(t => t.id));
+    if (allTopicIds.length === 0) {
+      setTopicStats(new Map());
+      return;
+    }
+    fetchTopicReviewStats(allTopicIds).then(setTopicStats);
+  }, [subjects]);
 
   const handleUnloadCycle = async (editalId: string, editalName: string, subjectIdsRaw: string[]) => {
     // Garante que subjectIds seja um array de strings, removendo objetos ou nulos acidentais
@@ -500,7 +459,7 @@ const Subjects = () => {
   const [editingName, setEditingName] = useState('');
 
   // Filter Tabs State
-  const [activeTab, setActiveTab] = useState<'all' | 'in_progress' | 'completed'>('all');
+  const [activeTab, setActiveTab] = useState<SubjectTab>('all');
 
   // Estado para o modal de tópicos
   const [topicsModal, setTopicsModal] = useState<{
@@ -647,7 +606,6 @@ const Subjects = () => {
         await Promise.all([
           loadSubjects(), 
           loadUserCycle(),
-          fetchActiveCycleData(),
           repairOrphanedSubjects(user.id)
         ]);
         setLoading(false);
@@ -1160,59 +1118,20 @@ const Subjects = () => {
     }
   };
 
-  // Helper para determinar a cor do ícone do tópico
-  const getTopicIconClass = (topic: Topic) => {
-    // 1. Concluído (Verde)
-    if (topic.completed || topic.reviewStage === 'Concluído') {
-      return 'text-green-500';
-    }
-
-    // 2. Sem data de revisão (Cinza)
-    if (!topic.nextReview) {
-      return 'text-slate-300 group-hover/topic:text-indigo-400';
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const reviewDate = new Date(topic.nextReview);
-    reviewDate.setHours(0, 0, 0, 0);
-
-    // 3. Atrasado (Vermelho)
-    if (reviewDate < today) {
-      return 'text-red-500';
-    }
-
-    // 4. Hoje (Laranja/Amarelo)
-    if (reviewDate.getTime() === today.getTime()) {
-      return 'text-orange-500';
-    }
-
-    // 5. Futuro (Azul)
-    return 'text-blue-500';
-  };
-
-  // Progresso de Cobertura (Tópicos Iniciados)
   const getSubjectCoverage = (subject: Subject) => {
     if (subject.topics.length === 0) return 0;
-    const started = subject.topics.filter(topic =>
-      Boolean(topic.first_studied_at) || Boolean(topic.firstStudiedAt) || 
-      (topic.reviewCount > 0 || topic.review_count > 0) || 
-      topic.completed === true
-    ).length;
+    const started = subject.topics.filter(isTopicStarted).length;
     return Math.round((started / subject.topics.length) * 100);
   };
 
-  // Progresso de Conclusão SRS (Tópicos Finalizados no Ciclo)
   const getSubjectCompletion = (subject: Subject) => {
     if (subject.topics.length === 0) return 0;
-    const completed = subject.topics.filter(topic =>
-      topic.completed === true || topic.reviewStage === 'Concluído' || topic.review_stage === 'Concluído'
-    ).length;
+    const completed = subject.topics.filter(isTopicCompleted).length;
     return Math.round((completed / subject.topics.length) * 100);
   };
 
   const handleViewTopics = (subject: Subject) => {
-    navigate(`/ materias / ${subject.id}/topicos`);
+    navigate('/ciclo-estudos');
   };
 
   const toggleExpand = (itemId: string) => {
@@ -1264,12 +1183,77 @@ const Subjects = () => {
     return list;
   }, [expandedSubjectList, activeTab, newSubjectName, isImportEditalModalOpen]);
 
+  const verticalSubjectList = useMemo(() => {
+    const normalizeText = (text: string) =>
+      text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const normalizedQuery = newSubjectName.trim() && !isImportEditalModalOpen
+      ? normalizeText(newSubjectName)
+      : '';
+
+    return filteredList
+      .map(({ subject }) => {
+        const subjectMatches = normalizedQuery
+          ? normalizeText(subject.name).includes(normalizedQuery)
+          : false;
+
+        const topics = subject.topics
+          .filter(topic => topic.is_active !== false)
+          .filter(topic => {
+            if (!normalizedQuery || subjectMatches) return true;
+            return normalizeText(topic.name).includes(normalizedQuery);
+          });
+
+        return {
+          id: subject.id,
+          subject,
+          topics,
+        };
+      })
+      .filter(item => item.topics.length > 0);
+  }, [
+    filteredList,
+    newSubjectName,
+    isImportEditalModalOpen,
+  ]);
+
+  const handleOpenVerticalTopicNotes = useCallback((subjectId: string, topicId: string) => {
+    const subject = verticalSubjectList.find(item => item.id === subjectId);
+    const topic = subject?.topics.find(item => item.id === topicId);
+
+    if (!subject || !topic) return;
+
+    setSelectedTopicForNotes({
+      id: topic.id,
+      name: topic.name,
+      subjectName: subject.subject.name,
+    });
+  }, [verticalSubjectList]);
+
   // Lista para renderizar (com paginação - Lazy Loading)
   const displayList = useMemo(() => {
     return filteredList.slice(0, visibleCount);
   }, [filteredList, visibleCount]);
 
   const hasMore = filteredList.length > visibleCount;
+
+  const cycleVisualStats = useMemo(() => {
+    const cycleSubjects = expandedSubjectList.map(item => item.subject);
+    const totalSubjects = cycleSubjects.length;
+    const studiedSubjects = cycleSubjects.filter(subject => subject.topics.some(isTopicStarted)).length;
+    const remainingSubjects = Math.max(totalSubjects - studiedSubjects, 0);
+    const progressPercentage = totalSubjects > 0 ? Math.round((studiedSubjects / totalSubjects) * 100) : 0;
+    const subjectsPerDay = studiedSubjects > 0 ? Math.max(studiedSubjects / 7, 0.1) : 0;
+    const daysToFinish = subjectsPerDay > 0 ? Math.ceil(remainingSubjects / subjectsPerDay) : null;
+
+    return {
+      totalSubjects,
+      studiedSubjects,
+      remainingSubjects,
+      progressPercentage,
+      subjectsPerDay,
+      daysToFinish,
+    };
+  }, [expandedSubjectList]);
 
   if (isLoading || isOriginsLoading || loading) {
     return <LoadingSpinner size="large" showText fullPage />;
@@ -1279,13 +1263,244 @@ const Subjects = () => {
     setVisibleCount(prev => prev + ITEMS_PER_PAGE);
   };
 
+  const getVerticalTopicStatus = (topic: Topic) => {
+    if (topic.is_active === false) {
+      return {
+        label: 'Inativo',
+        className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+      };
+    }
+
+    if (isTopicCompleted(topic)) {
+      return {
+        label: 'Concluído',
+        className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+      };
+    }
+
+    const statusInfo = getTopicStatusInfo(topic);
+    if (statusInfo.type !== 'novo') {
+      return {
+        label: statusInfo.label,
+        className: statusInfo.colorClass.replace(/\s*border-\S+/g, ''),
+      };
+    }
+
+    return {
+      label: 'Não estudado',
+      className: 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-slate-300',
+    };
+  };
+
+  const renderVerticalEditalView = () => (
+    <div className="w-full rounded-xl border border-border/40 dark:border-white/5 overflow-hidden bg-card">
+      {verticalSubjectList.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center text-content-muted">
+          <FileText size={28} className="mb-3 opacity-50" />
+          <p className="text-sm font-semibold">Nenhum tópico encontrado{newSubjectName.trim() ? ` para "${newSubjectName}"` : ''}.</p>
+        </div>
+      ) : (
+        verticalSubjectList.map(({ subject, topics }) => (
+          <div key={subject.id} className="border-b border-border/40 dark:border-white/5 last:border-b-0">
+            <div className="sticky top-0 z-10 bg-background flex items-center gap-3 px-4 py-2 border-b border-primary/10">
+              <span className="text-xs font-black uppercase tracking-widest text-primary/80">
+                {getUnifiedSubjectName(subject.id, subject.name)}
+              </span>
+              <span className="text-[10px] text-content-muted font-semibold tabular-nums">
+                {topics.length} tópico{topics.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {topics
+              .slice()
+              .sort((a, b) => {
+                if (a.position !== undefined && b.position !== undefined) return a.position - b.position;
+                if (!a.created_at && !b.created_at) return 0;
+                if (!a.created_at) return 1;
+                if (!b.created_at) return -1;
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+              })
+              .map((topic) => {
+                const reviewCount = Math.max(topic.reviewCount || 0, topic.review_count || 0, topicStats.get(topic.id)?.reviewCount || 0);
+                const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
+                const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
+                const status = getVerticalTopicStatus(topic);
+                const hasStarted = reviewCount > 0 || isTopicStarted(topic);
+                const hasNotes = Boolean(
+                  (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() &&
+                  (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
+                );
+
+                return (
+                  <div
+                    key={topic.id}
+                    className="flex items-center gap-3 px-4 py-2.5 border-b border-border/40 dark:border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm break-words leading-snug ${isTopicCompleted(topic) ? 'text-content-muted line-through decoration-content-muted/40' : topic.is_active === false ? 'text-content-muted opacity-50' : 'text-foreground'}`}>
+                        {topic.name} {topic.is_active === false && <span className="text-[9px] ml-1 uppercase opacity-60">(inativo)</span>}
+                      </span>
+                    </div>
+
+                    <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${status.className}`}>
+                      {status.label}
+                    </span>
+
+                    <div
+                      className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-semibold tabular-nums ${showHardAlert ? 'text-orange-400' : 'text-content-muted'}`}
+                      title={showHardAlert ? 'Muitas revisões com dificuldade alta' : 'Total de revisões'}
+                    >
+                      <RotateCcw size={11} className={showHardAlert ? 'text-orange-400' : 'text-content-muted'} />
+                      <span>{reviewCount}</span>
+                    </div>
+
+                    <div className="flex-shrink-0 flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleOpenVerticalTopicNotes(subject.id, topic.id)}
+                        className={`p-1 rounded transition-colors ${hasNotes ? 'text-primary/60 hover:text-primary' : 'text-gray-400 hover:text-primary/70'}`}
+                        aria-label={`Anotações para ${topic.name}`}
+                        title={`Anotações para ${topic.name}`}
+                      >
+                        <FileText size={15} />
+                      </button>
+
+                      {hasStarted ? (
+                        <button
+                          onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
+                          className="w-6 h-6 rounded-full flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary transition-all border border-primary/30"
+                          title="Ir para revisões"
+                          aria-label={`Ir para revisões do tópico ${topic.name}`}
+                        >
+                          <ArrowRight size={12} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => openReviewModal(topic.id)}
+                          className="w-6 h-6 rounded-full border border-primary/45 bg-primary/12 hover:bg-primary/25 text-primary transition-all flex items-center justify-center"
+                          title="Iniciar estudo do tópico"
+                          aria-label={`Iniciar estudo do tópico ${topic.name}`}
+                        >
+                          <Play size={10} className="ml-[1px]" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        ))
+      )}
+    </div>
+  );
+
+  const renderCycleVisualPanel = () => {
+    const progressOffset = 301.5 - (301.5 * cycleVisualStats.progressPercentage) / 100;
+    const rhythmWidth = Math.min(cycleVisualStats.subjectsPerDay * 30, 100);
+
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="bg-card dark:bg-zinc-900 border border-border rounded-2xl p-5 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+            <RotateCcw size={80} />
+          </div>
+
+          <div className="flex items-center justify-between mb-4 relative">
+            <h3 className="text-sm font-black uppercase tracking-widest text-primary/80">
+              Giro Atual
+            </h3>
+            <span className="text-[10px] font-bold px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+              #1
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center justify-center py-4 relative">
+            <svg className="w-28 h-28 transform -rotate-90">
+              <circle
+                cx="56"
+                cy="56"
+                r="48"
+                fill="transparent"
+                stroke="currentColor"
+                strokeWidth="6"
+                className="text-muted/20"
+              />
+              <circle
+                cx="56"
+                cy="56"
+                r="48"
+                fill="transparent"
+                stroke="currentColor"
+                strokeWidth="10"
+                strokeDasharray={301.5}
+                strokeDashoffset={progressOffset}
+                className="text-primary transition-all duration-1000 ease-out"
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-3xl font-black">{cycleVisualStats.progressPercentage}%</span>
+              <span className="text-[10px] font-bold uppercase tracking-tighter text-content-muted">Completo</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <div className="bg-muted/20 border border-border/50 rounded-xl p-3 text-center">
+              <p className="text-[10px] font-black text-content-muted uppercase mb-1">Estudadas</p>
+              <p className="text-lg font-black text-foreground">{cycleVisualStats.studiedSubjects}</p>
+            </div>
+            <div className="bg-muted/20 border border-border/50 rounded-xl p-3 text-center">
+              <p className="text-[10px] font-black text-content-muted uppercase mb-1">Restantes</p>
+              <p className="text-lg font-black text-foreground">{cycleVisualStats.remainingSubjects}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card dark:bg-zinc-900 border border-border rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <Clock size={16} className="text-blue-500" />
+            </div>
+            <h4 className="text-xs font-black uppercase tracking-wider text-content-main">
+              Inteligência de Ritmo
+            </h4>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-[11px] mb-1">
+                <span className="text-content-muted font-bold uppercase">Ritmo Atual</span>
+                <span className="text-foreground font-black">{cycleVisualStats.subjectsPerDay.toFixed(1)} mat/dia</span>
+              </div>
+              <div className="h-1.5 w-full bg-muted/20 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-500"
+                  style={{ width: `${rhythmWidth}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-border/50">
+              <p className="text-xs text-content-muted leading-relaxed">
+                {cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0 ? (
+                  <>
+                    Faltam aprox. <strong className="text-foreground">{cycleVisualStats.daysToFinish} dias</strong> para você bater este giro no ritmo atual.
+                  </>
+                ) : (
+                  "Continue estudando para gerar sua estimativa de conclusão."
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const mainSubjectUI = (
     <div className="space-y-6 w-full"> {/* Changed space-y-4 to 6 to match Topics */}
 
-      {/* Unified Header Card - Visible when there are subjects or when inside the Modal */}
       {/* Refined Header - Final Polished Layout */}
-      {(expandedSubjectList.length > 0 || isImportEditalModalOpen) && (
-        <div className="flex flex-col gap-4 mb-8 relative z-20">
+      <div className="flex flex-col gap-4 mb-8 relative z-20">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             {/* Left Zone: search + tabs + cycle info */}
             <div className="flex flex-col gap-3 flex-1 w-full max-w-full lg:max-w-2xl">
@@ -1349,16 +1564,22 @@ const Subjects = () => {
                 {/* Tabs - Next to search */}
                 {!isImportEditalModalOpen && (
                   <div className="flex items-center gap-1 bg-secondary/30 dark:bg-black/20 p-1 rounded-xl border border-border/50 dark:border-white/5 overflow-x-auto no-scrollbar shrink-0">
-                    {(['all', 'in_progress', 'completed'] as const).map((tab) => (
+                    {([
+                      { value: 'all', label: 'Todas' },
+                      { value: 'in_progress', label: 'Em Estudo' },
+                      { value: 'completed', label: 'Concluídas' },
+                      { value: 'vertical', label: 'Edital' },
+                    ] as const).map(({ value, label }) => (
                       <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab
+                        key={value}
+                        onClick={() => setActiveTab(value)}
+                        title={value === 'vertical' ? 'Visão verticalizada do edital' : undefined}
+                        className={`px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap ${activeTab === value
                           ? 'bg-card dark:bg-zinc-800 text-foreground shadow-sm'
                           : 'text-content-muted hover:text-foreground'
                           }`}
                       >
-                        {tab === 'all' ? 'Todas' : tab === 'in_progress' ? 'Em Estudo' : 'Concluídas'}
+                        {label}
                       </button>
                     ))}
                   </div>
@@ -1415,15 +1636,17 @@ const Subjects = () => {
             <div className="flex items-center gap-1 sm:gap-2">
             </div>
           </div>
-        </div>
-      )}
+      </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
+      {activeTab === 'vertical' ? (
+        renderVerticalEditalView()
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
         <div className="w-full">
           {(displayList.length === 0 && dataLoaded && !isLoading) ? (
             <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-500 w-full mb-12">
@@ -1455,7 +1678,7 @@ const Subjects = () => {
                   </h3>
                   <p className="text-content-muted max-w-sm mx-auto mb-6">
                     {activeTab === 'completed'
-                      ? 'Nenhuma matéria teve todos os tópicos finalizados no ciclo SRS ainda.'
+                      ? 'Nenhuma matéria teve todos os tópicos finalizados ainda.'
                       : 'Nenhuma matéria iniciada no momento.'}
                   </p>
                   <button
@@ -1489,12 +1712,7 @@ const Subjects = () => {
               <div className="space-y-3">
                 {displayList.map((item, index) => {
                   const { subject } = item;
-                  const calculatedStatus = calculateSubjectStatus(subject);
-                  
-                  // V2 Integration
-                  const unifiedSubjectId = getUnifiedSubjectId(subject.id, dynamicUnificationMap);
-                  const stateV2 = subjectStates.find(s => s.subject_id === unifiedSubjectId);
-                  const tagV2 = getCycleV2Tag(subject, stateV2);
+                  const visualTag = getSubjectVisualTag(subject);
 
                   const isEditing = editingSubjectId === subject.id;
                   const position = index + 1;
@@ -1559,21 +1777,16 @@ const Subjects = () => {
                                       <h4
                                         className="text-xs font-black uppercase tracking-widest text-primary/80 truncate max-w-[200px] sm:max-w-xs flex items-center gap-2"
                                       >
-                                        <button
-                                          onClick={async (e) => {
-                                            e.stopPropagation();
-                                            await markSubjectAsStudied(unifiedSubjectId);
-                                          }}
+                                        <span
                                           className="flex-shrink-0 transition-colors"
-                                          title={tagV2 === 'Estudada Hoje' ? "Já estudada hoje" : "Marcar como Estudada Hoje"}
-                                          disabled={tagV2 === 'Estudada Hoje'}
+                                          title={visualTag}
                                         >
-                                          {tagV2 === 'Estudada Hoje' ? (
+                                          {visualTag === 'Concluída' ? (
                                             <CheckCircle2 size={16} className="text-emerald-500" strokeWidth={2.5} />
                                           ) : (
-                                            <Circle size={16} strokeWidth={2.5} className={tagV2 === 'Estudada' ? "text-primary/50" : "text-content-muted/40 hover:text-emerald-500"} />
+                                            <Circle size={16} strokeWidth={2.5} className={visualTag === 'Em Estudo' || visualTag === 'Em Revisão' ? "text-primary/50" : "text-content-muted/40"} />
                                           )}
-                                        </button>
+                                        </span>
                                         {getUnifiedSubjectName(subject.id, subject.name).toUpperCase()}
                                       </h4>
 
@@ -1613,19 +1826,19 @@ const Subjects = () => {
                                           <Link2Off size={14} />
                                         </button>
                                       )}
-                                      {tagV2 === 'Estudada Hoje' && (
-                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-emerald-900/30 text-emerald-400 border-emerald-800 tracking-wider">
-                                          ESTUDADA HOJE
+                                      {visualTag === 'Em Estudo' && (
+                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20 tracking-wider">
+                                          EM ESTUDO
                                         </Badge>
                                       )}
-                                      {tagV2 === 'Estudada' && (
-                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-gray-800 text-gray-300 border-gray-700 tracking-wider">
-                                          ESTUDADA
-                                        </Badge>
-                                      )}
-                                      {tagV2 === 'Em Revisão' && (
+                                      {visualTag === 'Em Revisão' && (
                                         <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-orange-900/30 text-orange-400 border-orange-800 tracking-wider">
                                           EM REVISÃO
+                                        </Badge>
+                                      )}
+                                      {visualTag === 'Concluída' && (
+                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-emerald-900/30 text-emerald-400 border-emerald-800 tracking-wider">
+                                          CONCLUÍDA
                                         </Badge>
                                       )}
                                       <span className="text-[10px] text-content-muted font-semibold tabular-nums">
@@ -1644,17 +1857,14 @@ const Subjects = () => {
                               {/* Sparkline de tendência — mini gráfico ao lado do círculo */}
                               <SubjectSparkline subjectId={subject.id} />
 
-                              {/* Progress Dual Ring — Cobertura e Conclusão SRS */}
+                              {/* Progress Dual Ring — visual read-only */}
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="hidden sm:flex items-center justify-center relative w-11 h-11 rounded-full bg-secondary/50 dark:bg-deep-slate border border-border dark:border-white/5 mr-2 cursor-help transition-all hover:scale-105 active:scale-95">
                                       <svg className="w-full h-full -rotate-90 transform p-0.5" viewBox="0 0 100 100" shapeRendering="geometricPrecision">
-                                        {/* Background Circles */}
                                         <circle className="text-black/5 dark:text-white/5" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
                                         <circle className="text-black/5 dark:text-white/5" strokeWidth="6" stroke="currentColor" fill="transparent" r="26" cx="50" cy="50" />
-                                        
-                                        {/* Outer Ring: Coverage (Sky) */}
                                         <circle
                                           className="text-sky-400 transition-all duration-1000 ease-out"
                                           strokeWidth="8"
@@ -1666,8 +1876,6 @@ const Subjects = () => {
                                           cx="50"
                                           cy="50"
                                         />
-                                        
-                                        {/* Inner Ring: Completion (Emerald) */}
                                         <circle
                                           className="text-emerald-500 transition-all duration-1000 ease-out"
                                           strokeWidth="6"
@@ -1696,13 +1904,13 @@ const Subjects = () => {
                                         <div className="flex items-center justify-between gap-8">
                                           <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                            <span className="text-xs font-semibold">Círculos Concluídos (SRS)</span>
+                                            <span className="text-xs font-semibold">Tópicos Concluídos</span>
                                           </div>
                                           <span className="text-xs font-bold text-emerald-500">{getSubjectCompletion(subject)}%</span>
                                         </div>
                                       </div>
                                       <div className="pt-1.5 mt-1.5 border-t border-border/50">
-                                        <p className="text-[10px] font-medium text-content-muted">Status: <span className="text-primary font-bold uppercase">{tagV2}</span></p>
+                                        <p className="text-[10px] font-medium text-content-muted">Status: <span className="text-primary font-bold uppercase">{visualTag}</span></p>
                                       </div>
                                     </div>
                                   </TooltipContent>
@@ -1754,15 +1962,18 @@ const Subjects = () => {
                               ) : (
                                 <div className="flex flex-col py-1">
                                   {subject.topics.map((topic, idx) => {
-                                    const isCompleted = topic.completed || topic.reviewStage === 'Concluído';
+                                    const completed = isTopicCompleted(topic);
                                     const isActive = topic.is_active !== false;
-                                    const iconClass = getTopicIconClass(topic);
-
-                                    // Determina o estado visual do checkbox
-                                    const reviewCount = Math.max(topic.reviewCount || 0, topicStats.get(topic.id)?.reviewCount || 0);
-                                    const hasStarted = reviewCount > 0;
-                                    const checkboxState: 'empty' | 'dot' | 'check' =
-                                      isCompleted ? 'check' : hasStarted ? 'dot' : 'empty';
+                                    const reviewCount = Math.max(topic.reviewCount || 0, topic.review_count || 0, topicStats.get(topic.id)?.reviewCount || 0);
+                                    const hasStarted = reviewCount > 0 || isTopicStarted(topic);
+                                    const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
+                                    const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
+                                    const statusState: 'empty' | 'dot' | 'check' =
+                                      completed ? 'check' : hasStarted ? 'dot' : 'empty';
+                                    const statusLabel =
+                                      statusState === 'check' ? 'Tópico concluído' :
+                                      statusState === 'dot' ? 'Tópico em estudo' :
+                                      'Tópico não iniciado';
 
                                     return (
                                       <div
@@ -1773,40 +1984,33 @@ const Subjects = () => {
                                         }`}
                                       >
                                         <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
-
-                                          {/* Checkbox 3-estados */}
-                                          <div className="flex-shrink-0">
-                                            {checkboxState === 'empty' && (
-                                              <div className="w-[14px] h-[14px] rounded-[3px] border border-zinc-600 dark:border-zinc-500 bg-zinc-800/60 dark:bg-zinc-900/60" />
+                                          <div
+                                            className="flex-shrink-0 cursor-default select-none pointer-events-none"
+                                            role="img"
+                                            aria-label={statusLabel}
+                                            title={`${statusLabel}. Use o botão de ação à direita para estudar ou revisar.`}
+                                          >
+                                            {statusState === 'empty' && (
+                                              <div className="h-5 w-1 rounded-full bg-content-muted/25" />
                                             )}
-                                            {checkboxState === 'dot' && (
-                                              <div className="w-[14px] h-[14px] rounded-[3px] border border-primary/50 bg-primary/10 flex items-center justify-center">
-                                                <div className="w-[5px] h-[5px] rounded-full bg-primary" />
-                                              </div>
+                                            {statusState === 'dot' && (
+                                              <div className="h-5 w-1 rounded-full bg-primary/70 shadow-[0_0_10px_rgba(59,130,246,0.25)]" />
                                             )}
-                                            {checkboxState === 'check' && (
-                                              <div className="w-[14px] h-[14px] rounded-[3px] border border-emerald-500/60 bg-emerald-500/15 flex items-center justify-center">
-                                                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                                                  <path d="M1 3.5L3.5 6L8 1" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                              </div>
+                                            {statusState === 'check' && (
+                                              <div className="h-5 w-1 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(34,197,94,0.25)]" />
                                             )}
                                           </div>
-
-                                              <span
-                                                className={`text-xs font-medium truncate transition-opacity ${
-                                                  isCompleted ? 'text-content-muted opacity-50' : !isActive ? 'text-content-muted opacity-40' : 'text-content-main'
-                                                }`}
-                                              >
-                                                {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="text-[9px] ml-1 opacity-60">(inativo)</span>}
-                                              </span>
+                                          <span
+                                            className={`text-xs font-medium truncate transition-opacity ${
+                                              completed ? 'text-content-muted opacity-50' : !isActive ? 'text-content-muted opacity-40' : 'text-content-main'
+                                            }`}
+                                          >
+                                            {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="text-[9px] ml-1 opacity-60">(inativo)</span>}
+                                          </span>
                                         </div>
 
                                         <div className="flex items-center justify-end gap-1 relative min-w-[100px]">
-                                          {/* Badges (desaparecem no hover) */}
                                           <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-4 pr-1">
-                                            
-                                            {/* Badge de Status (ATRASADO/HOJE/NA LIXEIRA) */}
                                             {(() => {
                                               if (!isActive) {
                                                 return (
@@ -1825,10 +2029,8 @@ const Subjects = () => {
                                                 </span>
                                               );
                                             })()}
-
                                           </div>
 
-                                          {/* Botões de ação — deslizam da direita no hover, posicionados antes do stats */}
                                           {isActive && (
                                             <div className={`absolute ${hasStarted ? "right-[92px]" : "right-[36px]"} flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0 pointer-events-none group-hover/topic:pointer-events-auto`}>
                                               {/* IA */}
@@ -1860,63 +2062,45 @@ const Subjects = () => {
                                               <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-2"></div>
                                             </div>
                                           )}
-
-                                          {/* Stats (Difficulty & Reviews) */}
-                                          {isActive && hasStarted && (() => {
-                                            const stats = topicStats.get(topic.id);
-                                            const currentLevel = (topic.difficulty_level || 2) as 1 | 2 | 3;
-                                            const hardCount = stats?.hardReviewCount || 0;
-                                            const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
-                                            const tooltipText = showHardAlert ? 'Muitas revisões com dificuldade alta' : 'Total de revisões';
-
-                                            return (
-                                              <div className={`flex items-center gap-2 mr-2 transition-opacity ${isCompleted ? 'opacity-40' : ''}`} title={tooltipText}>
-                                                <DifficultyBarsCompact level={currentLevel} size="sm" />
-                                                <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums">
-                                                  <RotateCcw size={10} className={showHardAlert ? "text-orange-400" : "text-content-muted/40"} />
-                                                  <span className={showHardAlert ? "text-orange-400" : ""}>{reviewCount}</span>
-                                                </div>
+                                          {isActive && hasStarted && (
+                                            <div className={`flex items-center gap-2 mr-2 transition-opacity ${completed ? 'opacity-40' : ''}`} title={showHardAlert ? 'Muitas revisões com dificuldade alta' : 'Total de revisões'}>
+                                              <DifficultyBarsCompact level={(topic.difficulty_level || 2) as 1 | 2 | 3} size="sm" />
+                                              <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums">
+                                                <RotateCcw size={10} className={showHardAlert ? "text-orange-400" : "text-content-muted/40"} />
+                                                <span className={showHardAlert ? "text-orange-400" : ""}>{reviewCount}</span>
                                               </div>
-                                            );
-                                          })()}
-
-                                          {/* Ação Principal: SEMPRE VISÍVEL — radio fixo no fluxo normal */}
-                                          {isActive ? (
-                                            <div className="flex-shrink-0">
-                                              {(() => {
-                                                const reviewCount = Math.max(topic.reviewCount || 0, topicStats.get(topic.id)?.reviewCount || 0);
-                                                const hasStarted = reviewCount > 0;
-
-                                                if (!hasStarted) {
-                                                  return (
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        openReviewModal(topic.id);
-                                                      }}
-                                                      className="flex-shrink-0 w-6 h-6 rounded-full border border-primary/40 bg-primary/10 hover:border-primary/60 hover:bg-primary/20 hover:shadow-[0_0_12px_rgba(59,130,246,0.3)] text-primary hover:text-primary transition-all duration-300 flex items-center justify-center ml-0.5 group"
-                                                      title="Iniciar Estudo"
-                                                    >
-                                                      <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-                                                    </button>
-                                                  );
-                                                } else {
-                                                  return (
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/revisoes?topicId=${topic.id}`);
-                                                      }}
-                                                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30 transition-all shadow-sm border border-primary/30 dark:border-primary/40 ml-0.5"
-                                                      title="Ir para Revisões"
-                                                    >
-                                                      <ArrowRight size={12} />
-                                                    </button>
-                                                  );
-                                                }
-                                              })()}
                                             </div>
-                                          ) : (
+                                          )}
+                                          {isActive && (
+                                            <div className="flex-shrink-0">
+                                              {hasStarted ? (
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/revisoes?topicId=${topic.id}`);
+                                                  }}
+                                                  className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30 transition-all shadow-sm border border-primary/30 dark:border-primary/40 ml-0.5"
+                                                  title="Ir para revisões do tópico"
+                                                  aria-label={`Ir para revisões do tópico ${topic.name}`}
+                                                >
+                                                  <ArrowRight size={12} />
+                                                </button>
+                                              ) : (
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openReviewModal(topic.id);
+                                                  }}
+                                                  className="flex-shrink-0 w-7 h-7 rounded-full border border-primary/45 bg-primary/12 hover:border-primary/70 hover:bg-primary/25 hover:shadow-[0_0_14px_rgba(59,130,246,0.35)] text-primary transition-all duration-300 flex items-center justify-center ml-0.5 group"
+                                                  title="Iniciar estudo do tópico"
+                                                  aria-label={`Iniciar estudo do tópico ${topic.name}`}
+                                                >
+                                                  <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                                                </button>
+                                              )}
+                                            </div>
+                                          )}
+                                          {!isActive && (
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
@@ -1963,7 +2147,8 @@ const Subjects = () => {
             </div>
           )}
         </div>
-      </DndContext>
+        </DndContext>
+      )}
     </div>
   );
 
@@ -1980,13 +2165,7 @@ const Subjects = () => {
           {!isImportEditalModalOpen && (
             <aside className="w-full xl:w-[30%] min-w-[320px] shrink-0">
               <div className="sticky top-6">
-                <CycleDashboardV2
-                  activeRotation={activeRotation}
-                  subjectStates={subjectStates}
-                  subjects={localSubjects}
-                  onFinishRotation={finishCurrentRotation}
-                  onInitializeCycle={initializeCycle}
-                />
+                {renderCycleVisualPanel()}
               </div>
             </aside>
           )}
@@ -2326,6 +2505,55 @@ const Subjects = () => {
             />
           )}
 
+          <DifficultyRatingModal
+            isOpen={difficultyModalData.isOpen}
+            onClose={closeDifficultyModal}
+            onSubmit={async (difficulty) => {
+              try {
+                await markTopicAsReviewed(difficultyModalData.topicId, difficulty);
+                setTimeout(() => refreshData(), 500);
+              } catch (error) {
+                await errorService.report(
+                  error,
+                  {
+                    module: 'Subjects',
+                    action: 'DifficultyRatingModal.onSubmit',
+                    userMessage: 'Erro ao iniciar estudo do tópico.',
+                    severity: 'medium',
+                    scope: 'core',
+                    userId: user?.id
+                  }
+                );
+              }
+            }}
+            onConfirmReview={async (difficulty, duration) => {
+              try {
+                await markTopicAsReviewed(difficultyModalData.topicId, difficulty, duration);
+                closeDifficultyModal();
+                setTimeout(() => refreshData(), 500);
+              } catch (error) {
+                await errorService.report(
+                  error,
+                  {
+                    module: 'Subjects',
+                    action: 'DifficultyRatingModal.onConfirmReview',
+                    userMessage: 'Erro ao iniciar estudo do tópico.',
+                    severity: 'medium',
+                    scope: 'core',
+                    userId: user?.id
+                  }
+                );
+              }
+            }}
+            topicName={difficultyModalData.topicName}
+            subjectName={difficultyModalData.subjectName}
+            initialDifficulty={difficultyModalData.currentDifficulty}
+            reviewStage={difficultyModalData.reviewStage}
+            reviewCount={difficultyModalData.reviewCount}
+            isCompleting={difficultyModalData.isCompleting}
+            duration={difficultyModalData.duration}
+          />
+
           {/* Modal de Confirmação de Reversão de Mesclagem */}
           <ConfirmModal
             isOpen={isRevertModalOpen}
@@ -2399,20 +2627,6 @@ const Subjects = () => {
           />
         </div>
       </div>
-      <DifficultyRatingModal
-        isOpen={difficultyModalData.isOpen}
-        onClose={closeDifficultyModal}
-        topicName={difficultyModalData.topicName}
-        subjectName={difficultyModalData.subjectName}
-        initialDifficulty={difficultyModalData.currentDifficulty}
-        reviewStage={difficultyModalData.reviewStage}
-        reviewCount={difficultyModalData.reviewCount}
-        onSubmit={() => {}}
-        onConfirmReview={(difficulty) => {
-          markTopicAsReviewed(difficultyModalData.topicId, difficulty);
-          closeDifficultyModal();
-        }}
-      />
     </div>
   );
 };

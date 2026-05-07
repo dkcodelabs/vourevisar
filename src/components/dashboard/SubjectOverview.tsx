@@ -155,7 +155,7 @@ export const SubjectOverview: React.FC<SubjectOverviewProps> = ({ subjects }) =>
         {subjects.length > 3 && (
           <button 
             className="w-full py-2 text-sm text-blue-600 hover:text-blue-700 transition-colors text-left"
-            onClick={() => navigate('/materias')}
+            onClick={() => navigate('/ciclo-estudos')}
           >
             + {subjects.length - 3} outras matérias
           </button>
@@ -183,10 +183,10 @@ export const SubjectOverview: React.FC<SubjectOverviewProps> = ({ subjects }) =>
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => navigate('/materias')}
+            onClick={() => navigate('/ciclo-estudos')}
           >
             <Calendar className="h-4 w-4 mr-1" />
-            Ver Todas
+            Ver Ciclo
           </Button>
           <Button 
             variant="outline" 

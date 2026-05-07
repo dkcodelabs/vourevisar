@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-    Search, Plus, PlusCircle, Library, Trash2, Play, Eye, CalendarDays, Clock, LayoutGrid,
-    BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, ArrowRight, Sparkles, Send, Loader2,
-    AlertCircle, Info, GraduationCap, Target, Database, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText
+    Search, Plus, PlusCircle, Library, Trash2, Play, Eye, Clock,
+    BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, Sparkles, Send, Loader2,
+    AlertCircle, Info, GraduationCap, Database, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -92,6 +92,7 @@ const Editais = () => {
     const { user } = useAuth();
     const { subjects, isLoading, refreshData } = useApp();
     const location = useLocation();
+    const navigate = useNavigate();
 
     const [editais, setEditais] = useState<UserEdital[]>([]);
     const [loadingEditais, setLoadingEditais] = useState(true);
@@ -184,6 +185,48 @@ const Editais = () => {
     }>({ isOpen: false, edital: null, localSubjects: [], sourceSubjects: [] });
     const [editModal, setEditModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [loadedEditalSubjects, setLoadedEditalSubjects] = useState<Subject[]>([]);
+
+    const quickCreateOptions = [
+        {
+            id: 'ready' as const,
+            title: 'Catálogo',
+            description: 'Modelos prontos',
+            icon: Library,
+            accent: 'cyan'
+        },
+        {
+            id: 'ia' as const,
+            title: 'IA',
+            description: 'Importar edital',
+            icon: Sparkles,
+            accent: 'emerald'
+        },
+        {
+            id: 'manual' as const,
+            title: 'Manual',
+            description: 'Criar do zero',
+            icon: Plus,
+            accent: 'amber'
+        }
+    ];
+
+    const quickCreateAccentClasses = {
+        cyan: {
+            icon: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+            hover: 'hover:border-cyan-500/50 hover:bg-cyan-500/[0.08] hover:shadow-cyan-500/15',
+            badge: 'bg-cyan-400 text-zinc-950'
+        },
+        emerald: {
+            icon: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+            hover: 'hover:border-emerald-500/50 hover:bg-emerald-500/[0.08] hover:shadow-emerald-500/15',
+            badge: 'bg-emerald-400 text-zinc-950'
+        },
+        amber: {
+            icon: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+            hover: 'hover:border-amber-500/50 hover:bg-amber-500/[0.08] hover:shadow-amber-500/15',
+            badge: 'bg-amber-400 text-zinc-950'
+        }
+    };
 
     // ── Efeito para abrir modal baseado no estado de navegação ──
     useEffect(() => {
@@ -1541,7 +1584,7 @@ const Editais = () => {
     if (isLoading || loadingEditais || !dataLoaded) return <LoadingSpinner size="large" showText fullPage />;
 
     return (
-        <div className="min-h-screen p-3 md:p-4 lg:p-6 space-y-4">
+        <div className="min-h-full p-2 md:p-3 lg:p-4 space-y-3">
             {/* ── Cabeçalho Principal (só mostra se houver editais) ── */}
             {editais.length > 0 && (
                 <div className="flex flex-col gap-4">
@@ -1583,7 +1626,7 @@ const Editais = () => {
                         </div>
 
                         {/* Ações */}
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto shrink-0">
                             <AnimatePresence>
                                 {selectedIds.size >= 2 && (
                                     <motion.button
@@ -1604,13 +1647,44 @@ const Editais = () => {
                                 )}
                             </AnimatePresence>
 
-                            <button
-                                onClick={() => setIsImportModalOpen(true)}
-                                className="flex items-center gap-1.5 h-9 px-4 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-lg shadow-emerald-500/20"
-                            >
-                                <Plus size={14} />
-                                NOVA MATRIZ
-                            </button>
+                            <div className="grid grid-cols-1 min-[460px]:grid-cols-3 gap-2 w-full lg:w-auto">
+                                {quickCreateOptions.map((option) => {
+                                    const Icon = option.icon;
+                                    const accent = quickCreateAccentClasses[option.accent];
+
+                                    return (
+                                        <motion.button
+                                            key={option.id}
+                                            whileHover={{ y: -2, scale: 1.015 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            onClick={() => {
+                                                setImportModalTab(option.id);
+                                                setIsImportModalOpen(true);
+                                            }}
+                                            className={`group relative flex h-12 min-w-0 items-center gap-2 rounded-lg border border-border/70 bg-secondary/60 px-3 text-left shadow-sm transition-all duration-200 hover:shadow-lg dark:border-white/[0.06] dark:bg-white/[0.03] ${accent.hover} sm:min-w-[132px] lg:min-w-[146px]`}
+                                        >
+                                            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-transform duration-200 group-hover:scale-110 ${accent.icon}`}>
+                                                <Icon size={14} />
+                                            </span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="truncate text-[11px] font-black uppercase tracking-[0.08em] text-foreground">
+                                                        {option.title}
+                                                    </span>
+                                                    {option.badge && (
+                                                        <span className={`rounded px-1.5 py-0.5 text-[7px] font-black uppercase leading-none tracking-wider ${accent.badge}`}>
+                                                            {option.badge}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className="block truncate text-[10px] font-semibold text-content-muted">
+                                                    {option.description}
+                                                </span>
+                                            </span>
+                                        </motion.button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
@@ -1686,8 +1760,8 @@ const Editais = () => {
                                 />
                             </div>
                         ) : (
-                            <div className="max-w-5xl mx-auto w-full space-y-12">
-                                <div className="text-center space-y-3">
+                            <div className="max-w-6xl mx-auto w-full space-y-8">
+                                <div className="text-center space-y-2">
                                     <h1 className="text-3xl font-semibold text-white tracking-tight">
                                         Você ainda não possui nenhum Edital ativo
                                     </h1>
@@ -1696,7 +1770,7 @@ const Editais = () => {
                                     </p>
                                 </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                                 {/* Card 1: Catálogo Oficial */}
                                 <motion.button
                                     whileHover={{ y: -4 }}
@@ -1704,7 +1778,7 @@ const Editais = () => {
                                         setImportModalTab('ready');
                                         setIsImportModalOpen(true);
                                     }}
-                                    className="relative flex flex-col items-center text-center p-8 bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-cyan-500/50 rounded-[32px] transition-all group overflow-hidden"
+                                    className="relative flex flex-col items-center text-center p-6 bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-cyan-500/50 rounded-2xl transition-all group overflow-hidden"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <div className="absolute top-4 right-4 bg-cyan-400 text-black text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wider">
@@ -1726,7 +1800,7 @@ const Editais = () => {
                                         setImportModalTab('ia');
                                         setIsImportModalOpen(true);
                                     }}
-                                    className="relative flex flex-col items-center text-center p-8 bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-emerald-500/50 rounded-[32px] transition-all group overflow-hidden"
+                                    className="relative flex flex-col items-center text-center p-6 bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-emerald-500/50 rounded-2xl transition-all group overflow-hidden"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 text-emerald-400 group-hover:scale-110 transition-transform">
@@ -1745,7 +1819,7 @@ const Editais = () => {
                                         setImportModalTab('manual');
                                         setIsImportModalOpen(true);
                                     }}
-                                    className="relative flex flex-col items-center text-center p-8 bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-amber-500/50 rounded-[32px] transition-all group overflow-hidden"
+                                    className="relative flex flex-col items-center text-center p-6 bg-zinc-900/50 backdrop-blur-md border border-white/5 hover:border-amber-500/50 rounded-2xl transition-all group overflow-hidden"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6 text-amber-400 group-hover:scale-110 transition-transform">
@@ -1846,7 +1920,7 @@ const Editais = () => {
                     )}
                 </motion.div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                     {filteredEditais.map(edital => {
                         const metrics = getEditalMetrics(edital);
                         const daysLeft = getDaysUntilExam(edital.examDate);
@@ -2299,23 +2373,19 @@ const Editais = () => {
                                         )}
 
                                         <div className="flex items-center gap-2.5">
-                                            {cycleConflict.step === 'success' ? (
-                                                <div className="flex items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black px-2 py-0.5 border border-emerald-500/20">
-                                                    CONCLUÍDO
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center justify-center rounded-full bg-sky-500/10 text-sky-500 text-[10px] font-black px-2 py-0.5 border border-sky-500/20">
-                                                    {cycleConflict.existingIds.length === 0 ? '1/1' :
-                                                     cycleConflict.action === 'replace' ? (cycleConflict.step === 'select' ? '1/2' : '2/2') :
-                                                     cycleConflict.step === 'select' ? '1/3' :
-                                                     cycleConflict.step === 'preview' ? '2/3' : '3/3'}
-                                                </div>
-                                            )}
+                                            <div className="flex items-center justify-center rounded-full bg-sky-500/10 text-sky-500 text-[10px] font-black px-2 py-0.5 border border-sky-500/20">
+                                                {cycleConflict.step === 'success' ? '2/2' :
+                                                 cycleConflict.existingIds.length === 0 ? '1/2' :
+                                                 cycleConflict.action === 'replace' ? (cycleConflict.step === 'select' ? '1/2' : '2/2') :
+                                                 cycleConflict.step === 'select' ? '1/3' :
+                                                 cycleConflict.step === 'preview' ? '2/3' : '3/3'}
+                                            </div>
                                             <h2 className="text-[14px] font-black text-foreground uppercase tracking-tight">
-                                                {cycleConflict.step === 'select' ? 'Carregar Edital' : 
+                                                {cycleConflict.step === 'success' ? 'Ciclo de Estudos' :
+                                                 cycleConflict.step === 'select' ? 'Carregar Edital' :
                                                  cycleConflict.step === 'preview' ? (cycleConflict.existingIds.length === 0 ? 'Carregar Edital' : 'Preview Mescla Matérias') :
                                                  cycleConflict.step === 'topic-preview' ? 'Preview Mescla Matérias e Tópicos' :
-                                                 'Edital Carregado'}
+                                                 'Ciclo de Estudos'}
                                             </h2>
                                         </div>
                                     </div>
@@ -2433,29 +2503,23 @@ const Editais = () => {
                                 {cycleConflict.step === 'select' && (
                                     <div className="space-y-2.5">
                                         <div className="flex items-center justify-between px-1">
-                                            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">NOVO EDITAL SELECIONADO</span>
+                                            <span className="text-[10px] font-black text-content-muted uppercase tracking-widest">NOVO EDITAL SELECIONADO</span>
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => setCycleConflict(prev => ({ ...prev, showDetailedPreview: !prev.showDetailedPreview }))}
-                                                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-500 uppercase tracking-wider hover:bg-emerald-500/20 transition-all"
+                                                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-secondary/80 border border-border/70 text-[9px] font-black text-content-muted uppercase tracking-wider hover:border-emerald-500/30 hover:bg-emerald-500/[0.06] hover:text-emerald-400 transition-all"
                                                 >
-                                                    {cycleConflict.showDetailedPreview ? <LayoutGrid size={10} /> : <Eye size={10} />}
-                                                    {cycleConflict.showDetailedPreview ? 'Ver Resumo' : 'Ver Tópicos'}
+                                                    {cycleConflict.showDetailedPreview ? <ChevronUp size={10} /> : <Eye size={10} />}
+                                                    {cycleConflict.showDetailedPreview ? 'Recolher' : 'Ver Tópicos'}
                                                 </button>
-                                                <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                                    {cycleConflict.edital.subjectIds.length} matérias
-                                                </span>
                                             </div>
                                         </div>
-                                        <div className="p-4 rounded-xl bg-[#12251A] border border-[#1E422D] space-y-4">
+                                        <div className="p-4 rounded-xl bg-secondary/50 dark:bg-white/[0.03] border border-border/70 dark:border-white/[0.06] space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-1.5 h-4 bg-[#10B981] rounded-full" />
                                                     <span className="text-[13px] font-black text-foreground uppercase tracking-tight">{cycleConflict.edital.name}</span>
                                                 </div>
-                                                <span className="text-[10px] font-bold text-[#34D399] bg-[#10B981]/20 px-2.5 py-1 rounded-full border border-[#10B981]/20">
-                                                    + {cycleConflict.edital.subjectIds.length} matérias
-                                                </span>
                                             </div>
 
                                             {cycleConflict.showDetailedPreview ? (
@@ -2464,7 +2528,7 @@ const Editais = () => {
                                                         const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
                                                         if (!s) return null;
                                                         return (
-                                                            <div key={sid} className="p-3 rounded-xl bg-[#1A3123] border border-[#1E422D] space-y-2.5 group transition-all hover:border-[#1E422D]/80">
+                                                            <div key={sid} className="p-3 rounded-xl bg-background/40 dark:bg-black/10 border border-border/70 dark:border-white/[0.06] space-y-2.5 group transition-all hover:border-emerald-500/25 hover:bg-emerald-500/[0.04]">
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex items-center gap-2">
                                                                         <div className="w-1 h-3 bg-[#10B981] rounded-full" />
@@ -2475,7 +2539,7 @@ const Editais = () => {
                                                                     </span>
                                                                 </div>
                                                                 
-                                                                <div className="grid grid-cols-1 gap-1.5 pl-3 border-l border-[#1E422D]">
+                                                                <div className="grid grid-cols-1 gap-1.5 pl-3 border-l border-border/70 dark:border-white/[0.06]">
                                                                     {(s.topics || []).map(t => (
                                                                         <div key={t.id} className="flex items-center gap-2 text-[10px] text-content-muted/70">
                                                                             <div className="w-0.5 h-0.5 rounded-full bg-[#10B981]/40" />
@@ -2493,14 +2557,14 @@ const Editais = () => {
                                                         const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
                                                         if (!s) return null;
                                                         return (
-                                                            <div key={sid} className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-[#1A3123] border border-[#1E422D]/50 transition-all hover:bg-[#1A3123]/80 group">
+                                                            <div key={sid} className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-background/40 dark:bg-black/10 border border-border/70 dark:border-white/[0.06] transition-all hover:border-emerald-500/25 hover:bg-emerald-500/[0.04] group">
                                                                 <BookOpen size={10} className="text-[#10B981]" />
                                                                 <span className="text-[10px] font-bold text-[#6EE7B7] truncate leading-none">{s.name}</span>
                                                             </div>
                                                         );
                                                     })}
                                                     {cycleConflict.edital.subjectIds.length > 15 && (
-                                                        <div className="flex items-center justify-center px-4 py-2 rounded-none bg-[#1A3123] border border-[#1E422D]/50 border-dashed">
+                                                        <div className="flex items-center justify-center px-4 py-2 rounded-none bg-background/40 dark:bg-black/10 border border-border/70 dark:border-white/[0.06] border-dashed">
                                                             <span className="text-[10px] font-black text-[#34D399]/50 uppercase tracking-widest leading-none">+{cycleConflict.edital.subjectIds.length - 15}</span>
                                                         </div>
                                                     )}
@@ -2734,123 +2798,59 @@ const Editais = () => {
 
                                     {/* Seção: Sucesso (Resumo) */}
                                     {cycleConflict.step === 'success' && (
-                                        <div className="flex flex-col items-center gap-4 py-2 animate-in zoom-in-95 duration-500 w-full">
-                                            
-                                            <div className="flex sm:flex-row items-center justify-center gap-4 w-full">
-                                                <div className="relative shrink-0">
-                                                    <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
-                                                    <div className="relative w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-xl">
-                                                        <CheckCircle2 size={24} className="text-emerald-500" />
-                                                    </div>
+                                        <div className="flex flex-col items-center gap-5 py-2 animate-in zoom-in-95 duration-500 w-full">
+                                            <div className="flex flex-col items-center justify-center gap-3 text-center w-full">
+                                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                                                    <CheckCircle2 size={24} className="text-emerald-500" />
                                                 </div>
-                                                
-                                            <div className="text-center sm:text-left space-y-0.5">
-                                                <h4 className="text-lg font-black text-foreground uppercase tracking-tight">Ciclagem Concluída!</h4>
-                                                <span className="text-[11px] text-emerald-500 font-bold uppercase tracking-[.2em]">Ambiente atualizado</span>
-                                            </div>
-                                            </div>
-
-                                            <div className="w-full bg-emerald-500/[0.03] rounded-[24px] p-4 border border-emerald-500/10 space-y-4">
-                                                <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-[.3em] text-emerald-500/60 pb-3 border-b border-emerald-500/10">
-                                                    <span>Resumo Estratégico</span>
-                                                    <Sparkles size={12} />
+                                                <div className="space-y-1">
+                                                    <h4 className="text-2xl font-black text-foreground uppercase tracking-tight">
+                                                        Ciclo gerado com sucesso!
+                                                    </h4>
+                                                    <p className="text-sm text-content-muted font-medium">
+                                                        Seu ambiente de planejamento foi atualizado.
+                                                    </p>
                                                 </div>
+                                            </div>
 
-                                                <div className="space-y-4">
-                                                    {/* Aviso Dinâmico da Ação */}
-                                                    <div className={`p-3 rounded-xl border flex items-start gap-3 w-full
-                                                        ${cycleConflict.action === 'replace' 
-                                                            ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' 
-                                                            : cycleConflict.wasTopicMerged 
-                                                                ? 'bg-purple-500/10 border-purple-500/20 text-purple-500' 
-                                                                : 'bg-amber-500/10 border-amber-500/20 text-amber-500'}`}>
-                                                        <div className="shrink-0 mt-0.5">
-                                                            {cycleConflict.action === 'replace' ? <Info size={14} /> : 
-                                                             cycleConflict.wasTopicMerged ? <Sparkles size={14} /> : <AlertTriangle size={14} />}
-                                                        </div>
-                                                        <div className="space-y-0.5 flex-1">
-                                                            <span className="text-[9px] uppercase font-black tracking-widest block opacity-70">
-                                                                {cycleConflict.action === 'replace' ? 'Substituição Direta' : 
-                                                                 cycleConflict.wasTopicMerged ? 'Processamento Profundo' : 'Agrupamento Rápido'}
-                                                            </span>
-                                                            <p className="text-[11px] font-medium leading-tight text-foreground/90">
-                                                                {cycleConflict.action === 'replace'
-                                                                    ? 'Limpamos o ciclo anterior e montamos um novo do zero baseado neste edital.'
-                                                                    : cycleConflict.wasTopicMerged
-                                                                    ? 'Matérias unificadas e tópicos minuciosamente processados com Inteligência Artificial.'
-                                                                    : 'Matérias unificadas. Tópicos apenas agrupados sem mesclagem avançada de IA.'}
-                                                            </p>
-                                                        </div>
+                                            <div className="w-full rounded-2xl p-4 border border-border/70 dark:border-white/[0.06] bg-secondary/50 dark:bg-white/[0.03] space-y-4">
+                                                {cycleConflict.existingIds.length > 0 && cycleConflict.action === 'replace' && (
+                                                    <div className="p-3 rounded-xl border border-sky-500/20 bg-sky-500/[0.08] flex items-start gap-3 text-sky-500">
+                                                        <Info size={14} className="shrink-0 mt-0.5" />
+                                                        <p className="text-[11px] font-medium leading-relaxed text-foreground/90">
+                                                            O ciclo anterior foi desativado e sua nova trilha de estudos está pronta para execução.
+                                                        </p>
                                                     </div>
+                                                )}
 
-                                                    {/* Identificação Principal */}
-                                                    <div className="space-y-1.5">
-                                                        <span className="text-[9px] text-content-muted/60 uppercase font-black tracking-widest">Edital Integrado</span>
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-1.5 h-4 bg-[#10B981] rounded-full" />
                                                         <h5 className="text-sm font-black text-foreground uppercase tracking-tight leading-tight">
                                                             {cycleConflict.edital?.name}
                                                         </h5>
-                                                        <div className="flex flex-wrap gap-2 mt-2">
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/10">
-                                                                <Target size={12} className="text-emerald-500" />
-                                                                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tight">
-                                                                    {cycleConflict.edital?.position || 'Cargo Master'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg border border-white/5">
-                                                                <CalendarDays size={12} className="text-content-muted/60" />
-                                                                <span className="text-[9px] font-black text-content-muted/60 uppercase tracking-tight">
-                                                                    {cycleConflict.edital?.examDate
-                                                                        ? new Date(cycleConflict.edital.examDate).toLocaleDateString('pt-BR')
-                                                                        : 'Prova em Aberto'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
                                                     </div>
 
-                                                    {/* Métricas e Composição */}
-                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                                        <div className="bg-emerald-500/[0.04] rounded-xl p-3 border border-emerald-500/10 transition-all hover:bg-emerald-500/[0.06]">
-                                                            <span className="text-[8px] text-emerald-500/50 uppercase font-black tracking-widest block mb-1">Total de Matérias</span>
-                                                            <div className="flex items-baseline gap-1">
-                                                                <span className="text-2xl font-black text-foreground">{cycleConflict.edital?.subjectIds.length || 0}</span>
-                                                                <span className="text-[9px] text-content-muted font-bold uppercase tracking-tight">mat</span>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="bg-emerald-500/[0.04] rounded-xl p-3 border border-emerald-500/10 transition-all hover:bg-emerald-500/[0.06]">
-                                                            <span className="text-[8px] text-emerald-500/50 uppercase font-black tracking-widest block mb-1">Total de Tópicos</span>
-                                                            <div className="flex items-baseline gap-1">
-                                                                <span className="text-2xl font-black text-foreground">
-                                                                    {cycleConflict.edital?.subjectIds.reduce((acc, sid) => {
-                                                                        const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
-                                                                        return acc + (s?.topics?.length || 0);
-                                                                    }, 0) || 0}
-                                                                </span>
-                                                                <span className="text-[9px] text-content-muted font-bold uppercase tracking-tight">top</span>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="bg-white/5 rounded-xl p-3 border border-white/5 transition-all hover:bg-white/10 col-span-2 sm:col-span-1">
-                                                            <span className="text-[8px] text-content-muted/40 uppercase font-black tracking-widest block mb-1">Status do Ciclo</span>
-                                                            <div className="flex items-baseline justify-between mt-1">
-                                                                <span className="text-sm font-black text-foreground uppercase tracking-tight">Ativo</span>
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Editais no Ciclo */}
-                                                    <div className="space-y-2">
-                                                        <span className="text-[9px] text-content-muted/60 uppercase font-black tracking-widest block">Editais Ativos no Ciclo:</span>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            <span className="px-2.5 py-1 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-tight shadow-sm shadow-emerald-500/20">
-                                                                {cycleConflict.edital?.name.split(' - ')[0]}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <div className="bg-background/40 dark:bg-black/10 rounded-xl p-4 border border-border/70 dark:border-white/[0.06]">
+                                                            <span className="text-[9px] text-content-muted uppercase font-black tracking-widest block mb-2">
+                                                                Total de Matérias
                                                             </span>
-                                                            {cycleConflict.action !== 'replace' && cycleConflict.currentOrigins.filter((o: any) => o.id !== cycleConflict.edital?.id).map((o: any) => (
-                                                                <span key={o.id || 'manual'} className="px-2.5 py-1 bg-white/5 rounded-lg text-[9px] font-black text-content-muted/60 border border-white/5 uppercase tracking-tight">
-                                                                    {'isManual' in o ? 'Matérias Avulsas' : o.name.split(' - ')[0]}
-                                                                </span>
-                                                            ))}
+                                                            <span className="text-3xl font-black text-foreground">
+                                                                {cycleConflict.edital?.subjectIds.length || 0}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="bg-background/40 dark:bg-black/10 rounded-xl p-4 border border-border/70 dark:border-white/[0.06]">
+                                                            <span className="text-[9px] text-content-muted uppercase font-black tracking-widest block mb-2">
+                                                                Total de Tópicos
+                                                            </span>
+                                                            <span className="text-3xl font-black text-foreground">
+                                                                {cycleConflict.edital?.subjectIds.reduce((acc, sid) => {
+                                                                    const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
+                                                                    return acc + (s?.topics?.length || 0);
+                                                                }, 0) || 0}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2877,8 +2877,8 @@ const Editais = () => {
                                                     <Plus size={16} />
                                                 )}
                                                 <div className="flex flex-col items-start text-left">
-                                                    <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">INICIAR CICLO</span>
-                                                    <span className="text-[9px] text-emerald-100/80 font-bold leading-none">Criar base de estudos</span>
+                                                    <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">CARREGAR NO CICLO</span>
+                                                    <span className="text-[9px] text-emerald-100/80 font-bold leading-none">Adicionar ao planejamento</span>
                                                 </div>
                                             </button>
                                         </div>
@@ -2972,10 +2972,13 @@ const Editais = () => {
                                     </div>
                                 ) : cycleConflict.step === 'success' ? (
                                     <button
-                                        onClick={() => setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false })}
-                                        className="w-full py-4 rounded-xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95"
+                                        onClick={() => {
+                                            setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false });
+                                            navigate('/ciclo-estudos');
+                                        }}
+                                        className="w-full py-4 rounded-xl bg-emerald-500 text-white font-black uppercase tracking-widest shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 transition-all active:scale-95"
                                     >
-                                        Finalizar e Ver Ciclo
+                                        IR PARA O CICLO DE ESTUDOS ➔
                                     </button>
                                 ) : null}
                             </div>
