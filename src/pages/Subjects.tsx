@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ExternalLink, ListTodo } from 'lucide-react';
+import { Plus, Trash2, Edit, Edit2, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ListTodo } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '@/components/SortableItem';
 import { Subject, Topic, Status, UserEdital } from '@/types';
+import type { UserEdital as EditalModalData } from '@/pages/Editais';
 import { getTopicStatusInfo } from '@/utils/topicStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { transformSubjectsData } from '@/contexts/utils/dataTransformers';
@@ -27,6 +28,7 @@ import NotesModal from '@/components/reviews/NotesModal';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
+import { EditalSubjectsModal } from '@/components/editais/EditalSubjectsModal';
 
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { errorService } from '@/lib/errors/errorService';
@@ -107,8 +109,30 @@ const Subjects = () => {
   const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState<'ready' | 'ia' | 'manual'>('ready');
   const { openReviewModal, difficultyModalData, closeDifficultyModal, markTopicAsReviewed } = useTopicReview();
+  const [subjectsModal, setSubjectsModal] = useState<{ 
+    isOpen: boolean; 
+    edital: EditalModalData | null;
+    initialExpandedSubjectId?: string;
+  }>({ isOpen: false, edital: null });
 
   const location = useLocation();
+
+  const toEditalModalData = (edital: any): EditalModalData => ({
+    id: edital.id,
+    name: edital.name,
+    organ: edital.organ,
+    position: edital.position,
+    year: edital.year,
+    examDate: edital.examDate || edital.exam_date,
+    createdAt: edital.createdAt || edital.created_at || '',
+    updatedAt: edital.updatedAt || edital.updated_at || '',
+    isImported: edital.isImported ?? edital.is_imported ?? false,
+    sourceId: edital.sourceId || edital.source_id,
+    subjectIds: edital.subjectIds || edital.subject_ids || [],
+    activeSubjectIds: edital.activeSubjectIds || edital.active_subject_ids || [],
+    isMergedWith: edital.isMergedWith || edital.merged_with,
+    mergedIntoCycle: edital.mergedIntoCycle ?? edital.merged_into_cycle ?? false,
+  });
 
   // ── Efeito para abrir modal baseado no estado de navegação ──
   useEffect(() => {
@@ -1853,18 +1877,19 @@ const Subjects = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate('/meus-editais', {
-                              state: {
-                                openEditalId: item.subject.edital_id,
-                                highlightSubjectId: item.subject.id,
-                                returnTo: '/ciclo-estudos'
-                              }
-                            });
+                            const edital = editaisData.find(e => e.id === item.subject.edital_id);
+                            if (edital) {
+                              setSubjectsModal({ 
+                                isOpen: true, 
+                                edital: toEditalModalData(edital),
+                                initialExpandedSubjectId: item.subject.id
+                              });
+                            }
                           }}
                           className="p-1 text-gray-300 dark:text-white/20 hover:text-primary transition-colors flex-shrink-0"
                           title="Gerenciar no Edital / Editar tópicos"
                         >
-                          <ExternalLink size={14} />
+                          <Edit2 size={14} />
                         </button>
                         <div className="min-w-0">
                           <p className="text-[13px] font-bold text-gray-700 dark:text-white/85 truncate leading-tight">
@@ -2288,18 +2313,19 @@ const Subjects = () => {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      navigate('/meus-editais', {
-                                        state: {
-                                          openEditalId: subject.edital_id,
-                                          highlightSubjectId: subject.id,
-                                          returnTo: '/ciclo-estudos'
-                                        }
-                                      });
+                                      const edital = editaisData.find(e => e.id === subject.edital_id);
+                                      if (edital) {
+                                        setSubjectsModal({ 
+                                          isOpen: true, 
+                                          edital: toEditalModalData(edital),
+                                          initialExpandedSubjectId: subject.id
+                                        });
+                                      }
                                     }}
                                     className="p-1 text-gray-300 dark:text-white/20 hover:text-primary transition-colors flex-shrink-0"
                                     title="Gerenciar no Edital / Editar tópicos"
                                   >
-                                    <ExternalLink size={14} />
+                                    <Edit2 size={14} />
                                   </button>
 
                                   <div className="flex flex-col min-w-0 gap-0.5 flex-1">
@@ -3099,6 +3125,26 @@ const Subjects = () => {
             icon={Link2Off}
             isLoading={isReverting}
           />
+
+          {/* Modal de Matérias do Edital */}
+          {subjectsModal.edital && (
+            <EditalSubjectsModal
+              isOpen={subjectsModal.isOpen}
+              onClose={() => {
+                setSubjectsModal({ isOpen: false, edital: null });
+                refresh();
+              }}
+              onBack={() => undefined}
+              edital={subjectsModal.edital}
+              editais={editaisNoCiclo.map(toEditalModalData)}
+              allSubjects={subjects}
+              initialExpandedSubjectId={subjectsModal.initialExpandedSubjectId}
+              onUpdate={() => {
+                refresh();
+                refreshData();
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
