@@ -31,6 +31,7 @@ interface AiSubject {
 interface EditalSubjectsModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onBack?: () => void;
     edital: UserEdital;
     editais?: UserEdital[]; // Editais do ciclo (para select)
     allSubjects: Subject[];
@@ -54,7 +55,7 @@ function getTopicStatus(topic: Topic): { label: string; color: string } {
 }
 
 export const EditalSubjectsModal = ({
-    isOpen, onClose, edital, editais, allSubjects, onUpdate, initialExpandedSubjectId
+    isOpen, onClose, onBack, edital, editais, allSubjects, onUpdate, initialExpandedSubjectId
 }: EditalSubjectsModalProps) => {
     const { user } = useAuth();
     const { refreshData } = useApp();
@@ -233,6 +234,11 @@ export const EditalSubjectsModal = ({
         setAiResult([]);
         onClose();
     }, [onClose, refreshData, refreshOrigins]);
+
+    const handleBack = useCallback(() => {
+        handleClose();
+        onBack?.();
+    }, [handleClose, onBack]);
 
     // ── Processar com IA ─────────────────────────────────────────────────────
     const handleIaProcess = useCallback(async () => {
@@ -872,9 +878,9 @@ export const EditalSubjectsModal = ({
                         <div className="flex items-center gap-3 min-w-0">
                             {initialExpandedSubjectId && (
                                 <button
-                                    onClick={handleClose}
+                                    onClick={onBack ? handleBack : handleClose}
                                     className="w-8 h-8 flex items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 transition-all text-primary shrink-0 -ml-1 group"
-                                    title="Voltar para Matérias"
+                                    title={onBack ? "Voltar para Ciclo de Estudos" : "Voltar para Matérias"}
                                 >
                                     <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
                                 </button>

@@ -48,15 +48,15 @@ export function DifficultyBarsCompact({
   level,
   size = 'md',
   className,
+  showEmpty = false,
 }: {
   level?: number | null;
   size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
+  showEmpty?: boolean;
 }) {
   const safeLevel = level && level >= 1 && level <= 3 ? (level as 1 | 2 | 3) : null;
   const config = safeLevel ? DIFFICULTY_CONFIG[safeLevel] : null;
-
-  if (!config) return null;
 
   const barSizes = {
     xs: { width: 'w-[2px]', heights: ['h-[4px]', 'h-[6px]', 'h-[8px]'], gap: 'gap-[1.5px]', container: 'h-2' },
@@ -67,8 +67,10 @@ export function DifficultyBarsCompact({
 
   const s = barSizes[size];
 
+  if (!config && !showEmpty) return null;
+
   return (
-    <div className={cn(`flex items-end ${s.gap} ${s.container}`, className)} title={config.label}>
+    <div className={cn(`flex items-end ${s.gap} ${s.container}`, className)} title={config?.label || 'Dificuldade ainda não informada'}>
       {s.heights.map((h, i) => (
         <div
           key={i}
@@ -77,7 +79,7 @@ export function DifficultyBarsCompact({
             h,
             'rounded-sm transition-colors duration-200',
             // Difícil (1) = 3 barras, Médio (2) = 2 barras, Fácil (3) = 1 barra
-            i < (4 - safeLevel) ? config.activeColor : 'bg-zinc-600/30 dark:bg-zinc-700/50'
+            config && i < (4 - safeLevel) ? config.activeColor : 'bg-zinc-300/45 dark:bg-zinc-700/50'
           )}
         />
       ))}

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Edit, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ExternalLink, ListTodo } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,6 @@ import { applyUnificationMap, getUnifiedSubjectId } from '@/services/cycleMergeS
 import { useAuth } from '@/contexts/AuthContext';
 import TopicsModal from '@/components/topics/TopicsModal';
 import ContentUploadModal from '@/components/ContentUploadModal';
-import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import NotesModal from '@/components/reviews/NotesModal';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -34,7 +33,6 @@ import { errorService } from '@/lib/errors/errorService';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 
 import { useMergeData } from '@/hooks/useMergeData';
-import { SubjectSparkline } from '@/components/subjects/SubjectSparkline';
 import { fetchTopicReviewStats } from '@/services/topicReviewService';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
@@ -91,8 +89,6 @@ const Subjects = () => {
   // Novos modais V2 states
   const [visibleCount, setVisibleCount] = useState(25);
   const ITEMS_PER_PAGE = 25;
-  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
-  const [selectedSubjectForNotes, setSelectedSubjectForNotes] = useState<Subject | null>(null);
   const [selectedTopicForNotes, setSelectedTopicForNotes] = useState<{id: string, name: string, subjectName: string} | null>(null);
   const [isStartingNextCycle, setIsStartingNextCycle] = useState(false);
 
@@ -472,6 +468,7 @@ const Subjects = () => {
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
+  const [expandedCompletedSubjectIds, setExpandedCompletedSubjectIds] = useState<string[]>([]);
   const [expandedBeforeSearch, setExpandedBeforeSearch] = useState<string[]>([]);
   const [isAddingSubject, setIsAddingSubject] = useState(false);
 
@@ -491,17 +488,6 @@ const Subjects = () => {
   // Estado para o modal de upload de conteúdo
   const [contentUploadModal, setContentUploadModal] = useState(false);
 
-
-  // Estado para o modal de anotações de matéria
-  const [subjectNotesModal, setSubjectNotesModal] = useState<{
-    isOpen: boolean;
-    subjectId: string;
-    subjectName: string;
-  }>({
-    isOpen: false,
-    subjectId: '',
-    subjectName: ''
-  });
   const [topicToDelete, setTopicToDelete] = useState<{ id: string; name: string; subjectName: string } | null>(null);
   const [isDeletingTopic, setIsDeletingTopic] = useState(false);
 
@@ -1359,24 +1345,20 @@ const Subjects = () => {
     }
   };
 
-  const getSubjectCoverage = (subject: Subject) => {
-    if (subject.topics.length === 0) return 0;
-    const started = subject.topics.filter(isTopicStarted).length;
-    return Math.round((started / subject.topics.length) * 100);
-  };
-
-  const getSubjectCompletion = (subject: Subject) => {
-    if (subject.topics.length === 0) return 0;
-    const completed = subject.topics.filter(isTopicCompleted).length;
-    return Math.round((completed / subject.topics.length) * 100);
-  };
-
   const handleViewTopics = (subject: Subject) => {
     navigate('/ciclo-estudos');
   };
 
   const toggleExpand = (itemId: string) => {
     setExpandedSubjectIds(prev =>
+      prev.includes(itemId)
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const toggleCompletedExpand = (itemId: string) => {
+    setExpandedCompletedSubjectIds(prev =>
       prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
@@ -1501,7 +1483,13 @@ const Subjects = () => {
     const studiedSubjects = cycleSubjects.filter(subject => studiedCycleIdSet.has(subject.id)).length;
     const remainingSubjects = Math.max(totalSubjects - studiedSubjects, 0);
     const progressPercentage = totalSubjects > 0 ? Math.round((studiedSubjects / totalSubjects) * 100) : 0;
-    const subjectsPerDay = studiedSubjects > 0 ? Math.max(studiedSubjects / 7, 0.1) : 0;
+    const parsedCycleStartMs = userCycle?.data_inicio_ciclo ? new Date(userCycle.data_inicio_ciclo).getTime() : NaN;
+    const cycleStartMs = Number.isFinite(parsedCycleStartMs) ? parsedCycleStartMs : Date.now();
+    const elapsedDays = Math.max(
+      1,
+      Math.ceil((Date.now() - cycleStartMs) / (1000 * 60 * 60 * 24))
+    );
+    const subjectsPerDay = studiedSubjects > 0 ? studiedSubjects / elapsedDays : 0;
     const daysToFinish = subjectsPerDay > 0 ? Math.ceil(remainingSubjects / subjectsPerDay) : null;
 
     return {
@@ -1509,10 +1497,11 @@ const Subjects = () => {
       studiedSubjects,
       remainingSubjects,
       progressPercentage,
+      elapsedDays,
       subjectsPerDay,
       daysToFinish,
     };
-  }, [expandedSubjectList, studiedCycleIdSet]);
+  }, [expandedSubjectList, studiedCycleIdSet, userCycle?.data_inicio_ciclo]);
 
   if (isLoading || isOriginsLoading || loading) {
     return <LoadingSpinner size="large" showText fullPage />;
@@ -1653,115 +1642,17 @@ const Subjects = () => {
   );
 
   const renderCycleVisualPanel = () => {
-    const progressOffset = 301.5 - (301.5 * cycleVisualStats.progressPercentage) / 100;
     const rhythmWidth = Math.min(cycleVisualStats.subjectsPerDay * 30, 100);
-    const detailSections = [
-      'giro atual',
-      'ritmo',
-      'previsão',
-      'histórico',
-      'alertas',
-      'matérias mais lentas',
-      'consistência',
-    ];
-
-    const giroCard = (
-      <div className="bg-card dark:bg-zinc-900 border border-border rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden flex-1 min-w-0">
-        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-          <RotateCcw size={80} />
-        </div>
-
-        <div className="flex items-center justify-between gap-3 mb-4 relative min-w-0">
-          <h3 className="text-sm font-black uppercase tracking-widest text-primary/80 truncate">
-            Giro Atual
-          </h3>
-          <span className="text-[10px] font-bold px-2 py-0.5 bg-primary/10 text-primary rounded-full shrink-0">
-            #1
-          </span>
-        </div>
-
-        <div className="flex flex-col items-center justify-center py-4 relative">
-          <svg className="w-28 h-28 transform -rotate-90 shrink-0" viewBox="0 0 112 112" aria-hidden="true">
-            <circle
-              cx="56"
-              cy="56"
-              r="48"
-              fill="transparent"
-              stroke="currentColor"
-              strokeWidth="6"
-              className="text-muted/20"
-            />
-            <circle
-              cx="56"
-              cy="56"
-              r="48"
-              fill="transparent"
-              stroke="currentColor"
-              strokeWidth="10"
-              strokeDasharray={301.5}
-              strokeDashoffset={progressOffset}
-              className="text-primary transition-all duration-1000 ease-out"
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-black">{cycleVisualStats.progressPercentage}%</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter text-content-muted">Completo</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mt-4">
-          <div className="bg-muted/20 border border-border/50 rounded-xl p-3 text-center min-w-0">
-            <p className="text-[10px] font-black text-content-muted uppercase mb-1 truncate">Estudadas</p>
-            <p className="text-lg font-black text-foreground">{cycleVisualStats.studiedSubjects}</p>
-          </div>
-          <div className="bg-muted/20 border border-border/50 rounded-xl p-3 text-center min-w-0">
-            <p className="text-[10px] font-black text-content-muted uppercase mb-1 truncate">Restantes</p>
-            <p className="text-lg font-black text-foreground">{cycleVisualStats.remainingSubjects}</p>
-          </div>
-        </div>
-      </div>
-    );
-
-    const ritmoCard = (
-      <div className="bg-card dark:bg-zinc-900 border border-border rounded-2xl p-4 sm:p-5 shadow-sm flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-4 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-            <Clock size={16} className="text-blue-500" />
-          </div>
-          <h4 className="text-xs font-black uppercase tracking-wider text-content-main min-w-0 break-words">
-            Inteligência de Ritmo
-          </h4>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-[11px] mb-1">
-              <span className="text-content-muted font-bold uppercase">Ritmo Atual</span>
-              <span className="text-foreground font-black">{cycleVisualStats.subjectsPerDay.toFixed(1)} mat/dia</span>
-            </div>
-            <div className="h-1.5 w-full bg-muted/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 transition-all duration-500"
-                style={{ width: `${rhythmWidth}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-border/50">
-            <p className="text-xs text-content-muted leading-relaxed">
-              {cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0 ? (
-                <>
-                  Faltam aprox. <strong className="text-foreground">{cycleVisualStats.daysToFinish} dias</strong> para você bater este giro no ritmo atual.
-                </>
-              ) : (
-                "Continue estudando para gerar sua estimativa de conclusão."
-              )}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    const formatSubjectsPerDay = (value: number) => {
+      if (value <= 0) return 'Sem ritmo ainda';
+      if (value < 1) {
+        const daysPerSubject = Math.max(2, Math.round(1 / value));
+        return `1 matéria a cada ${daysPerSubject} dias`;
+      }
+      const rounded = Math.round(value);
+      const displayValue = Math.abs(value - rounded) < 0.05 ? rounded.toString() : value.toFixed(1);
+      return `${displayValue} ${displayValue === '1' ? 'matéria' : 'matérias'}/dia`;
+    };
 
     return (
       <section className="w-full" aria-label="Estatísticas do ciclo">
@@ -1788,18 +1679,16 @@ const Subjects = () => {
 
             <div className="grid grid-cols-3 gap-2 md:flex md:items-center md:gap-2 min-w-0">
               <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2 min-w-0 md:min-w-[112px]">
-                <p className="text-[9px] font-black uppercase text-content-muted truncate">Completo</p>
-                <p className="text-sm font-black text-foreground">{cycleVisualStats.progressPercentage}%</p>
+                <p className="text-[9px] font-black uppercase text-content-muted truncate">Estudadas</p>
+                <p className="text-sm font-black text-foreground">{cycleVisualStats.studiedSubjects}</p>
               </div>
               <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2 min-w-0 md:min-w-[112px]">
-                <p className="text-[9px] font-black uppercase text-content-muted truncate">Ritmo</p>
-                <p className="text-sm font-black text-foreground truncate">{cycleVisualStats.subjectsPerDay.toFixed(1)} mat/dia</p>
+                <p className="text-[9px] font-black uppercase text-content-muted truncate">Na fila</p>
+                <p className="text-sm font-black text-foreground">{cycleVisualStats.remainingSubjects}</p>
               </div>
               <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2 min-w-0 md:min-w-[112px]">
-                <p className="text-[9px] font-black uppercase text-content-muted truncate">Previsão</p>
-                <p className="text-sm font-black text-foreground truncate">
-                  {cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0 ? `${cycleVisualStats.daysToFinish}d` : '--'}
-                </p>
+                <p className="text-[9px] font-black uppercase text-content-muted truncate">Total</p>
+                <p className="text-sm font-black text-foreground">{cycleVisualStats.totalSubjects}</p>
               </div>
             </div>
 
@@ -1816,29 +1705,52 @@ const Subjects = () => {
                 Detalhes do Ciclo
               </SheetTitle>
               <SheetDescription>
-                Resumo expandido e espaço reservado para as próximas análises.
+                Ritmo do giro atual.
               </SheetDescription>
             </SheetHeader>
 
             <div className="mt-6 space-y-4">
-              {giroCard}
-              {ritmoCard}
+              <div className="rounded-2xl border border-border bg-card dark:bg-zinc-900 p-5">
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <Clock size={16} className="text-blue-500" />
+                  </div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-content-main">
+                    Inteligência de Ritmo
+                  </h4>
+                </div>
 
-              <div className="rounded-2xl border border-border bg-card dark:bg-zinc-900 p-4">
-                <h4 className="text-xs font-black uppercase tracking-widest text-content-main mb-3">
-                  Próximas informações
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {detailSections.map(section => (
-                    <div
-                      key={section}
-                      className="rounded-xl border border-border/50 bg-muted/10 px-3 py-2"
-                    >
-                      <p className="text-[11px] font-black uppercase tracking-wider text-content-muted">
-                        {section}
-                      </p>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-content-muted">
+                        Ritmo atual
+                      </span>
+                      <span className="text-xs font-black text-foreground tabular-nums">
+                        {formatSubjectsPerDay(cycleVisualStats.subjectsPerDay)}
+                      </span>
                     </div>
-                  ))}
+                    <div className="h-1.5 w-full bg-muted/20 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 transition-all duration-500"
+                        style={{ width: `${rhythmWidth}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-border/50">
+                    <p className="text-xs text-content-muted leading-relaxed">
+                      {cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0 ? (
+                        <>
+                          Faltam aprox. <strong className="text-foreground">{cycleVisualStats.daysToFinish} dias</strong> para você bater este giro no ritmo atual.
+                        </>
+                      ) : cycleVisualStats.remainingSubjects === 0 ? (
+                        'Este giro já está completo.'
+                      ) : (
+                        'Marque matérias como estudadas para gerar uma estimativa de conclusão.'
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1877,68 +1789,195 @@ const Subjects = () => {
     return (
       <aside className="hidden md:block min-w-0">
         <div className="sticky top-4">
-          <div className="mb-4 min-h-[52px] flex items-center justify-between gap-3 rounded-xl border border-emerald-800/50 bg-emerald-900/10 px-4 py-3">
-            <div className="min-w-0">
-              <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+              <h3 className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
                 Concluídas no Ciclo
               </h3>
-              <p className="text-[11px] text-content-muted font-semibold mt-1">
-                {studiedCycleList.length} matéria{studiedCycleList.length === 1 ? '' : 's'} estudada{studiedCycleList.length === 1 ? '' : 's'}
-              </p>
+              <span className="text-[10px] text-gray-400 dark:text-white/30">
+                ({studiedCycleList.length})
+              </span>
             </div>
             {pendingCycleList.length === 0 && studiedCycleList.length > 0 ? (
               <button
                 onClick={handleIniciarProximoCiclo}
                 disabled={isStartingNextCycle}
-                className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 shrink-0"
+                className="flex h-7 items-center gap-1.5 rounded-md bg-emerald-500 px-2.5 text-[10px] font-semibold text-white transition-all hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
               >
-                {isStartingNextCycle ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                {isStartingNextCycle ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
                 Novo Ciclo
               </button>
             ) : null}
           </div>
 
           {studiedCycleList.length === 0 ? (
-            <div className="rounded-2xl border border-emerald-900/35 bg-emerald-950/[0.08] py-8 text-center">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-3">
+            <div className="rounded-xl border border-gray-200/70 dark:border-white/[0.06] bg-white dark:bg-card py-8 text-center">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 flex items-center justify-center mx-auto mb-3">
                 <Check size={18} className="text-emerald-500" />
               </div>
-              <p className="text-xs font-semibold text-content-muted leading-relaxed">
+              <p className="text-xs text-gray-400 dark:text-white/30 leading-relaxed">
                 Nenhuma matéria marcada como estudada neste ciclo.
               </p>
             </div>
           ) : (
-            <div className="max-h-[70vh] overflow-y-auto flex flex-col gap-4 pr-1">
-              {studiedCycleList.map((item, index) => {
-                const subjectName = getUnifiedSubjectName(item.subject.id, item.subject.name).toUpperCase();
-                const startedTopicsCount = item.subject.topics.filter(isTopicStarted).length;
+            <div className="max-h-[70vh] overflow-y-auto flex flex-col gap-1.5 pr-1">
+              {studiedCycleList.map((item) => {
+                const subjectName = getUnifiedSubjectName(item.subject.id, item.subject.name);
+                const startedTopics = item.subject.topics.filter(isTopicStarted);
+                const startedTopicsCount = startedTopics.length;
+                const isExpanded = expandedCompletedSubjectIds.includes(item.id);
 
                 return (
                   <div
                     key={item.id}
-                    className="group/completed flex min-h-[76px] items-center gap-3 rounded-2xl border border-emerald-900/45 bg-emerald-950/[0.16] px-4 py-3 opacity-90 transition-all hover:opacity-100 hover:border-emerald-500/30 hover:bg-emerald-900/20"
+                    className="group/completed rounded-lg border border-gray-200 dark:border-white/[0.04] bg-white dark:bg-card overflow-hidden transition-all hover:border-gray-300 dark:hover:border-white/[0.08]"
                   >
-                    <div className="w-7 h-7 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center shrink-0">
-                      <span className="text-[10px] font-black text-emerald-400 tabular-nums">
-                        {index + 1}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-black uppercase tracking-wider text-foreground truncate">
-                        {subjectName}
-                      </p>
-                      <p className="text-xs text-gray-400 font-semibold mt-0.5">
-                        {startedTopicsCount} tópico{startedTopicsCount === 1 ? '' : 's'} iniciado{startedTopicsCount === 1 ? '' : 's'} neste ciclo
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleVoltarMateriaParaFila(item.subject.id)}
-                      className="ml-auto w-8 h-8 shrink-0 rounded-lg border border-border/40 bg-background/70 text-content-muted opacity-0 scale-90 transition-all hover:border-primary/40 hover:bg-primary/10 hover:text-primary group-hover/completed:opacity-100 group-hover/completed:scale-100 focus:opacity-100 focus:scale-100"
-                      title="Voltar matéria para a fila do ciclo"
-                      aria-label={`Voltar ${subjectName} para a fila do ciclo`}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => toggleCompletedExpand(item.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleCompletedExpand(item.id);
+                        }
+                      }}
+                      className="h-[56px] flex items-center gap-2.5 pl-3 pr-4 py-0 cursor-pointer"
+                      aria-expanded={isExpanded}
                     >
-                      <RotateCcw size={14} className="mx-auto" />
-                    </button>
+                      <div className="w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 flex items-center justify-center shrink-0">
+                        <Check size={12} className="text-emerald-600 dark:text-emerald-400" strokeWidth={3} />
+                      </div>
+                      <div className="min-w-0 flex-1 flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate('/meus-editais', {
+                              state: {
+                                openEditalId: item.subject.edital_id,
+                                highlightSubjectId: item.subject.id,
+                                returnTo: '/ciclo-estudos'
+                              }
+                            });
+                          }}
+                          className="p-1 text-gray-300 dark:text-white/20 hover:text-primary transition-colors flex-shrink-0"
+                          title="Gerenciar no Edital / Editar tópicos"
+                        >
+                          <ExternalLink size={14} />
+                        </button>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-bold text-gray-700 dark:text-white/85 truncate leading-tight">
+                            {subjectName.charAt(0).toUpperCase() + subjectName.slice(1)}
+                          </p>
+                          <p className="text-[9px] text-gray-400 dark:text-white/30 mt-1">
+                            {startedTopicsCount} tópico{startedTopicsCount === 1 ? '' : 's'} iniciado{startedTopicsCount === 1 ? '' : 's'}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronDown
+                        size={13}
+                        className={`text-gray-300 dark:text-white/20 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleVoltarMateriaParaFila(item.subject.id);
+                        }}
+                        className="ml-auto w-6 h-6 shrink-0 rounded-md border border-gray-100 dark:border-white/[0.06] bg-white dark:bg-white/5 text-gray-300 dark:text-white/20 opacity-0 scale-90 transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary group-hover/completed:opacity-100 group-hover/completed:scale-100 focus:opacity-100 focus:scale-100 flex items-center justify-center"
+                        title="Voltar matéria para a fila do ciclo"
+                        aria-label={`Voltar ${subjectName} para a fila do ciclo`}
+                      >
+                        <RotateCcw size={11} />
+                      </button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t border-gray-100 dark:border-white/[0.06]">
+                        {startedTopics.length === 0 ? (
+                          <p className="px-4 py-2 text-[10px] text-gray-400 dark:text-white/30">
+                            Nenhum tópico iniciado.
+                          </p>
+                        ) : (
+                          <div className="flex flex-col">
+                            {startedTopics.map((topic, idx) => {
+                              const completed = isTopicCompleted(topic);
+                              const reviewCount = Math.max(topic.reviewCount || 0, topic.review_count || 0, topicStats.get(topic.id)?.reviewCount || 0);
+                              const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
+                              const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
+                              const hasDifficultyData = reviewCount > 0 && typeof topic.difficulty_level === 'number';
+
+                              return (
+                                <div
+                                  key={topic.id}
+                                className={`h-8 flex items-center justify-between gap-2 pl-9 pr-4 py-0 group/completed-topic ${
+                                    idx % 2 === 0
+                                      ? 'bg-gray-50/50 dark:bg-white/[0.02]'
+                                      : 'bg-white dark:bg-transparent'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 flex-1 min-w-0 pr-3">
+                                    <div
+                                      className={`h-5 w-1 rounded-full shrink-0 ${
+                                        completed
+                                          ? 'bg-emerald-500 shadow-[0_0_10px_rgba(34,197,94,0.25)]'
+                                          : 'bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.25)]'
+                                      }`}
+                                    />
+                                    <span className={`text-[11px] font-medium truncate ${completed ? 'text-content-muted opacity-50' : 'text-content-main'}`}>
+                                      {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center justify-end gap-2 shrink-0 relative min-w-[96px]">
+                                    <span className={`text-[9px] font-black uppercase tracking-wider transition-all duration-300 group-hover/completed-topic:opacity-0 group-hover/completed-topic:pointer-events-none group-hover/completed-topic:translate-x-3 ${
+                                      completed
+                                        ? 'text-emerald-500'
+                                        : 'text-orange-400 dark:text-orange-300'
+                                    }`}>
+                                      {completed ? 'Concluído' : 'Em revisão'}
+                                    </span>
+                                    <div
+                                      className={`flex items-center gap-2 transition-all duration-300 group-hover/completed-topic:opacity-0 group-hover/completed-topic:pointer-events-none group-hover/completed-topic:translate-x-3 ${completed ? 'opacity-40' : 'opacity-100'}`}
+                                      title={
+                                        hasDifficultyData
+                                          ? showHardAlert
+                                            ? 'Muitas revisões com dificuldade alta'
+                                            : 'Dificuldade e total de revisões'
+                                          : 'Dificuldade ainda não informada'
+                                      }
+                                    >
+                                        <DifficultyBarsCompact
+                                          level={hasDifficultyData ? (topic.difficulty_level as 1 | 2 | 3) : null}
+                                          size="sm"
+                                          showEmpty
+                                        />
+                                        <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums">
+                                          <RotateCcw size={10} className={showHardAlert ? 'text-orange-400' : 'text-content-muted/40'} />
+                                          <span className={showHardAlert ? 'text-orange-400' : ''}>{reviewCount}</span>
+                                        </div>
+                                    </div>
+                                    {!completed && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/revisoes?topicId=${topic.id}`);
+                                        }}
+                                        className="absolute right-0 w-6 h-6 rounded-full flex items-center justify-center bg-transparent border border-transparent text-orange-400 hover:bg-orange-400/10 hover:border-orange-400/20 transition-all opacity-0 translate-x-2 pointer-events-none group-hover/completed-topic:opacity-100 group-hover/completed-topic:translate-x-0 group-hover/completed-topic:pointer-events-auto"
+                                        title="Ir para revisões do tópico"
+                                        aria-label={`Ir para revisões do tópico ${topic.name}`}
+                                      >
+                                        <ArrowRight size={12} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -2087,18 +2126,19 @@ const Subjects = () => {
         >
         <div className="w-full min-w-0">
           {activeTab === 'all' && (
-            <div className="mb-4 min-h-[52px] flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/50 bg-card/40 dark:bg-zinc-900/40 px-4 py-3">
-              <div className="min-w-0">
-                <h3 className="text-xs font-black uppercase tracking-widest text-primary/80">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <ListTodo size={14} className="text-primary shrink-0" />
+                <h3 className="text-[15px] font-bold text-primary">
                   Fila do Ciclo
                 </h3>
-                <p className="text-[11px] text-content-muted font-semibold mt-1">
-                  {pendingCycleList.length} matéria{pendingCycleList.length === 1 ? '' : 's'} pendente{pendingCycleList.length === 1 ? '' : 's'}
-                </p>
+                <span className="text-[10px] text-gray-400 dark:text-white/30">
+                  ({pendingCycleList.length})
+                </span>
               </div>
-              <div className="hidden md:flex items-center gap-1.5 rounded-full border border-border/50 bg-card dark:bg-zinc-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-content-muted">
-                <GripVertical size={12} className="text-primary/70" />
-                Arraste para ordenar
+              <div className="hidden md:flex items-center gap-1 text-[10px] text-gray-400 dark:text-white/25 shrink-0">
+                <GripVertical size={12} />
+                Ordenar
               </div>
             </div>
           )}
@@ -2190,269 +2230,142 @@ const Subjects = () => {
             </div>
           ) : (
             <SortableContext items={displayList.map(i => i.id)} strategy={verticalListSortingStrategy}>
-              <div className={activeTab === 'all' ? "flex flex-col gap-4" : "space-y-3"}>
-                {displayList.map((item, index) => {
+              <div className={activeTab === 'all' ? "flex flex-col gap-1.5" : "space-y-1.5"}>
+                {displayList.map((item) => {
                   const { subject } = item;
-                  const visualTag = getSubjectVisualTag(subject);
                   const totalTopicsCount = subject.topics.length;
                   const completedTopicsCount = subject.topics.filter(isTopicCompleted).length;
                   const inReviewTopicsCount = subject.topics.filter(topic =>
                     isTopicStarted(topic) && !isTopicCompleted(topic)
                   ).length;
-                  const notStartedTopicsCount = Math.max(
-                    totalTopicsCount - inReviewTopicsCount - completedTopicsCount,
-                    0
-                  );
                   const noTopics = totalTopicsCount === 0;
-                  const noTopicsStarted = totalTopicsCount > 0 && notStartedTopicsCount === totalTopicsCount;
-                  const allTopicsInReview = totalTopicsCount > 0 && inReviewTopicsCount === totalTopicsCount;
-                  const allTopicsCompleted = totalTopicsCount > 0 && completedTopicsCount === totalTopicsCount;
-                  const mixedTopicProgress = !noTopics && !noTopicsStarted && !allTopicsInReview && !allTopicsCompleted;
-                  const topicProgressParts = mixedTopicProgress
-                    ? [
-                        notStartedTopicsCount > 0
-                          ? { label: `${notStartedTopicsCount} não iniciado${notStartedTopicsCount === 1 ? '' : 's'}`, tone: 'muted' as const }
-                          : null,
-                        inReviewTopicsCount > 0
-                          ? { label: `${inReviewTopicsCount} em revisão`, tone: 'muted' as const }
-                          : null,
-                        completedTopicsCount > 0
-                          ? { label: `${completedTopicsCount} concluído${completedTopicsCount === 1 ? '' : 's'}`, tone: 'success' as const }
-                          : null,
-                      ].filter((part): part is { label: string; tone: 'muted' | 'success' } => Boolean(part))
-                    : [];
+                  const startedTopicsCount = inReviewTopicsCount + completedTopicsCount;
+                  const topicStatusLabel = noTopics
+                    ? 'Sem tópicos'
+                    : startedTopicsCount === 0
+                      ? 'Nenhum iniciado'
+                      : inReviewTopicsCount === totalTopicsCount
+                        ? 'Todos em revisão'
+                        : startedTopicsCount === totalTopicsCount
+                          ? 'Todos iniciados'
+                          : `${startedTopicsCount}/${totalTopicsCount} iniciados`;
 
                   const isEditing = editingSubjectId === subject.id;
-                  const position = index + 1;
 
                   return (
                     <SortableItem key={item.id} id={item.id} lockAxis="vertical">
                       {({ listeners, attributes }) => (
-                        <div className={activeTab === 'all' ? "w-full max-w-full" : "w-full max-w-full mb-2"} data-subject-item>
+                        <div className="w-full max-w-full flex items-start gap-1.5" data-subject-item>
+                          <div
+                            className="w-5 h-[56px] shrink-0 flex items-center justify-center cursor-move text-gray-300 dark:text-white/20 hover:text-gray-500 dark:hover:text-white/50 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                            {...listeners}
+                            {...attributes}
+                            aria-label={`Ordenar ${getUnifiedSubjectName(subject.id, subject.name)}`}
+                            title="Ordenar matéria"
+                          >
+                            <GripVertical size={15} />
+                          </div>
+
                           {/* Container unificado: header + tópicos no mesmo card */}
                           <div
-                            className={`glow-card rounded-2xl overflow-hidden relative hover:border-primary/20 transition-all ${
-                              expandedSubjectIds.includes(item.id) ? 'border-primary/30 shadow-primary/5' : ''
-                            }`}
+                            className={`rounded-lg overflow-hidden border transition-all ${
+                              expandedSubjectIds.includes(item.id)
+                                ? 'border-gray-200 dark:border-white/[0.08] shadow-sm'
+                                : 'border-gray-100 dark:border-white/[0.04] hover:border-gray-200 dark:hover:border-white/[0.08]'
+                            } bg-white dark:bg-card flex-1 min-w-0`}
                           >
                             {/* === HEADER DA MATÉRIA === */}
                             <div
                               data-subject-id={subject.id}
                               onClick={() => toggleExpand(item.id)}
-                              className="p-4 grid grid-cols-[24px_minmax(0,1fr)_auto] sm:grid-cols-[24px_24px_minmax(0,1fr)_auto] items-center gap-3 group cursor-pointer relative transition-colors bg-background"
+                              className="h-[56px] pl-3 pr-4 py-0 flex items-center gap-2 group cursor-pointer relative transition-colors"
                           >
-                              {/* Action icon */}
-                              <div
-                                className="cursor-move text-primary/80 hover:text-primary transition-colors p-1 -ml-2 justify-self-start"
-                                onClick={(e) => e.stopPropagation()}
-                                {...listeners}
-                                {...attributes}
-                              >
-                                <GripVertical size={16} />
-                              </div>
-
-                              {/* Link Externo para Gerenciar no Edital */}
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate('/meus-editais', {
-                                          state: {
-                                            openEditalId: subject.edital_id,
-                                            highlightSubjectId: subject.id
-                                          }
-                                        });
-                                      }}
-                                      className="hidden sm:flex w-6 h-6 items-center justify-center rounded-lg text-primary/80 hover:bg-primary/10 hover:text-primary transition-colors justify-self-center"
-                                    >
-                                      <ExternalLink size={13} strokeWidth={2.5} />
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-[10px] font-bold">Gerenciar no Edital / Editar tópicos</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-
-                              <div className="flex flex-col min-w-0 gap-1">
-                                <div className="flex items-baseline gap-2 min-w-0">
-                                  <h4
-                                    className="text-xs font-black uppercase tracking-widest text-primary/80 truncate"
-                                  >
-                                    {getUnifiedSubjectName(subject.id, subject.name).toUpperCase()}
-                                  </h4>
-
-                                  <span className="text-[10px] text-content-muted font-semibold tabular-nums whitespace-nowrap shrink-0">
-                                    {totalTopicsCount} {totalTopicsCount === 1 ? 'tópico' : 'tópicos'}
-                                  </span>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 max-w-full">
-                                  {noTopics ? (
-                                    <span className="text-[10px] font-semibold text-content-muted whitespace-nowrap">
-                                      Nenhum tópico cadastrado
-                                    </span>
-                                  ) : noTopicsStarted ? (
-                                    <span className="text-[10px] font-semibold text-content-muted whitespace-nowrap">
-                                      Nenhum tópico iniciado
-                                    </span>
-                                  ) : allTopicsInReview ? (
-                                    <span className="text-[10px] font-black text-orange-400 whitespace-nowrap">
-                                      Todos os tópicos em revisão
-                                    </span>
-                                  ) : allTopicsCompleted ? (
-                                    <span className="text-[10px] font-black text-emerald-400 whitespace-nowrap">
-                                      Todos os tópicos concluídos
-                                    </span>
-                                  ) : (
-                                    topicProgressParts.map((part, partIndex) => (
-                                      <React.Fragment key={part.label}>
-                                        {partIndex > 0 && (
-                                          <span className="text-[10px] text-content-muted/40">•</span>
-                                        )}
-                                        <span
-                                          className={`text-[10px] font-semibold whitespace-nowrap ${
-                                            part.tone === 'success' ? 'text-emerald-400' : 'text-content-muted'
-                                          }`}
-                                        >
-                                          {part.label}
-                                        </span>
-                                      </React.Fragment>
-                                    ))
-                                  )}
-                                </div>
-
-                                {isSubjectMerged(subject.id) && (
+                              {/* Content area: text + progress */}
+                              <div className="flex items-center gap-4 min-w-0 flex-1">
+                                {/* Text Block */}
+                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      const mergeInfo = getSubjectMergeInfo(subject.id);
-                                      if (mergeInfo) {
-                                        setSelectedMergeId(mergeInfo.id);
-                                        setSelectedMergeName(mergeInfo.display_name);
-
-                                        // Capturar originais para transparência no modal
-                                        const originalIds = [
-                                          mergeInfo.primary_subject_id,
-                                          ...(mergeInfo.merged_subject_ids || [])
-                                        ];
-
-                                        const originals = originalIds.map(sid => {
-                                          const origins = originsMap.get(sid) || [];
-                                          const firstOrigin = origins[0];
-                                          const subj = subjects.find(s => s.id === sid);
-                                          return {
-                                            subjectName: subj?.name || 'Matéria Desconhecida',
-                                            editalName: firstOrigin?.name || 'Edital Desconhecido',
-                                            editalOrgan: firstOrigin?.organ || ''
-                                          };
-                                        });
-                                        setSelectedMergeOriginals(originals);
-
-                                        setIsRevertModalOpen(true);
-                                      }
+                                      navigate('/meus-editais', {
+                                        state: {
+                                          openEditalId: subject.edital_id,
+                                          highlightSubjectId: subject.id,
+                                          returnTo: '/ciclo-estudos'
+                                        }
+                                      });
                                     }}
-                                    title="Desfazer Mesclagem"
-                                    className="w-fit p-1 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition-colors text-orange-500"
+                                    className="p-1 text-gray-300 dark:text-white/20 hover:text-primary transition-colors flex-shrink-0"
+                                    title="Gerenciar no Edital / Editar tópicos"
                                   >
-                                    <Link2Off size={14} />
+                                    <ExternalLink size={14} />
                                   </button>
-                                )}
+
+                                  <div className="flex flex-col min-w-0 gap-0.5 flex-1">
+                                    <h4 className="text-[13px] font-bold text-gray-700 dark:text-white/85 truncate leading-tight">
+                                      {(() => { const n = getUnifiedSubjectName(subject.id, subject.name); return n.charAt(0).toUpperCase() + n.slice(1); })()}
+                                    </h4>
+
+                                    <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-white/35 leading-none mt-1">
+                                      <span className="flex items-center gap-0.5">
+                                        <span className="text-[10px]">≡</span> {totalTopicsCount} Tópico{totalTopicsCount === 1 ? '' : 's'}
+                                      </span>
+                                      {!noTopics && (
+                                        <>
+                                          <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-white/20" aria-hidden="true" />
+                                          <span className={inReviewTopicsCount === totalTopicsCount ? 'text-orange-400 dark:text-orange-300' : ''}>
+                                            {topicStatusLabel}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {isSubjectMerged(subject.id) && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const mergeInfo = getSubjectMergeInfo(subject.id);
+                                        if (mergeInfo) {
+                                          setSelectedMergeId(mergeInfo.id);
+                                          setSelectedMergeName(mergeInfo.display_name);
+
+                                          // Capturar originais para transparência no modal
+                                          const originalIds = [
+                                            mergeInfo.primary_subject_id,
+                                            ...(mergeInfo.merged_subject_ids || [])
+                                          ];
+
+                                          const originals = originalIds.map(sid => {
+                                            const origins = originsMap.get(sid) || [];
+                                            const firstOrigin = origins[0];
+                                            const subj = subjects.find(s => s.id === sid);
+                                            return {
+                                              subjectName: subj?.name || 'Matéria Desconhecida',
+                                              editalName: firstOrigin?.name || 'Edital Desconhecido',
+                                              editalOrgan: firstOrigin?.organ || ''
+                                            };
+                                          });
+                                          setSelectedMergeOriginals(originals);
+
+                                          setIsRevertModalOpen(true);
+                                        }
+                                      }}
+                                      title="Desfazer Mesclagem"
+                                      className="w-fit p-1 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition-colors text-orange-500"
+                                    >
+                                      <Link2Off size={14} />
+                                    </button>
+                                  )}
+                                </div>
+
                               </div>
 
-                            <div className="flex items-center justify-end gap-2 min-w-0">
-                              {/* Sparkline de tendência — mini gráfico ao lado do círculo */}
-                              <SubjectSparkline subjectId={subject.id} />
-
-                              {/* Progress Dual Ring — visual read-only */}
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="hidden sm:flex items-center justify-center relative w-11 h-11 rounded-full bg-secondary/50 dark:bg-deep-slate border border-border dark:border-white/5 mr-2 cursor-help transition-all hover:scale-105 active:scale-95">
-                                      <svg className="w-full h-full -rotate-90 transform p-0.5" viewBox="0 0 100 100" shapeRendering="geometricPrecision">
-                                        <circle className="text-black/5 dark:text-white/5" strokeWidth="8" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
-                                        <circle className="text-black/5 dark:text-white/5" strokeWidth="6" stroke="currentColor" fill="transparent" r="26" cx="50" cy="50" />
-                                        <circle
-                                          className="text-sky-400 transition-all duration-1000 ease-out"
-                                          strokeWidth="8"
-                                          strokeDasharray={`${(getSubjectCoverage(subject) / 100) * 251.327}, 251.327`}
-                                          strokeLinecap="round"
-                                          stroke="currentColor"
-                                          fill="transparent"
-                                          r="40"
-                                          cx="50"
-                                          cy="50"
-                                        />
-                                        <circle
-                                          className="text-emerald-500 transition-all duration-1000 ease-out"
-                                          strokeWidth="6"
-                                          strokeDasharray={`${(getSubjectCompletion(subject) / 100) * 163.362}, 163.362`}
-                                          strokeLinecap="round"
-                                          stroke="currentColor"
-                                          fill="transparent"
-                                          r="26"
-                                          cx="50"
-                                          cy="50"
-                                        />
-                                      </svg>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="p-3 bg-background/95 backdrop-blur-md border-border shadow-2xl rounded-xl">
-                                    <div className="space-y-1.5">
-                                      <p className="text-[10px] font-bold text-content-muted uppercase tracking-wider">Detalhamento da Matéria</p>
-                                      <div className="space-y-1">
-                                        <div className="flex items-center justify-between gap-8">
-                                          <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-sky-400"></div>
-                                            <span className="text-xs font-semibold">Tópicos Iniciados</span>
-                                          </div>
-                                          <span className="text-xs font-bold text-sky-400">{getSubjectCoverage(subject)}%</span>
-                                        </div>
-                                        <div className="flex items-center justify-between gap-8">
-                                          <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                            <span className="text-xs font-semibold">Tópicos Concluídos</span>
-                                          </div>
-                                          <span className="text-xs font-bold text-emerald-500">{getSubjectCompletion(subject)}%</span>
-                                        </div>
-                                      </div>
-                                      <div className="pt-1.5 mt-1.5 border-t border-border/50">
-                                        <p className="text-[10px] font-medium text-content-muted">Status: <span className="text-primary font-bold uppercase">{visualTag}</span></p>
-                                      </div>
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedSubjectForNotes(subject);
-                                  setIsNotesModalOpen(true);
-                                }}
-                                title="Anotações"
-                                className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-primary/80 hover:text-primary"
-                              >
-                                <FileText size={14} />
-                              </button>
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleExpand(item.id);
-                                }}
-                                className={`p-1.5 hover:bg-primary/10 rounded-lg transition-all text-primary/80 hover:text-primary ${
-                                  expandedSubjectIds.includes(item.id) ? 'rotate-180 text-primary' : ''
-                                }`}
-                              >
-                                <ChevronDown size={16} />
-                              </button>
+                            <div className="flex items-center gap-2 shrink-0">
 
                               {activeTab === 'all' && (
                                 <>
-                                  <div className="border-l border-gray-700/50 mx-2 h-8" />
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -2460,9 +2373,9 @@ const Subjects = () => {
                                     }}
                                     title="Marcar como estudada"
                                     aria-label={`Marcar ${getUnifiedSubjectName(subject.id, subject.name)} como estudada`}
-                                    className="w-9 h-9 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:bg-emerald-500/20 hover:text-emerald-400 hover:border-emerald-500 transition-all"
+                                    className="w-6 h-6 rounded-full border border-gray-200 dark:border-white/10 bg-transparent flex items-center justify-center shrink-0 text-gray-300 dark:text-white/25 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-500/10 group-hover:border-emerald-200/60 dark:group-hover:border-emerald-400/60 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:border-emerald-200/60 dark:hover:border-emerald-400/70 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all"
                                   >
-                                    <Check size={15} />
+                                    <Check size={12} strokeWidth={3} />
                                   </button>
                                 </>
                               )}
@@ -2472,16 +2385,16 @@ const Subjects = () => {
                             {/* === TÓPICOS (dentro do mesmo card) === */}
                             {expandedSubjectIds.includes(item.id) && (
                               <div
-                                className="border-t border-border/50 dark:border-white/5"
+                                className="border-t border-gray-100 dark:border-white/[0.06]"
                                 onClick={(e) => e.stopPropagation()}
                               >
 
                               {subject.topics.length === 0 ? (
-                                <div className="py-4 text-center text-[10px] text-content-muted uppercase font-bold tracking-widest">
+                                <div className="py-4 text-center text-xs text-gray-400 dark:text-white/30">
                                   Nenhum tópico cadastrado
                                 </div>
                               ) : (
-                                <div className="flex flex-col py-1">
+                                <div className="flex flex-col">
                                   {subject.topics.map((topic, idx) => {
                                     const completed = isTopicCompleted(topic);
                                     const isActive = topic.is_active !== false;
@@ -2489,6 +2402,7 @@ const Subjects = () => {
                                     const hasStarted = reviewCount > 0 || isTopicStarted(topic);
                                     const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
                                     const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
+                                    const hasDifficultyData = reviewCount > 0 && typeof topic.difficulty_level === 'number';
                                     const statusState: 'empty' | 'dot' | 'check' =
                                       completed ? 'check' : hasStarted ? 'dot' : 'empty';
                                     const statusLabel =
@@ -2500,7 +2414,11 @@ const Subjects = () => {
                                       <div
                                         key={topic.id}
                                         data-topic-item
-                                        className={`flex items-center justify-between px-4 py-2.5 border-b border-border/40 dark:border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group/topic relative cursor-default ${
+                                        className={`h-8 flex items-center justify-between pl-9 pr-4 py-0 transition-colors group/topic relative cursor-default ${
+                                          idx % 2 === 0
+                                            ? 'bg-gray-50/50 dark:bg-white/[0.02]'
+                                            : 'bg-white dark:bg-transparent'
+                                        } ${
                                           !isActive ? 'opacity-40 grayscale-[0.5]' : ''
                                         }`}
                                       >
@@ -2515,14 +2433,14 @@ const Subjects = () => {
                                               <div className="h-5 w-1 rounded-full bg-content-muted/25" />
                                             )}
                                             {statusState === 'dot' && (
-                                              <div className="h-5 w-1 rounded-full bg-primary/70 shadow-[0_0_10px_rgba(59,130,246,0.25)]" />
+                                              <div className="h-5 w-1 rounded-full bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.25)]" />
                                             )}
                                             {statusState === 'check' && (
                                               <div className="h-5 w-1 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(34,197,94,0.25)]" />
                                             )}
                                           </div>
                                           <span
-                                            className={`text-xs font-medium truncate transition-opacity ${
+                                            className={`text-[11px] font-medium truncate transition-opacity ${
                                               completed ? 'text-content-muted opacity-50' : !isActive ? 'text-content-muted opacity-40' : 'text-content-main'
                                             }`}
                                           >
@@ -2553,7 +2471,7 @@ const Subjects = () => {
                                           </div>
 
                                           {isActive && (
-                                            <div className={`absolute ${hasStarted ? "right-[92px]" : "right-[36px]"} flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0 pointer-events-none group-hover/topic:pointer-events-auto`}>
+                                            <div className="absolute right-8 flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0 pointer-events-none group-hover/topic:pointer-events-auto">
                                               {/* IA */}
                                               <button className="h-6 px-2 flex items-center gap-1 rounded bg-primary/5 text-primary/70 hover:bg-primary transition-all hover:text-white text-[9px] font-bold uppercase tracking-tight">
                                                 <Wand2 size={10} /> IA
@@ -2583,9 +2501,22 @@ const Subjects = () => {
                                               <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-2"></div>
                                             </div>
                                           )}
-                                          {isActive && hasStarted && (
-                                            <div className={`flex items-center gap-2 mr-2 transition-opacity ${completed ? 'opacity-40' : ''}`} title={showHardAlert ? 'Muitas revisões com dificuldade alta' : 'Total de revisões'}>
-                                              <DifficultyBarsCompact level={(topic.difficulty_level || 2) as 1 | 2 | 3} size="sm" />
+                                          {isActive && (
+                                            <div
+                                              className={`flex items-center gap-2 mr-2 transition-all duration-300 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-3 ${completed ? 'opacity-40' : ''}`}
+                                              title={
+                                                hasDifficultyData
+                                                  ? showHardAlert
+                                                    ? 'Muitas revisões com dificuldade alta'
+                                                    : 'Dificuldade e total de revisões'
+                                                  : 'Dificuldade ainda não informada'
+                                              }
+                                            >
+                                              <DifficultyBarsCompact
+                                                level={hasDifficultyData ? (topic.difficulty_level as 1 | 2 | 3) : null}
+                                                size="sm"
+                                                showEmpty
+                                              />
                                               <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums">
                                                 <RotateCcw size={10} className={showHardAlert ? "text-orange-400" : "text-content-muted/40"} />
                                                 <span className={showHardAlert ? "text-orange-400" : ""}>{reviewCount}</span>
@@ -2600,7 +2531,7 @@ const Subjects = () => {
                                                     e.stopPropagation();
                                                     navigate(`/revisoes?topicId=${topic.id}`);
                                                   }}
-                                                  className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary dark:bg-primary/20 dark:text-primary dark:hover:bg-primary/30 transition-all shadow-sm border border-primary/30 dark:border-primary/40 ml-0.5"
+                                                  className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-transparent border border-transparent text-orange-400 hover:bg-orange-400/10 hover:border-orange-400/20 transition-all ml-0.5"
                                                   title="Ir para revisões do tópico"
                                                   aria-label={`Ir para revisões do tópico ${topic.name}`}
                                                 >
@@ -2612,7 +2543,7 @@ const Subjects = () => {
                                                     e.stopPropagation();
                                                     openReviewModal(topic.id);
                                                   }}
-                                                  className="flex-shrink-0 w-7 h-7 rounded-full border border-primary/45 bg-primary/12 hover:border-primary/70 hover:bg-primary/25 hover:shadow-[0_0_14px_rgba(59,130,246,0.35)] text-primary transition-all duration-300 flex items-center justify-center ml-0.5 group"
+                                                  className="flex-shrink-0 w-6 h-6 rounded-full border border-transparent bg-transparent hover:border-emerald-400/25 hover:bg-emerald-400/10 text-emerald-400 transition-all duration-300 flex items-center justify-center ml-0.5 group"
                                                   title="Iniciar estudo do tópico"
                                                   aria-label={`Iniciar estudo do tópico ${topic.name}`}
                                                 >
@@ -3047,18 +2978,6 @@ const Subjects = () => {
             onOpenChange={setContentUploadModal}
             onSuccess={refreshData}
           />
-
-          {selectedSubjectForNotes && (
-            <SubjectNotesModal
-              isOpen={isNotesModalOpen}
-              onClose={() => {
-                setIsNotesModalOpen(false);
-                setSelectedSubjectForNotes(null);
-              }}
-              subjectId={selectedSubjectForNotes.id}
-              subjectName={getUnifiedSubjectName(selectedSubjectForNotes.id, selectedSubjectForNotes.name)}
-            />
-          )}
 
           <DifficultyRatingModal
             isOpen={difficultyModalData.isOpen}

@@ -25,6 +25,7 @@ import ResetPassword from "@/pages/ResetPassword";
 import ConfirmEmail from "@/pages/ConfirmEmail";
 import Revisoes from "@/pages/Revisoes";
 import Editais from "@/pages/Editais";
+import Cadernos from "@/pages/Cadernos";
 import Planos from "@/pages/Planos";
 import RevealCardDemo from "@/components/ui/RevealCardDemo";
 import UserManagement from "@/pages/admin/UserManagement";
@@ -97,8 +98,10 @@ const App = () => {
                           <Route path="materias/:subjectId" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="topicos" element={<Navigate to="/ciclo-estudos" replace />} />
+                          <Route path="subjects" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="revisoes" element={<Revisoes />} />
                           <Route path="ciclo-estudos" element={<Subjects />} />
+                          <Route path="cadernos" element={<Cadernos />} />
 
                           {/* Admin Routes - Protected */}
                           <Route element={<AdminRoute />}>

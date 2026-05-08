@@ -107,6 +107,7 @@ const Editais = () => {
         isOpen: boolean; 
         edital: UserEdital | null;
         initialExpandedSubjectId?: string;
+        returnTo?: string;
     }>({ isOpen: false, edital: null });
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [unloadConfirm, setUnloadConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
@@ -248,7 +249,8 @@ const Editais = () => {
                 setSubjectsModal({ 
                     isOpen: true, 
                     edital: targetEdital,
-                    initialExpandedSubjectId: state.highlightSubjectId 
+                    initialExpandedSubjectId: state.highlightSubjectId,
+                    returnTo: state.returnTo
                 });
             }
         }
@@ -2123,6 +2125,7 @@ const Editais = () => {
                 <EditalSubjectsModal
                     isOpen={subjectsModal.isOpen}
                     onClose={() => setSubjectsModal({ isOpen: false, edital: null })}
+                    onBack={subjectsModal.returnTo ? () => navigate(subjectsModal.returnTo!) : undefined}
                     edital={subjectsModal.edital}
                     editais={editais.filter(e => !e.mergedIntoCycle)}
                     allSubjects={subjects}
