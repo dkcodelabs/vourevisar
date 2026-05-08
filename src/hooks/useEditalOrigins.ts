@@ -20,7 +20,7 @@ interface EditalOriginData {
  * - originsMap: Map<subjectId, string[]> — nomes de editais de cada matéria
  * - editaisData: dados brutos dos editais do usuário
  * - editaisNoCiclo: editais com merged_into_cycle = true
- * - activeSubjectIdsSet: Set<subjectId> com IDs das matérias ativas (visíveis na pág. Matérias)
+ * - activeSubjectIdsSet: Set<subjectId> com IDs das matérias ativas (visíveis no Ciclo de Estudos)
  * - refresh: re-fetch
  */
 export const useEditalOrigins = () => {
@@ -105,7 +105,7 @@ export const useEditalOrigins = () => {
         [editaisData]);
 
     /**
-     * Set com todos os subject IDs "ativos" (visíveis na pág. Matérias).
+     * Set com todos os subject IDs "ativos" (visíveis no Ciclo de Estudos).
      * Um subject é ativo se estiver em active_subject_ids de algum edital no ciclo.
      */
     const activeSubjectIdsSet = useMemo(() => {

@@ -83,7 +83,7 @@ const AllTopicsInReviewMessage = () => {
                 }
               </p>
               <p className="text-yellow-600 text-xs">
-                💡 Adicione tópicos na página "Matérias" para incluí-las no plano de estudos.
+                💡 Adicione tópicos no Ciclo de Estudos para incluí-las no plano de estudos.
               </p>
             </div>
           )}

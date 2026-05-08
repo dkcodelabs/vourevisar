@@ -35,8 +35,6 @@ const routeTitles: Record<string, string> = {
   "/meus-editais": "Meus Editais",
   "/ciclo-estudos": "Ciclo de Estudos",
   "/revisoes": "Revisões",
-  "/materias": "Ciclo de Estudos",
-  "/topicos": "Ciclo de Estudos",
   "/estatisticas": "Estatísticas",
   "/perfil": "Perfil",
   "/configuracoes": "Configurações",

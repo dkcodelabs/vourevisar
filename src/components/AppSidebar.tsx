@@ -120,9 +120,6 @@ export function AppSidebar() {
     if (item.end) {
       return location.pathname === item.to;
     }
-    if (item.to === '/materias') {
-      return location.pathname === '/materias';
-    }
     return location.pathname.startsWith(item.to);
   };
 

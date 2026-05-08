@@ -92,8 +92,9 @@ const App = () => {
                         <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
                           <Route path="dashboard" element={<Dashboard />} />
                           <Route path="meus-editais" element={<Editais />} />
-                          <Route path="materias" element={<Subjects />} />
                           <Route path="estatisticas" element={<Statistics />} />
+                          <Route path="materias" element={<Navigate to="/ciclo-estudos" replace />} />
+                          <Route path="materias/:subjectId" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="topicos" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="revisoes" element={<Revisoes />} />

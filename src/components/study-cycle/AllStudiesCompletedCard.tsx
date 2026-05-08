@@ -88,7 +88,7 @@ const AllStudiesCompletedCard: React.FC = React.memo(() => {
   }, [navigate]);
 
   const handleAddNewSubjects = useCallback(() => {
-    navigate('/materias');
+    navigate('/ciclo-estudos');
   }, [navigate]);
 
   const handleViewStatistics = useCallback(() => {
