@@ -82,8 +82,8 @@ export const SubjectOverview: React.FC<SubjectOverviewProps> = ({ subjects }) =>
   // Função para navegar para revisões com destaque
   const handleSubjectClick = (subject: Subject, status: 'critical' | 'attention' | 'good') => {
     if (status === 'good') {
-      // Para matérias em dia, vai para a página da matéria
-      navigate(`/materias/${subject.id}`);
+      // Para matérias em dia, vai para o Ciclo de Estudos canônico
+      navigate('/ciclo-estudos');
     } else {
       // Para matérias críticas/atenção, vai para revisões com parâmetros
       const mostOverdueTopic = getMostOverdueTopic(subject);

@@ -586,7 +586,7 @@ Retorne APENAS um JSON no formato:
       
       <div className="p-6 space-y-4">
         <p className="text-xs text-muted-foreground">
-          Este prompt é usado pelo botão "Sugerir" na página de Matérias para identificar matérias duplicadas ou que podem ser mescladas.
+          Este prompt é usado pelo botão "Sugerir" no Ciclo de Estudos para identificar matérias duplicadas ou que podem ser mescladas.
           Use <code className="bg-muted px-1 rounded">$SUBJECTS$</code> como placeholder para inserir a lista de matérias.
         </p>
 

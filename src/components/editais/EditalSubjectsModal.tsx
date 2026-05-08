@@ -63,7 +63,7 @@ export const EditalSubjectsModal = ({
     // ── Estado local otimista ────────────────────────────────────────────
     const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
     const [localEditalIds, setLocalEditalIds] = useState<string[]>([]);
-    // IDs das matérias ativas (visíveis na pág. Matérias) — subconjunto de localEditalIds
+    // IDs das matérias ativas (visíveis no Ciclo de Estudos) — subconjunto de localEditalIds
     const [localActiveIds, setLocalActiveIds] = useState<string[]>([]);
     // Flag: só inicializa ao abrir, ignora mudanças externas enquanto modal está aberto
     const initializedRef = useRef(false);
@@ -611,7 +611,7 @@ export const EditalSubjectsModal = ({
         }
     }, [localEditalIds, localActiveIds, edital, allSubjects, onUpdate, localSubjects]);
 
-    // ── Alternar ativo/inativo (visível/oculto na pág. Matérias) ──────────
+    // ── Alternar ativo/inativo (visível/oculto no Ciclo de Estudos) ───────
     const handleToggleSubjectActive = useCallback(async (subjectId: string, subjectName: string) => {
         const isCurrentlyActive = localActiveIds.includes(subjectId);
         const newActiveIds = isCurrentlyActive
@@ -632,8 +632,8 @@ export const EditalSubjectsModal = ({
             setSyncStatus('saved');
             toast.success(
                 isCurrentlyActive
-                    ? `"${subjectName}" ocultada da pág. Matérias.`
-                    : `"${subjectName}" ativada na pág. Matérias.`,
+                    ? `"${subjectName}" ocultada do Ciclo de Estudos.`
+                    : `"${subjectName}" ativada no Ciclo de Estudos.`,
                 { duration: 1500 }
             );
         } catch (err) {
@@ -1294,7 +1294,7 @@ export const EditalSubjectsModal = ({
                                                                 e.stopPropagation();
                                                                 handleToggleSubjectActive(subject.id, subject.name);
                                                             }}
-                                                            title={localActiveIds.includes(subject.id) ? 'Ocultar da pág. Matérias' : 'Mostrar na pág. Matérias'}
+                                                            title={localActiveIds.includes(subject.id) ? 'Ocultar do Ciclo de Estudos' : 'Mostrar no Ciclo de Estudos'}
                                                             className={`p-1.5 rounded-lg transition-all
                                                                 ${localActiveIds.includes(subject.id)
                                                                     ? 'text-content-muted hover:text-amber-400 hover:bg-amber-500/10'

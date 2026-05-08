@@ -41,11 +41,6 @@ const useNavigation = () => {
       return location.pathname === item.to;
     }
 
-    // Para matérias, considerar ativo apenas se estiver exatamente em /materias
-    if (item.to === '/materias') {
-      return location.pathname === '/materias';
-    }
-
     return location.pathname.startsWith(item.to);
   }, [location.pathname]);
 

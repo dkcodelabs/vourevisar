@@ -528,7 +528,7 @@ const Editais = () => {
     const filteredEditais = useMemo(() => {
         let result = editais;
 
-        // 0. Filtro por Ciclo (vindo da página Matérias)
+        // 0. Filtro por Ciclo (vindo do Ciclo de Estudos)
         if (filterCycle) {
             result = result.filter(e => e.mergedIntoCycle);
         }
@@ -1695,7 +1695,7 @@ const Editais = () => {
                         )}
                     </div>
 
-                    {/* Badge de filtro ciclo (ao vir da página Matérias) */}
+                    {/* Badge de filtro ciclo (ao vir do Ciclo de Estudos) */}
                     {filterCycle && (
                         <div className="flex items-center gap-3 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
                             <Database size={14} className="text-primary shrink-0" />
