@@ -31,6 +31,8 @@ import {
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { errorService } from '@/lib/errors/errorService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
+import { StudyEmptyState } from '@/components/study/StudyEmptyState';
 
 const Statistics = () => {
   const navigate = useNavigate();
@@ -41,6 +43,7 @@ const Statistics = () => {
   const [statsFilter, setStatsFilter] = useState<{ type: 'all' | 'cycle' | 'edital'; id?: string }>({ type: 'cycle' });
   const statisticsData = useAdvancedStatistics(statsFilter);
   const { userCycle, isLoading: cycleLoading } = useCycleState();
+  const { editaisData } = useEditalOriginsWithMerge();
 
   useEffect(() => {
     const loadData = async () => {
@@ -101,72 +104,18 @@ const Statistics = () => {
 
   // Verificar se há dados disponíveis (se existe um ciclo ativo)
   const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
+  const hasAnyEdital = editaisData.length > 0 || subjects.length > 0;
   const hasData = hasActiveCycle;
 
   if (!hasData) {
     return (
       <div className="w-full">
         <div className="container mx-auto p-4">
-          <div className="flex flex-col items-center justify-center py-12 text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
-            {/* Ícone Principal */}
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 dark:from-blue-900/30 dark:via-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
-              <span className="text-5xl">📈</span>
-            </div>
-
-            {/* Título */}
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
-              Seu Painel de Controle Completo
-            </h2>
-
-            {/* Descrição Principal */}
-            <p className="text-content-muted max-w-lg mx-auto mb-6 leading-relaxed">
-              Acompanhe sua evolução com dados reais e tome decisões inteligentes sobre seus estudos.
-            </p>
-
-            {/* Features Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-2xl mx-auto mb-8">
-              <div className="flex items-center gap-2 bg-blue-500/10 px-3 py-2 rounded-lg">
-                <span className="text-lg">📊</span>
-                <span className="text-sm text-foreground">Visão Geral</span>
-              </div>
-              <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-2 rounded-lg">
-                <span className="text-lg">🔄</span>
-                <span className="text-sm text-foreground">Revisões</span>
-              </div>
-              <div className="flex items-center gap-2 bg-amber-500/10 px-3 py-2 rounded-lg">
-                <span className="text-lg">🏆</span>
-                <span className="text-sm text-foreground">Disciplinas</span>
-              </div>
-              <div className="flex items-center gap-2 bg-purple-500/10 px-3 py-2 rounded-lg">
-                <span className="text-lg">⏰</span>
-                <span className="text-sm text-foreground">Hábitos</span>
-              </div>
-              <div className="flex items-center gap-2 bg-cyan-500/10 px-3 py-2 rounded-lg">
-                <span className="text-lg">📈</span>
-                <span className="text-sm text-foreground">Evolução</span>
-              </div>
-              <div className="flex items-center gap-2 bg-rose-500/10 px-3 py-2 rounded-lg">
-                <span className="text-lg">💡</span>
-                <span className="text-sm text-foreground">Insights</span>
-              </div>
-            </div>
-
-            {/* Frase Motivacional */}
-            <div className="flex items-center gap-3 bg-secondary/50 border border-border px-5 py-3 rounded-2xl mb-8 shadow-sm">
-              <span className="text-xl flex-shrink-0">🎯</span>
-              <p className="text-sm text-foreground font-medium">
-                Quem mensura seus estudos, acelera seus resultados!
-              </p>
-            </div>
-
-            {/* CTA Button */}
-            <button
-              onClick={() => navigate('/meus-editais')}
-              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
-            >
-              Começar Agora
-            </button>
-          </div>
+          <StudyEmptyState
+            kind={hasAnyEdital ? 'no-cycle' : 'no-edital'}
+            variant="center"
+            onAction={() => navigate('/meus-editais')}
+          />
         </div>
       </div>
     );

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { UserCycle } from '@/types';
+import { withTimeout } from '@/utils/withTimeout';
 
 export const useCycleState = () => {
   const { user } = useAuth();
@@ -10,15 +11,22 @@ export const useCycleState = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchUserCycle = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const { data, error } = await supabase
-        .from('user_cycles')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .limit(1);
+      const { data, error } = await withTimeout(
+        supabase
+          .from('user_cycles')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .limit(1),
+        12000,
+        'Carregamento do ciclo'
+      );
 
       if (error) {
         console.error('Erro ao buscar ciclo do usuário:', error);

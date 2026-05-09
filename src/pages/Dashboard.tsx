@@ -34,6 +34,7 @@ import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { useMergeData } from '@/hooks/useMergeData';
 import { useMentorInsights } from '@/hooks/useMentorInsights';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { StudyEmptyState } from '@/components/study/StudyEmptyState';
 
 const Dashboard = () => {
     const { subjects, isDataLoaded, isLoading, error, studyProgress } = useApp();
@@ -73,9 +74,10 @@ const Dashboard = () => {
     const { subjectPerformance, difficultyStats, studyHabits, overview } = stats;
 
     // Buscar dados do edital ativo para o cabeçalho usando o hook compartilhado
-    const { editaisNoCiclo: activeEditais } = useEditalOriginsWithMerge();
+    const { editaisData, editaisNoCiclo: activeEditais } = useEditalOriginsWithMerge();
 
     const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
+    const hasAnyEdital = editaisData.length > 0 || subjects.length > 0;
 
     // Se não houver ciclo ativo, mudar o filtro para "Tudo" automaticamente para mostrar dados legados/manuais
     useEffect(() => {
@@ -104,7 +106,7 @@ const Dashboard = () => {
         }
 
         return formatEdital(activeEditais[0]);
-    }, [activeEditais]);
+    }, [hasActiveCycle, activeEditais]);
 
     // 1. Foco Agora
     const worstSubject = [...subjectPerformance]
@@ -267,24 +269,11 @@ const Dashboard = () => {
             <div className="w-full pb-8 pt-0">
 
                 {(!hasActiveCycle) ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in duration-500">
-                        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-                            <Target className="text-primary w-8 h-8" />
-                        </div>
-                        <h2 className="text-xl font-bold text-foreground mb-2">
-                            Nenhum ciclo ativo
-                        </h2>
-                        <p className="text-sm text-content-muted mb-6 max-w-md">
-                            Carregue um edital no seu ciclo de estudos para ativar o painel e ver suas estatísticas reais.
-                        </p>
-                        <Button
-                            onClick={() => navigate('/meus-editais')}
-                            className="h-10 px-5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg flex items-center gap-2"
-                        >
-                            <BookOpen className="w-4 h-4" />
-                            Ir para Matriz de Estudos
-                        </Button>
-                    </div>
+                    <StudyEmptyState
+                        kind={hasAnyEdital ? 'no-cycle' : 'no-edital'}
+                        variant="center"
+                        onAction={() => navigate('/meus-editais')}
+                    />
                 ) : (
                     <div className="space-y-8 animate-in fade-in duration-500 slide-in-from-bottom-4">
                         

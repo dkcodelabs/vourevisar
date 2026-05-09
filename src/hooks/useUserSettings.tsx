@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
+import { withTimeout } from '@/utils/withTimeout';
 
 interface UserSettingsData {
   review_profile: ReviewProfile;
@@ -38,11 +39,15 @@ export const useUserSettings = () => {
         setError(null);
 
         // Buscar configurações do usuário
-        const { data: settingsData, error: settingsError } = await supabase
-          .from('user_settings')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+        const { data: settingsData, error: settingsError } = await withTimeout(
+          supabase
+            .from('user_settings')
+            .select('*')
+            .eq('user_id', user.id)
+            .single(),
+          12000,
+          'Carregamento de configuracoes do usuario'
+        );
 
         if (settingsError && settingsError.code !== 'PGRST116') {
           throw settingsError;
@@ -58,11 +63,15 @@ export const useUserSettings = () => {
             notification_time: '09:00'
           };
 
-          const { data: newSettings, error: insertError } = await supabase
-            .from('user_settings')
-            .insert(defaultSettings)
-            .select()
-            .single();
+          const { data: newSettings, error: insertError } = await withTimeout(
+            supabase
+              .from('user_settings')
+              .insert(defaultSettings)
+              .select()
+              .single(),
+            12000,
+            'Criacao de configuracoes do usuario'
+          );
 
           if (insertError) throw insertError;
 
@@ -84,11 +93,15 @@ export const useUserSettings = () => {
         }
 
         // Buscar informações do ciclo
-        const { data: cycleDataResult, error: cycleError } = await supabase
-          .from('user_cycles')
-          .select('*')
-          .eq('user_id', user.id)
-          .limit(1);
+        const { data: cycleDataResult, error: cycleError } = await withTimeout(
+          supabase
+            .from('user_cycles')
+            .select('*')
+            .eq('user_id', user.id)
+            .limit(1),
+          12000,
+          'Carregamento de ciclo em configuracoes'
+        );
 
         const cycleData = (cycleDataResult as any)?.[0] || null;
 

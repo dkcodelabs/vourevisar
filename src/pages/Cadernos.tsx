@@ -18,6 +18,9 @@ import { useApp } from '@/contexts/AppContext';
 import { Subject, Topic } from '@/types';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { cn } from '@/lib/utils';
+import { useCycleState } from '@/hooks/useCycleState';
+import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
+import { StudyEmptyState } from '@/components/study/StudyEmptyState';
 
 const getNoteContent = (notes: Subject['notes'] | Topic['notes'] | string | null | undefined) => {
   if (!notes) return '';
@@ -59,6 +62,8 @@ const getTopicDifficultyLabel = (topic: Topic) => {
 const Cadernos = () => {
   const navigate = useNavigate();
   const { subjects, isLoading, isDataLoaded } = useApp();
+  const { userCycle, isLoading: cycleLoading } = useCycleState();
+  const { editaisData } = useEditalOriginsWithMerge();
   const visibleSubjects = useMemo(
     () => subjects.filter(subject => subject.is_visible !== false),
     [subjects]
@@ -111,8 +116,23 @@ const Cadernos = () => {
     [selectedSubject]
   );
 
-  if (isLoading || !isDataLoaded) {
+  if (isLoading || !isDataLoaded || cycleLoading) {
     return <LoadingSpinner size="large" showText fullPage />;
+  }
+
+  const hasActiveCycle = Boolean(userCycle?.ciclo_atual?.length);
+  const hasAnyEdital = editaisData.length > 0 || visibleSubjects.length > 0;
+
+  if (!hasActiveCycle) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <StudyEmptyState
+          kind={hasAnyEdital ? 'no-cycle' : 'no-edital'}
+          variant="center"
+          onAction={() => navigate('/meus-editais')}
+        />
+      </div>
+    );
   }
 
   if (!visibleSubjects.length) {

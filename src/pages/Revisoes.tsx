@@ -16,6 +16,7 @@ import { useTimer } from '@/contexts/TimerContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useMergeData } from '@/hooks/useMergeData';
 import { getCanonicalSubjectName, getCanonicalTopicName } from '@/services/cycleMergeService';
+import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 
 
 import { RevisionItem, RevisionStatus } from '@/types/revision';
@@ -25,6 +26,7 @@ import { RevisoesHeader } from '@/components/revisoes/RevisoesHeader';
 import { RevisoesChartsWrapper } from '@/components/revisoes/RevisoesChartsWrapper';
 import { RevisoesToolbar } from '@/components/revisoes/RevisoesToolbar';
 import { RevisoesList } from '@/components/revisoes/RevisoesList';
+import { StudyEmptyState } from '@/components/study/StudyEmptyState';
 
 // Modals are still kept here or inside List/Toolbar depending on usage
 import { SpacedRepetitionInfoModal } from '@/components/reviews/SpacedRepetitionInfoModal';
@@ -49,8 +51,10 @@ export const Revisoes = () => {
   const { subjects, refreshData } = useApp();
   const { userCycle, isLoading: isCycleLoading } = useCycleState();
   const { dynamicUnificationMap } = useMergeData();
+  const { editaisData } = useEditalOriginsWithMerge();
   
   const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
+  const hasAnyEdital = editaisData.length > 0 || subjects.length > 0;
 
   // Hooks
   const {
@@ -497,25 +501,12 @@ export const Revisoes = () => {
 
   if (!hasActiveCycle) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700 w-full">
-        <div className="w-24 h-24 bg-secondary dark:bg-white/5 rounded-3xl flex items-center justify-center mb-8 mx-auto rotate-3 shadow-inner group-hover:rotate-0 transition-transform duration-500">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center shadow-sm">
-            <Target className="text-primary" size={40} />
-          </div>
-        </div>
-        <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tight mb-4">
-          Nenhum edital carregado no ciclo
-        </h2>
-        <p className="text-base text-content-muted leading-relaxed font-medium mb-8 max-w-lg mx-auto">
-          Você não possui um edital carregado no ciclo ativo. Vá até a aba "Matriz de Estudos" para iniciar o seu planejamento de estudos e gerar seu histórico de revisões.
-        </p>
-        <button
-          onClick={() => navigate('/meus-editais')}
-          className="h-11 px-6 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
-        >
-          <BookOpen className="w-4 h-4" />
-          Carregar Edital
-        </button>
+      <div className="w-full px-4 md:px-8">
+        <StudyEmptyState
+          kind={hasAnyEdital ? 'no-cycle' : 'no-edital'}
+          variant="center"
+          onAction={() => navigate('/meus-editais')}
+        />
       </div>
     );
   }

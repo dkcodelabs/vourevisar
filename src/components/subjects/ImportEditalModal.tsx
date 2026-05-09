@@ -44,6 +44,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [suggestionSent, setSuggestionSent] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
+    const [expandedCatalogEditalId, setExpandedCatalogEditalId] = useState<string | null>(null);
+    const [expandedCatalogSubjectKeys, setExpandedCatalogSubjectKeys] = useState<Set<string>>(new Set());
     const [iaOrigin, setIaOrigin] = useState('');
     const [iaPosition, setIaPosition] = useState('');
 
@@ -95,7 +97,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     }
     const [editais, setEditais] = useState<ReadyEdital[]>([]);
     const [loadingEditais, setLoadingEditais] = useState(true);
-    const [isLoadingReady, setIsLoadingReady] = useState(false); // New state for ready tab import
+    const [importingReadyEditalId, setImportingReadyEditalId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchPublicEditais = async () => {
@@ -126,6 +128,22 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         const matchesCategory = selectedCategory === 'Todos' || e.category === selectedCategory;
         return matchesSearch && matchesCategory;
     });
+
+    const handleToggleCatalogEdital = (editalId: string) => {
+        setExpandedCatalogEditalId(prev => prev === editalId ? null : editalId);
+    };
+
+    const handleToggleCatalogSubject = (subjectKey: string) => {
+        setExpandedCatalogSubjectKeys(prev => {
+            const next = new Set(prev);
+            if (next.has(subjectKey)) {
+                next.delete(subjectKey);
+            } else {
+                next.add(subjectKey);
+            }
+            return next;
+        });
+    };
 
     const loadPendingExtraction = async () => {
         if (!user) return;
@@ -637,7 +655,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     };
 
     const handleImportReadyEdital = async (edital: ReadyEdital) => {
-        setIsLoadingReady(true);
+        if (importingReadyEditalId) return;
+
+        setImportingReadyEditalId(edital.id);
         try {
             const rawSubjects = Array.isArray(edital.subjects) ? edital.subjects : [];
             
@@ -664,7 +684,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             
             if (exists) {
                 toastGate.notifyError('Você já possui um edital com este nome importado.', 'VAL-DUP-03', { severity: 'medium' });
-                setIsLoadingReady(false);
                 return;
             }
 
@@ -689,7 +708,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             console.error('Erro ao importar edital pronto:', error);
             toastGate.notifyError('Erro ao importar edital selecionado', 'IMP-01');
         } finally {
-            setIsLoadingReady(false);
+            setImportingReadyEditalId(null);
         }
     };
 
@@ -816,81 +835,206 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                 <div className="flex flex-col gap-3">
                                     {filteredEditais.map(edital => {
                                         const isAlreadyImported = userEditais.some(ue => ue.sourceId === edital.id);
-                                        
-                                        return (
-                                        <div 
-                                            key={edital.id} 
-                                            className={`px-4 py-2.5 rounded-2xl border transition-all relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-4 ${
-                                                isAlreadyImported 
-                                                ? 'border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10' 
-                                                : 'border-border dark:border-white/5 bg-secondary/30 dark:bg-zinc-800/20 hover:bg-secondary/50 dark:hover:bg-zinc-800/50 hover:border-primary/30'
-                                            }`}
-                                        >
-                                            
-                                            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center shrink-0 z-10">
-                                                <FileText size={16} className="text-primary" />
-                                            </div>
+                                        const isExpanded = expandedCatalogEditalId === edital.id;
+                                        const totalTopics = edital.subjects?.reduce((acc: number, s: { name: string; topics?: { name: string }[] }) => acc + (s.topics?.length || 0), 0) || 0;
+                                        const isImportingThisEdital = importingReadyEditalId === edital.id;
+                                        const isImportingAnotherEdital = importingReadyEditalId !== null && !isImportingThisEdital;
 
-                                            <div className="flex-1 min-w-0 z-10 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                <h4 className="font-bold text-content-main text-[13px] tracking-tight uppercase transition-colors truncate">
-                                                    {edital.organ}
-                                                </h4>
-                                                
-                                                <div className="flex items-center gap-2 text-[11px] text-content-muted font-medium">
-                                                    <span className="opacity-20">•</span>
-                                                    <span className="truncate">{edital.position}</span>
-                                                    <span className="opacity-20">•</span>
-                                                    <span className="shrink-0 font-black text-zinc-400 dark:text-zinc-500">{edital.year}</span>
+                                        return (
+                                            <div
+                                                key={edital.id}
+                                                className={`rounded-2xl border transition-all relative overflow-hidden ${
+                                                    isAlreadyImported
+                                                        ? 'border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10'
+                                                        : 'border-border dark:border-white/5 bg-secondary/30 dark:bg-zinc-800/20 hover:bg-secondary/50 dark:hover:bg-zinc-800/50 hover:border-primary/30'
+                                                }`}
+                                            >
+                                                <div className="px-4 py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleCatalogEdital(edital.id)}
+                                                        className="w-8 h-8 bg-primary/10 hover:bg-primary/20 rounded-lg flex items-center justify-center shrink-0 z-10 transition-colors"
+                                                        aria-label={isExpanded ? 'Recolher conteúdo do edital' : 'Ver matérias e tópicos do edital'}
+                                                    >
+                                                        <FileText size={16} className="text-primary" />
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleCatalogEdital(edital.id)}
+                                                        className="flex-1 min-w-0 z-10 flex flex-wrap items-center gap-x-2 gap-y-1 text-left"
+                                                    >
+                                                        <h4 className="font-bold text-content-main text-[13px] tracking-tight uppercase transition-colors truncate">
+                                                            {edital.organ}
+                                                        </h4>
+
+                                                        <div className="flex items-center gap-2 text-[11px] text-content-muted font-medium min-w-0">
+                                                            <span className="opacity-20">•</span>
+                                                            <span className="truncate">{edital.position}</span>
+                                                            <span className="opacity-20">•</span>
+                                                            <span className="shrink-0 font-black text-zinc-400 dark:text-zinc-500">{edital.year}</span>
+                                                        </div>
+
+                                                        {isAlreadyImported && (
+                                                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shrink-0 uppercase tracking-tighter ml-auto">
+                                                                <CheckCircle2 size={10} /> JÁ IMPORTADO
+                                                            </span>
+                                                        )}
+                                                    </button>
+
+                                                    <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto z-10">
+                                                        <div className="flex items-center gap-2">
+                                                            {edital.subjects && edital.subjects.length > 0 ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 transition-all">
+                                                                        <Database size={12} className="text-primary/60" />
+                                                                        <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 uppercase">
+                                                                            {edital.subjects.length} MATÉRIAS
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 transition-all">
+                                                                        <Info size={12} className="text-primary/60" />
+                                                                        <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 uppercase">
+                                                                            {totalTopics} TÓPICOS
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-[10px] font-bold text-amber-500/60 flex items-center gap-1 uppercase tracking-wider bg-amber-500/5 px-2 py-1 rounded-lg border border-amber-500/10">
+                                                                    <AlertTriangle size={10} /> Sem conteúdos
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        {edital.subjects && edital.subjects.length > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleToggleCatalogEdital(edital.id)}
+                                                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                                                                    isExpanded
+                                                                        ? 'bg-primary text-white'
+                                                                        : 'bg-secondary dark:bg-zinc-900/50 text-content-muted hover:text-primary border border-border dark:border-white/5'
+                                                                }`}
+                                                                aria-label={isExpanded ? 'Recolher conteúdo' : 'Visualizar conteúdo'}
+                                                                title={isExpanded ? 'Recolher conteúdo' : 'Visualizar matérias e tópicos'}
+                                                            >
+                                                                {isExpanded ? <ChevronUp size={16} /> : <Eye size={16} />}
+                                                            </button>
+                                                        )}
+
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (isAlreadyImported) return;
+                                                                handleImportReadyEdital(edital);
+                                                            }}
+                                                            disabled={isImportingThisEdital || isImportingAnotherEdital || isAlreadyImported}
+                                                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                                                                isAlreadyImported
+                                                                    ? 'bg-emerald-500/20 text-emerald-500 cursor-default'
+                                                                    : 'bg-primary/10 text-primary hover:bg-primary hover:text-white disabled:opacity-50'
+                                                            }`}
+                                                            aria-label={isAlreadyImported ? 'Edital já importado' : 'Importar edital'}
+                                                            title={isAlreadyImported ? 'Edital já importado' : 'Importar edital'}
+                                                        >
+                                                            {isImportingThisEdital ? <Loader2 className="animate-spin" size={16} /> : isAlreadyImported ? <CheckCircle2 size={16} /> : <Plus size={16} />}
+                                                        </button>
+                                                    </div>
                                                 </div>
 
-                                                {isAlreadyImported && (
-                                                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shrink-0 uppercase tracking-tighter ml-auto">
-                                                        <CheckCircle2 size={10} /> JÁ IMPORTADO
-                                                    </span>
-                                                )}
-                                            </div>
+                                                <AnimatePresence initial={false}>
+                                                    {isExpanded && edital.subjects && edital.subjects.length > 0 && (
+                                                        <motion.div
+                                                            initial={{ height: 0, opacity: 0 }}
+                                                            animate={{ height: 'auto', opacity: 1 }}
+                                                            exit={{ height: 0, opacity: 0 }}
+                                                            transition={{ duration: 0.2 }}
+                                                            className="overflow-hidden border-t border-border/60 dark:border-white/5"
+                                                        >
+                                                            <div className="px-4 py-3 bg-black/[0.02] dark:bg-black/10 space-y-2">
+                                                                <div className="flex items-center justify-between gap-3 px-1">
+                                                                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-content-muted">
+                                                                        <BookOpen size={13} className="text-primary" />
+                                                                        Conteúdo do edital
+                                                                    </div>
+                                                                    <span className="text-[10px] font-bold text-content-muted">
+                                                                        {edital.subjects.length} matérias · {totalTopics} tópicos
+                                                                    </span>
+                                                                </div>
 
-                                            <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto z-10">
-                                                 <div className="flex items-center gap-3">
-                                                     {edital.subjects && edital.subjects.length > 0 ? (
-                                                         <div className="flex items-center gap-4">
-                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 transition-all">
-                                                                 <Database size={12} className="text-primary/60" />
-                                                                 <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 uppercase">
-                                                                     {edital.subjects.length} MATÉRIAS
-                                                                 </span>
-                                                             </div>
-                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary dark:bg-zinc-900/50 rounded-lg border border-border dark:border-white/5 transition-all">
-                                                                 <Info size={12} className="text-primary/60" />
-                                                                 <span className="text-[9px] font-black text-content-muted dark:text-zinc-400 uppercase">
-                                                                      {edital.subjects.reduce((acc: number, s: { name: string; topics?: { name: string }[] }) => acc + (s.topics?.length || 0), 0)} TÓPICOS
-                                                                 </span>
-                                                             </div>
-                                                         </div>
-                                                     ) : (
-                                                         <span className="text-[10px] font-bold text-amber-500/60 flex items-center gap-1 uppercase tracking-wider bg-amber-500/5 px-2 py-1 rounded-lg border border-amber-500/10">
-                                                             <AlertTriangle size={10} /> Sem conteúdos
-                                                         </span>
-                                                     )}
-                                                 </div>
+                                                                <div className="space-y-1.5">
+                                                                    {edital.subjects.map((subject, subjectIdx) => {
+                                                                        const subjectKey = `${edital.id}-${subject.name}-${subjectIdx}`;
+                                                                        const subjectExpanded = expandedCatalogSubjectKeys.has(subjectKey);
+                                                                        const topics = subject.topics || [];
 
-                                                <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (isAlreadyImported) return;
-                                                        handleImportReadyEdital(edital);
-                                                    }}
-                                                    disabled={isLoadingReady || isAlreadyImported}
-                                                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${
-                                                        isAlreadyImported 
-                                                        ? 'bg-emerald-500/20 text-emerald-500 cursor-default' 
-                                                        : 'bg-primary/10 text-primary hover:bg-primary hover:text-white disabled:opacity-50'
-                                                    }`}
-                                                >
-                                                    {isLoadingReady ? <Loader2 className="animate-spin" size={16} /> : isAlreadyImported ? <CheckCircle2 size={16} /> : <Plus size={16} />}
-                                                </button>
+                                                                        return (
+                                                                            <div
+                                                                                key={subjectKey}
+                                                                                className="rounded-xl border border-border/70 dark:border-white/5 bg-card/70 dark:bg-zinc-950/30 overflow-hidden"
+                                                                            >
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleToggleCatalogSubject(subjectKey)}
+                                                                                    className="w-full px-3 py-2.5 flex items-center justify-between gap-3 text-left hover:bg-secondary/60 dark:hover:bg-white/[0.03] transition-colors"
+                                                                                >
+                                                                                    <div className="min-w-0 flex items-center gap-2">
+                                                                                        <span className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center text-[10px] font-black shrink-0">
+                                                                                            {subjectIdx + 1}
+                                                                                        </span>
+                                                                                        <span className="text-xs font-bold text-content-main uppercase truncate">
+                                                                                            {subject.name}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2 shrink-0">
+                                                                                        <span className="text-[10px] font-bold text-content-muted">
+                                                                                            {topics.length} {topics.length === 1 ? 'tópico' : 'tópicos'}
+                                                                                        </span>
+                                                                                        <ChevronDown className={`w-4 h-4 text-content-muted transition-transform ${subjectExpanded ? 'rotate-180' : ''}`} />
+                                                                                    </div>
+                                                                                </button>
+
+                                                                                <AnimatePresence initial={false}>
+                                                                                    {subjectExpanded && (
+                                                                                        <motion.div
+                                                                                            initial={{ height: 0, opacity: 0 }}
+                                                                                            animate={{ height: 'auto', opacity: 1 }}
+                                                                                            exit={{ height: 0, opacity: 0 }}
+                                                                                            transition={{ duration: 0.18 }}
+                                                                                            className="overflow-hidden"
+                                                                                        >
+                                                                                            {topics.length > 0 ? (
+                                                                                                <div className="ml-7 mr-3 pb-3 pt-2 pl-4 space-y-1.5 border-t border-border/50 dark:border-white/5">
+                                                                                                    {topics.map((topic, topicIdx) => {
+                                                                                                        const topicTone = topicIdx % 2 === 0
+                                                                                                            ? 'bg-secondary/45 dark:bg-white/[0.025]'
+                                                                                                            : 'bg-transparent';
+
+                                                                                                        return (
+                                                                                                            <div key={`${subjectKey}-topic-${topicIdx}`} className={`flex items-start gap-2 rounded-lg px-2.5 py-1.5 text-xs text-content-muted leading-relaxed ${topicTone}`}>
+                                                                                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                                                                                                                <span className="break-words">{topic.name}</span>
+                                                                                                            </div>
+                                                                                                        );
+                                                                                                    })}
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <div className="ml-7 mr-3 pb-3 pt-2 pl-4 border-t border-border/50 dark:border-white/5 text-[11px] font-medium text-content-muted">
+                                                                                                    Nenhum tópico cadastrado nesta matéria.
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </motion.div>
+                                                                                    )}
+                                                                                </AnimatePresence>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </div>
-                                        </div>
                                         );
                                     })}
                                 </div>
@@ -1602,4 +1746,3 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         </div>
     );
 };
-

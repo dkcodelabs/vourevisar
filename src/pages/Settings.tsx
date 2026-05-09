@@ -25,6 +25,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ResetCycleConfirmDialog } from '@/components/ResetCycleConfirmDialog';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
+import { withTimeout } from '@/utils/withTimeout';
 
 // ─── Design System Components (padrão Perfil v2) ───────────
 const SettingsCard = ({
@@ -145,11 +146,15 @@ const Settings = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const { data, error } = await withTimeout(
+        supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        12000,
+        'Carregamento de configuracoes'
+      );
 
       if (error) throw error;
 
@@ -165,18 +170,22 @@ const Settings = () => {
           updated_at: data.updated_at || ''
         } as UserSettings);
       } else {
-        const { error: insertError } = await supabase
-          .from('user_settings')
-          .insert({
-            id: '',
-            user_id: user.id,
-            review_profile: settings.review_profile,
-            subjects_per_day: settings.subjects_per_day,
-            notifications_enabled: settings.notifications_enabled,
-            notification_time: settings.notification_time,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
+        const { error: insertError } = await withTimeout(
+          supabase
+            .from('user_settings')
+            .insert({
+              id: '',
+              user_id: user.id,
+              review_profile: settings.review_profile,
+              subjects_per_day: settings.subjects_per_day,
+              notifications_enabled: settings.notifications_enabled,
+              notification_time: settings.notification_time,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }),
+          12000,
+          'Criacao de configuracoes'
+        );
         if (insertError) throw insertError;
       }
     } catch (err: any) {

@@ -158,7 +158,7 @@ export const SmartMergeModal = ({ isOpen, onClose, subjects, suggestions, onAppl
                                                         isImported = typeof origin === 'object' && 'isImported' in origin ? origin.isImported : false;
                                                         sourceId = typeof origin === 'object' && 'sourceId' in origin ? origin.sourceId : undefined;
                                                     }
-                                                    const typeBadge = sourceId ? 'CÓPIA • SISTEMA' : isImported ? 'CÓPIA • IA' : 'MANUAL';
+                                                    const typeBadge = sourceId ? 'CÓPIA • CATÁLOGO' : isImported ? 'CÓPIA • IA' : 'MANUAL';
                                                     
                                                     return (
                                                         <div key={s.id} className="bg-zinc-900/50 rounded-xl p-3 border border-white/5">

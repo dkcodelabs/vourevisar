@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject, StudyProgress } from '@/types';
 import { transformSubjectsData, calculateStudyProgress } from '../utils/dataTransformers';
+import { withTimeout } from '@/utils/withTimeout';
 
 export const useDataLoading = (
   user: any,
@@ -21,20 +22,24 @@ export const useDataLoading = (
     setError(null);
 
     try {
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select(`
-          *,
-          topics (
+      const { data: subjectsData, error: subjectsError } = await withTimeout(
+        supabase
+          .from('subjects')
+          .select(`
             *,
-            difficulty_level,
-            next_review
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('topics.is_active', true)
-        .order('priority', { ascending: true })
-        .order('position', { foreignTable: 'topics', ascending: true });
+            topics (
+              *,
+              difficulty_level,
+              next_review
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('topics.is_active', true)
+          .order('priority', { ascending: true })
+          .order('position', { foreignTable: 'topics', ascending: true }),
+        12000,
+        'Carregamento de materias'
+      );
 
       if (subjectsError) throw subjectsError;
 

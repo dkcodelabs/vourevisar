@@ -6,8 +6,6 @@ const clearLocalCache = (userId: string) => {
   console.log(`[mergeService] Limpando cache local para usuário ${userId}...`);
   localStorage.removeItem(`subjects_cache_${userId}_v2`);
   localStorage.removeItem(`user_cycle_cache_${userId}`);
-  // Dispatch event as a backup
-  window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { timestamp: Date.now() } }));
 };
 
 export const mergeService = {
@@ -622,7 +620,8 @@ export const mergeService = {
   async cleanupMergesAfterEditalRemoval(
     userId: string, 
     editalId: string,
-    onProgress?: (progress: { message: string; percentage: number }) => void
+    onProgress?: (progress: { message: string; percentage: number }) => void,
+    options: { emitEvents?: boolean } = {}
   ): Promise<void> {
     console.log(`[mergeService] Iniciando limpeza de mesclagens para edital ${editalId}...`);
     
@@ -822,8 +821,10 @@ export const mergeService = {
       onProgress?.({ message: 'Concluído', percentage: 100 });
       console.log(`[mergeService] Limpeza concluída para edital ${editalId}.`);
       clearLocalCache(userId);
-      window.dispatchEvent(new CustomEvent('mergeUpdated'));
-      window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      if (options.emitEvents !== false) {
+        window.dispatchEvent(new CustomEvent('mergeUpdated'));
+        window.dispatchEvent(new CustomEvent('cycleUpdated'));
+      }
     } catch (err) {
       console.error('[mergeService] Erro na limpeza de mesclagens:', err);
     }
@@ -834,7 +835,7 @@ export const mergeService = {
    * Garante que se uma matéria unificada perdeu seu ID representante (que era do edital removido),
    * ela seja substituída por um ID remanescente do mesmo grupo de unificação.
    */
-  async syncCycleAfterRemoval(userId: string, editalId: string): Promise<void> {
+  async syncCycleAfterRemoval(userId: string, editalId: string, options: { emitEvents?: boolean } = {}): Promise<void> {
     try {
       console.log(`[mergeService] Iniciando sincronização do ciclo após remoção do edital ${editalId}...`);
       
@@ -941,8 +942,10 @@ export const mergeService = {
       }
 
       clearLocalCache(userId);
-      window.dispatchEvent(new CustomEvent('cycleUpdated'));
-      window.dispatchEvent(new CustomEvent('mergeUpdated'));
+      if (options.emitEvents !== false) {
+        window.dispatchEvent(new CustomEvent('cycleUpdated'));
+        window.dispatchEvent(new CustomEvent('mergeUpdated'));
+      }
     } catch (err) {
       console.error('[mergeService] Erro crítico ao sincronizar ciclo:', err);
     }

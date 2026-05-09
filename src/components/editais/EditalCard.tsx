@@ -159,7 +159,7 @@ export const EditalCard = ({
                     <span className="text-[10px] text-content-muted font-medium">{createdDate}</span>
                     {edital.sourceId ? (
                         <span className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-500">
-                            CÓPIA • SISTEMA
+                            CÓPIA • CATÁLOGO
                         </span>
                     ) : edital.isImported ? (
                         <span className="text-[9px] font-black uppercase tracking-[0.15em] text-purple-500">

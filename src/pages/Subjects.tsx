@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Plus, Trash2, Edit, Edit2, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, Database, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ListTodo } from 'lucide-react';
+import { Plus, Trash2, Edit, Edit2, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ListTodo } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +29,7 @@ import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
 import { EditalSubjectsModal } from '@/components/editais/EditalSubjectsModal';
+import { StudyEmptyState } from '@/components/study/StudyEmptyState';
 
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { errorService } from '@/lib/errors/errorService';
@@ -39,6 +40,8 @@ import { fetchTopicReviewStats } from '@/services/topicReviewService';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
+import { mergeService } from '@/services/mergeService';
+import { withTimeout } from '@/utils/withTimeout';
 
 type SubjectTab = 'all' | 'vertical';
 type SubjectVisualTag = 'Não Estudada' | 'Em Estudo' | 'Em Revisão' | 'Concluída';
@@ -307,12 +310,16 @@ const Subjects = () => {
       setIsLoading(true);
     }
     try {
-      const { data } = await supabase
-        .from('subjects')
-        .select(`*, topics(*, difficulty_level)`)
-        .eq('user_id', user.id)
-        .order('priority', { ascending: true })
-        .order('created_at', { foreignTable: 'topics', ascending: true });
+      const { data } = await withTimeout(
+        supabase
+          .from('subjects')
+          .select(`*, topics(*, difficulty_level)`)
+          .eq('user_id', user.id)
+          .order('priority', { ascending: true })
+          .order('created_at', { foreignTable: 'topics', ascending: true }),
+        12000,
+        'Carregamento de materias do ciclo'
+      );
 
       const transformedSubjects = transformSubjectsData(data || []);
       console.log('🔄 SETTING SUBJECTS:', {
@@ -373,86 +380,64 @@ const Subjects = () => {
     if (!user) return;
     setUnloadingEditalId(editalId);
     try {
-      const { data: existingCycle } = await supabase
-        .from('user_cycles')
-        .select('id, ciclo_atual')
-        .eq('user_id', user.id)
-        .single();
+      await mergeService.syncCycleAfterRemoval(user.id, editalId);
+      await mergeService.cleanupMergesAfterEditalRemoval(user.id, editalId);
 
-      if (existingCycle) {
-        const currentIds = (existingCycle.ciclo_atual as string[]) || [];
-        const newIds = currentIds.filter(id => !subjectIds.includes(id));
-        const resetCycleFields = {
-          materias_estudadas_ciclo: [],
-          ciclos_realizados: 0,
-          data_inicio_ciclo: new Date().toISOString(),
-          data_fim_ciclo: null,
-          atualizado_em: new Date().toISOString(),
-        };
-
-        const { error } = await supabase
-          .from('user_cycles')
+      if (subjectIds.length > 0) {
+        const { error: resetError } = await supabase
+          .from('topics')
           .update({
-            ciclo_atual: newIds,
-            ...resetCycleFields,
-          })
-          .eq('user_id', user.id);
+            next_review: null,
+            review_count: 0,
+            review_stage: '0',
+            completed: false,
+            first_studied_at: null,
+            last_reviewed_at: null,
+            memory_stability: 0,
+            current_interval: null
+          } as any)
+          .in('subject_id', subjectIds);
 
-        if (error) throw error;
+        if (resetError) throw resetError;
 
-        const nextUserCycle = userCycle
-          ? { ...userCycle, ciclo_atual: newIds, ...resetCycleFields }
-          : null;
-        if (newIds.length > 0 && nextUserCycle) {
-          setUserCycle(nextUserCycle);
-          localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(nextUserCycle));
-        } else {
-          setUserCycle(null);
-          localStorage.removeItem(`user_cycle_cache_${user.id}`);
+        const { data: topicData, error: topicFetchError } = await supabase
+          .from('topics')
+          .select('id')
+          .in('subject_id', subjectIds);
+
+        if (topicFetchError) throw topicFetchError;
+
+        const topicIds = topicData?.map(t => t.id).filter(Boolean) || [];
+        if (topicIds.length > 0) {
+          await supabase
+            .from('topic_review_history')
+            .delete()
+            .in('topic_id', topicIds);
         }
 
-        // NOVO: Resetar progresso dos tópicos relacionados ao descarregar do ciclo
-        if (subjectIds.length > 0) {
-          const { error: resetError } = await supabase
-            .from('topics')
-            .update({
-              next_review: null,
-              review_count: 0,
-              review_stage: null,
-              completed: false,
-              first_studied_at: null,
-              last_reviewed_at: null,
-              stability: 0,
-              review_history: []
-            })
-            .in('subject_id', subjectIds);
-          
-          if (resetError) {
-            console.error('Erro ao resetar progresso dos tópicos:', resetError);
-          }
-
-          // Também limpa o histórico detalhado para garantir integridade na página de Revisões
-          const { data: topicData } = await supabase.from('topics').select('id').in('subject_id', subjectIds);
-          const topicIds = topicData?.map(t => t.id) || [];
-          
-          if (topicIds.length > 0) {
-            await supabase
-              .from('topic_review_history')
-              .delete()
-              .in('topic_id', topicIds);
-          }
-        }
+        await (supabase as any)
+          .from('study_sessions')
+          .delete()
+          .eq('edital_id', editalId);
       }
 
-      const { error: editalErr } = await (supabase as any)
-        .from('user_editais')
-        .update({ merged_into_cycle: false, active_subject_ids: [] })
-        .eq('id', editalId);
+      const { data: rpcResult, error: rpcErr } = await supabase.rpc('atomic_cycle_unload_or_delete', {
+        p_user_id: user.id,
+        p_edital_id: editalId
+      });
 
-      if (editalErr) throw editalErr;
+      if (rpcErr) throw rpcErr;
+      if (rpcResult && (rpcResult as any).ok === false) throw new Error((rpcResult as any).error);
 
-      toast.success(`"${editalName}" removido do ciclo. Giro reiniciado.`);
+      localStorage.removeItem(`user_cycle_cache_${user.id}`);
+
+      const cycleWasDeleted = (rpcResult as any)?.cycle_deleted === true;
+      toast.success(cycleWasDeleted
+        ? `"${editalName}" removido. Ciclo de estudos encerrado.`
+        : `"${editalName}" removido do ciclo.`
+      );
       window.dispatchEvent(new CustomEvent('subjectUpdated', { detail: { source: 'Subjects' } }));
+      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'unload', editalId } }));
       await refreshData();
     } catch (error) {
       errorService.report(error, { module: 'Subjects', action: 'unloadCycle', userMessage: 'Erro ao remover edital do ciclo.' });
@@ -591,12 +576,16 @@ const Subjects = () => {
 
     const cacheKey = `user_cycle_cache_${user.id}`;
     try {
-      const { data, error } = await (supabase as any)
-        .from('user_cycles')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .limit(1);
+      const { data, error } = await withTimeout(
+        (supabase as any)
+          .from('user_cycles')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .limit(1),
+        12000,
+        'Carregamento do ciclo de estudos'
+      );
 
       if (error) throw error;
 
@@ -685,10 +674,10 @@ const Subjects = () => {
     if (user?.id) {
       (async () => {
         // Garantir que carregamos tudo na primeira montagem
-        await Promise.all([
-          loadSubjects(), 
-          loadUserCycle(),
-          repairOrphanedSubjects(user.id)
+        await Promise.allSettled([
+          withTimeout(loadSubjects(), 14000, 'Carregamento inicial de materias'),
+          withTimeout(loadUserCycle(), 14000, 'Carregamento inicial do ciclo'),
+          withTimeout(repairOrphanedSubjects(user.id), 14000, 'Reparo de materias orfas')
         ]);
         setLoading(false);
       })();
@@ -1501,6 +1490,8 @@ const Subjects = () => {
 
   const totalDisplayItems = activeTab === 'all' ? pendingCycleList.length : filteredList.length;
   const hasMore = totalDisplayItems > visibleCount;
+  const hasActiveCycle = Boolean(userCycle?.ciclo_atual?.length);
+  const hasAnyEdital = editaisData.length > 0 || localSubjects.length > 0;
   const cycleVisualStats = useMemo(() => {
     const cycleSubjects = expandedSubjectList.map(item => item.subject);
     const totalSubjects = cycleSubjects.length;
@@ -1667,6 +1658,19 @@ const Subjects = () => {
 
   const renderCycleVisualPanel = () => {
     const rhythmWidth = Math.min(cycleVisualStats.subjectsPerDay * 30, 100);
+    const currentCycleNumber = (userCycle?.ciclos_realizados || 0) + 1;
+    const activeCycleEditais = editaisNoCiclo.filter(e =>
+      e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
+    );
+    const editalCycleLabel = activeCycleEditais.length > 0
+      ? activeCycleEditais
+        .map(edital => {
+          const editalName = (edital.organ || edital.name || 'Edital').trim();
+          const position = edital.position?.trim();
+          return position ? `${editalName} • ${position}` : editalName;
+        })
+        .join(' | ')
+      : 'Edital carregado';
     const formatSubjectsPerDay = (value: number) => {
       if (value <= 0) return 'Sem ritmo ainda';
       if (value < 1) {
@@ -1681,43 +1685,50 @@ const Subjects = () => {
     return (
       <section className="w-full" aria-label="Estatísticas do ciclo">
         <Sheet>
-          <div className="w-full rounded-2xl border border-border bg-card dark:bg-zinc-900 shadow-sm px-3 sm:px-4 py-3 flex flex-col md:flex-row md:items-center gap-3">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
-                <RotateCcw size={17} className="text-primary" />
+          <div className="w-full rounded-2xl border border-border bg-card dark:bg-zinc-900 shadow-sm px-4 py-4 flex flex-col xl:flex-row xl:items-center gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
+                <RotateCcw size={18} className="text-primary" />
               </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <p className="text-xs font-black uppercase tracking-widest text-primary/80">
-                    Ciclo de Estudos
-                  </p>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                    Giro #{(userCycle?.ciclos_realizados || 0) + 1}
+              <div className="min-w-0 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/80">
+                    Ciclo atual
+                  </span>
+                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-primary">
+                    Ciclo {currentCycleNumber}
                   </span>
                 </div>
-                <p className="text-[11px] text-content-muted font-semibold truncate mt-0.5">
-                  {cycleVisualStats.studiedSubjects} estudadas / {cycleVisualStats.remainingSubjects} restantes
+                <p className="text-sm font-black text-foreground truncate" title={editalCycleLabel}>
+                  Edital: {editalCycleLabel}
                 </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-content-muted">
+                  <span>{cycleVisualStats.totalSubjects} {cycleVisualStats.totalSubjects === 1 ? 'matéria' : 'matérias'} no ciclo</span>
+                  <span className="hidden sm:inline h-1 w-1 rounded-full bg-content-muted/40" />
+                  <span>{cycleVisualStats.studiedSubjects} estudadas</span>
+                  <span className="hidden sm:inline h-1 w-1 rounded-full bg-content-muted/40" />
+                  <span>{cycleVisualStats.remainingSubjects} restantes</span>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 md:flex md:items-center md:gap-2 min-w-0">
-              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2 min-w-0 md:min-w-[112px]">
+            <div className="grid grid-cols-3 gap-2 xl:flex xl:items-center xl:gap-2 min-w-0">
+              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5 min-w-0 xl:min-w-[112px]">
                 <p className="text-[9px] font-black uppercase text-content-muted truncate">Estudadas</p>
-                <p className="text-sm font-black text-foreground">{cycleVisualStats.studiedSubjects}</p>
+                <p className="text-lg font-black text-foreground leading-tight">{cycleVisualStats.studiedSubjects}</p>
               </div>
-              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2 min-w-0 md:min-w-[112px]">
-                <p className="text-[9px] font-black uppercase text-content-muted truncate">Na fila</p>
-                <p className="text-sm font-black text-foreground">{cycleVisualStats.remainingSubjects}</p>
+              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5 min-w-0 xl:min-w-[112px]">
+                <p className="text-[9px] font-black uppercase text-content-muted truncate">Restantes</p>
+                <p className="text-lg font-black text-foreground leading-tight">{cycleVisualStats.remainingSubjects}</p>
               </div>
-              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2 min-w-0 md:min-w-[112px]">
+              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5 min-w-0 xl:min-w-[112px]">
                 <p className="text-[9px] font-black uppercase text-content-muted truncate">Total</p>
-                <p className="text-sm font-black text-foreground">{cycleVisualStats.totalSubjects}</p>
+                <p className="text-lg font-black text-foreground leading-tight">{cycleVisualStats.totalSubjects}</p>
               </div>
             </div>
 
             <SheetTrigger asChild>
-              <button className="h-10 px-4 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-xs font-black uppercase tracking-wider transition-colors shrink-0">
+              <button className="h-11 px-5 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-xs font-black uppercase tracking-wider transition-colors shrink-0">
                 Detalhes
               </button>
             </SheetTrigger>
@@ -1729,7 +1740,7 @@ const Subjects = () => {
                 Detalhes do Ciclo
               </SheetTitle>
               <SheetDescription>
-                Ritmo do giro atual.
+                Ritmo do ciclo atual.
               </SheetDescription>
             </SheetHeader>
 
@@ -1766,10 +1777,10 @@ const Subjects = () => {
                     <p className="text-xs text-content-muted leading-relaxed">
                       {cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0 ? (
                         <>
-                          Faltam aprox. <strong className="text-foreground">{cycleVisualStats.daysToFinish} dias</strong> para você bater este giro no ritmo atual.
+                          Faltam aprox. <strong className="text-foreground">{cycleVisualStats.daysToFinish} dias</strong> para você bater este ciclo no ritmo atual.
                         </>
                       ) : cycleVisualStats.remainingSubjects === 0 ? (
-                        'Este giro já está completo.'
+                        'Este ciclo já está completo.'
                       ) : (
                         'Marque matérias como estudadas para gerar uma estimativa de conclusão.'
                       )}
@@ -2018,51 +2029,6 @@ const Subjects = () => {
 
       <div className="mb-5 relative z-20">
         <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full">
-          {/* Edital chips */}
-          {(() => {
-            const activeEditais = editaisNoCiclo.filter(e =>
-              e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
-            );
-            if (activeEditais.length === 0 || isImportEditalModalOpen) return null;
-
-            return (
-              <div className="flex flex-wrap items-center gap-2 min-w-0 lg:max-w-[42%]">
-                <div className="flex items-center gap-1.5 text-content-muted shrink-0">
-                  <Database size={11} className="text-primary" />
-                  <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">Edital:</span>
-                </div>
-                {activeEditais.map(edital => {
-                  const displayLabel = (edital.organ || edital.name).toUpperCase();
-                  return (
-                    <div
-                      key={edital.id}
-                      className="group flex items-center gap-1 transition-all min-w-0"
-                    >
-                      <span
-                        title={edital.name}
-                        className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border text-primary/70 bg-primary/5 border-primary/15 max-w-[140px] truncate"
-                      >
-                        {displayLabel}
-                      </span>
-                      <button
-                        onClick={() => setUnloadConfirm({
-                          isOpen: true,
-                          editalId: edital.id,
-                          editalName: edital.name,
-                          subjectIds: edital.subject_ids
-                        })}
-                        disabled={unloadingEditalId === edital.id}
-                        className="w-3.5 h-3.5 flex items-center justify-center rounded hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 shrink-0"
-                      >
-                        {unloadingEditalId === edital.id ? <Loader2 size={8} className="animate-spin" /> : <X size={8} />}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-
           <div className="flex flex-col sm:flex-row items-center gap-3 flex-1 min-w-0">
                 {/* Search Input - Slightly Wider */}
                 <div className="relative w-full sm:min-w-[220px] lg:min-w-[280px] lg:max-w-md">
@@ -2188,7 +2154,7 @@ const Subjects = () => {
                     Adicionar Matéria
                   </button>
                 </>
-              ) : activeTab === 'all' && pendingCycleList.length === 0 ? (
+              ) : activeTab === 'all' && hasActiveCycle && pendingCycleList.length === 0 ? (
                 <div className="w-full max-w-xl rounded-2xl border border-emerald-800/40 bg-emerald-900/10 p-6 text-left shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center shrink-0">
@@ -2199,7 +2165,7 @@ const Subjects = () => {
                         Ciclo {(userCycle?.ciclos_realizados || 0) + 1} finalizado
                       </h3>
                       <p className="text-sm text-content-muted mt-1 leading-relaxed">
-                        Todas as matérias pendentes deste giro foram marcadas como estudadas.
+                        Todas as matérias pendentes deste ciclo foram marcadas como estudadas.
                       </p>
                     </div>
                   </div>
@@ -2241,8 +2207,8 @@ const Subjects = () => {
                   </div>
                   <h3 className="text-lg font-bold text-foreground mb-2">Nenhuma matéria ativa</h3>
                   <p className="text-content-muted max-w-sm mx-auto mb-6">
-                    Todas as matérias foram ocultadas ou o edital foi removido do ciclo. Ative matérias via
-                    &ldquo;Matriz de Estudos&rdquo; ou carregue um edital no ciclo.
+                    Todas as matérias foram ocultadas ou o edital foi removido do ciclo. Ative matérias em
+                    &ldquo;Meus Editais&rdquo; ou carregue um edital no ciclo.
                   </p>
                   <button
                     onClick={() => navigate('/meus-editais')}
@@ -2639,10 +2605,20 @@ const Subjects = () => {
 
         {/* Header Outside Card */}
         <main className="flex-1 px-4 md:px-8 pb-8 pt-0 flex flex-col gap-6">
-          {!isImportEditalModalOpen && renderCycleVisualPanel()}
+          {!isImportEditalModalOpen && hasActiveCycle && renderCycleVisualPanel()}
 
           <div className="flex-1 min-w-0 w-full">
-            {!isImportEditalModalOpen && mainSubjectUI}
+            {!isImportEditalModalOpen && (
+              hasActiveCycle ? (
+                mainSubjectUI
+              ) : (
+                <StudyEmptyState
+                  kind={hasAnyEdital ? 'no-cycle' : 'no-edital'}
+                  variant="center"
+                  onAction={() => navigate('/meus-editais')}
+                />
+              )
+            )}
           </div>
         </main>
 
@@ -2684,7 +2660,7 @@ const Subjects = () => {
                   Resetar ciclo de estudos?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  Isso vai zerar o giro atual, limpar as matérias marcadas como estudadas neste ciclo e voltar a contagem para o Giro #1.
+                  Isso vai zerar o ciclo atual, limpar as matérias marcadas como estudadas neste ciclo e voltar a contagem para o Ciclo 1.
                   <br /><br />
                   Matérias, tópicos e conteúdo cadastrado não serão apagados.
                 </AlertDialogDescription>
@@ -2752,7 +2728,7 @@ const Subjects = () => {
                   Tem certeza que deseja remover o edital <strong>"{unloadConfirm.editalName}"</strong> do seu ciclo de estudos?
                   <br /><br />
                   <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg text-amber-300 text-sm">
-                    <p><strong>Atenção:</strong> o giro atual será reiniciado e o histórico de revisões dos tópicos deste edital será apagado.</p>
+                    <p><strong>Atenção:</strong> o ciclo atual será reiniciado e o histórico de revisões dos tópicos deste edital será apagado.</p>
                     <p className="mt-1">As matérias e tópicos cadastrados continuarão disponíveis fora do ciclo.</p>
                   </div>
                 </AlertDialogDescription>

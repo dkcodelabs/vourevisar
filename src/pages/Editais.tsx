@@ -5,8 +5,8 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-    Search, Plus, PlusCircle, Library, Trash2, Play, Eye, Clock,
-    BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, Sparkles, Send, Loader2,
+    Plus, PlusCircle, Library, Trash2, Play, Eye, Clock,
+    BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, Sparkles, Loader2,
     AlertCircle, Info, GraduationCap, Database, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
@@ -66,6 +66,15 @@ const getDaysUntilExam = (dateStr?: string): number | null => {
     return Math.ceil((time - Date.now()) / (1000 * 60 * 60 * 24));
 };
 
+const sanitizeExamDate = (dateStr?: string): string | null => {
+    if (!dateStr || typeof dateStr !== 'string') return null;
+    const trimmed = dateStr.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+
+    const time = new Date(`${trimmed}T00:00:00`).getTime();
+    return Number.isNaN(time) ? null : trimmed;
+};
+
 /** Converte row do Supabase → UserEdital */
 const rowToEdital = (row: Record<string, unknown>): UserEdital => ({
     id: row.id as string,
@@ -97,8 +106,6 @@ const Editais = () => {
     const [editais, setEditais] = useState<UserEdital[]>([]);
     const [loadingEditais, setLoadingEditais] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [activeFilter, setActiveFilter] = useState<'all' | 'manual' | 'imported'>('all');
     const [filterCycle, setFilterCycle] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -175,9 +182,6 @@ const Editais = () => {
         });
     };
     const [processingProgress, setProcessingProgress] = useState<{ message: string; percentage?: number; current?: number; total?: number } | null>(null);
-    const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
-    const [suggestionName, setSuggestionName] = useState('');
-    const [isSendingSuggestion, setIsSendingSuggestion] = useState(false);
     const [syncReview, setSyncReview] = useState<{
         isOpen: boolean;
         edital: UserEdital | null;
@@ -519,37 +523,16 @@ const Editais = () => {
         }
     }, []);
 
-    // Reseta filtros se houver um sourceId destacado (para garantir que seja visível para o scroll)
-    useEffect(() => {
-        if (highlightedSourceId) {
-            setActiveFilter('all');
-            setSearchQuery('');
-        }
-    }, [highlightedSourceId]);
     // ── Filtro ──
     const filteredEditais = useMemo(() => {
         let result = editais;
 
-        // 0. Filtro por Ciclo (vindo do Ciclo de Estudos)
         if (filterCycle) {
             result = result.filter(e => e.mergedIntoCycle);
         }
 
-        // 1. Filtro por Busca
-        if (searchQuery.trim()) {
-            const q = searchQuery.toLowerCase();
-            result = result.filter(e => e.name.toLowerCase().includes(q));
-        }
-
-        // 2. Filtro por Tipo
-        if (activeFilter === 'manual') {
-            result = result.filter(e => !e.isImported);
-        } else if (activeFilter === 'imported') {
-            result = result.filter(e => e.isImported);
-        }
-
         return result;
-    }, [editais, searchQuery, activeFilter, filterCycle]);
+    }, [editais, filterCycle]);
 
     useEffect(() => {
         if (highlightedSourceId && filteredEditais.length > 0 && !scrolledTo) {
@@ -601,20 +584,27 @@ const Editais = () => {
 
     // ── CRUD Operations ──
     const handleDeleteEdital = useCallback(async (edital: UserEdital) => {
+        if (!user?.id || processingId === edital.id) return;
+
         setProcessingId(edital.id);
+        const userId = user.id;
+        const subjectIds = Array.isArray(edital.subjectIds)
+            ? edital.subjectIds.filter(id => typeof id === 'string' && id.length > 0)
+            : [];
+
         try {
             // 1. Sincronizar ciclo e limpar merges ANTES de deletar o edital físico.
             // Isso é vital para que o serviço identifique quais IDs estão saindo e promova sobreviventes.
-            await mergeService.syncCycleAfterRemoval(user!.id, edital.id);
+            await mergeService.syncCycleAfterRemoval(userId, edital.id, { emitEvents: false });
             await mergeService.cleanupMergesAfterEditalRemoval(user!.id, edital.id, (p) => {
                 setRemovalProgress({ editalId: edital.id, ...p });
-            });
+            }, { emitEvents: false });
 
             // 2. Limpar o mapa de unificação do ciclo para remover referências ao edital deletado
             const { data: updatedCycle } = await supabase
                 .from('user_cycles')
                 .select('unification_map')
-                .eq('user_id', user!.id)
+                .eq('user_id', userId)
                 .maybeSingle();
 
             if (updatedCycle?.unification_map) {
@@ -635,39 +625,76 @@ const Editais = () => {
                 await supabase
                     .from('user_cycles')
                     .update({ unification_map: newUnificationMap })
-                    .eq('user_id', user!.id);
+                    .eq('user_id', userId);
             }
-
-            // 3. Limpar rascunhos de mesclagem (IA e Cycle)
-            await (supabase as any)
-                .from('pending_cycle_merges')
-                .delete()
-                .eq('user_id', user!.id)
-                .eq('edital_id', edital.id);
-
-            // 4. Sincronizar Ciclo e Limpar Merges antes da deleção física
-            // Isso garante que o array ciclo_atual seja limpo e as flags dos editais remanescentes auditadas.
-            await mergeService.syncCycleAfterRemoval(user!.id, edital.id);
-            await mergeService.cleanupMergesAfterEditalRemoval(user!.id, edital.id);
 
             if (edital.mergedIntoCycle) {
                 await discardPendingMerge('all');
             }
 
-            // Limpa sugestões pendentes de mesclagem (IA/Semântica) para o usuário
-            await discardPendingMergeSuggestions(user!.id);
+            // 3. Limpar rascunhos e sugestões não deve travar a exclusão principal.
+            await Promise.allSettled([
+                (supabase as any)
+                    .from('pending_cycle_merges')
+                    .delete()
+                    .eq('user_id', userId)
+                    .eq('edital_id', edital.id),
+                discardPendingMergeSuggestions(userId)
+            ]);
             setPendingSuggestions([]);
 
+            // 4. Exclusão explícita do conteúdo do edital.
+            // A FK subjects.edital_id usa ON DELETE SET NULL, então deletar só o edital deixaria conteúdo órfão.
+            if (subjectIds.length > 0) {
+                const { data: topicRows, error: topicFetchError } = await supabase
+                    .from('topics')
+                    .select('id')
+                    .in('subject_id', subjectIds);
+
+                if (topicFetchError) throw topicFetchError;
+
+                const topicIds = ((topicRows || []) as Array<{ id: string }>).map(t => t.id);
+
+                if (topicIds.length > 0) {
+                    await Promise.allSettled([
+                        (supabase as any).from('topic_review_history').delete().in('topic_id', topicIds),
+                        (supabase as any).from('topic_merges').delete().in('primary_topic_id', topicIds),
+                        (supabase as any).from('topic_merges').delete().overlaps('merged_topic_ids', topicIds)
+                    ]);
+
+                    const { error: topicsDeleteError } = await supabase
+                        .from('topics')
+                        .delete()
+                        .in('id', topicIds);
+
+                    if (topicsDeleteError) throw topicsDeleteError;
+                }
+
+                await Promise.allSettled([
+                    (supabase as any).from('study_sessions').delete().in('subject_id', subjectIds),
+                    (supabase as any).from('subject_merges').delete().in('primary_subject_id', subjectIds),
+                    (supabase as any).from('subject_merges').delete().overlaps('merged_subject_ids', subjectIds)
+                ]);
+
+                const { error: subjectsDeleteError } = await supabase
+                    .from('subjects')
+                    .delete()
+                    .in('id', subjectIds);
+
+                if (subjectsDeleteError) throw subjectsDeleteError;
+            }
 
             // 5. DELEÇÃO FÍSICA ÚNICA
-            // Graças ao ON DELETE CASCADE configurado no banco, isto deletará automaticamente:
-            // - subjects vinculados
-            // - topics vinculados
-            // - topic_merges onde estes tópicos eram primários
-            // - subject_merges onde estas matérias eram primárias
-            // - histórico de revisão e sessões de estudo
-            const { error } = await editaisTable().delete().eq('id', edital.id);
+            const { data: deletedRows, error } = await editaisTable()
+                .delete()
+                .eq('id', edital.id)
+                .eq('user_id', userId)
+                .select('id');
+
             if (error) throw error;
+            if (!deletedRows || deletedRows.length === 0) {
+                throw new Error('Nenhum edital foi removido no banco. A exclusão foi bloqueada ou o edital já não pertence ao usuário atual.');
+            }
 
             setEditais(prev => prev.filter(e => e.id !== edital.id));
             setDeleteConfirm({ isOpen: false, edital: null });
@@ -675,35 +702,16 @@ const Editais = () => {
             const cleanName = edital.name.length > 50 ? `${edital.name.substring(0, 50)}...` : edital.name;
             toast.success(`Edital "${cleanName}" removido com sucesso.`);
 
-            window.dispatchEvent(new CustomEvent('cycleUpdated'));
-            window.dispatchEvent(new CustomEvent('subjectUpdated'));
+            window.dispatchEvent(new CustomEvent('cycleUpdated', {
+                detail: { type: 'editalDeleted', editalId: edital.id }
+            }));
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'delete', userMessage: 'Erro ao deletar edital.' });
         } finally {
             setProcessingId(null);
             setRemovalProgress(null);
         }
-    }, [user, discardPendingMerge]);
-
-    const handleSendSuggestion = async () => {
-        if (!suggestionName.trim() || !user) return;
-        setIsSendingSuggestion(true);
-        try {
-            const { error } = await (supabase as any).from('edital_suggestions').insert({
-                user_id: user.id,
-                concurso: suggestionName.trim(),
-                status: 'pending'
-            } as any);
-            if (error) throw error;
-            toast.success('Sugestão enviada com sucesso!');
-            setIsSuggestionOpen(false);
-            setSuggestionName('');
-        } catch (err) {
-            errorService.report(err, { module: 'editais', action: 'suggest', userMessage: 'Erro ao enviar sugestão.' });
-        } finally {
-            setIsSendingSuggestion(false);
-        }
-    };
+    }, [user?.id, processingId, discardPendingMerge]);
 
     const handleUnloadCycle = useCallback(async (edital: UserEdital) => {
         if (!user) return;
@@ -1228,18 +1236,20 @@ const Editais = () => {
         console.log("🚀 handleImportDone acionado - Versão 2.3 (Correção P0001)");
         console.log("Parâmetros:", { editalName, isImported, sourceId, extraInfo });
 
-        if (!user || isSaving) return;
+        if (!user) {
+            throw new Error('Usuário não autenticado para importar edital.');
+        }
+
+        if (isSaving) {
+            throw new Error('Já existe uma importação de edital em andamento.');
+        }
         setIsSaving(true);
 
         try {
             // 1. Criar o Edital primeiro (com lista de IDs vazia)
             const finalName = editalName || 'Novo Edital';
             // Sanitização robusta da data da prova
-            let sanitizedExamDate: string | null = null;
-            if (extraInfo?.exam_date && typeof extraInfo.exam_date === 'string' && extraInfo.exam_date.trim() !== '') {
-                // Se a data vier no formato AAAA-MM-DD ou similar válido
-                sanitizedExamDate = extraInfo.exam_date;
-            }
+            const sanitizedExamDate = sanitizeExamDate(extraInfo?.exam_date);
 
             const { data: newEditalRow, error: editalErr } = await editaisTable().insert({
                 user_id: user.id,
@@ -1590,45 +1600,9 @@ const Editais = () => {
             {/* ── Cabeçalho Principal (só mostra se houver editais) ── */}
             {editais.length > 0 && (
                 <div className="flex flex-col gap-4">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                        {/* Filtros e Busca */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
-                            {/* Busca */}
-                            <div className="relative flex-1 max-w-md">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
-                                <input
-                                    type="text"
-                                    placeholder="Buscar matriz..."
-                                    value={searchQuery}
-                                    onChange={e => setSearchQuery(e.target.value)}
-                                    className="w-full h-9 bg-secondary border border-border dark:border-white/5 rounded-xl pl-9 pr-3 text-xs font-medium focus:outline-none focus:border-primary/40 transition-all text-foreground placeholder:text-content-muted/50 shadow-sm"
-                                />
-                            </div>
-
-                            {/* Filtros de Tipo */}
-                            <div className="flex bg-secondary p-1 rounded-lg border border-border h-9">
-                                {[
-                                    { id: 'all', label: 'Todos', count: editais.length },
-                                    { id: 'imported', label: 'Importados', count: editais.filter(e => e.isImported).length },
-                                    { id: 'manual', label: 'Criados', count: editais.filter(e => !e.isImported).length }
-                                ].map((f) => (
-                                    <button
-                                        key={f.id}
-                                        onClick={() => setActiveFilter(f.id as 'all' | 'imported' | 'manual')}
-                                        className={`px-2 h-full rounded-md text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${activeFilter === f.id
-                                                ? 'bg-card text-foreground shadow-sm'
-                                                : 'text-content-muted hover:text-foreground'
-                                            }`}
-                                    >
-                                        <span className="bg-primary/20 text-primary px-1 py-0.5 rounded text-[8px] font-bold">{f.count}</span>
-                                        <span>{f.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                         {/* Ações */}
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto shrink-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
                             <AnimatePresence>
                                 {selectedIds.size >= 2 && (
                                     <motion.button
@@ -1703,7 +1677,7 @@ const Editais = () => {
                             <Database size={14} className="text-primary shrink-0" />
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs font-bold text-foreground">
-                                    Mostrando matrizes do ciclo
+                                    Mostrando editais do ciclo
                                 </p>
                                 <p className="text-[10px] text-content-muted mt-0.5">
                                     Clique em &ldquo;Ver Matérias&rdquo; para adicionar matérias e tópicos
@@ -1732,7 +1706,7 @@ const Editais = () => {
                     </div>
                     <div className="flex-1">
                         <p className="text-xs font-bold leading-tight">
-                            Você tem matrizes cadastradas, mas nenhuma está carregada no seu ciclo ativo de estudos.
+                            Você tem editais cadastrados, mas nenhum está carregado no seu ciclo ativo de estudos.
                         </p>
                         <p className="text-[10px] font-medium opacity-80">
                             Clique em <span className="font-bold">"Carregar Ciclo"</span> em um edital abaixo para começar seu planejamento inteligente!
@@ -1835,59 +1809,26 @@ const Editais = () => {
                             </div>
                         </div>
                         )
-                    ) : searchQuery.trim() ? (
-                        <div className="max-w-md mx-auto space-y-6">
-                            <div>
-                                <h2 className="text-xl font-bold text-foreground tracking-tight mb-2">
-                                    Nenhum resultado para "{searchQuery}"
-                                </h2>
-                                <p className="text-sm text-content-muted font-medium">
-                                    Não encontramos nenhuma matriz nos seus registros com esse nome. Deseja sugerir a inclusão desse concurso?
-                                </p>
-                            </div>
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                                <button
-                                    onClick={() => {
-                                        setSuggestionName(searchQuery);
-                                        setIsSuggestionOpen(true);
-                                    }}
-                                    className="flex items-center gap-2 px-6 py-3 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all text-sm font-bold rounded-xl"
-                                >
-                                    <Sparkles size={18} />
-                                    Sugerir Matriz
-                                </button>
-                                <button
-                                    onClick={() => setSearchQuery("")}
-                                    className="flex items-center gap-2 px-6 py-3 text-content-muted hover:text-foreground transition-all text-sm font-bold"
-                                >
-                                    Limpar busca
-                                </button>
-                            </div>
-                        </div>
                     ) : (
                         <div className="max-w-md mx-auto space-y-6 pt-12 text-center">
                             <div className="w-20 h-20 bg-secondary rounded-[32px] flex items-center justify-center mx-auto mb-6">
-                                <Search className="text-content-muted/30" size={32} />
+                                <FileText className="text-content-muted/30" size={32} />
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold text-foreground tracking-tight mb-2">
                                     {filterCycle
-                                        ? "Nenhuma matriz no ciclo atual"
-                                        : (searchQuery || activeFilter !== 'all'
-                                            ? "Nenhuma matriz encontrada"
-                                            : "Sua biblioteca está vazia")}
+                                        ? "Nenhum edital no ciclo atual"
+                                        : "Sua biblioteca está vazia"}
                                 </h2>
                                 <p className="text-sm text-content-muted font-medium max-w-[280px] mx-auto leading-relaxed">
                                     {filterCycle
-                                        ? "Você está visualizando apenas matrizes integradas ao seu ciclo. Desative o filtro de ciclo para ver todos."
-                                        : "Tente ajustar os termos da busca ou os filtros de categoria acima."}
+                                        ? "Você está visualizando apenas editais carregados no seu ciclo. Desative o filtro de ciclo para ver todos."
+                                        : "Adicione um edital pelo catálogo, pela IA ou manualmente para começar."}
                                 </p>
                             </div>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
                                 <button
                                     onClick={() => {
-                                        setActiveFilter('all');
-                                        setSearchQuery("");
                                         setFilterCycle(false);
                                     }}
                                     className="px-8 py-4 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
@@ -2000,6 +1941,11 @@ const Editais = () => {
                         const hasUpdate = hasRealUpdate;
 
                         const editalSubjects = subjects.filter(s => (edital.subjectIds || []).includes(s.id));
+                        const isDeleteModalProcessingThisEdital =
+                            deleteConfirm.isOpen &&
+                            deleteConfirm.edital?.id === edital.id &&
+                            processingId === edital.id;
+                        const isCardProcessing = processingId === edital.id && !isDeleteModalProcessingThisEdital;
 
                         return (
                             <div
@@ -2020,8 +1966,8 @@ const Editais = () => {
                                     onDelete={() => setDeleteConfirm({ isOpen: true, edital })}
                                     onSync={() => handleSyncEdital(edital)}
                                     onEdit={() => setEditModal({ isOpen: true, edital })}
-                                    isProcessing={processingId === edital.id}
-                                    processingProgress={processingId === edital.id ? removalProgress : undefined}
+                                    isProcessing={isCardProcessing}
+                                    processingProgress={isCardProcessing ? removalProgress : undefined}
                                     hasUpdate={!!hasUpdate}
                                     isHighlighted={highlightedSourceId === edital.sourceId || highlightedSourceId === edital.id}
                                 />
@@ -2030,81 +1976,6 @@ const Editais = () => {
                     })}
                 </div>
             )}
-
-            {/* ── Slide-in Sugestão ── */}
-            <AnimatePresence>
-                {isSuggestionOpen && (
-                    <>
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsSuggestionOpen(false)}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110]"
-                        />
-                        <motion.div
-                            initial={{ x: '100%' }}
-                            animate={{ x: 0 }}
-                            exit={{ x: '100%' }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-card dark:bg-zinc-950 border-l border-border dark:border-white/10 z-[120] p-6 shadow-2xl overflow-y-auto"
-                        >
-                            <div className="flex items-center justify-between mb-8">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-                                        <Sparkles className="text-primary" size={20} />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-bold text-foreground tracking-tight">Sugerir Edital</h2>
-                                        <p className="text-xs text-content-muted font-medium">Solicite a inclusão de um concurso</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setIsSuggestionOpen(false)}
-                                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary dark:bg-white/5 text-content-muted hover:text-foreground transition-colors"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="space-y-6">
-                                <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4">
-                                    <p className="text-xs text-primary/80 leading-relaxed">
-                                        Basta informar o nome do edital/concurso que você deseja. Nossa equipe irá analisar e cadastrar o conteúdo programático no sistema.
-                                    </p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-content-muted uppercase tracking-widest pl-1">
-                                        Nome do Concurso/Edital
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="Ex: PC-ES 2024, INSS, Receita Federal..."
-                                        value={suggestionName}
-                                        onChange={(e) => setSuggestionName(e.target.value)}
-                                        className="w-full h-12 bg-secondary dark:bg-white/5 border border-border dark:border-white/10 rounded-2xl px-4 text-sm text-foreground focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all"
-                                        autoFocus
-                                    />
-                                </div>
-
-                                <button
-                                    onClick={handleSendSuggestion}
-                                    disabled={!suggestionName.trim() || isSendingSuggestion}
-                                    className="w-full h-12 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-                                >
-                                    {isSendingSuggestion ? (
-                                        <RefreshCw size={18} className="animate-spin" />
-                                    ) : (
-                                        <Send size={18} />
-                                    )}
-                                    Enviar Solicitação
-                                </button>
-                            </div>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
 
             {/* ── Modal de Importação ── */}
             {editais.length > 0 && (

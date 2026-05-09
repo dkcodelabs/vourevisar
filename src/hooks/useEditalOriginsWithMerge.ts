@@ -5,6 +5,7 @@ import { useCycleState } from '@/hooks/useCycleState';
 import { mergeService } from '@/services/mergeService';
 import type { SubjectMerge, TopicMerge } from '@/types/merges';
 import type { PostgrestError } from '@supabase/supabase-js';
+import { withTimeout } from '@/utils/withTimeout';
 
 interface EditalOriginData {
     id: string;
@@ -32,12 +33,19 @@ export const useEditalOriginsWithMerge = () => {
     const editaisTable = useCallback(() => supabase.from('user_editais'), []);
 
     const loadMerges = useCallback(async () => {
-        if (!user) return;
+        if (!user) {
+            setIsLoading(false);
+            return;
+        }
         try {
-            const [sMerges, tMerges] = await Promise.all([
-                mergeService.getActiveSubjectMerges(user.id),
-                mergeService.getActiveTopicMerges(user.id)
-            ]);
+            const [sMerges, tMerges] = await withTimeout(
+                Promise.all([
+                    mergeService.getActiveSubjectMerges(user.id),
+                    mergeService.getActiveTopicMerges(user.id)
+                ]),
+                12000,
+                'Carregamento de mesclagens'
+            );
             setSubjectMerges(sMerges);
             setTopicMerges(tMerges);
         } catch (err) {
@@ -46,12 +54,19 @@ export const useEditalOriginsWithMerge = () => {
     }, [user]);
 
     const fetchEditais = useCallback(async () => {
-        if (!user) return;
+        if (!user) {
+            setIsLoading(false);
+            return;
+        }
         try {
             console.log('[useEditalOriginsWithMerge] Carregando editais para:', user.id);
-            const { data, error } = await supabase.from('user_editais')
-                .select('id, name, subject_ids, active_subject_ids, is_imported, merged_into_cycle, source_id, organ, position, year')
-                .eq('user_id', user.id);
+            const { data, error } = await withTimeout(
+                supabase.from('user_editais')
+                    .select('id, name, subject_ids, active_subject_ids, is_imported, merged_into_cycle, source_id, organ, position, year')
+                    .eq('user_id', user.id),
+                12000,
+                'Carregamento de editais de origem'
+            );
 
             if (error) throw error;
             
