@@ -16,10 +16,10 @@
  * - Granular permission editing (Use RolesManagement).
  * - Financial data/payment history (Use SubscriptionManagement).
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     Search, Filter, MoreVertical,
-    Eye, Edit, Power, RefreshCw, Trash2, Mail, Calendar, Shield, Zap, Archive, Undo2
+    Eye, Edit, Power, RefreshCw, Trash2, Mail, Calendar, Shield, Zap, Archive, Undo2, UserX
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -44,6 +44,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 import {
     Sheet,
     SheetContent,
@@ -84,8 +85,9 @@ const UserManagement = () => {
     // Role check
     const { isOwner } = useUserRole();
 
-    const [userToObject, setUserToObject] = useState<{ id: string, name: string, action: 'archive' | 'restore' | 'delete' } | null>(null);
+    const [userToObject, setUserToObject] = useState<{ id: string, name: string, email?: string, action: 'archive' | 'restore' | 'delete' | 'purge' } | null>(null);
     const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+    const [purgeConfirmText, setPurgeConfirmText] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
 
     // Filter users based on viewMode and search
@@ -223,6 +225,41 @@ const UserManagement = () => {
             setUserToObject(null);
         }
     };
+
+    const handlePurgeUser = async () => {
+        if (!userToObject || userToObject.action !== 'purge') return;
+        if (purgeConfirmText !== 'EXCLUIR') return;
+
+        try {
+            const { error } = await supabase.rpc('admin_purge_user', {
+                p_target_user_id: userToObject.id
+            });
+
+            if (error) throw error;
+
+            setUsers(users.filter(u => u.id !== userToObject.id));
+            toast.success(`Usuário ${userToObject.name} excluído completamente do sistema.`);
+        } catch (error: any) {
+            console.error('Error purging user:', error);
+            const message = error?.message || 'Erro desconhecido ao excluir usuário.';
+            toastGate.notifyError(message, 'USER-PURGE-ERR', { severity: 'critical' });
+            await errorService.report(error, {
+                module: 'users',
+                action: 'purge_user',
+                severity: 'critical',
+                metadata: {
+                    userId: userToObject.id,
+                    userName: userToObject.name,
+                    userEmail: userToObject.email
+                },
+            });
+        } finally {
+            setUserToObject(null);
+            setPurgeConfirmText('');
+        }
+    };
+
+    const isPurgeConfirmed = useMemo(() => purgeConfirmText === 'EXCLUIR', [purgeConfirmText]);
 
     // List of emails that cannot be deleted, archived, or modified
     const PROTECTED_EMAILS = ['vourevisar@gmail.com', 'darciliok@gmail.com'];
@@ -517,6 +554,14 @@ const UserManagement = () => {
                                                                             <Archive className="w-3.5 h-3.5 opacity-70" />
                                                                             Arquivar usuário
                                                                         </DropdownMenuItem>
+
+                                                                        <DropdownMenuItem
+                                                                            onSelect={() => setUserToObject({ id: user.id, name: user.name || 'Usuário', email: user.email || '', action: 'purge' })}
+                                                                            className="gap-2.5 cursor-pointer text-rose-600 text-xs py-2 px-3 focus:bg-rose-50 focus:text-rose-700 rounded-sm"
+                                                                        >
+                                                                            <UserX className="w-3.5 h-3.5 opacity-70" />
+                                                                            Excluir usuário
+                                                                        </DropdownMenuItem>
                                                                     </>
                                                                 )}
                                                             </>
@@ -576,8 +621,8 @@ const UserManagement = () => {
                 </div>
             </div>
 
-            {/* Action Confirmation Dialog */}
-            <AlertDialog open={!!userToObject} onOpenChange={(open) => !open && setUserToObject(null)}>
+            {/* Action Confirmation Dialog (Archive, Restore, Delete) */}
+            <AlertDialog open={!!userToObject && userToObject.action !== 'purge'} onOpenChange={(open) => !open && setUserToObject(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>
@@ -608,6 +653,79 @@ const UserManagement = () => {
                                 Sim, excluir permanentemente
                             </AlertDialogAction>
                         )}
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Purge User Confirmation Dialog - Requires typing EXCLUIR */}
+            <AlertDialog 
+                open={userToObject?.action === 'purge'} 
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setUserToObject(null);
+                        setPurgeConfirmText('');
+                    }
+                }}
+            >
+                <AlertDialogContent className="border-rose-200 dark:border-rose-800/50">
+                    <AlertDialogHeader>
+                        <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                            <UserX className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+                        </div>
+                        <AlertDialogTitle className="text-center text-lg">
+                            Excluir usuário completamente?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-3">
+                                <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+                                    Você está prestes a excluir <strong className="text-slate-900 dark:text-slate-100">{userToObject?.name}</strong> ({userToObject?.email}) permanentemente.
+                                </p>
+                                <div className="rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 p-3 text-xs text-rose-700 dark:text-rose-300 space-y-1.5">
+                                    <p className="font-semibold">⚠️ Esta ação é IRREVERSÍVEL e irá:</p>
+                                    <ul className="list-disc list-inside space-y-0.5 pl-1">
+                                        <li>Remover todas as matérias, tópicos e revisões</li>
+                                        <li>Remover editais, ciclos e sessões de estudo</li>
+                                        <li>Remover notas, lembretes e notificações</li>
+                                        <li>Remover assinatura e histórico de pagamentos</li>
+                                        <li>Excluir a conta de login (auth) completamente</li>
+                                    </ul>
+                                </div>
+                                <div className="pt-1">
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+                                        Digite <span className="font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 px-1.5 py-0.5 rounded">EXCLUIR</span> para confirmar:
+                                    </label>
+                                    <Input
+                                        value={purgeConfirmText}
+                                        onChange={(e) => setPurgeConfirmText(e.target.value)}
+                                        placeholder="Digite EXCLUIR"
+                                        className={`text-sm font-mono tracking-wider text-center transition-colors ${
+                                            purgeConfirmText.length > 0 && !isPurgeConfirmed 
+                                                ? 'border-rose-300 dark:border-rose-700 focus-visible:ring-rose-500' 
+                                                : isPurgeConfirmed 
+                                                    ? 'border-emerald-300 dark:border-emerald-700 focus-visible:ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' 
+                                                    : ''
+                                        }`}
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                    />
+                                </div>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-2">
+                        <AlertDialogCancel onClick={() => setPurgeConfirmText('')}>Cancelar</AlertDialogCancel>
+                        <button
+                            onClick={handlePurgeUser}
+                            disabled={!isPurgeConfirmed}
+                            className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all ${
+                                isPurgeConfirmed
+                                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm cursor-pointer'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                            }`}
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Excluir permanentemente
+                        </button>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

@@ -9,7 +9,7 @@ import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  RefreshCw, BookOpen, Bell, Settings2, AlertTriangle,
+  RefreshCw, Bell, Settings2, AlertTriangle,
   Clock, Globe, Loader2, CheckCircle2, ChevronRight,
   CreditCard, User
 } from 'lucide-react';
@@ -127,8 +127,7 @@ const Settings = () => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [timezone, setTimezone] = useState('America/Sao_Paulo');
 
-  const { userCycle, isLoading: isCycleLoading, fetchUserCycle, resetCycle } = useCycleState();
-  const [isResettingCycle, setIsResettingCycle] = useState(false);
+  const { userCycle, isLoading: isCycleLoading, fetchUserCycle } = useCycleState();
   const { fetchUserSettings: fetchUserSettingsContext, refreshData } = useApp();
 
   // ─── Data loading ─────────────────────────────────────
@@ -192,26 +191,7 @@ const Settings = () => {
 
 
   // ─── Handlers ─────────────────────────────────────────
-  const handleSubjectsPerDayChange = async (value: number[]) => {
-    const newValue = value[0];
-    setSettings(prev => ({ ...prev, subjects_per_day: newValue }));
 
-    if (user) {
-      try {
-        const { error } = await supabase
-          .from('user_settings')
-          .update({ subjects_per_day: newValue, updated_at: new Date().toISOString() })
-          .eq('user_id', user.id);
-        if (error) throw error;
-        await fetchUserSettingsContext();
-        toast.success(`Agora você estudará ${newValue} matéria${newValue > 1 ? 's' : ''} por dia`);
-      } catch (err) {
-        console.error('Erro ao salvar subjects_per_day:', err);
-        toastGate.notifyError("Não foi possível atualizar", "SET-UPD-FAIL", { severity: 'low' });
-        setSettings(prev => ({ ...prev, subjects_per_day: settings.subjects_per_day }));
-      }
-    }
-  };
 
 
 
@@ -247,50 +227,6 @@ const Settings = () => {
     }
   };
 
-  const handleResetCycle = async () => {
-    if (!user) return;
-    setIsResettingCycle(true);
-    try {
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects').select('id').eq('user_id', user.id);
-      if (subjectsError) throw subjectsError;
-      const subjectIds = (subjectsData || [])
-        .map(s => s.id)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0);
-
-      if (subjectIds.length > 0) {
-        const { error: topicsError } = await supabase
-          .from('topics')
-          .update({
-            review_stage: null, review_count: 0, next_review: null,
-            last_reviewed_at: null, completed: false, updated_at: new Date().toISOString()
-          })
-          .in('subject_id', subjectIds);
-        if (topicsError) throw topicsError;
-      }
-
-      await supabase.from('subjects').update({ status: 'Nova', updated_at: new Date().toISOString() }).eq('user_id', user.id);
-      await supabase.from('user_cycles').update({
-        ciclo_atual: [], disciplinas_do_dia: [], materias_estudadas_ciclo: [],
-        ciclos_realizados: 0, data_inicio_ciclo: null, data_fim_ciclo: null,
-        atualizado_em: new Date().toISOString()
-      }).eq('user_id', user.id);
-      await supabase.from('study_sessions').delete().eq('user_id', user.id);
-
-      const { updateStudiedSubjects, resetCycle: resetCycleState } = await import('@/utils/cycleState');
-      updateStudiedSubjects([]);
-      resetCycleState(0);
-      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { isReset: true, reason: 'reviewsCleared', timestamp: Date.now() } }));
-
-      await Promise.all([refreshData(), fetchUserCycle(), fetchUserSettingsContext()]);
-      toast.success("Ciclo reiniciado com sucesso!");
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (err: any) {
-      errorService.report(err, { module: 'settings', action: 'reset_cycle', userMessage: "Erro ao reiniciar ciclo" });
-    } finally {
-      setIsResettingCycle(false);
-    }
-  };
 
   const handleClearAll = async () => {
     if (!user) {
@@ -323,6 +259,8 @@ const Settings = () => {
       await supabase.from('subjects').delete().eq('user_id', user.id);
       await supabase.from('user_cycles').delete().eq('user_id', user.id);
       await supabase.from('study_sessions').delete().eq('user_id', user.id);
+      await supabase.from('study_cycles_v2').delete().eq('user_id', user.id);
+      await supabase.from('general_notes').delete().eq('user_id', user.id);
       
       // Também excluir user_editais (Agrupamentos/Editais importados)
       await (supabase as any).from('user_editais').delete().eq('user_id', user.id);
@@ -368,42 +306,7 @@ const Settings = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                {/* Planejamento */}
-                <SettingsCard delay={0}>
-                  <SectionHeader
-                    icon={Settings2}
-                    iconColor="bg-indigo-500/10 text-indigo-500"
-                    label="PLANEJAMENTO"
-                  />
 
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-muted-foreground">Matérias por dia</span>
-                        <span className="text-sm font-bold text-foreground">{settings.subjects_per_day}</span>
-                      </div>
-                      <Slider
-                        value={[settings.subjects_per_day]}
-                        max={10}
-                        min={1}
-                        step={1}
-                        onValueChange={handleSubjectsPerDayChange}
-                        className="w-full"
-                      />
-                      <p className="text-[10px] text-muted-foreground/60 mt-1.5">Mudanças aplicadas imediatamente</p>
-                    </div>
-
-                    <GradientButton
-                      type="button"
-                      variant="outline"
-                      className="w-full text-xs py-1.5"
-                      onClick={() => navigate('/ciclo-estudos')}
-                    >
-                      <BookOpen className="h-3.5 w-3.5 mr-1.5" />
-                      Gerenciar Ciclo
-                    </GradientButton>
-                  </div>
-                </SettingsCard>
 
                 {/* Lembretes */}
                 <SettingsCard delay={1}>
@@ -521,32 +424,7 @@ const Settings = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                {/* Reiniciar Ciclo */}
-                <SettingsCard delay={4}>
-                  <SectionHeader
-                    icon={RefreshCw}
-                    iconColor="bg-sky-500/10 text-sky-500"
-                    label="REINICIAR CICLO"
-                  />
 
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Reinicia seu ciclo de revisões mantendo matérias e tópicos. Ideal para recomeçar seus estudos.
-                  </p>
-
-                  <Button
-                    variant="outline"
-                    className="w-full text-xs border-sky-500/30 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10"
-                    onClick={handleResetCycle}
-                    disabled={isResettingCycle}
-                    size="sm"
-                  >
-                    {isResettingCycle ? (
-                      <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Reiniciando...</>
-                    ) : (
-                      <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Reiniciar Ciclo de Revisões</>
-                    )}
-                  </Button>
-                </SettingsCard>
 
                 {/* Zona de Perigo */}
                 <SettingsCard delay={5}>

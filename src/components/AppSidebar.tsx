@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Calendar, Users, Settings, Clock,
   Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
   ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Monitor, FileSearch,
-  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Layers, Bot, NotebookTabs
+  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Layers, Bot, NotebookTabs, AlertTriangle
 } from "lucide-react";
 
 import { AnimatedLogo } from './AnimatedLogo';
@@ -94,6 +94,7 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
     { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
     ...(isOwner ? [{ to: "/admin/pricing", label: "Preços e Cupons", icon: Target }] : []),
     { to: "/admin/audit", label: "Auditoria", icon: ClipboardList },
+    { to: "/admin/system/errors", label: "Erros do Sistema", icon: AlertTriangle },
     { to: "/admin/ai-settings", label: "Gestão de IA", icon: Bot },
     { to: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   ] : [];

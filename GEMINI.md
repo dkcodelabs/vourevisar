@@ -26,15 +26,22 @@ Você está trabalhando neste repositório específico. Use as informações aba
 
 ```
 src/
-├── pages/          # Páginas principais (Editais.tsx, Subjects.tsx, Topics.tsx, Dashboard.tsx...)
-├── components/     # Componentes reutilizáveis
-│   ├── editais/    # EditalCard, EditalSubjectsModal, SyncReviewModal, EditEditalModal
-│   ├── study-cycle/# Componentes do ciclo de estudos
-│   ├── subjects/   # Componentes de matérias
-│   ├── topics/     # Componentes de tópicos
-│   ├── modals/     # Modais genéricos
-│   ├── ui/         # Componentes base shadcn/ui
-│   └── dashboard/  # Componentes do dashboard
+├── pages/          # Páginas principais
+│   ├── Dashboard.tsx   # Painel inicial
+│   ├── Editais.tsx     # Meus Editais
+│   ├── Subjects.tsx    # Ciclo de Estudos (Substituiu as antigas páginas de matérias e tópicos)
+│   ├── Revisoes.tsx    # Controle de revisões espaçadas
+│   ├── Cadernos.tsx    # Cadernos de erros e anotações
+│   └── admin/          # Painel administrativo
+├── components/     # Componentes reutilizáveis organizados por domínio
+│   ├── editais/    # EditalCard, EditalSubjectsModal, SyncReviewModal
+│   ├── study-cycle/# Componentes de apoio ao ciclo de estudos
+│   ├── subjects/   # Auxiliares para a tabela do ciclo
+│   ├── topics/     # Modais de tópicos (TopicsModal, CreateTopicModal)
+│   ├── revisoes/   # Componentes do fluxo de revisão
+│   ├── modals/     # Modais genéricos do sistema
+│   ├── ui/         # Componentes base (shadcn/ui e Radix)
+│   └── dashboard/  # Gráficos e indicadores do painel
 ├── hooks/          # Custom hooks (prefixo `use...`)
 ├── services/       # Lógica de negócio e integrações
 │   ├── mergeService.ts        # Lógica de mescla de editais/ciclos
@@ -68,43 +75,6 @@ src/
 
 ---
 
-## 🎨 Convenções de UI/UX
-
-- **`glass-card`**: classe CSS customizada para cards com efeito glassmorphism (backdrop-filter). Use para modais e cards destaque.
-- **`glow-card`**: classe para cards com borda luminosa sutil. Use em cards interativos.
-- **`dark` mode**: O projeto usa `next-themes`. Evitar cores hard-coded; usar variáveis CSS (`--background`, `--foreground`, etc.).
-- **Ícones**: Preferir `lucide-react` para ícones genéricos. `@phosphor-icons/react` para ícones especializados.
-- **Chips/Badges**: Usar `rounded-md` (não `rounded-full`) para chips de matérias e tags. Casing normal (não ALL CAPS).
-- **Botões destrutivos**: Sempre usar `variant="destructive"` do shadcn. Nunca vermelho inline.
-- **Toasts**: Usar `react-toastify` (não `toast` do shadcn) para feedback de ações.
-
----
-
-## 🖼️ Padrão de Modais Premium (Guidelines)
-
-Sempre aplicar estas regras em novos modais para manter a consistência de elite:
-
-### 📐 Estrutura e Dimensões
-- **Margem Externa (Segurança)**: **1cm (16px)**. O modal nunca toca as bordas da tela (`p-4` no wrapper).
-- **Raio da Borda**: **32px** (`rounded-[32px]`) para um visual suave e moderno.
-- **Altura Máxima**: `max-h-[calc(100vh-32px)]` para garantir o respiro externo.
-
-### 🛡️ Espaçamentos Internos (Paddings)
-- **Laterais (Lado a Lado)**: **2cm (32px)** de recuo (`px-8`).
-- **Verticais (Respiro)**: **1cm (16px)** entre texto e bordas laterais/divisores (`py-4`).
-- **Entre Seções (Divisores)**: Distância total de **2cm (32px)** entre o texto de uma seção e a próxima através da linha divisória (`pb-4` + `pt-4` ou similar).
-- **Entre Blocos de Card**: **2.5cm (40px)** de gap (`gap-10`).
-
-### 🔘 Rodapé e Ações
-- **Alinhamento**: Todos os botões agrupados na **direita** (`justify-end gap-3`).
-- **Simetria**: Botões de ação devem ter **largura e altura idênticas** (ex: `w-[180px] h-[48px]`).
-- **Tipografia**: Botões em caixa alta, `font-black` (negrito extra) e labels complementares pequenos (`text-[9px]`).
-
-### ⚓ Elementos Fixos
-- **Sticky Header/Footer**: Cabeçalho e Rodapé devem ser `sticky`, com background sólido para cobrir o scroll do conteúdo.
-
----
-
 ## 🔑 Padrões de Código Estabelecidos
 
 ### Hooks
@@ -124,21 +94,6 @@ Sempre aplicar estas regras em novos modais para manter a consistência de elite
 - Nunca apagar `subject_merges` ou `topic_merges` sem reconstruir os registros equivalentes.
 - Operações de merge são críticas: ler `mergeService.ts` antes de qualquer alteração nessa área.
 
----
-
-## ⚡ Regras de Negócio Críticas (Merge & Unificação)
-
-### Ciclo e Persistência
-- **Pausa (Remover do Ciclo)**: Operação **NÃO DESTRUTIVA**. Desvincula o edital do cronograma (`merged_into_cycle = false`), mas preserva matérias, tópicos, estrelas, status e anotações. O progresso deve ser restaurado ao carregar novamente.
-- **Wipe (Excluir Edital)**: Operação **DESTRUTIVA**. Apaga fisicamente o edital e todos os registros dependentes (subjects, topics, history). O progresso é perdido permanentemente.
-- **Integridade do Ciclo**: Nunca remova uma matéria do `user_cycles.ciclo_atual` se ela ainda pertencer a outro edital ativo no ciclo (lógica de Soft Merge).
-
-### Lógica de Merge
-- **Impacto no Ciclo**: Antes de alterar o `mergeService.ts`, verifique sempre o impacto no `UserCycle` e no `unification_map`. A quebra dessa lógica desalinha os estudos do usuário.
-- **Auditoria**: Nunca remova logs de auditoria durante o processo de merge; eles são a única trilha para suporte em caso de bugs.
-- **Atomicidade**: Operações de banco no fluxo de unificação devem ser tratadas como atômicas. Se possível, usar RPCs do Postgres.
-- **Mapeamento**: O `unification_map` é a "fonte da verdade" para saber quais matérias de editais diferentes são a mesma coisa. Proteja a integridade desse JSONB.
-- **Materia e topico Orfao**: O sistema não faz CRUD e deixa materia e topico orfao, sempre tem que esta dentro de algum edital.
 
 ---
 

@@ -161,44 +161,47 @@ export function ResetCycleConfirmDialog({
                 </AlertDescription>
               </Alert>
 
-              <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
+              <div className="rounded-lg border border-border bg-muted/20 p-4">
                 <h4 className="font-semibold mb-3 text-foreground">
-                  O que será perdido:
+                  Resumo de tudo que será deletado:
                 </h4>
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-center gap-2">
-                    <span className="text-destructive">•</span>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <span className="text-destructive mt-0.5">•</span>
                     <span>
-                      <strong>{stats?.topicsWithReviews}</strong> tópicos com revisões ativas
-                      (de {stats?.totalTopics} tópicos totais)
+                      <strong className="text-foreground">Matérias e Tópicos:</strong> Exclusão total de todas as matérias e tópicos cadastrados.
                     </span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-destructive">•</span>
+                  <li className="flex items-start gap-2">
+                    <span className="text-destructive mt-0.5">•</span>
                     <span>
-                      <strong>{stats?.topicsWithNotes}</strong> tópicos com anotações
+                      <strong className="text-foreground">Revisões e Histórico:</strong> Perda definitiva de todo histórico de estudos e fila de revisões espaçadas.
                     </span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-destructive">•</span>
+                  <li className="flex items-start gap-2">
+                    <span className="text-destructive mt-0.5">•</span>
                     <span>
-                      <strong>{stats?.subjectsInProgress}</strong> matérias em progresso
+                      <strong className="text-foreground">Progresso e Métricas:</strong> Suas estatísticas, desempenho, sessões estudadas e pontos de dificuldade serão zerados.
                     </span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="text-destructive">•</span>
+                  <li className="flex items-start gap-2">
+                    <span className="text-destructive mt-0.5">•</span>
                     <span>
-                      Histórico de <strong>{stats?.cycleNumber}</strong> ciclos realizados
+                      <strong className="text-foreground">Editais (Criados/Importados):</strong> Todo edital cadastrado manualmente, agrupado ou importado via IA será excluído.
                     </span>
                   </li>
-                  {stats?.lastActivity && (
-                    <li className="flex items-center gap-2">
-                      <span className="text-destructive">•</span>
-                      <span>
-                        Última atividade em: <strong>{stats.lastActivity}</strong>
-                      </span>
-                    </li>
-                  )}
+                  <li className="flex items-start gap-2">
+                    <span className="text-destructive mt-0.5">•</span>
+                    <span>
+                      <strong className="text-foreground">Ciclo de Estudos:</strong> Toda a sua estrutura de ciclo, rotações e matérias do dia sumirão.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-destructive mt-0.5">•</span>
+                    <span>
+                      <strong className="text-foreground">Cadernos de Anotações:</strong> Todo o texto escrito nos cadernos de erros e resumos de tópicos será perdido.
+                    </span>
+                  </li>
                 </ul>
               </div>
 

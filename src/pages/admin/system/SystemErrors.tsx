@@ -215,8 +215,8 @@ export default function SystemErrors() {
         switch (error.category) {
             case 'auth':
             case 'permission':
-                title = 'Problema de Acesso / Segurança';
-                steps = ['Verificar se o token de sessão é válido', 'Checar políticas RLS da tabela', 'Confirmar role do usuário'];
+                title = 'Problema de Autenticação / Segurança';
+                steps = ['Verificar se o token de sessão é válido', 'Checar políticas RLS da tabela', 'Confirmar permissões (role) do usuário'];
                 color = 'bg-red-50 border-red-200 text-red-800';
                 break;
             case 'validation':
@@ -437,7 +437,12 @@ export default function SystemErrors() {
                             <div className="flex items-center gap-3">
                                 <AlertTriangle className="h-5 w-5 text-red-600" />
                                 <div>
-                                    <p className="font-bold text-sm uppercase tracking-wide">{alert.alert_type.replace('_', ' ')}</p>
+                                    <p className="font-bold text-sm uppercase tracking-wide">
+                                        {alert.alert_type === 'critical_spike' ? 'PICO CRÍTICO' : 
+                                         alert.alert_type === 'high_error_rate' ? 'ALTA TAXA DE ERROS' :
+                                         alert.alert_type === 'slo_violation' ? 'VIOLAÇÃO DE META (SLO)' :
+                                         alert.alert_type.replace('_', ' ').toUpperCase()}
+                                    </p>
                                     <p className="text-sm">{alert.message}</p>
                                 </div>
                             </div>
@@ -451,7 +456,7 @@ export default function SystemErrors() {
                                     toast.success('Alerta reconhecido.');
                                 }}
                             >
-                                Acknowledge
+                                Reconhecer
                             </Button>
                         </div>
                     ))}
@@ -461,40 +466,40 @@ export default function SystemErrors() {
             {/* SLO Dashboard */}
             {sloMetrics && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
-                    <Card className="bg-slate-50 border-slate-200">
-                        <CardContent className="pt-4 pb-4 flex justify-between items-center">
+                    <Card className="bg-slate-50 border-slate-200 shadow-sm">
+                        <CardContent className="p-3 flex justify-between items-center">
                             <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SLO: CRITICAL ({'<'}4h)</p>
-                                <div className={`text-2xl font-bold mt-1 ${sloMetrics.critical_within_4h_pct >= 90 ? 'text-green-600' : 'text-red-600'}`}>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-tight">META: CRÍTICO ({'<'}4h)</p>
+                                <div className={`text-xl font-bold mt-0.5 ${sloMetrics.critical_within_4h_pct >= 90 ? 'text-green-600' : 'text-red-600'}`}>
                                     {sloMetrics.critical_within_4h_pct}%
                                 </div>
-                                <p className="text-[10px] text-slate-400">Meta: 90%</p>
+                                <p className="text-[9px] text-slate-400">Meta: 90%</p>
                             </div>
-                            <Activity className={sloMetrics.critical_within_4h_pct >= 90 ? 'text-green-200' : 'text-red-200'} />
+                            <Activity className={sloMetrics.critical_within_4h_pct >= 90 ? 'text-green-200' : 'text-red-200'} size={20} />
                         </CardContent>
                     </Card>
-                    <Card className="bg-slate-50 border-slate-200">
-                        <CardContent className="pt-4 pb-4 flex justify-between items-center">
+                    <Card className="bg-slate-50 border-slate-200 shadow-sm">
+                        <CardContent className="p-3 flex justify-between items-center">
                             <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SLO: HIGH ({'<'}24h)</p>
-                                <div className={`text-2xl font-bold mt-1 ${sloMetrics.high_within_24h_pct >= 85 ? 'text-green-600' : 'text-red-600'}`}>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-tight">META: ALTO ({'<'}24h)</p>
+                                <div className={`text-xl font-bold mt-0.5 ${sloMetrics.high_within_24h_pct >= 85 ? 'text-green-600' : 'text-red-600'}`}>
                                     {sloMetrics.high_within_24h_pct}%
                                 </div>
-                                <p className="text-[10px] text-slate-400">Meta: 85%</p>
+                                <p className="text-[9px] text-slate-400">Meta: 85%</p>
                             </div>
-                            <Clock className={sloMetrics.high_within_24h_pct >= 85 ? 'text-green-200' : 'text-red-200'} />
+                            <Clock className={sloMetrics.high_within_24h_pct >= 85 ? 'text-green-200' : 'text-red-200'} size={20} />
                         </CardContent>
                     </Card>
-                    <Card className="bg-slate-50 border-slate-200">
-                        <CardContent className="pt-4 pb-4 flex justify-between items-center">
+                    <Card className="bg-slate-50 border-slate-200 shadow-sm">
+                        <CardContent className="p-3 flex justify-between items-center">
                             <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">TAXA DE RECORRÊNCIA</p>
-                                <div className={`text-2xl font-bold mt-1 ${sloMetrics.recurrence_rate <= 15 ? 'text-green-600' : 'text-red-600'}`}>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-tight">TAXA RECORRÊNCIA</p>
+                                <div className={`text-xl font-bold mt-0.5 ${sloMetrics.recurrence_rate <= 15 ? 'text-green-600' : 'text-red-600'}`}>
                                     {sloMetrics.recurrence_rate}%
                                 </div>
-                                <p className="text-[10px] text-slate-400">Meta: {'<'}15%</p>
+                                <p className="text-[9px] text-slate-400">Meta: {'<'}15%</p>
                             </div>
-                            <RefreshCw className={sloMetrics.recurrence_rate <= 15 ? 'text-green-200' : 'text-red-200'} />
+                            <RefreshCw className={sloMetrics.recurrence_rate <= 15 ? 'text-green-200' : 'text-red-200'} size={20} />
                         </CardContent>
                     </Card>
                 </div>
@@ -518,76 +523,76 @@ export default function SystemErrors() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="bg-white border-l-4 border-l-red-500 shadow-sm">
-                    <CardContent className="pt-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                <Card className="bg-white border-l-4 border-l-red-500 shadow-sm overflow-hidden">
+                    <CardContent className="p-4">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Erros (24h)</p>
-                                <div className="text-2xl font-bold mt-1 text-slate-900">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Erros (24h)</p>
+                                <div className="text-xl font-bold mt-2 text-slate-900">
                                     {errors.filter(e => new Date(e.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000).length}
                                 </div>
                             </div>
-                            <Activity className="text-red-500 w-5 h-5 opacity-70" />
+                            <Activity className="text-red-500 w-4 h-4 opacity-70" />
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-l-4 border-l-orange-500 shadow-sm">
-                    <CardContent className="pt-6">
+                <Card className="bg-white border-l-4 border-l-orange-500 shadow-sm overflow-hidden">
+                    <CardContent className="p-4">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Alta Recorrência</p>
-                                <div className="text-2xl font-bold mt-1 text-slate-900">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Alta Recorrência</p>
+                                <div className="text-xl font-bold mt-2 text-slate-900">
                                     {usageMetrics.highRecurrenceCount}
                                 </div>
-                                <p className="text-[10px] text-slate-400 mt-1">Erros repetidos &gt; 5x</p>
+                                <p className="text-[9px] text-slate-400 mt-1">Repetidos {'>'} 5x</p>
                             </div>
-                            <AlertTriangle className="text-orange-500 w-5 h-5 opacity-70" />
+                            <AlertTriangle className="text-orange-500 w-4 h-4 opacity-70" />
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-l-4 border-l-orange-500 shadow-sm">
-                    <CardContent className="pt-6">
+                <Card className="bg-white border-l-4 border-l-orange-500 shadow-sm overflow-hidden">
+                    <CardContent className="p-4">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Pendentes</p>
-                                <div className="text-2xl font-bold mt-1 text-slate-900">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Pendentes</p>
+                                <div className="text-xl font-bold mt-2 text-slate-900">
                                     {errors.filter(e => ['new', 'investigating'].includes(e.status)).length}
                                 </div>
                             </div>
-                            <Clock className="text-orange-500 w-5 h-5 opacity-70" />
+                            <Clock className="text-orange-500 w-4 h-4 opacity-70" />
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-l-4 border-l-emerald-500 shadow-sm">
-                    <CardContent className="pt-6">
+                <Card className="bg-white border-l-4 border-l-emerald-500 shadow-sm overflow-hidden">
+                    <CardContent className="p-4">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">% Resolvidos</p>
-                                <div className="text-2xl font-bold mt-1 text-slate-900">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">% Resolvidos</p>
+                                <div className="text-xl font-bold mt-2 text-slate-900">
                                     {errors.length > 0
                                         ? Math.round((errors.filter(e => e.status === 'resolved').length / errors.length) * 100)
                                         : 0}%
                                 </div>
                             </div>
-                            <CheckCircle2 className="text-emerald-500 w-5 h-5 opacity-70" />
+                            <CheckCircle2 className="text-emerald-500 w-4 h-4 opacity-70" />
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-white border-l-4 border-l-blue-500 shadow-sm">
-                    <CardContent className="pt-6">
+                <Card className="bg-white border-l-4 border-l-blue-500 shadow-sm overflow-hidden col-span-2 md:col-span-1">
+                    <CardContent className="p-4">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Módulo Crítico</p>
-                                <div className="text-lg font-bold mt-1 text-slate-900 truncate max-w-[150px]" title={usageMetrics.topModule || 'Nenhum'}>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Módulo Crítico</p>
+                                <div className="text-sm font-bold mt-2 text-slate-900 truncate max-w-[120px]" title={usageMetrics.topModule || 'Nenhum'}>
                                     {usageMetrics.topModule || '-'}
                                 </div>
                             </div>
-                            <BarChart2 className="text-blue-500 w-5 h-5 opacity-70" />
+                            <BarChart2 className="text-blue-500 w-4 h-4 opacity-70" />
                         </div>
                     </CardContent>
                 </Card>
@@ -619,9 +624,9 @@ export default function SystemErrors() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos</SelectItem>
-                                    <SelectItem value="production">Production</SelectItem>
-                                    <SelectItem value="staging">Staging</SelectItem>
-                                    <SelectItem value="development">Development</SelectItem>
+                                    <SelectItem value="production">Produção</SelectItem>
+                                    <SelectItem value="staging">Homologação</SelectItem>
+                                    <SelectItem value="development">Desenvolvimento</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Select
@@ -689,9 +694,9 @@ export default function SystemErrors() {
                                 <SelectContent>
                                     <SelectItem value="all">Todas Cat.</SelectItem>
                                     <SelectItem value="validation">Validação</SelectItem>
-                                    <SelectItem value="auth">Auth/Perm</SelectItem>
-                                    <SelectItem value="database">Banco</SelectItem>
-                                    <SelectItem value="network">Rede</SelectItem>
+                                    <SelectItem value="auth">Autenticação</SelectItem>
+                                    <SelectItem value="database">Banco de Dados</SelectItem>
+                                    <SelectItem value="network">Rede/Internet</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -748,7 +753,8 @@ export default function SystemErrors() {
                                                         error.environment === 'staging' ? 'border-yellow-200 text-yellow-700 bg-yellow-50' :
                                                             'text-muted-foreground border-slate-200 bg-slate-50'
                                                         }`}>
-                                                        {error.environment || 'prod'}
+                                                        {error.environment === 'production' ? 'Produção' : 
+                                                         error.environment === 'staging' ? 'Homologação' : 'Desenvol.'}
                                                     </Badge>
                                                     <span className="text-[10px] font-mono text-slate-400 truncate w-[60px]" title={error.error_id}>{error.error_id.substring(0, 6)}...</span>
                                                 </div>
@@ -792,11 +798,13 @@ export default function SystemErrors() {
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={`${getSeverityColor(error.severity)} text-white border-0`}>
-                                                    {error.severity}
+                                                <Badge className={`${getSeverityColor(error.severity)} text-white border-0 text-[10px] uppercase`}>
+                                                    {error.severity === 'critical' ? 'Crítico' : 
+                                                     error.severity === 'high' ? 'Alto' :
+                                                     error.severity === 'medium' ? 'Médio' : 'Baixo'}
                                                 </Badge>
                                                 {error.recoverability === 'system_retryable' && (
-                                                    <div className="text-[9px] text-center mt-0.5 text-slate-500">Retry Auto</div>
+                                                    <div className="text-[9px] text-center mt-0.5 text-slate-500">Auto-Retentativa</div>
                                                 )}
                                             </TableCell>
                                             <TableCell>
@@ -829,7 +837,9 @@ export default function SystemErrors() {
                         <DialogTitle className="flex items-center gap-2 text-xl">
                             Detalhes do Erro
                             <Badge variant={selectedError?.status === 'resolved' ? 'default' : 'destructive'} className="ml-2">
-                                {selectedError?.status.toUpperCase()}
+                                {selectedError?.status === 'new' ? 'NOVO' : 
+                                 selectedError?.status === 'investigating' ? 'INVESTIGANDO' :
+                                 selectedError?.status === 'resolved' ? 'RESOLVIDO' : 'IGNORADO'}
                             </Badge>
                         </DialogTitle>
                         <DialogDescription className="flex items-center gap-2">
@@ -935,7 +945,7 @@ export default function SystemErrors() {
                                     <div className={`p-4 rounded-md border ${playbook.color}`}>
                                         <div className="flex items-center gap-2 mb-2">
                                             <CheckCircle2 size={16} />
-                                            <h4 className="font-semibold text-sm uppercase tracking-wide">Playbook: {playbook.title}</h4>
+                                            <h4 className="font-semibold text-sm uppercase tracking-wide">Guia de Resolução: {playbook.title}</h4>
                                         </div>
                                         <ul className="list-disc list-inside text-sm space-y-1 ml-1">
                                             {playbook.steps.map((step, i) => (
