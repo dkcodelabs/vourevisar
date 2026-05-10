@@ -63,12 +63,10 @@ const mapDifficultyLevel = (level?: number | string): Difficulty => {
   if (typeof level === 'number') {
     switch (level) {
       case 1:
-      case 2:
         return Difficulty.EASY;
-      case 3:
+      case 2:
         return Difficulty.MEDIUM;
-      case 4:
-      case 5:
+      case 3:
         return Difficulty.HARD;
       default:
         return Difficulty.MEDIUM;
@@ -127,11 +125,11 @@ const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
 const mapDifficultyToLevel = (difficulty: Difficulty): number => {
   switch (difficulty) {
     case Difficulty.EASY:
-      return 2;
+      return 1;
     case Difficulty.HARD:
-      return 4;
-    default:
       return 3;
+    default:
+      return 2;
   }
 };
 

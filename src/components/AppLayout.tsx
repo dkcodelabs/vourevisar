@@ -40,6 +40,7 @@ const routeTitles: Record<string, string> = {
   "/configuracoes": "Configurações",
   "/admin/ai-settings": "Gestão de IA",
   "/admin/pricing": "Escolha sua Jornada",
+  "/admin/audit": "Auditoria",
 };
 
 const routeDescriptions: Record<string, string> = {
@@ -48,6 +49,7 @@ const routeDescriptions: Record<string, string> = {
   "/dashboard": "Foco total nos estudos! O seu sucesso depende da constante dedicação.",
   "/admin/users": "Gerencie os membros da sua equipe e suas permissões de conta aqui.",
   "/admin/ai-settings": "Gestão de IA e comportamento do Gemini para extração de editais.",
+  "/admin/audit": "Rastreamento de ações e eventos do sistema.",
 };
 
 // Removed MobileMenuToggle from here as it relies on useSidebar which we are removing from the wrap

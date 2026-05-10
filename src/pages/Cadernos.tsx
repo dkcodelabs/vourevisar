@@ -94,7 +94,7 @@ const Cadernos = () => {
     return visibleSubjects.map(subject => {
       const topics = subject.topics || [];
       const topicsWithNotes = topics.filter(topic => hasUsefulNote(topic.notes));
-      const hardTopics = topics.filter(topic => (topic.difficulty_level || 0) >= 4);
+      const hardTopics = topics.filter(topic => (topic.difficulty_level || 0) >= 3);
 
       return {
         subject,
@@ -112,7 +112,7 @@ const Cadernos = () => {
   );
 
   const selectedHardTopics = useMemo(
-    () => (selectedSubject?.topics || []).filter(topic => (topic.difficulty_level || 0) >= 4),
+    () => (selectedSubject?.topics || []).filter(topic => (topic.difficulty_level || 0) >= 3),
     [selectedSubject]
   );
 

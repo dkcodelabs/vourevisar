@@ -1,7 +1,7 @@
 export type Status = 'Nova' | 'Em Estudo' | 'Concluída';
 export type RevisionStatus = 'Atrasado' | 'Hoje' | 'Futura';
 export type RevisionStage = '24h' | '7 dias' | '30 dias' | 'Concluído' | string;
-export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
+export type DifficultyLevel = 1 | 2 | 3;
 
 export interface TopicSubtopic {
   id: string;

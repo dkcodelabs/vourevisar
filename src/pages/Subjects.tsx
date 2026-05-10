@@ -46,6 +46,33 @@ import { withTimeout } from '@/utils/withTimeout';
 type SubjectTab = 'all' | 'vertical';
 type SubjectVisualTag = 'Não Estudada' | 'Em Estudo' | 'Em Revisão' | 'Concluída';
 
+type CycleTopicStatusVisual = {
+  label: string;
+  badgeClassName: string;
+  indicatorClassName: string;
+  actionClassName: string;
+};
+
+const getTopicCycleTouchDate = (topic: Topic): string | Date | null | undefined =>
+  topic.last_reviewed_at ||
+  topic.lastReviewedAt ||
+  topic.first_studied_at ||
+  topic.firstStudiedAt;
+
+const isTopicStudiedInCycle = (topic: Topic, cycleStart?: string | null): boolean => {
+  if (!cycleStart) return false;
+
+  const touchedAt = getTopicCycleTouchDate(topic);
+  if (!touchedAt) return false;
+
+  const touchedTime = new Date(touchedAt).getTime();
+  const cycleStartTime = new Date(cycleStart).getTime();
+
+  return Number.isFinite(touchedTime) &&
+    Number.isFinite(cycleStartTime) &&
+    touchedTime >= cycleStartTime;
+};
+
 const isTopicStarted = (topic: Topic) =>
   Boolean(topic.first_studied_at) ||
   Boolean(topic.firstStudiedAt) ||
@@ -64,6 +91,27 @@ const isTopicCompleted = (topic: Topic) =>
   topic.reviewStage === 'Concluído' ||
   topic.review_stage === 'Concluído';
 
+const getTopicContactCount = (
+  topic: Topic,
+  topicStats?: Map<string, { reviewCount: number; hardReviewCount: number }>
+) => Math.max(
+  topic.reviewCount || 0,
+  topic.review_count || 0,
+  topicStats?.get(topic.id)?.reviewCount || 0
+);
+
+const getActualReviewCount = (contactCount: number) => Math.max(0, contactCount - 1);
+
+const getReviewSummaryTitle = (contactCount: number, showHardAlert: boolean) => {
+  const actualReviewCount = getActualReviewCount(contactCount);
+  const contactText = contactCount === 1 ? '1 contato registrado' : `${contactCount} contatos registrados`;
+  const reviewText = actualReviewCount === 1 ? '1 revisão realizada' : `${actualReviewCount} revisões realizadas`;
+  return `${contactText}. ${reviewText}.${showHardAlert ? ' Muitas revisões com dificuldade alta.' : ''}`;
+};
+
+const shouldShowHardReviewAlert = (contactCount: number, hardCount: number) =>
+  contactCount >= 2 && hardCount > 0 && (hardCount >= 2 || hardCount / contactCount >= 0.4);
+
 const calculateSubjectStatus = (subject: Subject): Status => {
   if (subject.topics.length === 0) return 'Nova';
   if (subject.topics.every(isTopicCompleted)) return 'Concluída';
@@ -77,6 +125,62 @@ const getSubjectVisualTag = (subject: Subject): SubjectVisualTag => {
   if (subject.topics.every(isTopicStarted)) return 'Em Revisão';
   if (subject.topics.some(isTopicStarted)) return 'Em Estudo';
   return 'Não Estudada';
+};
+
+const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
+  if (topic.is_active === false) {
+    return {
+      label: 'Inativo',
+      badgeClassName: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+      indicatorClassName: 'bg-rose-500',
+      actionClassName: 'border-transparent bg-transparent text-rose-500 hover:border-rose-500/20 hover:bg-rose-500/10',
+    };
+  }
+
+  if (isTopicCompleted(topic)) {
+    return {
+      label: 'Concluído',
+      badgeClassName: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+      indicatorClassName: 'bg-emerald-500',
+      actionClassName: 'border-transparent bg-transparent text-emerald-500 hover:border-emerald-500/20 hover:bg-emerald-500/10',
+    };
+  }
+
+  const statusInfo = getTopicStatusInfo(topic);
+
+  if (statusInfo.type === 'atrasado') {
+    return {
+      label: statusInfo.label,
+      badgeClassName: statusInfo.colorClass.replace(/\s*border-\S+/g, ''),
+      indicatorClassName: 'bg-red-500',
+      actionClassName: 'border-transparent bg-transparent text-red-500 hover:border-red-500/20 hover:bg-red-500/10',
+    };
+  }
+
+  if (statusInfo.type === 'hoje') {
+    return {
+      label: statusInfo.label,
+      badgeClassName: statusInfo.colorClass.replace(/\s*border-\S+/g, ''),
+      indicatorClassName: 'bg-orange-500',
+      actionClassName: 'border-transparent bg-transparent text-orange-500 hover:border-orange-500/20 hover:bg-orange-500/10',
+    };
+  }
+
+  if (statusInfo.type === 'futuro') {
+    return {
+      label: statusInfo.label,
+      badgeClassName: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      indicatorClassName: 'bg-blue-500',
+      actionClassName: 'border-transparent bg-transparent text-blue-500 hover:border-blue-500/20 hover:bg-blue-500/10',
+    };
+  }
+
+  return {
+    label: 'Não estudado',
+    badgeClassName: 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-slate-300',
+    indicatorClassName: 'bg-slate-400 dark:bg-slate-500',
+    actionClassName: 'border-transparent bg-transparent text-slate-500 hover:border-slate-500/20 hover:bg-slate-500/10',
+  };
 };
 
 
@@ -111,7 +215,7 @@ const Subjects = () => {
   const [isImportEditalModalOpen, setIsImportEditalModalOpen] = useState(false);
   const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState<'ready' | 'ia' | 'manual'>('ready');
-  const { openReviewModal, difficultyModalData, closeDifficultyModal, markTopicAsReviewed } = useTopicReview();
+  const { openReviewModal, difficultyModalData, closeDifficultyModal, markTopicAsReviewed, isLoading: isSavingTopicReview } = useTopicReview();
   const [subjectsModal, setSubjectsModal] = useState<{ 
     isOpen: boolean; 
     edital: EditalModalData | null;
@@ -477,7 +581,7 @@ const Subjects = () => {
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
-  const [expandedCompletedSubjectIds, setExpandedCompletedSubjectIds] = useState<string[]>([]);
+  const [collapsedCompletedSubjectIds, setCollapsedCompletedSubjectIds] = useState<string[]>([]);
   const [expandedBeforeSearch, setExpandedBeforeSearch] = useState<string[]>([]);
   const [isAddingSubject, setIsAddingSubject] = useState(false);
 
@@ -1101,8 +1205,7 @@ const Subjects = () => {
   };
 
   const handleDragStart = (_event: DragStartEvent) => {
-    // Recolhe todos os tópicos expandidos ao iniciar o drag
-    setExpandedSubjectIds([]);
+    // Mantém o estado aberto/fechado da fila durante a ordenação.
   };
 
   const handleMarcarMateriaComoEstudada = useCallback(async (materiaId: string) => {
@@ -1370,12 +1473,40 @@ const Subjects = () => {
     );
   };
 
-  const toggleCompletedExpand = (itemId: string) => {
-    setExpandedCompletedSubjectIds(prev =>
+  const toggleAllCycleSubjects = () => {
+    const cycleSubjectIds = pendingCycleList.map(item => item.id);
+    const allCycleSubjectsExpanded = cycleSubjectIds.length > 0 &&
+      cycleSubjectIds.every(id => expandedSubjectIds.includes(id));
+
+    setExpandedSubjectIds(prev => {
+      if (allCycleSubjectsExpanded) {
+        return prev.filter(id => !cycleSubjectIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...cycleSubjectIds]));
+    });
+  };
+
+  const toggleCompletedSubject = (itemId: string) => {
+    setCollapsedCompletedSubjectIds(prev =>
       prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
     );
+  };
+
+  const toggleAllCompletedCycleSubjects = () => {
+    const completedSubjectIds = studiedCycleList.map(item => item.id);
+    const allCompletedSubjectsExpanded = completedSubjectIds.length > 0 &&
+      completedSubjectIds.every(id => !collapsedCompletedSubjectIds.includes(id));
+
+    setCollapsedCompletedSubjectIds(prev => {
+      if (allCompletedSubjectsExpanded) {
+        return Array.from(new Set([...prev, ...completedSubjectIds]));
+      }
+
+      return prev.filter(id => !completedSubjectIds.includes(id));
+    });
   };
 
   const handleOpenTopicsModal = (subject: Subject) => {
@@ -1528,31 +1659,17 @@ const Subjects = () => {
 
   const getVerticalTopicStatus = (topic: Topic) => {
     if (topic.is_active === false) {
-      return {
-        label: 'Inativo',
-        className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
-      };
+      const statusVisual = getCycleTopicStatusVisual(topic);
+      return { label: statusVisual.label, className: statusVisual.badgeClassName };
     }
 
     if (isTopicCompleted(topic)) {
-      return {
-        label: 'Concluído',
-        className: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-      };
+      const statusVisual = getCycleTopicStatusVisual(topic);
+      return { label: statusVisual.label, className: statusVisual.badgeClassName };
     }
 
-    const statusInfo = getTopicStatusInfo(topic);
-    if (statusInfo.type !== 'novo') {
-      return {
-        label: statusInfo.label,
-        className: statusInfo.colorClass.replace(/\s*border-\S+/g, ''),
-      };
-    }
-
-    return {
-      label: 'Não estudado',
-      className: 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-slate-300',
-    };
+    const statusVisual = getCycleTopicStatusVisual(topic);
+    return { label: statusVisual.label, className: statusVisual.badgeClassName };
   };
 
   const renderVerticalEditalView = () => (
@@ -1584,11 +1701,14 @@ const Subjects = () => {
                 return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
               })
               .map((topic) => {
-                const reviewCount = Math.max(topic.reviewCount || 0, topic.review_count || 0, topicStats.get(topic.id)?.reviewCount || 0);
+                const contactCount = getTopicContactCount(topic, topicStats);
+                const actualReviewCount = getActualReviewCount(contactCount);
                 const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
-                const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
+                const showHardAlert = shouldShowHardReviewAlert(contactCount, hardCount);
                 const status = getVerticalTopicStatus(topic);
-                const hasStarted = reviewCount > 0 || isTopicStarted(topic);
+                const statusVisual = getCycleTopicStatusVisual(topic);
+                const hasStarted = contactCount > 0 || isTopicStarted(topic);
+                const studiedInCurrentCycle = isTopicStudiedInCycle(topic, userCycle?.data_inicio_ciclo);
                 const hasNotes = Boolean(
                   (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() &&
                   (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
@@ -1597,25 +1717,39 @@ const Subjects = () => {
                 return (
                   <div
                     key={topic.id}
-                    className="flex items-center gap-3 px-4 py-2.5 border-b border-border/40 dark:border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group"
+                    className="relative flex items-center gap-3 px-4 py-2.5 pl-5 border-b border-border/40 dark:border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group"
                   >
+                    <div
+                      className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${statusVisual.indicatorClassName}`}
+                      aria-hidden="true"
+                    />
                     <div className="flex-1 min-w-0">
                       <span className={`text-sm break-words leading-snug ${isTopicCompleted(topic) ? 'text-content-muted line-through decoration-content-muted/40' : topic.is_active === false ? 'text-content-muted opacity-50' : 'text-foreground'}`}>
                         {topic.name} {topic.is_active === false && <span className="text-[9px] ml-1 uppercase opacity-60">(inativo)</span>}
                       </span>
+                      {studiedInCurrentCycle && !isTopicCompleted(topic) && (
+                        <CheckCircle2
+                          size={14}
+                          className="ml-2 inline-block align-[-2px] text-slate-400 dark:text-slate-500"
+                          role="img"
+                          aria-label={`Estudado no ciclo: ${topic.name}`}
+                        >
+                          <title>Estudado no ciclo</title>
+                        </CheckCircle2>
+                      )}
                     </div>
 
                     <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${status.className}`}>
                       {status.label}
                     </span>
 
-                    <div
-                      className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-semibold tabular-nums ${showHardAlert ? 'text-orange-400' : 'text-content-muted'}`}
-                      title={showHardAlert ? 'Muitas revisões com dificuldade alta' : 'Total de revisões'}
-                    >
-                      <RotateCcw size={11} className={showHardAlert ? 'text-orange-400' : 'text-content-muted'} />
-                      <span>{reviewCount}</span>
-                    </div>
+	                    <div
+	                      className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-semibold tabular-nums ${showHardAlert ? 'text-orange-400' : 'text-content-muted'}`}
+	                      title={getReviewSummaryTitle(contactCount, showHardAlert)}
+	                    >
+	                      <RotateCcw size={11} className={showHardAlert ? 'text-orange-400' : 'text-content-muted'} />
+	                      <span>{actualReviewCount}</span>
+	                    </div>
 
                     <div className="flex-shrink-0 flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                       <button
@@ -1630,7 +1764,7 @@ const Subjects = () => {
                       {hasStarted ? (
                         <button
                           onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
-                          className="w-6 h-6 rounded-full flex items-center justify-center bg-primary/10 hover:bg-primary/20 text-primary transition-all border border-primary/30"
+                          className={`w-6 h-6 rounded-full flex items-center justify-center transition-all border ${statusVisual.actionClassName}`}
                           title="Ir para revisões"
                           aria-label={`Ir para revisões do tópico ${topic.name}`}
                         >
@@ -1639,7 +1773,7 @@ const Subjects = () => {
                       ) : (
                         <button
                           onClick={() => openReviewModal(topic.id)}
-                          className="w-6 h-6 rounded-full border border-primary/45 bg-primary/12 hover:bg-primary/25 text-primary transition-all flex items-center justify-center"
+                          className={`w-6 h-6 rounded-full border transition-all flex items-center justify-center ${statusVisual.actionClassName}`}
                           title="Iniciar estudo do tópico"
                           aria-label={`Iniciar estudo do tópico ${topic.name}`}
                         >
@@ -1692,23 +1826,16 @@ const Subjects = () => {
               </div>
               <div className="min-w-0 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/80">
+                  <span className="text-xs font-black uppercase tracking-[0.18em] text-primary/80">
                     Ciclo atual
                   </span>
-                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-primary">
+                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-primary">
                     Ciclo {currentCycleNumber}
                   </span>
                 </div>
-                <p className="text-sm font-black text-foreground truncate" title={editalCycleLabel}>
+                <p className="text-[11px] font-bold text-foreground truncate" title={editalCycleLabel}>
                   Edital: {editalCycleLabel}
                 </p>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-content-muted">
-                  <span>{cycleVisualStats.totalSubjects} {cycleVisualStats.totalSubjects === 1 ? 'matéria' : 'matérias'} no ciclo</span>
-                  <span className="hidden sm:inline h-1 w-1 rounded-full bg-content-muted/40" />
-                  <span>{cycleVisualStats.studiedSubjects} estudadas</span>
-                  <span className="hidden sm:inline h-1 w-1 rounded-full bg-content-muted/40" />
-                  <span>{cycleVisualStats.remainingSubjects} restantes</span>
-                </div>
               </div>
             </div>
 
@@ -1834,16 +1961,47 @@ const Subjects = () => {
                 ({studiedCycleList.length})
               </span>
             </div>
-            {pendingCycleList.length === 0 && studiedCycleList.length > 0 ? (
-              <button
-                onClick={handleIniciarProximoCiclo}
-                disabled={isStartingNextCycle}
-                className="flex h-7 items-center gap-1.5 rounded-md bg-emerald-500 px-2.5 text-[10px] font-semibold text-white transition-all hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
-              >
-                {isStartingNextCycle ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-                Novo Ciclo
-              </button>
-            ) : null}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {studiedCycleList.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={toggleAllCompletedCycleSubjects}
+                  className="hidden md:flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-semibold text-gray-400 transition-colors hover:bg-emerald-500/10 hover:text-emerald-500 dark:text-white/25 dark:hover:text-emerald-400 shrink-0"
+                  title={
+                    studiedCycleList.length > 0 && studiedCycleList.every(item => !collapsedCompletedSubjectIds.includes(item.id))
+                      ? 'Recolher todos os tópicos concluídos'
+                      : 'Expandir todos os tópicos concluídos'
+                  }
+                  aria-label={
+                    studiedCycleList.length > 0 && studiedCycleList.every(item => !collapsedCompletedSubjectIds.includes(item.id))
+                      ? 'Recolher todos os tópicos das matérias concluídas'
+                      : 'Expandir todos os tópicos das matérias concluídas'
+                  }
+                >
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform ${
+                      studiedCycleList.length > 0 && studiedCycleList.every(item => !collapsedCompletedSubjectIds.includes(item.id))
+                        ? 'rotate-180'
+                        : ''
+                    }`}
+                  />
+                  {studiedCycleList.length > 0 && studiedCycleList.every(item => !collapsedCompletedSubjectIds.includes(item.id))
+                    ? 'Recolher'
+                    : 'Expandir'}
+                </button>
+              ) : null}
+              {pendingCycleList.length === 0 && studiedCycleList.length > 0 ? (
+                <button
+                  onClick={handleIniciarProximoCiclo}
+                  disabled={isStartingNextCycle}
+                  className="flex h-7 items-center gap-1.5 rounded-md bg-emerald-500 px-2.5 text-[10px] font-semibold text-white transition-all hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                >
+                  {isStartingNextCycle ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                  Novo Ciclo
+                </button>
+              ) : null}
+            </div>
           </div>
 
           {studiedCycleList.length === 0 ? (
@@ -1861,7 +2019,7 @@ const Subjects = () => {
                 const subjectName = getUnifiedSubjectName(item.subject.id, item.subject.name);
                 const startedTopics = item.subject.topics.filter(isTopicStarted);
                 const startedTopicsCount = startedTopics.length;
-                const isExpanded = expandedCompletedSubjectIds.includes(item.id);
+                const isCompletedSubjectExpanded = !collapsedCompletedSubjectIds.includes(item.id);
 
                 return (
                   <div
@@ -1869,22 +2027,11 @@ const Subjects = () => {
                     className="group/completed rounded-lg border border-gray-200 dark:border-white/[0.04] bg-white dark:bg-card overflow-hidden transition-all hover:border-gray-300 dark:hover:border-white/[0.08]"
                   >
                     <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => toggleCompletedExpand(item.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          toggleCompletedExpand(item.id);
-                        }
-                      }}
-                      className="h-[56px] flex items-center gap-2.5 pl-3 pr-4 py-0 cursor-pointer"
-                      aria-expanded={isExpanded}
+                      onClick={() => toggleCompletedSubject(item.id)}
+                      className="h-[56px] pl-2 pr-4 py-0 flex items-center gap-2 cursor-pointer"
                     >
-                      <div className="w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 flex items-center justify-center shrink-0">
-                        <Check size={12} className="text-emerald-600 dark:text-emerald-400" strokeWidth={3} />
-                      </div>
-                      <div className="min-w-0 flex-1 flex items-center gap-2">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1897,7 +2044,7 @@ const Subjects = () => {
                               });
                             }
                           }}
-                          className="p-1 text-gray-300 dark:text-white/20 hover:text-primary transition-colors flex-shrink-0"
+                          className="p-0.5 text-gray-300 dark:text-white/20 hover:text-primary transition-colors flex-shrink-0"
                           title="Gerenciar no Edital / Editar tópicos"
                         >
                           <Edit2 size={14} />
@@ -1910,109 +2057,153 @@ const Subjects = () => {
                             {startedTopicsCount} tópico{startedTopicsCount === 1 ? '' : 's'} iniciado{startedTopicsCount === 1 ? '' : 's'}
                           </p>
                         </div>
+                        </div>
                       </div>
-                      <ChevronDown
-                        size={13}
-                        className={`text-gray-300 dark:text-white/20 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      />
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleVoltarMateriaParaFila(item.subject.id);
                         }}
-                        className="ml-auto w-6 h-6 shrink-0 rounded-md border border-gray-100 dark:border-white/[0.06] bg-white dark:bg-white/5 text-gray-300 dark:text-white/20 opacity-0 scale-90 transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary group-hover/completed:opacity-100 group-hover/completed:scale-100 focus:opacity-100 focus:scale-100 flex items-center justify-center"
+                        className="group/return relative ml-auto w-6 h-6 shrink-0 rounded-full border border-emerald-200/60 bg-emerald-50 text-emerald-600 transition-all hover:border-primary/40 hover:bg-primary/10 hover:text-primary dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:border-primary/40 dark:hover:bg-primary/15 dark:hover:text-primary flex items-center justify-center"
                         title="Voltar matéria para a fila do ciclo"
                         aria-label={`Voltar ${subjectName} para a fila do ciclo`}
                       >
-                        <RotateCcw size={11} />
+                        <Check size={12} strokeWidth={3} className="transition-all group-hover/return:scale-0 group-hover/return:opacity-0" />
+                        <RotateCcw size={11} className="absolute scale-0 opacity-0 transition-all group-hover/return:scale-100 group-hover/return:opacity-100" />
                       </button>
                     </div>
 
-                    {isExpanded && (
-                      <div className="border-t border-gray-100 dark:border-white/[0.06]">
-                        {startedTopics.length === 0 ? (
-                          <p className="px-4 py-2 text-[10px] text-gray-400 dark:text-white/30">
-                            Nenhum tópico iniciado.
-                          </p>
-                        ) : (
-                          <div className="flex flex-col">
-                            {startedTopics.map((topic, idx) => {
-                              const completed = isTopicCompleted(topic);
-                              const reviewCount = Math.max(topic.reviewCount || 0, topic.review_count || 0, topicStats.get(topic.id)?.reviewCount || 0);
-                              const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
-                              const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
-                              const hasDifficultyData = reviewCount > 0 && typeof topic.difficulty_level === 'number';
+                    {isCompletedSubjectExpanded && (
+                    <div className="border-t border-gray-100 dark:border-white/[0.06]">
+                      {startedTopics.length === 0 ? (
+                        <p className="px-4 py-2 text-[10px] text-gray-400 dark:text-white/30">
+                          Nenhum tópico iniciado.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col">
+                          {startedTopics.map((topic, idx) => {
+                            const completed = isTopicCompleted(topic);
+                            const contactCount = getTopicContactCount(topic, topicStats);
+                            const actualReviewCount = getActualReviewCount(contactCount);
+                            const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
+                            const showHardAlert = shouldShowHardReviewAlert(contactCount, hardCount);
+                            const hasDifficultyData = contactCount > 0 && typeof topic.difficulty_level === 'number';
+                            const statusVisual = getCycleTopicStatusVisual(topic);
+                            const studiedInCurrentCycle = isTopicStudiedInCycle(topic, userCycle?.data_inicio_ciclo);
+                            const hasNotes = Boolean(
+                              (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() &&
+                              (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
+                            );
+                            const statusInfo = getTopicStatusInfo(topic);
 
-                              return (
-                                <div
-                                  key={topic.id}
-                                className={`h-8 flex items-center justify-between gap-2 pl-9 pr-4 py-0 group/completed-topic ${
-                                    idx % 2 === 0
-                                      ? 'bg-gray-50/50 dark:bg-white/[0.02]'
-                                      : 'bg-white dark:bg-transparent'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 flex-1 min-w-0 pr-3">
-                                    <div
-                                      className={`h-5 w-1 rounded-full shrink-0 ${
-                                        completed
-                                          ? 'bg-emerald-500 shadow-[0_0_10px_rgba(34,197,94,0.25)]'
-                                          : 'bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.25)]'
-                                      }`}
-                                    />
-                                    <span className={`text-[11px] font-medium truncate ${completed ? 'text-content-muted opacity-50' : 'text-content-main'}`}>
-                                      {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center justify-end gap-2 shrink-0 relative min-w-[96px]">
-                                    <span className={`text-[9px] font-black uppercase tracking-wider transition-all duration-300 group-hover/completed-topic:opacity-0 group-hover/completed-topic:pointer-events-none group-hover/completed-topic:translate-x-3 ${
-                                      completed
-                                        ? 'text-emerald-500'
-                                        : 'text-orange-400 dark:text-orange-300'
-                                    }`}>
-                                      {completed ? 'Concluído' : 'Em revisão'}
-                                    </span>
-                                    <div
-                                      className={`flex items-center gap-2 transition-all duration-300 group-hover/completed-topic:opacity-0 group-hover/completed-topic:pointer-events-none group-hover/completed-topic:translate-x-3 ${completed ? 'opacity-40' : 'opacity-100'}`}
-                                      title={
-                                        hasDifficultyData
-                                          ? showHardAlert
-                                            ? 'Muitas revisões com dificuldade alta'
-                                            : 'Dificuldade e total de revisões'
-                                          : 'Dificuldade ainda não informada'
-                                      }
+                            return (
+                              <div
+                                key={topic.id}
+                                className={`h-8 flex items-center justify-between pl-8 pr-4 py-0 transition-colors group/completed-topic relative cursor-default ${
+                                  idx % 2 === 0
+                                    ? 'bg-gray-50/50 dark:bg-white/[0.02]'
+                                    : 'bg-white dark:bg-transparent'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
+                                  <div className={`h-5 w-1 rounded-full shrink-0 ${statusVisual.indicatorClassName}`} />
+                                  <span className={`text-[11px] font-medium truncate ${completed ? 'text-content-muted opacity-50' : 'text-content-main'}`}>
+                                    {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)}
+                                  </span>
+                                  {studiedInCurrentCycle && !completed && (
+                                    <CheckCircle2
+                                      size={12}
+                                      className="flex-shrink-0 text-slate-400 dark:text-slate-500"
+                                      role="img"
+                                      aria-label={`Estudado no ciclo: ${topic.name}`}
                                     >
-                                        <DifficultyBarsCompact
-                                          level={hasDifficultyData ? (topic.difficulty_level as 1 | 2 | 3) : null}
-                                          size="sm"
-                                          showEmpty
-                                        />
-                                        <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums">
-                                          <RotateCcw size={10} className={showHardAlert ? 'text-orange-400' : 'text-content-muted/40'} />
-                                          <span className={showHardAlert ? 'text-orange-400' : ''}>{reviewCount}</span>
-                                        </div>
-                                    </div>
-                                    {!completed && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          navigate(`/revisoes?topicId=${topic.id}`);
-                                        }}
-                                        className="absolute right-0 w-6 h-6 rounded-full flex items-center justify-center bg-transparent border border-transparent text-orange-400 hover:bg-orange-400/10 hover:border-orange-400/20 transition-all opacity-0 translate-x-2 pointer-events-none group-hover/completed-topic:opacity-100 group-hover/completed-topic:translate-x-0 group-hover/completed-topic:pointer-events-auto"
-                                        title="Ir para revisões do tópico"
-                                        aria-label={`Ir para revisões do tópico ${topic.name}`}
-                                      >
-                                        <ArrowRight size={12} />
-                                      </button>
-                                    )}
-                                  </div>
+                                      <title>Estudado no ciclo</title>
+                                    </CheckCircle2>
+                                  )}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+
+                                <div className="flex items-center justify-end gap-1 relative min-w-[168px]">
+                                  <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/completed-topic:opacity-0 group-hover/completed-topic:pointer-events-none group-hover/completed-topic:translate-x-4 pr-1">
+                                    {statusInfo.type === 'atrasado' || statusInfo.type === 'hoje' ? (
+                                      <span className={`text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border ${statusInfo.colorClass}`}>
+                                        {statusInfo.label}
+                                      </span>
+                                    ) : null}
+                                  </div>
+
+                                  <div className={`absolute right-8 mr-2 flex h-6 items-center gap-1.5 transition-all duration-300 opacity-0 translate-x-2 pointer-events-none group-hover/completed-topic:translate-x-0 group-hover/completed-topic:pointer-events-auto ${completed ? 'group-hover/completed-topic:opacity-40' : 'group-hover/completed-topic:opacity-100'}`}>
+                                    <button
+                                      type="button"
+                                      className="h-6 w-6 rounded-full border border-transparent bg-transparent text-content-muted/45 hover:border-primary/25 hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-center"
+                                      title="Abrir assistente de IA"
+                                      aria-label={`Abrir assistente de IA para ${topic.name}`}
+                                    >
+                                      <Wand2 size={12} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTopicForNotes({
+                                          id: topic.id,
+                                          name: topic.name,
+                                          subjectName: subject.name
+                                        });
+                                      }}
+                                      className={`h-6 w-6 rounded-full border border-transparent bg-transparent transition-all flex items-center justify-center ${
+                                        hasNotes
+                                          ? 'text-primary/60 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
+                                          : 'text-content-muted/45 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
+                                      }`}
+                                      title={`Anotações para ${topic.name}`}
+                                      aria-label={`Anotações para ${topic.name}`}
+                                    >
+                                      <FileText size={12} />
+                                    </button>
+                                    <div
+                                      className="h-6 min-w-6 rounded-full border border-transparent bg-transparent text-content-muted/55 transition-all flex items-center justify-center"
+	                                      title={
+	                                        hasDifficultyData
+	                                          ? showHardAlert
+	                                            ? 'Muitas revisões com dificuldade alta'
+	                                            : 'Dificuldade e revisões realizadas'
+	                                          : 'Dificuldade ainda não informada'
+	                                      }
+                                    >
+                                      <DifficultyBarsCompact
+                                        level={hasDifficultyData ? (topic.difficulty_level as 1 | 2 | 3) : null}
+                                        size="sm"
+                                        showEmpty
+                                      />
+                                    </div>
+	                                    <div
+	                                      className="h-6 min-w-6 rounded-full border border-transparent bg-transparent text-content-muted/60 transition-all flex items-center justify-center gap-1 text-[10px] font-bold tabular-nums"
+	                                      title={getReviewSummaryTitle(contactCount, showHardAlert)}
+	                                    >
+	                                      <RotateCcw size={10} className={showHardAlert ? 'text-orange-400' : 'text-content-muted/40'} />
+	                                      <span className={showHardAlert ? 'text-orange-400' : ''}>{actualReviewCount}</span>
+	                                    </div>
+                                  </div>
+                                  {!completed && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/revisoes?topicId=${topic.id}`);
+                                      }}
+                                      className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${statusVisual.actionClassName}`}
+                                      title="Ir para revisões do tópico"
+                                      aria-label={`Ir para revisões do tópico ${topic.name}`}
+                                    >
+                                      <ArrowRight size={12} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                     )}
                   </div>
                 );
@@ -2090,7 +2281,7 @@ const Subjects = () => {
                 {!isImportEditalModalOpen && (
                   <button
                     onClick={() => setActiveTab(activeTab === 'vertical' ? 'all' : 'vertical')}
-                    title={activeTab === 'vertical' ? 'Voltar para a fila do ciclo' : 'Ver conteúdo verticalizado por edital'}
+                    title={activeTab === 'vertical' ? 'Voltar para o modo ciclo' : 'Ver conteúdo em modo edital'}
                     className={`h-10 px-3 rounded-xl border text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap inline-flex items-center gap-2 shrink-0 ${
                       activeTab === 'vertical'
                         ? 'bg-primary/10 border-primary/25 text-primary'
@@ -2098,7 +2289,7 @@ const Subjects = () => {
                     }`}
                   >
                     <FileText size={14} />
-                    {activeTab === 'vertical' ? 'Fila do ciclo' : 'Visualização edital'}
+                    {activeTab === 'vertical' ? 'Modo ciclo' : 'Modo edital'}
                   </button>
                 )}
           </div>
@@ -2117,7 +2308,7 @@ const Subjects = () => {
         >
         <div className="w-full min-w-0">
           {activeTab === 'all' && (
-            <div className="mb-3 flex items-center justify-between px-1">
+            <div className="mb-3 flex items-center justify-between px-1 pl-[26px]">
               <div className="flex items-center gap-2 min-w-0">
                 <ListTodo size={14} className="text-primary shrink-0" />
                 <h3 className="text-[15px] font-bold text-primary">
@@ -2127,10 +2318,33 @@ const Subjects = () => {
                   ({pendingCycleList.length})
                 </span>
               </div>
-              <div className="hidden md:flex items-center gap-1 text-[10px] text-gray-400 dark:text-white/25 shrink-0">
-                <GripVertical size={12} />
-                Ordenar
-              </div>
+              <button
+                type="button"
+                onClick={toggleAllCycleSubjects}
+                className="hidden md:flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-semibold text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary dark:text-white/25 dark:hover:text-primary shrink-0"
+                title={
+                  pendingCycleList.length > 0 && pendingCycleList.every(item => expandedSubjectIds.includes(item.id))
+                    ? 'Recolher todos os tópicos'
+                    : 'Expandir todos os tópicos'
+                }
+                aria-label={
+                  pendingCycleList.length > 0 && pendingCycleList.every(item => expandedSubjectIds.includes(item.id))
+                    ? 'Recolher todos os tópicos das matérias'
+                    : 'Expandir todos os tópicos das matérias'
+                }
+              >
+                <ChevronDown
+                  size={12}
+                  className={`transition-transform ${
+                    pendingCycleList.length > 0 && pendingCycleList.every(item => expandedSubjectIds.includes(item.id))
+                      ? 'rotate-180'
+                      : ''
+                  }`}
+                />
+                {pendingCycleList.length > 0 && pendingCycleList.every(item => expandedSubjectIds.includes(item.id))
+                  ? 'Recolher'
+                  : 'Expandir'}
+              </button>
             </div>
           )}
 
@@ -2270,10 +2484,10 @@ const Subjects = () => {
                             <div
                               data-subject-id={subject.id}
                               onClick={() => toggleExpand(item.id)}
-                              className="h-[56px] pl-3 pr-4 py-0 flex items-center gap-2 group cursor-pointer relative transition-colors"
+                              className="h-[56px] pl-2 pr-4 py-0 flex items-center gap-2 group cursor-pointer relative transition-colors"
                           >
                               {/* Content area: text + progress */}
-                              <div className="flex items-center gap-4 min-w-0 flex-1">
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
                                 {/* Text Block */}
                                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                   <button
@@ -2288,7 +2502,7 @@ const Subjects = () => {
                                         });
                                       }
                                     }}
-                                    className="p-1 text-gray-300 dark:text-white/20 hover:text-primary transition-colors flex-shrink-0"
+                                    className="p-0.5 text-gray-300 dark:text-white/20 hover:text-primary transition-colors flex-shrink-0"
                                     title="Gerenciar no Edital / Editar tópicos"
                                   >
                                     <Edit2 size={14} />
@@ -2306,9 +2520,7 @@ const Subjects = () => {
                                       {!noTopics && (
                                         <>
                                           <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-white/20" aria-hidden="true" />
-                                          <span className={inReviewTopicsCount === totalTopicsCount ? 'text-orange-400 dark:text-orange-300' : ''}>
-                                            {topicStatusLabel}
-                                          </span>
+                                          <span>{topicStatusLabel}</span>
                                         </>
                                       )}
                                     </div>
@@ -2365,7 +2577,7 @@ const Subjects = () => {
                                     }}
                                     title="Marcar como estudada"
                                     aria-label={`Marcar ${getUnifiedSubjectName(subject.id, subject.name)} como estudada`}
-                                    className="w-6 h-6 rounded-full border border-gray-200 dark:border-white/10 bg-transparent flex items-center justify-center shrink-0 text-gray-300 dark:text-white/25 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-500/10 group-hover:border-emerald-200/60 dark:group-hover:border-emerald-400/60 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:border-emerald-200/60 dark:hover:border-emerald-400/70 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all"
+                                    className="w-6 h-6 rounded-full border-2 border-gray-300/80 bg-white/[0.02] flex items-center justify-center shrink-0 text-gray-400/80 hover:bg-emerald-500 hover:border-emerald-300/80 hover:text-white dark:border-white/45 dark:bg-white/[0.03] dark:text-white/45 dark:hover:bg-emerald-500 dark:hover:border-emerald-300/80 dark:hover:text-white transition-all"
                                   >
                                     <Check size={12} strokeWidth={3} />
                                   </button>
@@ -2390,11 +2602,14 @@ const Subjects = () => {
                                   {subject.topics.map((topic, idx) => {
                                     const completed = isTopicCompleted(topic);
                                     const isActive = topic.is_active !== false;
-                                    const reviewCount = Math.max(topic.reviewCount || 0, topic.review_count || 0, topicStats.get(topic.id)?.reviewCount || 0);
-                                    const hasStarted = reviewCount > 0 || isTopicStarted(topic);
-                                    const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
-                                    const showHardAlert = reviewCount > 0 && hardCount > 0 && (hardCount >= 2 || hardCount / reviewCount >= 0.4);
-                                    const hasDifficultyData = reviewCount > 0 && typeof topic.difficulty_level === 'number';
+	                                    const contactCount = getTopicContactCount(topic, topicStats);
+	                                    const actualReviewCount = getActualReviewCount(contactCount);
+	                                    const hasStarted = contactCount > 0 || isTopicStarted(topic);
+	                                    const studiedInCurrentCycle = isTopicStudiedInCycle(topic, userCycle?.data_inicio_ciclo);
+	                                    const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
+	                                    const showHardAlert = shouldShowHardReviewAlert(contactCount, hardCount);
+	                                    const hasDifficultyData = contactCount > 0 && typeof topic.difficulty_level === 'number';
+                                    const statusVisual = getCycleTopicStatusVisual(topic);
                                     const statusState: 'empty' | 'dot' | 'check' =
                                       completed ? 'check' : hasStarted ? 'dot' : 'empty';
                                     const statusLabel =
@@ -2406,7 +2621,7 @@ const Subjects = () => {
                                       <div
                                         key={topic.id}
                                         data-topic-item
-                                        className={`h-8 flex items-center justify-between pl-9 pr-4 py-0 transition-colors group/topic relative cursor-default ${
+                                        className={`h-8 flex items-center justify-between pl-8 pr-4 py-0 transition-colors group/topic relative cursor-default ${
                                           idx % 2 === 0
                                             ? 'bg-gray-50/50 dark:bg-white/[0.02]'
                                             : 'bg-white dark:bg-transparent'
@@ -2422,13 +2637,13 @@ const Subjects = () => {
                                             title={`${statusLabel}. Use o botão de ação à direita para estudar ou revisar.`}
                                           >
                                             {statusState === 'empty' && (
-                                              <div className="h-5 w-1 rounded-full bg-content-muted/25" />
+                                              <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
                                             )}
                                             {statusState === 'dot' && (
-                                              <div className="h-5 w-1 rounded-full bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.25)]" />
+                                              <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
                                             )}
                                             {statusState === 'check' && (
-                                              <div className="h-5 w-1 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(34,197,94,0.25)]" />
+                                              <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
                                             )}
                                           </div>
                                           <span
@@ -2438,9 +2653,19 @@ const Subjects = () => {
                                           >
                                             {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="text-[9px] ml-1 opacity-60">(inativo)</span>}
                                           </span>
+                                          {studiedInCurrentCycle && !completed && (
+                                            <CheckCircle2
+                                              size={12}
+                                              className="flex-shrink-0 text-slate-400 dark:text-slate-500"
+                                              role="img"
+                                              aria-label={`Estudado no ciclo: ${topic.name}`}
+                                            >
+                                              <title>Estudado no ciclo</title>
+                                            </CheckCircle2>
+                                          )}
                                         </div>
 
-                                        <div className="flex items-center justify-end gap-1 relative min-w-[100px]">
+                                        <div className="flex items-center justify-end gap-1 relative min-w-[168px]">
                                           <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-4 pr-1">
                                             {(() => {
                                               if (!isActive) {
@@ -2463,16 +2688,19 @@ const Subjects = () => {
                                           </div>
 
                                           {isActive && (
-                                            <div className="absolute right-8 flex items-center gap-1 opacity-0 group-hover/topic:opacity-100 transition-all duration-300 translate-x-2 group-hover/topic:translate-x-0 pointer-events-none group-hover/topic:pointer-events-auto">
-                                              {/* IA */}
-                                              <button className="h-6 px-2 flex items-center gap-1 rounded bg-primary/5 text-primary/70 hover:bg-primary transition-all hover:text-white text-[9px] font-bold uppercase tracking-tight">
-                                                <Wand2 size={10} /> IA
-                                              </button>
-
-                                              <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-2"></div>
-
-                                              {/* Anotação */}
+                                            <div
+                                              className={`absolute right-8 mr-2 flex h-6 items-center gap-1.5 transition-all duration-300 opacity-0 translate-x-2 pointer-events-none group-hover/topic:translate-x-0 group-hover/topic:pointer-events-auto ${completed ? 'group-hover/topic:opacity-40' : 'group-hover/topic:opacity-100'}`}
+                                            >
                                               <button
+                                                type="button"
+                                                className="h-6 w-6 rounded-full border border-transparent bg-transparent text-content-muted/45 hover:border-primary/25 hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-center"
+                                                title="Abrir assistente de IA"
+                                                aria-label={`Abrir assistente de IA para ${topic.name}`}
+                                              >
+                                                <Wand2 size={12} />
+                                              </button>
+                                              <button
+                                                type="button"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   setSelectedTopicForNotes({
@@ -2481,38 +2709,40 @@ const Subjects = () => {
                                                     subjectName: subject.name
                                                   });
                                                 }}
-                                                className={`p-1 transition-colors ${(typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() && (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
-                                                  ? 'text-primary/50 hover:text-primary'
-                                                  : 'text-gray-400 hover:text-primary/70'
-                                                  }`}
+                                                className={`h-6 w-6 rounded-full border border-transparent bg-transparent transition-all flex items-center justify-center ${
+                                                  (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() &&
+                                                  (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
+                                                    ? 'text-primary/60 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
+                                                    : 'text-content-muted/45 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
+                                                }`}
                                                 title={`Anotações para ${topic.name}`}
+                                                aria-label={`Anotações para ${topic.name}`}
                                               >
-                                                <FileText size={16} />
+                                                <FileText size={12} />
                                               </button>
-
-                                              <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-2"></div>
-                                            </div>
-                                          )}
-                                          {isActive && (
-                                            <div
-                                              className={`flex items-center gap-2 mr-2 transition-all duration-300 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-3 ${completed ? 'opacity-40' : ''}`}
-                                              title={
-                                                hasDifficultyData
-                                                  ? showHardAlert
-                                                    ? 'Muitas revisões com dificuldade alta'
-                                                    : 'Dificuldade e total de revisões'
-                                                  : 'Dificuldade ainda não informada'
-                                              }
-                                            >
-                                              <DifficultyBarsCompact
-                                                level={hasDifficultyData ? (topic.difficulty_level as 1 | 2 | 3) : null}
-                                                size="sm"
-                                                showEmpty
-                                              />
-                                              <div className="flex items-center gap-1 text-[10px] font-bold text-content-muted/60 tabular-nums">
-                                                <RotateCcw size={10} className={showHardAlert ? "text-orange-400" : "text-content-muted/40"} />
-                                                <span className={showHardAlert ? "text-orange-400" : ""}>{reviewCount}</span>
+                                              <div
+                                                className="h-6 min-w-6 rounded-full border border-transparent bg-transparent text-content-muted/55 transition-all flex items-center justify-center"
+	                                                title={
+	                                                  hasDifficultyData
+	                                                    ? showHardAlert
+	                                                      ? 'Muitas revisões com dificuldade alta'
+	                                                      : 'Dificuldade e revisões realizadas'
+	                                                    : 'Dificuldade ainda não informada'
+	                                                }
+                                              >
+                                                <DifficultyBarsCompact
+                                                  level={hasDifficultyData ? (topic.difficulty_level as 1 | 2 | 3) : null}
+                                                  size="sm"
+                                                  showEmpty
+                                                />
                                               </div>
+	                                              <div
+	                                                className="h-6 min-w-6 rounded-full border border-transparent bg-transparent text-content-muted/60 transition-all flex items-center justify-center gap-1 text-[10px] font-bold tabular-nums"
+	                                                title={getReviewSummaryTitle(contactCount, showHardAlert)}
+	                                              >
+	                                                <RotateCcw size={10} className={showHardAlert ? "text-orange-400" : "text-content-muted/40"} />
+	                                                <span className={showHardAlert ? "text-orange-400" : ""}>{actualReviewCount}</span>
+	                                              </div>
                                             </div>
                                           )}
                                           {isActive && (
@@ -2523,7 +2753,7 @@ const Subjects = () => {
                                                     e.stopPropagation();
                                                     navigate(`/revisoes?topicId=${topic.id}`);
                                                   }}
-                                                  className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-transparent border border-transparent text-orange-400 hover:bg-orange-400/10 hover:border-orange-400/20 transition-all ml-0.5"
+                                                  className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center border transition-all ml-0.5 ${statusVisual.actionClassName}`}
                                                   title="Ir para revisões do tópico"
                                                   aria-label={`Ir para revisões do tópico ${topic.name}`}
                                                 >
@@ -2535,7 +2765,7 @@ const Subjects = () => {
                                                     e.stopPropagation();
                                                     openReviewModal(topic.id);
                                                   }}
-                                                  className="flex-shrink-0 w-6 h-6 rounded-full border border-transparent bg-transparent hover:border-emerald-400/25 hover:bg-emerald-400/10 text-emerald-400 transition-all duration-300 flex items-center justify-center ml-0.5 group"
+                                                  className={`flex-shrink-0 w-6 h-6 rounded-full border transition-all duration-300 flex items-center justify-center ml-0.5 group ${statusVisual.actionClassName}`}
                                                   title="Iniciar estudo do tópico"
                                                   aria-label={`Iniciar estudo do tópico ${topic.name}`}
                                                 >
@@ -2984,6 +3214,8 @@ const Subjects = () => {
           <DifficultyRatingModal
             isOpen={difficultyModalData.isOpen}
             onClose={closeDifficultyModal}
+            isSaving={isSavingTopicReview}
+            savingText="Salvando no banco..."
             onSubmit={async (difficulty) => {
               try {
                 await markTopicAsReviewed(difficultyModalData.topicId, difficulty);
@@ -3000,6 +3232,7 @@ const Subjects = () => {
                     userId: user?.id
                   }
                 );
+                throw error;
               }
             }}
             onConfirmReview={async (difficulty, duration) => {
@@ -3019,6 +3252,7 @@ const Subjects = () => {
                     userId: user?.id
                   }
                 );
+                throw error;
               }
             }}
             topicName={difficultyModalData.topicName}

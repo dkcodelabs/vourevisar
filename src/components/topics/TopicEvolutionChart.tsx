@@ -25,9 +25,9 @@ interface TopicEvolutionChartProps {
 }
 
 const DIFFICULTY_LABEL: Record<number, string> = {
-  1: 'Difícil',
+  1: 'Fácil',
   2: 'Médio',
-  3: 'Fácil',
+  3: 'Difícil',
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -39,10 +39,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <p
         className={`font-semibold ${
           value >= 3
-            ? 'text-emerald-500'
+            ? 'text-rose-500'
             : value === 2
             ? 'text-yellow-500'
-            : 'text-rose-500'
+            : 'text-emerald-500'
         }`}
       >
         {DIFFICULTY_LABEL[value] ?? `Nível ${value}`}
@@ -115,10 +115,10 @@ export function TopicEvolutionChart({ history, compact = false }: TopicEvolution
               const { cx, cy, payload } = props;
               const color =
                 payload.difficulty >= 3
-                  ? '#10b981'
+                  ? '#f43f5e'
                   : payload.difficulty === 2
                   ? '#eab308'
-                  : '#f43f5e';
+                  : '#10b981';
               return (
                 <circle
                   key={`dot-${cx}-${cy}`}
@@ -137,15 +137,14 @@ export function TopicEvolutionChart({ history, compact = false }: TopicEvolution
             {/*
               Gradiente VERTICAL: a cor da linha reflete a posição no eixo Y (nível de dificuldade),
               NÃO a posição no tempo (eixo X).
-              y1="0" = topo do gráfico = Fácil (3)  → verde
+              y1="0" = topo do gráfico = Difícil (3) → vermelho
               y=50%  = meio            = Médio (2)  → amarelo
-              y1="1" = base do gráfico = Difícil (1) → vermelho
-              Resultado: quando a linha CAI de Fácil→Médio, o segmento fica verde→amarelo (correto!).
+              y1="1" = base do gráfico = Fácil (1)   → verde
             */}
             <linearGradient id="diffGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stopColor="#10b981" />
+              <stop offset="0%"   stopColor="#f43f5e" />
               <stop offset="50%"  stopColor="#eab308" />
-              <stop offset="100%" stopColor="#f43f5e" />
+              <stop offset="100%" stopColor="#10b981" />
             </linearGradient>
           </defs>
         </LineChart>

@@ -57,14 +57,12 @@ export const useDifficultyRating = () => {
 
       if (difficulty) {
         const difficultyLabels = {
-          1: 'Muito Fácil',
-          2: 'Fácil', 
-          3: 'Médio',
-          4: 'Difícil',
-          5: 'Muito Difícil'
+          1: 'Fácil',
+          2: 'Médio',
+          3: 'Difícil'
         };
         
-        toast.success(`Dificuldade marcada como: ${difficultyLabels[difficulty as keyof typeof difficultyLabels]} ⭐`.repeat(difficulty));
+        toast.success(`Dificuldade marcada como: ${difficultyLabels[difficulty as keyof typeof difficultyLabels]}`);
       } else {
         toast.info('Avaliação de dificuldade pulada');
       }
@@ -88,7 +86,12 @@ export const useDifficultyRating = () => {
       });
 
       if (difficulty) {
-        toast.success(`Dificuldade atualizada para ${difficulty} estrela${difficulty > 1 ? 's' : ''}!`);
+        const difficultyLabels = {
+          1: 'Fácil',
+          2: 'Médio',
+          3: 'Difícil'
+        };
+        toast.success(`Dificuldade atualizada para ${difficultyLabels[difficulty as keyof typeof difficultyLabels]}!`);
       } else {
         toast.info('Avaliação de dificuldade removida');
       }

@@ -333,9 +333,9 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
     const estimatedTimeFromDifficulty = filteredSubjects.reduce((sum, subject) => {
       return sum + subject.topics.reduce((topicSum, topic) => {
         const difficultyTime = {
-          1: 8, 2: 12, 3: 20, 4: 35, 5: 50
+          1: 12, 2: 20, 3: 35
         };
-        const difficulty = typeof topic.difficulty_level === 'number' ? topic.difficulty_level : 3;
+        const difficulty = typeof topic.difficulty_level === 'number' ? topic.difficulty_level : 2;
         return topicSum + (topic.completed ? (difficultyTime[difficulty as keyof typeof difficultyTime] || 15) : 0);
       }, 0);
     }, 0);
@@ -398,9 +398,9 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
         const estimatedTime = subject.topics.reduce((sum, topic) => {
           if (!topic.completed) return sum;
           const difficultyTime = {
-            1: 8, 2: 12, 3: 20, 4: 35, 5: 50
+            1: 12, 2: 20, 3: 35
           };
-          const difficulty = typeof topic.difficulty_level === 'number' ? topic.difficulty_level : 3;
+          const difficulty = typeof topic.difficulty_level === 'number' ? topic.difficulty_level : 2;
           return sum + (difficultyTime[difficulty as keyof typeof difficultyTime] || 15);
         }, 0);
         
@@ -408,9 +408,9 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
         const difficultyPoints = subject.topics.reduce((sum, topic) => {
           if (!topic.completed) return sum;
           const points = {
-            1: 1, 2: 2, 3: 4, 4: 7, 5: 12
+            1: 1, 2: 3, 3: 6
           };
-          const difficulty = typeof topic.difficulty_level === 'number' ? topic.difficulty_level : 3;
+          const difficulty = typeof topic.difficulty_level === 'number' ? topic.difficulty_level : 2;
           return sum + (points[difficulty as keyof typeof points] || 3);
         }, 0);
         
@@ -425,8 +425,8 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
           studyTime: Math.max(sessionData.totalTime, estimatedTime),
           difficultyPoints,
           averageDifficulty: subject.topics.length > 0 
-            ? subject.topics.reduce((sum, t) => sum + (typeof t.difficulty_level === 'number' ? t.difficulty_level : 3), 0) / subject.topics.length
-            : 3,
+            ? subject.topics.reduce((sum, t) => sum + (typeof t.difficulty_level === 'number' ? t.difficulty_level : 2), 0) / subject.topics.length
+            : 2,
           rank: 0, // Será calculado após ordenação
         };
       })
@@ -527,21 +527,21 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
     }
 
     const hardTopicsCompleted = filteredSubjects.reduce((sum, subject) => {
-      return sum + subject.topics.filter(t => t.completed && (typeof t.difficulty_level === 'number' ? t.difficulty_level : 0) >= 4).length;
+      return sum + subject.topics.filter(t => t.completed && (typeof t.difficulty_level === 'number' ? t.difficulty_level : 0) >= 3).length;
     }, 0);
 
     if (hardTopicsCompleted >= 5) {
       insights.push({
         id: 'hard-topics-master',
         type: 'achievement' as const,
-        message: `Dominou ${hardTopicsCompleted} tópicos difíceis ⭐⭐⭐⭐⭐`,
+        message: `Dominou ${hardTopicsCompleted} tópicos difíceis`,
         icon: 'Award',
         priority: 'high' as const,
       });
     }
 
     const easyTopicsPending = filteredSubjects.reduce((sum, subject) => {
-      return sum + subject.topics.filter(t => !t.completed && (typeof t.difficulty_level === 'number' ? t.difficulty_level : 0) <= 2).length;
+      return sum + subject.topics.filter(t => !t.completed && (typeof t.difficulty_level === 'number' ? t.difficulty_level : 0) <= 1).length;
     }, 0);
 
     if (easyTopicsPending >= 3) {
@@ -562,8 +562,8 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
     const completedTopics = allTopicsWithDifficulty.filter(t => t.completed);
     const completedRatedTopics = completedTopics.filter(t => t.difficulty_level && typeof t.difficulty_level === 'number');
     
-    const difficultyDistribution: { [key: string]: number } = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, 'unrated': 0 };
-    const completedDistribution: { [key: string]: number } = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    const difficultyDistribution: { [key: string]: number } = { '1': 0, '2': 0, '3': 0, 'unrated': 0 };
+    const completedDistribution: { [key: string]: number } = { '1': 0, '2': 0, '3': 0 };
     let totalDifficulty = 0, totalCompletedDifficulty = 0, totalPoints = 0, completedPoints = 0, estimatedTime = 0, completedTime = 0;
     let hardestCompletedTopic = null, maxCompletedDifficulty = 0;
     const easiestPendingTopics: any[] = [];
@@ -573,8 +573,8 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
       if (difficulty && typeof difficulty === 'number') {
         difficultyDistribution[String(difficulty)]++;
         totalDifficulty += difficulty;
-        const points = { 1: 10, 2: 25, 3: 50, 4: 100, 5: 200 };
-        const timeMap = { 1: 20, 2: 30, 3: 45, 4: 60, 5: 90 };
+        const points = { 1: 10, 2: 25, 3: 50 };
+        const timeMap = { 1: 20, 2: 30, 3: 45 };
         totalPoints += points[difficulty as keyof typeof points] || 50;
         estimatedTime += timeMap[difficulty as keyof typeof timeMap] || 30;
         
@@ -587,7 +587,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
             maxCompletedDifficulty = difficulty;
             hardestCompletedTopic = { name: topic.name, difficulty, subject: topic.subjectName };
           }
-        } else if (difficulty <= 2) {
+        } else if (difficulty <= 1) {
           easiestPendingTopics.push({ name: topic.name, difficulty, subject: topic.subjectName });
         }
       } else {
@@ -603,7 +603,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
       ratedTopics: ratedTopics.length,
       completedTopics: completedTopics.length,
       completedRatedTopics: completedRatedTopics.length,
-      averageDifficulty: ratedTopics.length > 0 ? totalDifficulty / ratedTopics.length : 3,
+      averageDifficulty: ratedTopics.length > 0 ? totalDifficulty / ratedTopics.length : 2,
       averageCompletedDifficulty: completedRatedTopics.length > 0 ? totalCompletedDifficulty / completedRatedTopics.length : 0,
       difficultyDistribution,
       completedDistribution,
@@ -611,7 +611,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
       completedPoints,
       estimatedTime,
       completedTime,
-      efficiencyByDifficulty: [1, 2, 3, 4, 5].map(level => ({
+      efficiencyByDifficulty: [1, 2, 3].map(level => ({
         level,
         total: difficultyDistribution[String(level)] || 0,
         completed: completedDistribution[String(level)] || 0,

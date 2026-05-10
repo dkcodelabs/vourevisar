@@ -69,8 +69,8 @@ const DIFFICULTY_LABELS = {
   '1': 'Fácil',
   '2': 'Médio',
   '3': 'Difícil',
-  '4': 'Difícil',
-  '5': 'Muito Difícil',
+  '4': 'Muito Difícil',
+  '5': 'Extremo',
   'unrated': 'Não Avaliado'
 };
 
@@ -83,7 +83,7 @@ export const DifficultyStatsSection: React.FC<DifficultyStatsSectionProps> = ({ 
 
   // Preparar dados para gráficos
   const chartData = Object.entries(data.difficultyDistribution).map(([level, count]) => ({
-    level: level === 'unrated' ? 'Não Avaliado' : `${level} ⭐`,
+    level: level === 'unrated' ? 'Não Avaliado' : DIFFICULTY_LABELS[level as keyof typeof DIFFICULTY_LABELS] ?? `Nível ${level}`,
     count,
     color: DIFFICULTY_COLORS[level as keyof typeof DIFFICULTY_COLORS],
     percentage: Math.round((count / data.totalTopics) * 100)

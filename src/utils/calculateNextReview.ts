@@ -28,10 +28,10 @@ export interface SRSMetrics {
 export interface CalculateNextReviewParams {
     today: Date;
     metrics: SRSMetrics;
-    /** Dificuldade marcada pelo aluno (1 = Difícil, 2 = Médio, 3 = Fácil). */
+    /** Dificuldade marcada pelo aluno (1 = Fácil, 2 = Médio, 3 = Difícil). */
     difficulty?: number;
     examDate?: Date | null;
-    /** Delta de tendência calculado a partir do histórico recente. Positivo = melhorando, negativo = piorando. */
+    /** Delta de tendência calculado a partir do histórico recente. Positivo = piorando, negativo = melhorando. */
     trendDelta?: number | null;
 }
 
@@ -52,11 +52,11 @@ export interface CalculateNextReviewResult {
  * No UI novo, 1 = Fácil, 2 = Médio, 3 = Difícil.
  */
 const DIFFICULTY_MULTIPLIER: Record<number, number> = {
-    1: 0.6,    // Difícil: Estabilidade "punição" -40%
+    1: 1.2,    // Fácil: Estabilidade cresce +20% extra
     2: 1.0,    // Médio: Crescimento normal (100% do fator base)
-    3: 1.2,    // Fácil: Estabilidade cresce +20% extra
-    4: 1.3,    // Fallback legado "Muito Fácil"
-    5: 1.4     // Fallback legado "Expert"
+    3: 0.6,    // Difícil: Estabilidade "punição" -40%
+    4: 0.5,    // Fallback legado: tratar acima de 3 como muito difícil
+    5: 0.4
 };
 
 // Configuração Unificada do Motor Adaptativo
@@ -72,8 +72,8 @@ export function calculateNextReview(params: CalculateNextReviewParams): Calculat
     // Multiplicador de tendência: ajuste fino baseado na trajetória cognitiva recente
     let trendMultiplier = 1.0;
     if (trendDelta != null) {
-        if (trendDelta <= -1.0) trendMultiplier = 0.9;      // Queda brusca → penalidade leve
-        else if (trendDelta >= 1.0) trendMultiplier = 1.1;   // Melhora consistente → bônus leve
+        if (trendDelta >= 1.0) trendMultiplier = 0.9;      // Piora consistente → penalidade leve
+        else if (trendDelta <= -1.0) trendMultiplier = 1.1; // Melhora consistente → bônus leve
     }
 
     const todayStart = new Date(today);

@@ -1,91 +1,50 @@
 import { supabase } from '@/integrations/supabase/client';
 
+const NORMALIZATION_KEY = 'normalize_difficulty_scale_1_easy_3_hard';
+
 export const migrateDifficultyLevels = async () => {
   try {
-    console.log('🔄 Iniciando migração de difficulty_level...');
-    
-    // Buscar todos os tópicos com difficulty_level não nulo
-    const { data: topics, error: fetchError } = await supabase
-      .from('topics')
-      .select('id, difficulty_level')
-      .not('difficulty_level', 'is', null);
-    
-    if (fetchError) {
-      console.error('Erro ao buscar tópicos:', fetchError);
-      return;
+    console.log('Iniciando normalizacao da escala de dificuldade...');
+
+    const { data: marker, error: markerError } = await supabase
+      .from('app_data_migrations' as any)
+      .select('migration_key')
+      .eq('migration_key', NORMALIZATION_KEY)
+      .maybeSingle();
+
+    if (markerError) {
+      console.error('Tabela app_data_migrations indisponivel. Rode as migrations do Supabase antes.', markerError);
+      return {
+        success: false,
+        error: markerError,
+        migratedCount: 0,
+        errorCount: 1,
+        totalTopics: 0
+      };
     }
-    
-    if (!topics || topics.length === 0) {
-      console.log('✅ Nenhum tópico com difficulty_level encontrado');
-      return;
+
+    if (marker) {
+      console.log('Escala de dificuldade ja normalizada.');
+      return {
+        success: true,
+        migratedCount: 0,
+        errorCount: 0,
+        totalTopics: 0
+      };
     }
-    
-    console.log(`📊 Encontrados ${topics.length} tópicos com difficulty_level`);
-    
-    // Migrar cada tópico
-    let migratedCount = 0;
-    let errorCount = 0;
-    
-    for (const topic of topics) {
-      try {
-        let newDifficulty: number;
-        
-        // Verificar se já é um número
-        if (typeof topic.difficulty_level === 'number') {
-          console.log(`✅ Tópico ${topic.id} já tem difficulty_level numérico: ${topic.difficulty_level}`);
-          continue;
-        }
-        
-        // Converter string para número
-        switch (topic.difficulty_level) {
-          case 'easy':
-            newDifficulty = 2;
-            break;
-          case 'medium':
-            newDifficulty = 3;
-            break;
-          case 'hard':
-            newDifficulty = 4;
-            break;
-          default:
-            console.warn(`⚠️ Valor desconhecido para difficulty_level: ${topic.difficulty_level}`);
-            newDifficulty = 3; // Padrão médio
-        }
-        
-        // Atualizar no banco
-        const { error: updateError } = await supabase
-          .from('topics')
-          .update({ difficulty_level: String(newDifficulty) as any })
-          .eq('id', topic.id);
-        
-        if (updateError) {
-          console.error(`❌ Erro ao atualizar tópico ${topic.id}:`, updateError);
-          errorCount++;
-        } else {
-          console.log(`✅ Tópico ${topic.id}: ${topic.difficulty_level} → ${newDifficulty}`);
-          migratedCount++;
-        }
-        
-      } catch (error) {
-        console.error(`❌ Erro ao processar tópico ${topic.id}:`, error);
-        errorCount++;
-      }
-    }
-    
-    console.log(`🎉 Migração concluída: ${migratedCount} migrados, ${errorCount} erros`);
-    
-    return {
-      success: true,
-      migratedCount,
-      errorCount,
-      totalTopics: topics.length
-    };
-    
-  } catch (error) {
-    console.error('❌ Erro na migração:', error);
+
     return {
       success: false,
-      error: error
+      error: new Error('Normalizacao deve ser executada pela migration SQL para evitar troca dupla de 1 e 3.'),
+      migratedCount: 0,
+      errorCount: 1,
+      totalTopics: 0
+    };
+  } catch (error) {
+    console.error('Erro na verificacao da normalizacao:', error);
+    return {
+      success: false,
+      error
     };
   }
 };

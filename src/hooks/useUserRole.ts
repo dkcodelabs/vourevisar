@@ -4,6 +4,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { User } from '@supabase/supabase-js'
+import { useAuth } from '@/contexts/AuthContext'
 
 export type AppRole = 'owner' | 'admin' | 'moderator' | 'user'
 
@@ -27,16 +28,14 @@ export function useUserRole(): UserRoleData & {
   const [highestRole, setHighestRole] = useState<AppRole | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [user, setUser] = useState<User | null>(null)
+  const { user } = useAuth()
 
   const fetchRoles = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Verifica se usuário está autenticado
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-      setUser(currentUser)
+      const currentUser = user
 
       if (!currentUser) {
         setRoles([])
@@ -82,7 +81,7 @@ export function useUserRole(): UserRoleData & {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user])
 
   // Função para verificar hierarquia de roles
   const hasRoleOrHigher = useCallback((minRole: AppRole): boolean => {
@@ -106,17 +105,6 @@ export function useUserRole(): UserRoleData & {
 
   useEffect(() => {
     fetchRoles()
-
-    // Escuta mudanças de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-          fetchRoles()
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
   }, [fetchRoles])
 
   return {

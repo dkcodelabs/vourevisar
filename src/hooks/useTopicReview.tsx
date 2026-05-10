@@ -7,7 +7,6 @@ import { toastManager } from '@/utils/toastManager';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { useStudySessionTracking } from './useStudySessionTracking';
 import { useCycleState } from './useCycleState';
-import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { calculateNextReview, formatDateForDB, describeCalculation } from '@/utils/calculateNextReview';
 import { Topic } from '@/types';
 import { registerDualProgress, findSiblingTopicIds } from '@/services/cycleMergeService';
@@ -18,7 +17,6 @@ export const useTopicReview = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { recordTopicCompletion } = useStudySessionTracking();
   const { userCycle } = useCycleState();
-  const { markSubjectAsStudied } = useCycleStatus();
   const cycleId = userCycle?.id;
 
   // Estado para controlar o modal de dificuldade
@@ -156,8 +154,7 @@ export const useTopicReview = () => {
 
       const newReviewCount = topic.review_count + 1;
 
-      // 1. Mapeamento direto da dificuldade (1=Difícil, 2=Médio, 3=Fácil)
-      // Agora alinhado: Mais estrelas = Melhor desempenho (Fácil).
+      // 1. Mapeamento direto da dificuldade (1=Fácil, 2=Médio, 3=Difícil).
       let numericDifficulty = 2; // Padrão: Médio
       if (difficulty !== undefined && difficulty !== null) {
         numericDifficulty = Math.max(1, Math.min(3, Math.round(difficulty)));
@@ -182,8 +179,8 @@ export const useTopicReview = () => {
 
         if (!isNaN(mediaPassada)) {
           trendDelta = numericDifficulty - mediaPassada;
-          if (trendDelta >= 0.5) trendLabel = 'Melhorando';
-          else if (trendDelta <= -0.5) trendLabel = 'Piorando';
+          if (trendDelta >= 0.5) trendLabel = 'Piorando';
+          else if (trendDelta <= -0.5) trendLabel = 'Melhorando';
           else trendLabel = 'Estável';
         }
       }
@@ -308,9 +305,6 @@ export const useTopicReview = () => {
             cycleId,
             topic.edital_id || topic.origin_id
           );
-
-          // Avançar o ciclo automaticamente (marcar matéria como visitada no ciclo atual)
-          await markSubjectAsStudied(topic.subject_id || '', subjectData.name, true);
         }
       } catch (sessionError) {
         console.error('⚠️ Erro ao registrar sessão de estudo:', sessionError);
@@ -409,12 +403,11 @@ export const useTopicReview = () => {
 
       if (difficulty) {
         const difficultyLabels: Record<number, string> = {
-          1: 'Difícil',
+          1: 'Fácil',
           2: 'Médio',
-          3: 'Fácil'
+          3: 'Difícil'
         };
-        const stars = '⭐'.repeat(difficulty);
-        toastManager.success(`Dificuldade: ${difficultyLabels[difficulty]} ${stars}`);
+        toastManager.success(`Dificuldade: ${difficultyLabels[difficulty]}`);
       }
       await refreshData();
     } catch (error) {

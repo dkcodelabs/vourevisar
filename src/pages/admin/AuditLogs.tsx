@@ -10,6 +10,7 @@ import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PageContainer from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { withTimeout } from '@/utils/withTimeout';
 
 // Types
 interface AuditLog {
@@ -25,7 +26,7 @@ interface AuditLog {
     source: string;
     origin?: string;
     status: string;
-    metadata: any;
+    metadata: Record<string, unknown> | null;
     total_count: number;
 }
 
@@ -100,6 +101,7 @@ export default function AuditLogs() {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
     const [exporting, setExporting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     // Filters
     const [period, setPeriod] = useState(searchParams.get('period') || '7days');
@@ -142,20 +144,25 @@ export default function AuditLogs() {
     // Fetch logs
     const fetchLogs = useCallback(async () => {
         setLoading(true);
+        setErrorMessage(null);
         try {
             const { startDate, endDate } = getDateRange();
             const offset = (currentPage - 1) * PAGE_SIZE;
 
-            const { data, error } = await supabase.rpc('get_audit_logs', {
-                p_limit: PAGE_SIZE,
-                p_offset: offset,
-                p_event_type: eventType || null,
-                p_target_user_id: targetUserId || null,
-                p_actor_user_id: actorUserId || null,
-                p_status: status || null,
-                p_start_date: startDate?.toISOString() || null,
-                p_end_date: endDate?.toISOString() || null
-            });
+            const { data, error } = await withTimeout(
+                supabase.rpc('get_audit_logs', {
+                    p_limit: PAGE_SIZE,
+                    p_offset: offset,
+                    p_event_type: eventType || null,
+                    p_target_user_id: targetUserId || null,
+                    p_actor_user_id: actorUserId || null,
+                    p_status: status || null,
+                    p_start_date: startDate?.toISOString() || null,
+                    p_end_date: endDate?.toISOString() || null
+                }),
+                12000,
+                'Carregamento da auditoria'
+            );
 
             if (error) throw error;
 
@@ -169,6 +176,8 @@ export default function AuditLogs() {
         } catch (error) {
             console.error('Error fetching audit logs:', error);
             setLogs([]);
+            setTotalCount(0);
+            setErrorMessage(error instanceof Error ? error.message : 'Erro ao carregar auditoria.');
         } finally {
             setLoading(false);
         }
@@ -196,16 +205,20 @@ export default function AuditLogs() {
         try {
             const { startDate, endDate } = getDateRange();
 
-            const { data, error } = await supabase.rpc('get_audit_logs', {
-                p_limit: 10000, // Max export
-                p_offset: 0,
-                p_event_type: eventType || null,
-                p_target_user_id: targetUserId || null,
-                p_actor_user_id: actorUserId || null,
-                p_status: status || null,
-                p_start_date: startDate?.toISOString() || null,
-                p_end_date: endDate?.toISOString() || null
-            });
+            const { data, error } = await withTimeout(
+                supabase.rpc('get_audit_logs', {
+                    p_limit: 10000, // Max export
+                    p_offset: 0,
+                    p_event_type: eventType || null,
+                    p_target_user_id: targetUserId || null,
+                    p_actor_user_id: actorUserId || null,
+                    p_status: status || null,
+                    p_start_date: startDate?.toISOString() || null,
+                    p_end_date: endDate?.toISOString() || null
+                }),
+                12000,
+                'Exportação da auditoria'
+            );
 
             if (error) throw error;
             if (!data || data.length === 0) return;
@@ -274,6 +287,29 @@ export default function AuditLogs() {
 
     if (loading) {
         return <LoadingSpinner size="large" showText fullPage />;
+    }
+
+    if (errorMessage) {
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <div className="max-w-md rounded-2xl border border-rose-500/20 bg-rose-500/10 p-6 text-center">
+                    <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400">
+                        <XCircle className="h-5 w-5" />
+                    </div>
+                    <h2 className="text-base font-bold text-foreground">Auditoria não carregou</h2>
+                    <p className="mt-2 text-sm text-content-muted">
+                        {errorMessage}
+                    </p>
+                    <button
+                        onClick={fetchLogs}
+                        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                        Tentar novamente
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return (

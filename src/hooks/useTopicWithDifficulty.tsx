@@ -52,15 +52,12 @@ export const useTopicWithDifficulty = () => {
 
       if (difficulty) {
         const difficultyLabels = {
-          1: 'Muito Fácil',
-          2: 'Fácil', 
-          3: 'Médio',
-          4: 'Difícil',
-          5: 'Muito Difícil'
+          1: 'Fácil',
+          2: 'Médio',
+          3: 'Difícil'
         };
         
-        const stars = '⭐'.repeat(difficulty);
-        toast.success(`Dificuldade: ${difficultyLabels[difficulty as keyof typeof difficultyLabels]} ${stars}`);
+        toast.success(`Dificuldade: ${difficultyLabels[difficulty as keyof typeof difficultyLabels]}`);
       } else {
         toast.info('Avaliação de dificuldade removida');
       }

@@ -12,16 +12,16 @@ interface DifficultyRatingProps {
   allowClear?: boolean;
 }
 
-// 1 = Difícil (vermelho), 2 = Médio (amarelo), 3 = Fácil (verde)
+// Escala oficial: 1 = Fácil (verde), 2 = Médio (amarelo), 3 = Difícil (vermelho)
 const DIFFICULTY_CONFIG = {
   1: {
-    label: 'Difícil',
-    activeColor: 'bg-rose-500',
-    textColor: 'text-rose-500',
-    borderColor: 'border-rose-500/40',
-    bgHover: 'hover:bg-rose-500/10',
-    bgSelected: 'bg-rose-500/10',
-    glow: 'shadow-rose-500/30',
+    label: 'Fácil',
+    activeColor: 'bg-emerald-500',
+    textColor: 'text-emerald-500',
+    borderColor: 'border-emerald-500/40',
+    bgHover: 'hover:bg-emerald-500/10',
+    bgSelected: 'bg-emerald-500/10',
+    glow: 'shadow-emerald-500/30',
   },
   2: {
     label: 'Médio',
@@ -33,13 +33,13 @@ const DIFFICULTY_CONFIG = {
     glow: 'shadow-amber-400/30',
   },
   3: {
-    label: 'Fácil',
-    activeColor: 'bg-emerald-500',
-    textColor: 'text-emerald-500',
-    borderColor: 'border-emerald-500/40',
-    bgHover: 'hover:bg-emerald-500/10',
-    bgSelected: 'bg-emerald-500/10',
-    glow: 'shadow-emerald-500/30',
+    label: 'Difícil',
+    activeColor: 'bg-rose-500',
+    textColor: 'text-rose-500',
+    borderColor: 'border-rose-500/40',
+    bgHover: 'hover:bg-rose-500/10',
+    bgSelected: 'bg-rose-500/10',
+    glow: 'shadow-rose-500/30',
   },
 } as const;
 
@@ -78,8 +78,7 @@ export function DifficultyBarsCompact({
             s.width,
             h,
             'rounded-sm transition-colors duration-200',
-            // Difícil (1) = 3 barras, Médio (2) = 2 barras, Fácil (3) = 1 barra
-            config && i < (4 - safeLevel) ? config.activeColor : 'bg-zinc-300/45 dark:bg-zinc-700/50'
+            config && i < safeLevel ? config.activeColor : 'bg-zinc-300/45 dark:bg-zinc-700/50'
           )}
         />
       ))}
@@ -160,13 +159,12 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
                   ? `${config.bgSelected} ${config.borderColor} shadow-md ${config.glow}`
                   : 'bg-transparent border-border hover:border-border/80',
                 isActive && 'ring-2 ring-offset-1',
-                isActive && rating === 1 && 'ring-rose-500/30',
+                isActive && rating === 1 && 'ring-emerald-500/30',
                 isActive && rating === 2 && 'ring-amber-400/30',
-                isActive && rating === 3 && 'ring-emerald-500/30',
+                isActive && rating === 3 && 'ring-rose-500/30',
               )}
             >
-              {/* Barras de dificuldade dentro do card */}
-              {/* Difícil (1) = 3 barras, Médio (2) = 2 barras, Fácil (3) = 1 barra */}
+              {/* Barras de dificuldade dentro do card: 1 fácil, 2 médio, 3 difícil */}
               <div className="flex items-end gap-[3px] h-10">
                 {heights.map((h, i) => (
                   <div
@@ -175,7 +173,7 @@ export const DifficultyRating: React.FC<DifficultyRatingProps> = ({
                       barWidth[size],
                       h,
                       'rounded-sm transition-all duration-200',
-                      i < (4 - rating)
+                      i < rating
                         ? isActive
                           ? config.activeColor
                           : 'bg-zinc-400/50 dark:bg-zinc-600/60'

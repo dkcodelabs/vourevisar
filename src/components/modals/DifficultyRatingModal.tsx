@@ -1,17 +1,16 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
 import { motion } from 'framer-motion';
-import { Trophy, BarChart2, CheckCircle2, X, Clock, Loader2 } from 'lucide-react';
+import { CheckCircle2, Clock, Info, Loader2, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 interface DifficultyRatingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (difficulty: number | null) => void;
-  onConfirmReview?: (difficulty: number | null, duration?: number) => void;
+  onSubmit: (difficulty: number | null) => void | Promise<void>;
+  onConfirmReview?: (difficulty: number | null, duration?: number) => void | Promise<void>;
   onDiscard?: () => void;
   onResume?: () => void;
   topicName: string;
@@ -37,20 +36,47 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   initialDifficulty = null,
   reviewStage,
   reviewCount,
-  isCompleting = false,
   duration = 0,
   isSaving = false,
   savingText = 'Salvando...'
 }) => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null);
-  const [hasUserChanged, setHasUserChanged] = useState(false);
   const [editedDuration, setEditedDuration] = useState<string>('');
+  const durationInputRef = useRef<HTMLInputElement | null>(null);
+
+  const normalizedReviewCount = Math.max(0, reviewCount || 0);
+  const isFirstContact = normalizedReviewCount <= 1;
+  const reviewOrdinalBeingRecorded = Math.max(1, normalizedReviewCount - 1);
+  const previousContactCount = Math.max(0, normalizedReviewCount - 1);
+  const previousReviewCount = Math.max(0, previousContactCount - 1);
+  const stageLabel = isFirstContact
+    ? 'MARCANDO 1º CONTATO'
+    : `MARCANDO ${reviewOrdinalBeingRecorded}ª REVISÃO`;
+  const progressLabel = isFirstContact
+    ? 'Nenhum contato registrado ainda.'
+    : `Já registrado: ${previousContactCount === 1 ? '1º contato' : `${previousContactCount} contatos`} (${previousReviewCount} ${previousReviewCount === 1 ? 'revisão realizada' : 'revisões realizadas'}).`;
+  const primaryActionLabel = onConfirmReview
+    ? (isFirstContact ? 'Finalizar' : 'Confirmar')
+    : 'Salvar';
+  const noticeTitle = isFirstContact ? 'Primeiro contato detectado' : 'Revisão adaptativa';
+  const noticeText = isFirstContact
+    ? 'O sistema criará automaticamente as próximas revisões com base no seu desempenho de hoje.'
+    : `Ao confirmar, esta será registrada como ${reviewOrdinalBeingRecorded}ª revisão do tópico.`;
+
+  const focusDurationInput = () => {
+    const input = durationInputRef.current;
+    if (!input) return;
+    input.focus();
+    requestAnimationFrame(() => {
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    });
+  };
 
   // Definir dificuldade e duração inicial quando o modal abrir
   useEffect(() => {
     if (isOpen) {
       setSelectedDifficulty(initialDifficulty);
-      setHasUserChanged(false); // Resetar flag quando modal abre
       setEditedDuration(String(Math.max(1, duration || 0))); // Garantir mínimo de 1 minuto
     }
   }, [isOpen, initialDifficulty, duration]);
@@ -58,136 +84,103 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   // Handler para mudança de dificuldade
   const handleDifficultyChange = (value: number) => {
     setSelectedDifficulty(value);
-    setHasUserChanged(true); // Marcar que usuário fez uma mudança
   };
 
-  const handleSubmit = () => {
-    if (onConfirmReview) {
-      // Novo fluxo: confirmar revisão + salvar dificuldade + duração
-      // Parse duration to number, default to 1 if invalid
-      const durationVal = parseInt(editedDuration) || 1;
-      onConfirmReview(selectedDifficulty, durationVal);
-    } else {
-      // Fluxo antigo: apenas salvar dificuldade
-      onSubmit(selectedDifficulty);
+  const handleSubmit = async () => {
+    if (isSaving) return;
+
+    try {
+      if (onConfirmReview) {
+        const durationVal = parseInt(editedDuration) || 1;
+        await onConfirmReview(selectedDifficulty, durationVal);
+      } else {
+        await onSubmit(selectedDifficulty);
+      }
+
+      onClose();
+      setSelectedDifficulty(null);
+    } catch (error) {
+      console.error('Erro ao salvar avaliação/revisão:', error);
     }
-    onClose();
-    setSelectedDifficulty(null);
-  };
-
-  const handleSkip = () => {
-    // Função removida para garantir obrigatoriedade
-    console.warn('Ação de pular avaliação desativada. Dificuldade é obrigatória.');
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-      onClick={onClose}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 py-6 backdrop-blur-sm"
+      onClick={() => !isSaving && onClose()}
     >
       <motion.div
         onClick={(e) => e.stopPropagation()}
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="relative bg-card rounded-lg shadow-xl max-w-md w-full mx-4 p-6 border border-border md:bg-white md:dark:bg-slate-900 md:dark:border-slate-800 md:light:bg-card md:light:border-border"
+        className="relative w-full max-w-[560px] overflow-hidden rounded-2xl border border-border bg-card p-6 text-sm text-foreground shadow-2xl shadow-black/35 dark:bg-zinc-900"
       >
-        {/* Botão de fechar com tooltip */}
-        <div className="absolute top-4 right-4 z-10 flex flex-col items-center group">
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-accent text-content-muted hover:text-foreground transition-colors md:hover:bg-slate-100 md:dark:hover:bg-slate-800 md:light:hover:bg-accent md:light:text-content-muted md:light:hover:text-foreground disabled:opacity-50 disabled:pointer-events-none"
-            title="Fechar e manter pausa"
-            aria-label="Fechar e manter pausa"
-            disabled={isSaving}
-          >
-            <X className="h-5 w-5" />
-          </button>
+        <button
+          onClick={onClose}
+          className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-xl bg-secondary/50 text-content-muted transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:pointer-events-none"
+          title="Fechar e manter pausa"
+          aria-label="Fechar e manter pausa"
+          disabled={isSaving}
+        >
+          <X className="h-5 w-5" />
+        </button>
 
-          {/* Tooltip CSS puro */}
-          <div className="absolute top-full right-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap bg-slate-800 dark:bg-slate-700 text-white text-[10px] font-medium px-2 py-1 flex items-center gap-1 rounded shadow-lg before:content-[''] before:-top-1 before:right-3 before:absolute before:border-x-[4px] before:border-x-transparent before:border-b-[4px] before:border-b-slate-800 dark:before:border-b-slate-700">
-            Fechar e manter pausa
+        <div className="mb-6 pr-12">
+          <div className="mb-4 inline-flex h-6 items-center rounded-full border border-primary/25 bg-primary/10 px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
+            {stageLabel}
           </div>
-        </div>
+          <p className="mb-4 text-[11px] font-medium text-content-muted">
+            {progressLabel}
+          </p>
 
-        {/* Header com ícone inline */}
-        <div className="text-center mb-6">
-          {/* Título com ícone inline */}
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 200, damping: 15 }}
-              className="p-2 rounded-full bg-emerald-500/10 md:bg-green-100 md:light:bg-emerald-500/10"
-            >
-              {initialDifficulty !== null ? (
-                <BarChart2 className="h-6 w-6 text-primary" />
-              ) : (
-                <Trophy className="h-6 w-6 text-emerald-600 md:text-green-600 md:light:text-emerald-600" />
-              )}
-            </motion.div>
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground md:text-gray-900 md:dark:text-slate-100 md:light:text-foreground">
-              {reviewCount ? (
-                reviewCount === 1 ? '1º Estudo' :
-                  reviewCount === 2 ? '1ª Revisão' :
-                    reviewCount === 3 ? '2ª Revisão' :
-                      reviewCount === 4 ? '3ª Revisão' :
-                        reviewCount === 5 ? '4ª Revisão' :
-                          isCompleting ? 'Tópico Concluído' : 'Revisar Tópico'
-              ) : (
-                initialDifficulty !== null ? 'Avaliar Dificuldade' : 'Tópico Concluído'
-              )}
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold leading-tight text-foreground">
+              {subjectName || 'Matéria'}
             </h2>
-          </div>
-
-          {/* Matéria e Tópico */}
-          <div className="space-y-1">
-            <div className="font-medium text-foreground text-base sm:text-lg md:text-gray-900 md:dark:text-slate-200 md:light:text-foreground">
-              {subjectName}
-            </div>
-            <div className="text-sm text-content-muted md:text-gray-600 md:dark:text-slate-400 md:light:text-content-muted">
-              {topicName}
+            <div className="mt-1.5 flex min-w-0 items-center gap-2 pl-4 text-xs font-medium text-content-muted">
+              <span className="h-1 w-1 shrink-0 rounded-full bg-content-muted/50" />
+              <span className="truncate">{topicName || reviewStage || 'Tópico'}</span>
             </div>
           </div>
         </div>
 
-        {/* Conteúdo */}
-        <div className="space-y-4">
-
-          {/* Input de Tempo Estudado (Se for fluxo de revisão) */}
+        <div className="space-y-5">
           {onConfirmReview && (
-            <div className="flex items-center justify-center mb-6">
+            <div className="space-y-2.5">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-content-muted">
+                <span>Tempo de estudo</span>
+              </div>
               <div
-                className="flex items-center gap-3 bg-card border border-border shadow-sm rounded-full px-5 py-2.5 hover:border-primary/30 hover:shadow-md transition-all cursor-text group md:bg-white md:dark:bg-slate-800 md:dark:border-slate-700 md:light:bg-card md:light:border-border"
-                onClick={() => document.getElementById('duration-input')?.focus()}
+                className="flex h-11 cursor-text items-center gap-3 rounded-xl border border-border bg-secondary/35 px-3.5 transition-colors hover:bg-secondary/45 focus-within:border-border focus-within:bg-secondary/50"
+                onClick={focusDurationInput}
               >
-                <div className="p-1.5 bg-primary/10 rounded-full group-hover:bg-primary/20 transition-colors md:bg-indigo-50 md:dark:bg-indigo-900/30 md:light:bg-primary/10">
-                  <Clock size={16} className="text-primary md:text-indigo-600 md:dark:text-indigo-400 md:light:text-primary" />
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-sm font-medium text-content-muted md:text-slate-500 md:dark:text-slate-400 md:light:text-content-muted">Tempo:</span>
+                <Clock className="h-4 w-4 shrink-0 text-primary" />
+                <div className="flex w-full items-center gap-1.5">
                   <Input
+                    ref={durationInputRef}
                     id="duration-input"
-                    type="number"
-                    min="1"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={editedDuration}
+                    onFocus={focusDurationInput}
                     onChange={(e) => {
-                      // Allow empty string to let user clear input
-                      setEditedDuration(e.target.value);
+                      setEditedDuration(e.target.value.replace(/\D/g, '').slice(0, 3));
                     }}
-                    className="w-14 h-auto text-center px-0 py-0 text-xl font-bold text-indigo-700 dark:text-indigo-300 bg-transparent border-none focus-visible:ring-0 p-0 m-0 [&::-webkit-inner-spin-button]:appearance-none"
+                    className="h-8 w-10 rounded-none border-0 bg-transparent p-0 text-left text-sm font-semibold text-foreground shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
-                  <span className="text-sm font-medium text-slate-500 dark:text-slate-400">min</span>
+                  <span className="text-xs font-medium text-content-muted">minutos</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Seletor de dificuldade */}
-          <div className="text-center">
-            <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4 md:text-gray-900 md:dark:text-slate-200 md:light:text-foreground">
-              Como foi a dificuldade?
+          <div className="space-y-2.5">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-content-muted">
+              Nível de dificuldade
             </h3>
             <DifficultyRating
               value={selectedDifficulty}
@@ -195,38 +188,34 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
               size="lg"
               showLabel={false}
               allowClear={false}
+              className="[&>div]:max-w-none [&_button]:min-h-[72px] [&_button]:rounded-xl [&_button]:border-border [&_button]:bg-secondary/30 [&_button]:px-4 [&_button]:py-3 [&_button_span]:text-[11px] [&_button_span]:uppercase"
             />
           </div>
 
-          {/* Feedback condicional - só aparece quando usuário ALTERA ativamente */}
-          {hasUserChanged && selectedDifficulty && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center p-3 bg-blue-50 rounded-lg"
-            >
-              <CheckCircle2 className="h-5 w-5 text-blue-600 mx-auto mb-1" />
-              <p className="text-sm text-blue-800">
-                Perfeito! Isso nos ajuda a personalizar suas próximas sessões.
-              </p>
-            </motion.div>
-          )}
+          <div className="flex gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Info className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">{noticeTitle}</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-content-muted">{noticeText}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Footer - Botões */}
-        <div className="flex flex-col gap-3 mt-6">
-          <div className="flex flex-col sm:flex-row gap-2">
+        <div className="mt-6 flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.9fr_1.25fr]">
             <Button
               variant="outline"
               onClick={() => onResume ? onResume() : onClose()}
-              className="flex-1 order-2 sm:order-1 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white transition-all"
+              className="h-10 rounded-xl border-border bg-secondary/35 text-[11px] font-semibold uppercase tracking-[0.12em] text-content-muted hover:bg-secondary hover:text-foreground"
               disabled={isSaving}
             >
-              Voltar a Estudar
+              Voltar
             </Button>
             <Button
               onClick={handleSubmit}
-              className="flex-1 bg-green-600 hover:bg-green-500 order-1 sm:order-2 transition-all dark:bg-green-700 dark:hover:bg-green-600"
+              className="h-10 rounded-xl bg-primary text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:bg-primary/90 disabled:bg-secondary disabled:text-content-muted disabled:shadow-none"
               disabled={!selectedDifficulty || isSaving}
             >
               {isSaving ? (
@@ -235,16 +224,19 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
                   {savingText}
                 </>
               ) : (
-                onConfirmReview ? 'Confirmar Revisão' : 'Salvar'
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  {primaryActionLabel}
+                </>
               )}
             </Button>
           </div>
 
-          {/* Botão Descartar Sessão (Terceria Opção) */}
           {onDiscard && (
             <button
               onClick={onDiscard}
-              className="text-xs text-red-500 hover:text-red-700 hover:underline mx-auto mt-1"
+              className="mx-auto mt-1 text-xs font-medium text-rose-400 hover:text-rose-300 hover:underline"
+              disabled={isSaving}
             >
               Descartar Sessão
             </button>

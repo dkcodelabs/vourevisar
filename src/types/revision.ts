@@ -17,7 +17,7 @@ export interface RevisionItem {
     topic: string;
     subject: string;
     subjectId: string;
-    difficulty: number; // 1 to 5
+    difficulty: number; // 1 = Fácil, 2 = Médio, 3 = Difícil
     dueDate: string; // ISO Date string
     notes: string;
     status: RevisionStatus;
