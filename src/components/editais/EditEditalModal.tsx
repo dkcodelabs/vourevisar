@@ -24,7 +24,7 @@ export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalM
             setOrgan(edital.organ || edital.name.split(' - ')[0] || '');
             setPosition(edital.position || (edital.name.split(' - ').length > 1 ? edital.name.split(' - ').slice(1).join(' - ') : ''));
             setYear(edital.year || '');
-            setExamDate(edital.examDate || '');
+            setExamDate(edital.examDate || (edital as any).exam_date || '');
         }
     }, [edital, isOpen]);
 

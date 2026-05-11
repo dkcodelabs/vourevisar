@@ -870,33 +870,45 @@ export type Database = {
       pending_ai_extractions: {
         Row: {
           ai_result: Json
+          analysis_result: Json | null
           created_at: string | null
           edital_name: string
           id: string
           origin: string | null
+          pdf_url: string | null
           position: string | null
+          selected_cargo: string | null
+          source_type: string | null
           updated_at: string | null
           user_id: string
           year: string | null
         }
         Insert: {
           ai_result: Json
+          analysis_result?: Json | null
           created_at?: string | null
           edital_name: string
           id?: string
           origin?: string | null
+          pdf_url?: string | null
           position?: string | null
+          selected_cargo?: string | null
+          source_type?: string | null
           updated_at?: string | null
           user_id: string
           year?: string | null
         }
         Update: {
           ai_result?: Json
+          analysis_result?: Json | null
           created_at?: string | null
           edital_name?: string
           id?: string
           origin?: string | null
+          pdf_url?: string | null
           position?: string | null
+          selected_cargo?: string | null
+          source_type?: string | null
           updated_at?: string | null
           user_id?: string
           year?: string | null
@@ -1466,6 +1478,10 @@ export type Database = {
           completed_at: string | null
           created_at: string
           edital_id: string | null
+          exam_weight_percentage: number | null
+          exam_weight_points: number | null
+          exam_weight_questions: number | null
+          exam_weight_raw: string | null
           id: string
           is_unified: boolean | null
           is_visible: boolean | null
@@ -1482,6 +1498,10 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           edital_id?: string | null
+          exam_weight_percentage?: number | null
+          exam_weight_points?: number | null
+          exam_weight_questions?: number | null
+          exam_weight_raw?: string | null
           id?: string
           is_unified?: boolean | null
           is_visible?: boolean | null
@@ -1498,6 +1518,10 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           edital_id?: string | null
+          exam_weight_percentage?: number | null
+          exam_weight_points?: number | null
+          exam_weight_questions?: number | null
+          exam_weight_raw?: string | null
           id?: string
           is_unified?: boolean | null
           is_visible?: boolean | null

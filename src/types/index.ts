@@ -61,6 +61,10 @@ export interface Subject {
   topics: Topic[];
   status: Status;
   priority?: number;
+  exam_weight_points?: number | null;
+  exam_weight_questions?: number | null;
+  exam_weight_percentage?: number | null;
+  exam_weight_raw?: string | null;
   color?: string;
   notes?: TopicNotes;
   edital_id?: string;

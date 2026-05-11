@@ -20,6 +20,7 @@ import { MergeSuggestionCard, CompactMergeSuggestionList } from '@/components/su
 import { Subject } from '@/types';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
+import { withTimeout } from '@/utils/withTimeout';
 import {
     performHybridMerge,
     saveUnificationMap,
@@ -272,10 +273,14 @@ const Editais = () => {
     const fetchEditais = useCallback(async () => {
         if (!user?.id) return;
         try {
-            const { data, error } = await editaisTable()
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
+            const { data, error } = await withTimeout(
+                editaisTable()
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false }),
+                10000,
+                'Carregamento de editais'
+            );
 
             if (error) throw error;
             setEditais((data || []).map(rowToEdital));
@@ -317,9 +322,13 @@ const Editais = () => {
 
     const fetchPublicEditais = useCallback(async () => {
         try {
-            const { data, error } = await (supabase as any)
-                .from('public_editais')
-                .select('id, updated_at, subjects');
+            const { data, error } = await withTimeout(
+                (supabase as any)
+                    .from('public_editais')
+                    .select('id, updated_at, subjects'),
+                10000,
+                'Carregamento de editais publicos'
+            );
             if (!error && data) {
                 setPublicEditais(data);
             }
@@ -331,10 +340,14 @@ const Editais = () => {
     const loadPendingMerges = useCallback(async () => {
         if (!user) return;
         try {
-            const { data, error } = await (supabase as any)
-                .from('pending_cycle_merges')
-                .select('*')
-                .eq('user_id', user.id);
+            const { data, error } = await withTimeout(
+                (supabase as any)
+                    .from('pending_cycle_merges')
+                    .select('*')
+                    .eq('user_id', user.id),
+                10000,
+                'Carregamento de mesclagens pendentes'
+            );
 
             if (error) throw error;
 
@@ -1282,6 +1295,10 @@ const Editais = () => {
                         name: subj.name,
                         status: 'Nova',
                         color: subj.color || '#3b82f6',
+                        exam_weight_points: subj.exam_weight_points ?? null,
+                        exam_weight_questions: subj.exam_weight_questions ?? null,
+                        exam_weight_percentage: subj.exam_weight_percentage ?? null,
+                        exam_weight_raw: subj.exam_weight_raw ?? null,
                     } as any)
                     .select('id')
                     .single();
@@ -1340,6 +1357,7 @@ const Editais = () => {
                 ...newEditalRow,
                 subject_ids: realSubjectIds,
                 active_subject_ids: realSubjectIds,
+                exam_date: sanitizedExamDate,
                 updated_at: new Date().toISOString()
             });
 

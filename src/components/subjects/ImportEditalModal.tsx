@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, FileText, Sparkles, Loader2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info, Eye, ArrowLeft, BookOpen, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,8 +20,38 @@ interface AiSubject {
     title: string;
     selected: boolean;
     expanded: boolean;
+    weight?: {
+        points: number | null;
+        questions: number | null;
+        percentage: number | null;
+        rawText: string | null;
+    };
     topics: AiTopic[];
 }
+
+interface AiEditalAnalysis {
+    edital: {
+        name: string;
+        organ: string | null;
+        year: string | null;
+        examDate: string | null;
+        banca: string | null;
+    };
+    cargos: Array<{
+        id: string;
+        name: string;
+        rawLabel: string;
+        evidence: string;
+    }>;
+}
+
+type DocumentPayload = {
+    inputText?: string;
+    pdfUrl?: string;
+    pdfPath?: string;
+    pdfFileUri?: string;
+    sourceType: 'text' | 'pdf';
+};
 
 interface ImportEditalModalProps {
     isOpen: boolean;
@@ -60,13 +90,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     // IA States
     const [inputText, setInputText] = useState('');
     const [pdfFile, setPdfFile] = useState<File | null>(null);
-    const [iaStage, setIaStage] = useState<'input' | 'processing' | 'review'>('input');
+    const [iaStage, setIaStage] = useState<'input' | 'analyzing' | 'selectCargo' | 'extracting' | 'review'>('input');
     const [iaEditalName, setIaEditalName] = useState('');
     const [aiResult, setAiResult] = useState<AiSubject[]>([]);
     const [isSavingAi, setIsSavingAi] = useState(false);
     const [processingMsg, setProcessingMsg] = useState('Analisando edital com IA...');
+    const [iaProgress, setIaProgress] = useState(0);
     const [pendingExtraction, setPendingExtraction] = useState<{ id: string; editalName: string; updatedAt: string; source: 'db' | 'fresh' } | null>(null);
+    const [analysisResult, setAnalysisResult] = useState<AiEditalAnalysis | null>(null);
+    const [selectedCargoId, setSelectedCargoId] = useState('');
+    const [selectedCargoName, setSelectedCargoName] = useState('');
+    const [sourcePayload, setSourcePayload] = useState<DocumentPayload | null>(null);
     const [loadingPending, setLoadingPending] = useState(false);
+    const iaFlowCancelledRef = useRef(false);
 
     // Legacy complement mode states (kept for compatibility)
     const [isComplementMode, setIsComplementMode] = useState(false);
@@ -151,11 +187,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         try {
             const { data, error } = await (supabase as any)
                 .from('pending_ai_extractions')
-                .select('id, edital_name, updated_at, ai_result, origin, position, year')
+                .select('id, edital_name, updated_at, ai_result, analysis_result, selected_cargo, source_type, pdf_url, origin, position, year')
                 .eq('user_id', user.id)
                 .maybeSingle();
             
             if (data && !error) {
+                if (!Array.isArray(data.ai_result) || data.ai_result.length === 0) {
+                    await (supabase as any)
+                        .from('pending_ai_extractions')
+                        .delete()
+                        .eq('id', data.id);
+                    return;
+                }
+
                 setPendingExtraction({
                     id: data.id,
                     editalName: data.edital_name,
@@ -163,11 +207,22 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     source: 'db'
                 });
                 setAiResult(data.ai_result);
+                setAnalysisResult(data.analysis_result || null);
+                setSelectedCargoName(data.selected_cargo || data.position || '');
+                setSelectedCargoId(data.selected_cargo || data.position || '');
+                if (data.source_type || data.pdf_url) {
+                    const storedPdfRef = data.pdf_url || undefined;
+                    setSourcePayload({
+                        sourceType: data.source_type === 'pdf' ? 'pdf' : 'text',
+                        pdfUrl: storedPdfRef?.startsWith('http') ? storedPdfRef : undefined,
+                        pdfPath: storedPdfRef && !storedPdfRef.startsWith('http') ? storedPdfRef : undefined
+                    });
+                }
                 setIaEditalName(data.edital_name);
                 if (data.origin) setIaOrigin(data.origin);
                 if (data.position) setIaPosition(data.position);
                 setIaYear(data.year);
-                setIaStage('review');
+                setIaStage(data.ai_result?.length ? 'review' : data.analysis_result ? 'selectCargo' : 'input');
             }
         } catch (err: any) {
             console.error('[loadPending] catch error:', err?.code, err?.message);
@@ -183,7 +238,47 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, activeTab]);
 
-    const savePendingExtraction = async (editalName: string, results: AiSubject[]) => {
+    const getProgressTarget = (stage: typeof iaStage, message: string) => {
+        const normalized = message.toLowerCase();
+        if (stage === 'analyzing') {
+            if (normalized.includes('extraindo cargos')) return 88;
+            if (normalized.includes('identificando')) return 66;
+            return 24;
+        }
+        if (stage === 'extracting') {
+            if (normalized.includes('finalizando')) return 92;
+            if (normalized.includes('verificando')) return 78;
+            if (normalized.includes('mapeando')) return 58;
+            if (normalized.includes('identificando')) return 38;
+            return 20;
+        }
+        return 0;
+    };
+
+    useEffect(() => {
+        if (iaStage !== 'analyzing' && iaStage !== 'extracting') return;
+
+        const target = getProgressTarget(iaStage, processingMsg);
+        const interval = window.setInterval(() => {
+            setIaProgress(prev => {
+                if (prev >= target) return prev;
+                const distance = target - prev;
+                return Math.min(target, prev + Math.max(0.6, distance * 0.08));
+            });
+        }, 120);
+
+        return () => window.clearInterval(interval);
+    }, [iaStage, processingMsg]);
+
+    const savePendingExtraction = async (
+        editalName: string,
+        results: AiSubject[],
+        options?: {
+            analysis?: AiEditalAnalysis | null;
+            selectedCargo?: string | null;
+            source?: DocumentPayload | null;
+        }
+    ) => {
         if (!user) return;
         try {
             const { data: existing } = await (supabase as any)
@@ -198,7 +293,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 origin: iaOrigin,
                 position: iaPosition,
                 year: iaYear,
-                ai_result: results
+                ai_result: results,
+                analysis_result: options?.analysis ?? analysisResult,
+                selected_cargo: (options?.selectedCargo ?? selectedCargoName) || null,
+                source_type: options?.source?.sourceType ?? sourcePayload?.sourceType ?? null,
+                pdf_url: options?.source?.pdfPath ?? options?.source?.pdfUrl ?? sourcePayload?.pdfPath ?? sourcePayload?.pdfUrl ?? null
             };
 
             if (existing) {
@@ -221,6 +320,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
     };
 
+    const handleResumePendingExtraction = () => {
+        setActiveTab('ia');
+        if (aiResult.length > 0) {
+            setIaStage('review');
+            return;
+        }
+        if (analysisResult?.cargos?.length) {
+            setIaStage('selectCargo');
+            return;
+        }
+        setIaStage('input');
+    };
+
     const discardPendingExtractionData = async () => {
         if (pendingExtraction && user && pendingExtraction.id && !pendingExtraction.id.startsWith('pending-')) {
             try {
@@ -234,6 +346,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
         setPendingExtraction(null);
         setAiResult([]);
+        setAnalysisResult(null);
+        setSelectedCargoId('');
+        setSelectedCargoName('');
+        setSourcePayload(null);
         setIaEditalName('');
         setIaStage('input');
         setIaOrigin('');
@@ -243,9 +359,26 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setExamDate('');
     };
 
+    const handleCloseModal = async () => {
+        const shouldDiscardIaState =
+            activeTab === 'ia' &&
+            ['analyzing', 'extracting', 'selectCargo', 'review'].includes(iaStage);
+
+        if (shouldDiscardIaState) {
+            iaFlowCancelledRef.current = true;
+            await discardPendingExtractionData();
+        }
+
+        onClose();
+    };
+
     const resetPendingState = () => {
         setPendingExtraction(null);
         setAiResult([]);
+        setAnalysisResult(null);
+        setSelectedCargoId('');
+        setSelectedCargoName('');
+        setSourcePayload(null);
         setIaEditalName('');
         setIaStage('input');
         setIaOrigin('');
@@ -484,83 +617,256 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
     };
 
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const startProgressHints = (hints: Array<{ delay: number; message: string }>) => {
+        const timers = hints.map(({ delay, message }) => window.setTimeout(() => {
+            setProcessingMsg(message);
+        }, delay));
+        return () => timers.forEach(timer => window.clearTimeout(timer));
+    };
+
+    const getFunctionErrorMessage = async (error: any, response?: Response) => {
+        const errorResponse = response || error?.context;
+        if (errorResponse && typeof errorResponse.clone === 'function') {
+            try {
+                const body = await errorResponse.clone().json();
+                return body?.error || body?.message || JSON.stringify(body);
+            } catch {
+                try {
+                    const text = await errorResponse.clone().text();
+                    if (text) return text;
+                } catch {
+                    // Mantem fallback abaixo.
+                }
+            }
+        }
+        return error?.message || JSON.stringify(error);
+    };
+
+    const buildDocumentPayload = async () => {
+        const payload: DocumentPayload = { sourceType: 'text' };
+
+        if (pdfFile) {
+            if (!user?.id) {
+                throw new Error('Sua sessão expirou. Faça login novamente para enviar o PDF.');
+            }
+
+            setProcessingMsg('Lendo o documento...');
+            const safeFileName = pdfFile.name
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9._-]/g, '-')
+                .replace(/-+/g, '-')
+                .toLowerCase();
+            const fileName = `${user.id}/${Date.now()}-${crypto.randomUUID()}-${safeFileName || 'edital.pdf'}`;
+            const { error: uploadError } = await supabase.storage
+                .from('temporary_editais')
+                .upload(fileName, pdfFile, {
+                    contentType: 'application/pdf',
+                    upsert: false
+                });
+
+            if (uploadError) {
+                console.error('Erro no upload:', uploadError);
+                throw new Error('Falha ao enviar o arquivo para o storage temporário.');
+            }
+
+            payload.pdfPath = fileName;
+            payload.sourceType = 'pdf';
+            return payload;
+        }
+
+        if (inputText.trim()) {
+            payload.inputText = inputText;
+            payload.sourceType = 'text';
+            return payload;
+        }
+
+        throw new Error('Forneça um arquivo PDF ou o texto do edital.');
+    };
+
+    const applyAnalysisToForm = (analysis: AiEditalAnalysis) => {
+        const edital = analysis.edital;
+        if (edital.organ) setIaOrigin(edital.organ);
+        if (edital.year) setIaYear(edital.year);
+        if (edital.examDate) setExamDate(edital.examDate);
+        if (edital.name) setIaEditalName(edital.name);
+    };
+
+    const mapExtractionToAiSubjects = (extraction: any): AiSubject[] => {
+        const rawSubjects = Array.isArray(extraction?.subjects) ? extraction.subjects : [];
+        return rawSubjects.map((s: any, idx: number): AiSubject => ({
+            id: `ia-${idx}-${Date.now()}`,
+            title: s.title || s.name || 'Sem Título',
+            selected: true,
+            expanded: idx === 0,
+            weight: {
+                points: s.weight?.points ?? null,
+                questions: s.weight?.questions ?? null,
+                percentage: s.weight?.percentage ?? null,
+                rawText: s.weight?.rawText ?? null
+            },
+            topics: (Array.isArray(s.topics) ? s.topics : []).map((t: any, tIdx: number): AiTopic => ({
+                name: String(typeof t === 'string' ? t : t.name || '').trim(),
+                selected: true,
+                position: typeof t?.position === 'number' ? t.position : tIdx
+            })).filter((t: AiTopic) => t.name.length >= 2)
+        })).filter((s: AiSubject) => s.title.trim().length > 0 && s.topics.length > 0);
+    };
+
     const handleIaImport = async () => {
-        setIaStage('processing');
-        setProcessingMsg('Analisando edital com IA...');
+        iaFlowCancelledRef.current = false;
+        setIaStage('analyzing');
+        setIaProgress(0);
+        setProcessingMsg('Lendo o documento...');
         setAiResult([]);
+        setAnalysisResult(null);
+        setSelectedCargoId('');
+        setSelectedCargoName('');
 
         try {
-            const payload: any = {
-                origin: iaOrigin,
-                position: iaPosition,
-                year: iaYear
-            };
+            const documentPayload = await buildDocumentPayload();
+            setSourcePayload(documentPayload);
+            await sleep(250);
+            setProcessingMsg('Identificando o concurso...');
 
-            if (pdfFile) {
-                setProcessingMsg('Enviando arquivo PDF para análise...');
-                const fileName = `${user?.id || 'anon'}-${Date.now()}.pdf`;
-                const { error: uploadError } = await supabase.storage
-                    .from('temporary_editais')
-                    .upload(fileName, pdfFile);
-
-                if (uploadError) {
-                    console.error('Erro no upload:', uploadError);
-                    throw new Error('Falha ao enviar o arquivo para o storage temporário.');
+            const result = await supabase.functions.invoke('extract-edital', {
+                body: {
+                    mode: 'analyze',
+                    inputText: documentPayload.inputText,
+                    pdfUrl: documentPayload.pdfUrl,
+                    pdfPath: documentPayload.pdfPath,
+                    pdfFileUri: documentPayload.pdfFileUri,
+                    origin: iaOrigin,
+                    year: iaYear
                 }
+            });
 
-                const { data: { publicUrl } } = supabase.storage
-                    .from('temporary_editais')
-                    .getPublicUrl(fileName);
-                
-                payload.pdfUrl = publicUrl;
-            } else if (inputText) {
-                payload.inputText = inputText;
-            } else {
-                throw new Error('Forneça um arquivo PDF ou o texto do edital.');
+            if (result.error) {
+                const errBody = await getFunctionErrorMessage(result.error, result.response);
+                throw new Error(errBody);
             }
 
-            setProcessingMsg('Extraindo matérias e tópicos com Gemini...');
-            
-            let data: any;
-            try {
-                const result = await supabase.functions.invoke('extract-edital', { body: payload });
-                data = result.data;
-                if (result.error) {
-                    const errBody = result.error.message || JSON.stringify(result.error);
-                    throw new Error(errBody);
-                }
-            } catch (err: any) {
-                const msg = err?.message || 'Erro desconhecido';
-                throw new Error(msg);
+            if (iaFlowCancelledRef.current) return;
+
+            const analysis = result.data?.analysis as AiEditalAnalysis | undefined;
+            if (!analysis?.cargos?.length) {
+                throw new Error('A IA não conseguiu identificar cargos no edital.');
             }
 
-            const responseData = data?.text || data?.response || (typeof data === 'string' ? data : '');
-            console.log('[extract] raw response (FULL):', responseData);
-            const mappedResults = extractJsonFromText(responseData);
-            console.log('[extract] mappedResults:', mappedResults.length, mappedResults);
-
-            if (mappedResults.length === 0) {
-                if (responseData.includes('"erro"')) {
-                    throw new Error("A IA não encontrou matérias no texto. Verifique se o texto contém o conteúdo programático do edital.");
-                }
-                throw new Error("A IA não conseguiu extrair matérias do conteúdo. Tente um texto mais limpo ou cole apenas a parte de 'CONTEÚDO PROGRAMÁTICO'.");
+            if (result.data?.pdfFileUri) {
+                documentPayload.pdfFileUri = result.data.pdfFileUri;
+                setSourcePayload({ ...documentPayload });
             }
 
-            const defaultName = `${iaOrigin.trim()} - ${iaPosition.trim()} - ${iaYear.trim()}`;
-            setIaEditalName(defaultName);
-            setAiResult(mappedResults);
+            setProcessingMsg('Extraindo cargos disponíveis...');
+            await sleep(250);
+            setIaProgress(100);
+            await sleep(180);
+            setAnalysisResult(analysis);
+            applyAnalysisToForm(analysis);
 
-            const pendingId = `pending-${Date.now()}`;
-            setPendingExtraction({ id: pendingId, editalName: defaultName, updatedAt: new Date().toISOString(), source: 'fresh' });
+            const firstCargo = analysis.cargos[0];
+            setSelectedCargoId(firstCargo.id);
+            setSelectedCargoName(firstCargo.name);
+            setIaPosition(firstCargo.name);
 
-            await savePendingExtraction(defaultName, mappedResults);
+            const editalName = analysis.edital.name || `${analysis.edital.organ || iaOrigin || 'Edital'} - ${analysis.edital.year || iaYear}`;
+            setIaEditalName(editalName);
 
-            setIaStage('review');
+            setIaStage('selectCargo');
 
         } catch (error: any) {
             console.error('Erro na IA:', error);
             const msg = error.message || 'Erro desconhecido';
             toastGate.notifyError(msg, 'IA-01');
+            setIaStage('input');
+        }
+    };
+
+    const handleExtractSelectedCargo = async () => {
+        if (!analysisResult) return;
+        iaFlowCancelledRef.current = false;
+        const cargo = analysisResult.cargos.find(c => c.id === selectedCargoId) || analysisResult.cargos[0];
+        if (!cargo) {
+            toastGate.notifyError('Selecione um cargo para continuar.', 'IA-CARGO-01');
+            return;
+        }
+
+        setIaStage('extracting');
+        setIaProgress(0);
+        setSelectedCargoName(cargo.name);
+        setIaPosition(cargo.name);
+        setProcessingMsg(`Analisando conteúdo programático de ${cargo.name}...`);
+        let stopProgressHints: (() => void) | null = null;
+
+        try {
+            const documentPayload = sourcePayload || await buildDocumentPayload();
+            setSourcePayload(documentPayload);
+            await sleep(200);
+            setProcessingMsg('Analisando conteúdo programático...');
+            stopProgressHints = startProgressHints([
+                { delay: 8000, message: 'Identificando disciplinas...' },
+                { delay: 22000, message: 'Mapeando tópicos por disciplina...' },
+                { delay: 38000, message: 'Verificando peso das matérias...' }
+            ]);
+
+            const result = await supabase.functions.invoke('extract-edital', {
+                body: {
+                    mode: 'extractForCargo',
+                    inputText: documentPayload.inputText,
+                    pdfUrl: documentPayload.pdfUrl,
+                    pdfPath: documentPayload.pdfPath,
+                    pdfFileUri: documentPayload.pdfFileUri,
+                    selectedCargo: cargo.name,
+                    analysis: analysisResult
+                }
+            });
+            stopProgressHints?.();
+
+            if (result.error) {
+                const errBody = await getFunctionErrorMessage(result.error, result.response);
+                throw new Error(errBody);
+            }
+
+            if (iaFlowCancelledRef.current) return;
+
+            setProcessingMsg('Mapeando tópicos por disciplina...');
+            await sleep(200);
+            const extraction = result.data?.extraction;
+            const mappedResults = mapExtractionToAiSubjects(extraction);
+
+            if (mappedResults.length === 0) {
+                throw new Error("A IA não conseguiu extrair matérias para o cargo selecionado.");
+            }
+
+            setProcessingMsg('Verificando peso das matérias...');
+            await sleep(200);
+
+            const edital = extraction?.edital || analysisResult.edital;
+            const finalName = `${edital.organ || iaOrigin || 'Edital'} - ${cargo.name}${edital.year ? ` (${edital.year})` : ''}`;
+            setIaEditalName(finalName);
+            setIaOrigin(edital.organ || iaOrigin);
+            setIaYear(edital.year || iaYear);
+            if (edital.examDate) setExamDate(edital.examDate);
+            setAiResult(mappedResults);
+
+            setProcessingMsg('Finalizando extração...');
+            await savePendingExtraction(finalName, mappedResults, {
+                analysis: analysisResult,
+                selectedCargo: cargo.name,
+                source: documentPayload
+            });
+            setIaProgress(100);
+            await sleep(180);
+
+            setIaStage('review');
+        } catch (error: any) {
+            stopProgressHints?.();
+            console.error('Erro na extração do cargo:', error);
+            await discardPendingExtractionData();
+            toastGate.notifyError(error.message || 'Erro desconhecido', 'IA-EXTRACT-01');
             setIaStage('input');
         }
     };
@@ -572,6 +878,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 id: Math.random().toString(36).substr(2, 9),
                 name: s.title,
                 status: 'Nova', // Ensure status is set for new subjects
+                exam_weight_points: s.weight?.points ?? null,
+                exam_weight_questions: s.weight?.questions ?? null,
+                exam_weight_percentage: s.weight?.percentage ?? null,
+                exam_weight_raw: s.weight?.rawText ?? null,
                 topics: s.topics.filter(t => t.selected && t.name.trim().length >= 2).map((t, idx) => ({
                     id: Math.random().toString(36).substr(2, 9),
                     name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
@@ -594,7 +904,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return;
             }
             
-            const extraInfo = { organ: iaOrigin, position: iaPosition, year: iaYear, exam_date: examDate };
+            const extraInfo = { organ: iaOrigin, position: selectedCargoName || iaPosition, year: iaYear, exam_date: examDate };
             await onImport(newSubjects, finalName, true, undefined, extraInfo);
             await discardPendingExtractionData();
             onClose();
@@ -718,7 +1028,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         <>
             {inlineMode ? (
                 <div className="px-2 pt-6 pb-4 flex items-center shrink-0">
-                    <button onClick={onClose} className="flex items-center gap-2 text-content-muted hover:text-foreground transition-colors font-semibold text-sm">
+                    <button onClick={handleCloseModal} className="flex items-center gap-2 text-content-muted hover:text-foreground transition-colors font-semibold text-sm">
                         <ArrowLeft size={16} />
                         Voltar
                         <span className="text-foreground ml-2 font-bold hidden sm:inline-block">
@@ -731,7 +1041,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     <div className="flex items-center gap-3">
                         {inlineMode && (
                             <button 
-                                onClick={onClose}
+                                onClick={handleCloseModal}
                                 className="mr-2 p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-2"
                             >
                                 <ArrowLeft size={16} />
@@ -746,17 +1056,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         </p>
                     </div>
                     {!inlineMode && (
-                        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
+                        <button onClick={handleCloseModal} className="w-8 h-8 flex items-center justify-center rounded-lg bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
                             <X size={16} />
                         </button>
                     )}
                 </div>
             )}
 
-            <div className={`overflow-y-auto no-scrollbar flex-1 ${inlineMode ? 'pb-12 pt-0' : 'pt-2 px-6 pb-6'}`}>
+            <div className={`overflow-y-auto no-scrollbar flex-1 ${inlineMode ? 'pb-10 pt-0' : 'pt-2 px-5 pb-5'}`}>
 
                     {activeTab === 'ready' ? (
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                             {pendingExtraction && (
                                 <motion.div 
                                     initial={{ opacity: 0, y: -8 }}
@@ -779,11 +1089,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <button 
-                                            onClick={() => setActiveTab('ia')}
+                                            onClick={handleResumePendingExtraction}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
                                         >
                                             <Eye size={12} />
-                                            Visualizar Extração
+                                            Continuar
                                         </button>
                                         <button 
                                             onClick={discardPendingExtractionData}
@@ -1109,7 +1419,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         </div>
                     ) : activeTab === 'ia' ? (
                         <div className="space-y-6">
-                            {pendingExtraction && pendingExtraction.source === 'db' && iaStage !== 'processing' && (
+                            {pendingExtraction && pendingExtraction.source === 'db' && !['analyzing', 'extracting', 'review'].includes(iaStage) && (
                                 <motion.div
                                     initial={{ opacity: 0, y: -8 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -1128,13 +1438,22 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             </p>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={discardPendingExtractionData}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all flex-shrink-0"
-                                    >
-                                        <Trash2 size={12} />
-                                        Descartar
-                                    </button>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <button
+                                            onClick={handleResumePendingExtraction}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
+                                        >
+                                            <Eye size={12} />
+                                            Continuar
+                                        </button>
+                                        <button
+                                            onClick={discardPendingExtractionData}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
+                                        >
+                                            <Trash2 size={12} />
+                                            Descartar
+                                        </button>
+                                    </div>
                                 </motion.div>
                             )}
                             {loadingPending ? (
@@ -1144,58 +1463,60 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                 </div>
                             ) : iaStage === 'input' && !pendingExtraction ? (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full">
-                                    <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
-                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 w-full">
+                                    <div className="flex flex-col gap-4 max-w-5xl mx-auto w-full">
+                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 w-full">
                                             {/* Coluna Esquerda: Informação */}
-                                            <div className="md:col-span-5 bg-secondary/50 dark:bg-white-[0.02] rounded-3xl p-8 flex flex-col justify-center items-start border border-border/50 dark:border-white/5 relative overflow-hidden">
-                                                <h3 className="text-3xl font-black text-foreground mb-4 leading-tight tracking-tight">Importar<br/>com IA</h3>
-                                                <p className="text-sm text-content-muted font-medium mb-12">
+                                            <div className="md:col-span-4 bg-secondary/40 dark:bg-white/[0.02] rounded-2xl p-5 flex flex-col justify-between items-start border border-border/50 dark:border-white/5 relative overflow-hidden min-h-[210px]">
+                                                <div>
+                                                    <h3 className="text-2xl font-bold text-foreground mb-3 leading-tight tracking-normal">Importar com IA</h3>
+                                                    <p className="text-xs text-content-muted font-medium leading-relaxed max-w-sm">
                                                     Copie e cole o texto do seu edital ou envie o arquivo PDF, e a nossa IA fará todo o trabalho de estruturação da sua matriz de estudos.
-                                                </p>
-                                                <div className="w-full flex justify-center text-primary/20 dark:text-white/10 mt-auto">
+                                                    </p>
+                                                </div>
+                                                <div className="w-full flex justify-end text-primary/20 dark:text-white/10 mt-4">
                                                     <div className="relative transform -rotate-6">
-                                                        <Sparkles size={140} strokeWidth={1} />
-                                                        <Settings className="absolute -bottom-4 -right-4 text-primary/80" size={64} strokeWidth={1.5} />
+                                                        <Sparkles size={76} strokeWidth={1} />
+                                                        <Settings className="absolute -bottom-2 -right-3 text-primary/80" size={34} strokeWidth={1.5} />
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Coluna Direita: Formulário */}
-                                            <div className="md:col-span-7 flex flex-col justify-start bg-card dark:bg-zinc-900/40 rounded-3xl p-8 border border-border/50 dark:border-white/5">
-                                                <div className="-mt-2 mb-8 flex items-center gap-2">
-                                                    <div className="w-1.5 h-5 bg-primary rounded-full"></div>
-                                                    <h4 className="text-sm font-black text-foreground uppercase tracking-widest">Dados do Edital</h4>
+                                            <div className="md:col-span-8 flex flex-col justify-start bg-card dark:bg-zinc-900/40 rounded-2xl p-5 border border-border/50 dark:border-white/5">
+                                                <div className="mb-5 flex items-center gap-2">
+                                                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                                                    <h4 className="text-xs font-bold text-foreground uppercase tracking-[0.14em]">Dados do Edital</h4>
                                                 </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 w-full">
+                                                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 w-full">
                                                     {/* Primeira Coluna: Instituição e Cargo */}
-                                                    <div className="sm:col-span-8 space-y-6">
-                                                        <div className="space-y-2 group">
-                                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Instituição</label>
+                                                    <div className="sm:col-span-8 space-y-4">
+                                                        <div className="space-y-1.5 group">
+                                                            <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Instituição</label>
                                                             <input
                                                                 type="text"
                                                                 value={iaOrigin}
                                                                 onChange={(e) => setIaOrigin(e.target.value)}
                                                                 placeholder="EX: PC-ES"
-                                                                className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                                className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
                                                             />
                                                         </div>
 
-                                                        <div className="space-y-2 group">
-                                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Cargo</label>
+                                                        <div className="space-y-1.5 group">
+                                                            <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Cargo</label>
                                                             <input
                                                                 type="text"
                                                                 value={iaPosition}
                                                                 onChange={(e) => setIaPosition(e.target.value)}
                                                                 placeholder="EX: INVESTIGADOR"
-                                                                className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                                className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
                                                             />
                                                         </div>
                                                     </div>
 
                                                     {/* Segunda Coluna: Ano e Data da Prova */}
-                                                    <div className="sm:col-span-4 space-y-6">
-                                                        <div className="space-y-2 group">
-                                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Ano</label>
+                                                    <div className="sm:col-span-4 space-y-4">
+                                                        <div className="space-y-1.5 group">
+                                                            <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Ano</label>
                                                             <input
                                                                 type="text"
                                                                 value={iaYear}
@@ -1203,17 +1524,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 inputMode="numeric"
                                                                 maxLength={4}
                                                                 placeholder="EX: 2024"
-                                                                className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                                className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
                                                             />
                                                         </div>
 
-                                                        <div className="space-y-2 group">
-                                                            <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Data da Prova</label>
+                                                        <div className="space-y-1.5 group">
+                                                            <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Data da Prova</label>
                                                             <input
                                                                 type="date"
                                                                 value={examDate}
                                                                 onChange={(e) => setExamDate(e.target.value)}
-                                                                className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                                className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
                                                             />
                                                         </div>
                                                     </div>
@@ -1221,10 +1542,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             </div>
                                         </div>
 
-                                        <div className="w-full bg-card dark:bg-zinc-900/40 rounded-3xl p-8 border border-border/50 dark:border-white/5 flex flex-col space-y-6">
-                                            <div className="w-full space-y-4">
-                                                <div className="flex items-center justify-between px-2">
-                                                    <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em]">
+                                        <div className="w-full bg-card dark:bg-zinc-900/40 rounded-2xl p-5 border border-border/50 dark:border-white/5 flex flex-col space-y-4">
+                                            <div className="w-full space-y-3">
+                                                <div className="flex items-center justify-between gap-3 px-1">
+                                                    <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em]">
                                                         {isComplementMode ? 'Texto do Conteúdo Adicional' : 'Documento ou Texto'}
                                                     </label>
                                                     
@@ -1237,7 +1558,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                                                 title="Fazer upload de PDF" 
                                                             />
-                                                            <button type="button" className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider">
+                                                            <button type="button" className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider">
                                                                 <FileText size={12} />
                                                                 {pdfFile ? 'Trocar PDF' : 'Anexar PDF (até 5MB)'}
                                                             </button>
@@ -1246,16 +1567,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 </div>
 
                                                 {pdfFile && !isComplementMode ? (
-                                                    <div className="w-full h-44 bg-secondary/50 dark:bg-white-[0.02] border border-dashed border-primary/30 rounded-2xl flex flex-col items-center justify-center text-center transition-all px-4">
-                                                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3">
-                                                            <FileText size={20} className="text-primary" />
+                                                    <div className="w-full h-36 bg-secondary/50 dark:bg-white/[0.02] border border-dashed border-primary/30 rounded-xl flex flex-col items-center justify-center text-center transition-all px-4">
+                                                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mb-2">
+                                                            <FileText size={18} className="text-primary" />
                                                         </div>
-                                                        <h4 className="text-sm font-black text-content-main mb-1">Arquivo PDF Anexado</h4>
-                                                        <p className="text-xs text-content-muted font-medium mb-4 truncate max-w-full px-4">{pdfFile.name}</p>
+                                                        <h4 className="text-xs font-bold text-content-main mb-1">Arquivo PDF Anexado</h4>
+                                                        <p className="text-[11px] text-content-muted font-medium mb-3 truncate max-w-full px-4">{pdfFile.name}</p>
                                                         <button 
                                                             type="button"
                                                             onClick={() => setPdfFile(null)} 
-                                                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold rounded-xl transition-colors uppercase tracking-wider flex items-center gap-1.5"
+                                                            className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[9px] font-bold rounded-lg transition-colors uppercase tracking-wider flex items-center gap-1.5"
                                                         >
                                                             <Trash2 size={12} />
                                                             Remover
@@ -1266,30 +1587,30 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                         value={inputText}
                                                         onChange={(e) => setInputText(e.target.value)}
                                                         placeholder={isComplementMode ? "Cole aqui APENAS os tópicos da matéria (sem nome da matéria)..." : "Cole aqui o texto do conteúdo programático do edital.\n\nSe preferir, deixe este campo vazio e anexe o documento do edital no botão 'ANEXAR PDF' acima."}
-                                                        className="w-full h-64 bg-secondary/50 dark:bg-white-[0.02] border-none rounded-2xl p-6 text-sm leading-relaxed font-medium text-content-main outline-none transition-all resize-none focus:bg-secondary/80 dark:focus:bg-white/[0.04] placeholder:text-content-muted/50"
+                                                        className="w-full h-[clamp(12rem,28vh,17rem)] bg-secondary/50 dark:bg-white/[0.02] border-none rounded-xl p-4 text-xs leading-relaxed font-medium text-content-main outline-none transition-all resize-none focus:bg-secondary/80 dark:focus:bg-white/[0.04] placeholder:text-content-muted/45"
                                                     />
                                                 )}
                                             </div>
 
-                                            <div className="pt-2 flex justify-end w-full">
+                                            <div className="flex justify-end w-full">
                                                 <button
                                                     onClick={handleIaImport}
                                                     disabled={
                                                         isComplementMode 
                                                             ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
-                                                            : (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim())
+                                                            : (!inputText.trim() && !pdfFile)
                                                     }
-                                                    className={`px-8 h-12 font-black rounded-2xl transition-all flex items-center gap-2 justify-center text-[11px] uppercase tracking-widest ${
+                                                    className={`px-6 h-10 font-bold rounded-xl transition-all flex items-center gap-2 justify-center text-[10px] uppercase tracking-[0.12em] ${
                                                         (isComplementMode 
                                                             ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
-                                                            : (!inputText.trim() && !pdfFile || !iaOrigin.trim() || !iaPosition.trim() || !iaYear.trim())
+                                                            : (!inputText.trim() && !pdfFile)
                                                         ) 
                                                         ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80' 
                                                         : 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 active:scale-95'
                                                     }`}
                                                 >
-                                                    <Sparkles size={16} />
-                                                    {isComplementMode ? 'Estruturar e Adicionar ao Edital' : 'Estruturar com IA'}
+                                                    <Sparkles size={14} />
+                                                    {isComplementMode ? 'Estruturar e Adicionar ao Edital' : 'Analisar edital'}
                                                 </button>
                                             </div>
                                         </div>
@@ -1297,82 +1618,226 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                 </motion.div>
                             ) : null}
 
-                            {iaStage === 'processing' && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-16 flex flex-col items-center justify-center text-center">
-                                    <Loader2 className="text-primary animate-spin relative mb-4" size={32} />
-                                    <h3 className="text-sm font-black text-content-main tracking-tight">{processingMsg}</h3>
+                            {(iaStage === 'analyzing' || iaStage === 'extracting') && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-lg mx-auto py-10">
+                                    <div className="rounded-2xl border border-border dark:border-white/10 bg-card dark:bg-zinc-900/50 p-6">
+                                        <div className="flex items-center gap-3 mb-6">
+                                            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                                <Sparkles size={18} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-bold text-content-main">
+                                                    {iaStage === 'analyzing' ? 'Analisando edital...' : 'Extraindo disciplinas...'}
+                                                </h3>
+                                                <p className="text-[11px] text-content-muted">{processingMsg}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {(iaStage === 'analyzing'
+                                                ? [
+                                                    { label: 'Lendo o documento', from: 0, to: 34 },
+                                                    { label: 'Identificando o concurso', from: 34, to: 80 },
+                                                    { label: 'Extraindo cargos disponíveis', from: 80, to: 100 }
+                                                ]
+                                                : [
+                                                    { label: 'Analisando conteúdo programático', from: 0, to: 25 },
+                                                    { label: 'Identificando disciplinas', from: 25, to: 45 },
+                                                    { label: 'Mapeando tópicos por disciplina', from: 45, to: 70 },
+                                                    { label: 'Verificando peso das matérias', from: 70, to: 90 },
+                                                    { label: 'Finalizando extração', from: 90, to: 100 }
+                                                ]
+                                            ).map((step) => {
+                                                const stepProgress = Math.max(0, Math.min(100, ((iaProgress - step.from) / (step.to - step.from)) * 100));
+                                                const done = stepProgress >= 100;
+                                                const active = stepProgress > 0 && stepProgress < 100;
+                                                return (
+                                                    <div key={step.label} className="space-y-1.5">
+                                                        <div className="flex items-center gap-2">
+                                                            {done ? (
+                                                                <CheckCircle2 size={14} className="text-emerald-400" />
+                                                            ) : active ? (
+                                                                <Loader2 size={14} className="text-primary animate-spin" />
+                                                            ) : (
+                                                                <span className="w-3.5 h-3.5 rounded-full border border-content-muted/40" />
+                                                            )}
+                                                            <span className={`text-xs font-bold flex-1 ${done || active ? 'text-content-main' : 'text-content-muted/60'}`}>
+                                                                {step.label}
+                                                            </span>
+                                                            <span className={`text-[10px] tabular-nums font-bold ${done || active ? 'text-primary' : 'text-content-muted/40'}`}>
+                                                                {Math.round(stepProgress)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="ml-5 h-1 rounded-full bg-white/10 overflow-hidden">
+                                                            <div
+                                                                className={`h-full rounded-full transition-[width] duration-200 ease-out ${done ? 'bg-emerald-400' : active ? 'bg-primary' : 'bg-white/20'}`}
+                                                                style={{ width: `${stepProgress}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {iaStage === 'selectCargo' && analysisResult && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-2xl mx-auto space-y-4">
+                                    <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                                        <h3 className="text-sm font-bold text-content-main">{analysisResult.edital.name}</h3>
+                                        <p className="text-xs text-content-muted mt-1">
+                                            {analysisResult.edital.organ || 'Órgão não identificado'}
+                                            {analysisResult.edital.year ? ` · ${analysisResult.edital.year}` : ''}
+                                            {analysisResult.edital.banca ? ` · ${analysisResult.edital.banca}` : ''}
+                                        </p>
+                                        <p className="text-[11px] text-primary mt-2 font-bold">
+                                            {analysisResult.cargos.length} cargo(s) identificado(s)
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-border dark:border-white/10 bg-card dark:bg-zinc-900/40 p-4">
+                                        <label className="text-[10px] font-bold uppercase tracking-[0.16em] text-content-muted">
+                                            Selecione seu cargo
+                                        </label>
+                                        <div className="mt-3 max-h-72 overflow-y-auto space-y-2 pr-1">
+                                            {analysisResult.cargos.map((cargo) => (
+                                                <button
+                                                    key={cargo.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedCargoId(cargo.id);
+                                                        setSelectedCargoName(cargo.name);
+                                                        setIaPosition(cargo.name);
+                                                    }}
+                                                    className={`w-full text-left p-3 rounded-xl border transition-all ${
+                                                        selectedCargoId === cargo.id
+                                                            ? 'border-primary bg-primary/10 text-content-main'
+                                                            : 'border-border dark:border-white/10 bg-secondary/40 hover:border-primary/40 text-content-main'
+                                                    }`}
+                                                >
+                                                    <p className="text-xs font-bold">{cargo.name}</p>
+                                                    {cargo.evidence && (
+                                                        <p className="text-[10px] text-content-muted mt-1 line-clamp-2">{cargo.evidence}</p>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div className="flex justify-end gap-2 mt-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => setIaStage('input')}
+                                                className="px-4 h-10 rounded-xl border border-border text-xs font-bold text-content-muted hover:text-content-main transition-colors"
+                                            >
+                                                Voltar
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleExtractSelectedCargo}
+                                                disabled={!selectedCargoId}
+                                                className="px-5 h-10 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+                                            >
+                                                <Sparkles size={14} />
+                                                Extrair disciplinas
+                                            </button>
+                                        </div>
+                                    </div>
                                 </motion.div>
                             )}
 
                             {iaStage === 'review' && (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-[9px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20 uppercase tracking-wider">
-                                                {aiResult.length} Matérias
-                                            </span>
-                                            <span className="text-[9px] font-black bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full border border-emerald-500/20 uppercase tracking-wider">
-                                                {aiResult.reduce((acc, s) => acc + s.topics.length, 0)} Tópicos
-                                            </span>
+                                    <div className="flex items-start justify-between gap-4 pb-3 border-b border-border dark:border-white/5">
+                                        <div className="min-w-0">
+                                            <p className="text-[9px] font-black text-primary uppercase tracking-[0.16em]">Resultado da extração</p>
+                                            <h3 className="text-base font-bold text-content-main mt-1 truncate">
+                                                {iaEditalName || `${iaOrigin || 'Edital'} - ${iaPosition || selectedCargoName || 'Cargo'}`}
+                                            </h3>
+                                            <p className="text-[11px] text-content-muted mt-1">
+                                                Revise os dados antes de importar para sua lista de editais.
+                                            </p>
                                         </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => setAiResult(aiResult.map(s => ({ ...s, expanded: true })))}
-                                                    className="px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-black uppercase tracking-wider rounded-lg transition-all border border-primary/20"
-                                                >
-                                                    Expandir Tudo
-                                                </button>
-                                                <button
-                                                    onClick={() => setAiResult(aiResult.map(s => ({ ...s, expanded: false })))}
-                                                    className="px-3 py-1 bg-secondary hover:bg-secondary/80 text-content-muted text-[9px] font-black uppercase tracking-wider rounded-lg transition-all border border-border"
-                                                >
-                                                    Recolher Tudo
-                                                </button>
-                                            </div>
-                                        </div>
+                                        {pendingExtraction && (
+                                            <button
+                                                type="button"
+                                                onClick={discardPendingExtractionData}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-500 bg-amber-500/10 hover:bg-amber-500/15 rounded-lg border border-amber-500/20 transition-colors shrink-0"
+                                            >
+                                                <Trash2 size={12} />
+                                                Descartar
+                                            </button>
+                                        )}
+                                    </div>
 
-                                    <div className="grid gap-2 pb-3 border-b border-border dark:border-white/5 grid-cols-1 sm:grid-cols-3">
+                                    <div className="grid gap-3 pb-4 border-b border-border dark:border-white/5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                                         <>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Concurso</span>
+                                                <div className="space-y-1">
+                                                    <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Concurso</span>
                                                     <input
                                                         type="text"
                                                         value={iaOrigin}
                                                         onChange={(e) => setIaOrigin(e.target.value)}
-                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
+                                                        className="w-full px-2.5 py-2 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
                                                     />
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Cargo</span>
+                                                <div className="space-y-1">
+                                                    <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Cargo</span>
                                                     <input
                                                         type="text"
                                                         value={iaPosition}
                                                         onChange={(e) => setIaPosition(e.target.value)}
-                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
+                                                        className="w-full px-2.5 py-2 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
                                                     />
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Ano</span>
+                                                <div className="space-y-1">
+                                                    <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Ano</span>
                                                     <input
                                                         type="text"
                                                         value={iaYear}
                                                         onChange={(e) => setIaYear(e.target.value.replace(/\D/g, ''))}
-                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main outline-none transition-all"
+                                                        className="w-full px-2.5 py-2 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main outline-none transition-all"
                                                         placeholder="AAAA"
                                                         maxLength={4}
                                                     />
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Data da Prova</span>
+                                                <div className="space-y-1">
+                                                    <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Data da Prova</span>
                                                     <input
                                                         type="date"
                                                         value={examDate}
                                                         onChange={(e) => setExamDate(e.target.value)}
-                                                        className="flex-1 px-2 py-1.5 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main outline-none transition-all"
+                                                        className="w-full px-2.5 py-2 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main outline-none transition-all"
                                                     />
                                                 </div>
                                             </>
                                     </div>
+
+                                    <div className="flex items-center justify-between gap-3 pt-1">
+                                        <div>
+                                            <p className="text-[9px] font-black text-content-muted uppercase tracking-[0.16em]">Matérias extraídas</p>
+                                            <p className="text-[10px] text-content-muted">
+                                                {aiResult.some(s => s.weight?.questions || s.weight?.points || s.weight?.percentage)
+                                                    ? 'Pesos encontrados aparecem em cada matéria.'
+                                                    : 'Nenhum peso claro foi encontrado no edital. As matérias serão importadas sem peso.'}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                const shouldExpand = aiResult.some(s => !s.expanded);
+                                                setAiResult(aiResult.map(s => ({ ...s, expanded: shouldExpand })));
+                                            }}
+                                            className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-black uppercase tracking-wider rounded-lg transition-all border border-primary/20 shrink-0"
+                                        >
+                                            {aiResult.some(s => !s.expanded) ? 'Expandir tudo' : 'Recolher tudo'}
+                                        </button>
+                                    </div>
+
+                                    {!aiResult.some(s => s.weight?.questions || s.weight?.points || s.weight?.percentage) && (
+                                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
+                                            A IA não encontrou peso por matéria de forma confiável. Isso não bloqueia a importação; os campos de peso ficarão vazios.
+                                        </div>
+                                    )}
 
                                     <div className="space-y-2 pr-2 no-scrollbar">
                                         {aiResult.map((subj, sIdx) => (
@@ -1401,8 +1866,24 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                         />
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0">
+                                                        <span
+                                                            title={subj.weight?.rawText || 'Peso não identificado claramente no edital'}
+                                                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                                                (subj.weight?.questions || subj.weight?.points || subj.weight?.percentage)
+                                                                    ? 'bg-primary/10 text-primary border-primary/20'
+                                                                    : 'bg-secondary dark:bg-zinc-800 text-content-muted border-border dark:border-white/5'
+                                                            }`}
+                                                        >
+                                                            {(subj.weight?.questions || subj.weight?.points || subj.weight?.percentage)
+                                                                ? `Peso: ${[
+                                                                    subj.weight?.questions ? `${subj.weight.questions} questões` : null,
+                                                                    subj.weight?.points ? `${subj.weight.points} pts` : null,
+                                                                    subj.weight?.percentage ? `${subj.weight.percentage}%` : null
+                                                                ].filter(Boolean).join(' · ')}`
+                                                                : 'Peso não identificado'}
+                                                        </span>
                                                         <span className="text-[10px] font-bold bg-secondary dark:bg-zinc-800 text-muted-foreground px-1.5 py-0.5 rounded border border-border dark:border-white/5">
-                                                            {subj.topics.length} T
+                                                            {subj.topics.length} tópicos
                                                         </span>
                                                         <button
                                                             onClick={() => {
@@ -1443,6 +1924,26 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             </div>
                                         ))}
                                     </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-3 border-t border-border dark:border-white/5">
+                                        <div className="rounded-lg bg-secondary/40 dark:bg-zinc-900/40 border border-border dark:border-white/5 px-3 py-2">
+                                            <p className="text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Matérias selecionadas</p>
+                                            <p className="text-sm font-bold text-content-main">{aiResult.filter(s => s.selected).length} de {aiResult.length}</p>
+                                        </div>
+                                        <div className="rounded-lg bg-secondary/40 dark:bg-zinc-900/40 border border-border dark:border-white/5 px-3 py-2">
+                                            <p className="text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Tópicos selecionados</p>
+                                            <p className="text-sm font-bold text-content-main">
+                                                {aiResult.reduce((acc, s) => acc + s.topics.filter(t => t.selected).length, 0)} de {aiResult.reduce((acc, s) => acc + s.topics.length, 0)}
+                                            </p>
+                                        </div>
+                                        <div className="rounded-lg bg-secondary/40 dark:bg-zinc-900/40 border border-border dark:border-white/5 px-3 py-2">
+                                            <p className="text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Matérias com peso</p>
+                                            <p className="text-sm font-bold text-content-main">
+                                                {aiResult.filter(s => s.weight?.questions || s.weight?.points || s.weight?.percentage).length > 0
+                                                    ? `${aiResult.filter(s => s.weight?.questions || s.weight?.points || s.weight?.percentage).length} de ${aiResult.length}`
+                                                    : 'Nenhum peso encontrado'}
+                                            </p>
+                                        </div>
+                                    </div>
                                     {/* Botão removido daqui para o rodapé fixo */}
                                 </motion.div>
                             )}
@@ -1471,11 +1972,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <button 
-                                            onClick={() => setActiveTab('ia')}
+                                            onClick={handleResumePendingExtraction}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
                                         >
                                             <Eye size={12} />
-                                            Visualizar Extração
+                                            Continuar
                                         </button>
                                         <button 
                                             onClick={discardPendingExtractionData}
@@ -1733,13 +2234,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={onClose}
+                onClick={handleCloseModal}
                 className="absolute inset-0 bg-black/80 backdrop-blur-md"
             />
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-7xl h-[85vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="relative w-full max-w-[1120px] max-h-[90vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col"
             >
                 {modalInnerContent}
             </motion.div>

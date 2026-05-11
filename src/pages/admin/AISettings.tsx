@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { Save, Loader2, Bot, Terminal, AlertCircle, RefreshCw, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Merge } from 'lucide-react';
+import { Save, Loader2, Bot, Terminal, AlertCircle, RefreshCw, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Merge, ChevronDown } from 'lucide-react';
 import { toastGate } from '@/lib/errors/toastGate';
 import { toast } from '@/lib/toast';
 import { useAIStatus, getAIErrorLogs } from '@/hooks/useAIStatus';
+import { withTimeout } from '@/utils/withTimeout';
 
 const DEFAULT_CONFIG = {
-  model: 'gemini-2.0-flash',
+  model: 'gemini-2.5-flash',
   temperature: 0.1,
   top_p: 1.0,
   top_k: 1,
   presence_penalty: 0.0,
   max_tokens: 16384,
+  analysis_prompt: `Voce e um especialista em editais de concursos publicos brasileiros. Analise o edital inteiro, identifique orgao, nome do concurso, ano, banca, data de prova e todos os cargos disponiveis. Retorne apenas JSON valido com edital e cargos.`,
+  extraction_prompt: `Voce e um especialista em conteudo programatico de concursos publicos brasileiros. Extraia apenas as disciplinas, topicos e pesos do cargo "{{selectedCargo}}". Ignore macrogrupos e retorne apenas JSON valido com edital, selectedCargo, subjects e warnings.`,
   system_prompt: `Você é um especialista em estruturação de editais. Sua tarefa é extrair o conteúdo programático INTEGRAL do texto fornecido e retornar um JSON puro, obrigatoriamente dentro de um bloco de código Markdown.
 
 DIRETRIZ DE CONTINUIDADE E HIERARQUIA (CRÍTICO):
@@ -87,17 +90,22 @@ export default function AISettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         setIsLoading(true);
-        const { data, error } = await supabase
-          .from('system_settings')
-          .select('*')
-          .eq('key', 'ai_edital_config')
-          .maybeSingle();
+        const { data, error } = await withTimeout(
+          supabase
+            .from('system_settings')
+            .select('*')
+            .eq('key', 'ai_edital_config')
+            .maybeSingle(),
+          8000,
+          'Carregamento das configuracoes de IA'
+        );
 
         if (error) throw error;
 
@@ -226,7 +234,32 @@ export default function AISettings() {
           </button>
         </div>
 
-        <div className="space-y-8">
+        <div className="space-y-6">
+          {/* SEÇÃO: Status da API */}
+          <AIStatusSection />
+
+          {/* SEÇÃO: Histórico de Erros */}
+          <AIErrorLogsSection />
+
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(prev => !prev)}
+            className="w-full glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 py-4 flex items-center justify-between text-left transition-all hover:border-primary/30"
+          >
+            <div>
+              <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
+                <Terminal className="text-primary w-4 h-4" />
+                Modo avançado de prompts
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Alterações aqui impactam a extração em produção. Use somente para ajustes técnicos controlados.
+              </p>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showAdvanced && (
+            <>
           <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl p-6 shadow-sm relative overflow-hidden">
             <h2 className="text-sm font-black flex items-center gap-2 mb-6 uppercase tracking-widest text-foreground/80">
               <Bot className="text-primary w-4 h-4" />
@@ -338,11 +371,47 @@ export default function AISettings() {
             <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
               <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
                 <Terminal className="text-primary w-4 h-4" />
-                Gestão de IA: Extração de Editais
+                Gestão de IA: Análise e Extração de Editais
               </h2>
             </div>
-            
-            <div className="relative group">
+
+            <div className="p-6 space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
+                  Prompt de análise documental
+                </label>
+                <textarea
+                  value={config.analysis_prompt || ''}
+                  onChange={e => {
+                    setConfig({...config, analysis_prompt: e.target.value});
+                    setHasUnsavedChanges(true);
+                  }}
+                  className="w-full h-[180px] bg-transparent border border-border dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-primary/50 transition-all resize-none text-foreground placeholder:text-muted-foreground/20"
+                  placeholder="Instruções para identificar edital e cargos..."
+                  spellCheck={false}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
+                  Prompt de extração por cargo
+                </label>
+                <textarea
+                  value={config.extraction_prompt || config.system_prompt}
+                  onChange={e => {
+                    setConfig({...config, extraction_prompt: e.target.value});
+                    setHasUnsavedChanges(true);
+                  }}
+                  className="w-full h-[240px] bg-transparent border border-border dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-primary/50 transition-all resize-none text-foreground placeholder:text-muted-foreground/20"
+                  placeholder="Instruções para extrair disciplinas, tópicos e pesos..."
+                  spellCheck={false}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
+                  Prompt legado
+                </label>
               <textarea 
                 value={config.system_prompt}
                 onChange={e => {
@@ -353,6 +422,7 @@ export default function AISettings() {
                 placeholder="Insira as instruções do comportamento da IA..."
                 spellCheck={false}
               />
+              </div>
             </div>
             
             <div className="px-6 py-4 bg-muted/30 dark:bg-zinc-800/40 border-t border-border dark:border-white/5">
@@ -368,12 +438,8 @@ export default function AISettings() {
 
           {/* Card: Diretrizes de Agrupamento de Tópicos */}
           <TopicGroupingPromptSection />
-
-          {/* SEÇÃO: Status da API */}
-          <AIStatusSection />
-
-          {/* SEÇÃO: Histórico de Erros */}
-          <AIErrorLogsSection />
+            </>
+          )}
         </div>
       </div>
     </motion.div>
@@ -612,6 +678,11 @@ Retorne APENAS um JSON no formato:
 // Componente de Status da API
 function AIStatusSection() {
   const { aiStatus, isChecking, checkAIStatus } = useAIStatus();
+  const [lastManualTest, setLastManualTest] = useState<{
+    status: 'success' | 'error';
+    message: string;
+    checkedAt: string;
+  } | null>(null);
 
   const statusColors = {
     active: 'bg-green-500',
@@ -638,6 +709,28 @@ function AIStatusSection() {
     });
   };
 
+  const handleManualTest = async () => {
+    const status = await checkAIStatus(true);
+    const checkedAt = new Date().toISOString();
+
+    if (status.status === 'active') {
+      setLastManualTest({
+        status: 'success',
+        checkedAt,
+        message: status.modelName
+          ? `Teste aprovado com o modelo ${status.modelName}.`
+          : 'Teste aprovado. A API respondeu, mas não retornou o nome do modelo.'
+      });
+      return;
+    }
+
+    setLastManualTest({
+      status: 'error',
+      checkedAt,
+      message: status.errorMessage || 'Teste falhou. A API não retornou uma resposta válida.'
+    });
+  };
+
   return (
     <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl overflow-hidden shadow-sm relative mt-6">
       <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
@@ -646,7 +739,7 @@ function AIStatusSection() {
           Status da API Gemini
         </h2>
         <button
-          onClick={() => checkAIStatus()}
+          onClick={handleManualTest}
           disabled={isChecking}
           className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-all disabled:opacity-50"
         >
@@ -671,7 +764,7 @@ function AIStatusSection() {
           <div>
             <p className="text-muted-foreground text-xs font-medium">Modelo testado</p>
             <p className="font-bold text-primary">
-              {aiStatus.modelName || (isChecking ? 'Verificando...' : 'Não testado')}
+              {aiStatus.modelName || (isChecking ? 'Verificando...' : aiStatus.status === 'active' ? 'API respondeu' : 'Não testado')}
             </p>
           </div>
           <div>
@@ -679,6 +772,37 @@ function AIStatusSection() {
             <p className="font-bold text-foreground">A cada 5 minutos</p>
           </div>
         </div>
+
+        {lastManualTest && (
+          <div className={`p-3 border rounded-lg ${
+            lastManualTest.status === 'success'
+              ? 'bg-green-500/10 border-green-500/20'
+              : 'bg-red-500/10 border-red-500/20'
+          }`}>
+            <div className="flex items-start gap-2">
+              {lastManualTest.status === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 mt-0.5 text-green-400" />
+              ) : (
+                <XCircle className="w-4 h-4 mt-0.5 text-red-400" />
+              )}
+              <div>
+                <p className={`text-xs font-black uppercase tracking-widest ${
+                  lastManualTest.status === 'success' ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {lastManualTest.status === 'success' ? 'Teste aprovado' : 'Teste falhou'}
+                </p>
+                <p className={`text-sm mt-1 ${
+                  lastManualTest.status === 'success' ? 'text-green-200' : 'text-red-200'
+                }`}>
+                  {lastManualTest.message}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Verificado em {formatDate(lastManualTest.checkedAt)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {aiStatus.errorMessage && (
           <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">

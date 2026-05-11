@@ -43,11 +43,15 @@ export const useDataLoading = (
 
       if (subjectsError) throw subjectsError;
 
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('user_settings')
-        .select('subjects_per_day')
-        .eq('user_id', user.id)
-        .single();
+      const { data: settingsData, error: settingsError } = await withTimeout(
+        supabase
+          .from('user_settings')
+          .select('subjects_per_day')
+          .eq('user_id', user.id)
+          .single(),
+        8000,
+        'Carregamento de configuracoes do usuario'
+      );
 
       if (settingsError && settingsError.code !== 'PGRST116') {
         // Silently handle settings error
@@ -63,6 +67,18 @@ export const useDataLoading = (
 
     } catch (error) {
       setError('Erro ao carregar dados');
+      setSubjects([]);
+      setStudyProgress({
+        totalSubjects: 0,
+        completedSubjects: 0,
+        totalTopics: 0,
+        completedTopics: 0,
+        delayedTopics: 0,
+        todayTopics: 0,
+        futureTopics: 0,
+      });
+      setUserSettings({ subjects_per_day: 3 });
+      setIsDataLoaded(true);
     } finally {
       setIsLoading(false);
     }

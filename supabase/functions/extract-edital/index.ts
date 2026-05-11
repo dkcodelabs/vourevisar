@@ -2,25 +2,110 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MAX_CONTINUE_ATTEMPTS = 3;
+type ExtractMode = "analyze" | "extractForCargo";
 
-async function callGemini(apiKey: string, modelName: string, payload: any): Promise<{ text: string; finishReason: string; usage: any }> {
+const DEFAULT_ANALYSIS_PROMPT = `Voce e um especialista em editais de concursos publicos brasileiros.
+Analise o edital fornecido e identifique metadados e cargos disponiveis.
+
+Regras:
+- Leia o documento inteiro antes de responder.
+- Identifique o nome do concurso/edital, orgao/instituicao, ano, banca e data de prova quando estiverem explicitamente no documento.
+- Extraia todos os cargos, funcoes, especialidades ou areas quando houver mais de um.
+- Se o edital tiver cargo unico, retorne uma lista com um unico cargo.
+- Nao invente dados. Use null quando nao houver evidencia.
+- O campo evidence deve conter um trecho curto do edital que justifique o cargo.
+
+Retorne APENAS JSON valido no formato:
+{
+  "edital": {
+    "name": "string",
+    "organ": "string|null",
+    "year": "string|null",
+    "examDate": "YYYY-MM-DD|null",
+    "banca": "string|null"
+  },
+  "cargos": [
+    {
+      "id": "cargo-1",
+      "name": "Nome limpo do cargo",
+      "rawLabel": "Texto original do edital",
+      "evidence": "Trecho curto usado como evidencia"
+    }
+  ]
+}`;
+
+const DEFAULT_EXTRACTION_PROMPT = `Voce e um especialista em estruturar conteudo programatico de editais de concursos publicos brasileiros.
+Extraia disciplinas, topicos e pesos SOMENTE para o cargo selecionado.
+
+Regras criticas:
+- Cargo selecionado: "{{selectedCargo}}".
+- Se houver secoes por cargo, extraia apenas o conteudo desse cargo.
+- Se o edital tiver cargo unico, extraia o conteudo programatico disponivel.
+- Ignore macrogrupos como Conhecimentos Gerais, Conhecimentos Basicos, Conhecimentos Especificos quando eles forem apenas agrupadores.
+- Cada disciplina real deve virar um item em subjects.
+- Preserve a ordem original das disciplinas e topicos.
+- Separe topicos atomicos por numeracao (1, 1.1, 1.2), ponto e virgula ou itens claros.
+- Preserve numeracao original no inicio do topico quando existir.
+- Extraia pesos quando houver tabela de prova, numero de questoes, pontos, peso ou percentual por disciplina.
+- Se o peso nao estiver claro para uma disciplina, use null nos campos de weight.
+- Nao inclua bibliografia, avisos administrativos ou regras de inscricao como topicos.
+- Nao invente materias, topicos, datas ou pesos.
+
+Retorne APENAS JSON valido no formato:
+{
+  "edital": {
+    "name": "string",
+    "organ": "string|null",
+    "year": "string|null",
+    "examDate": "YYYY-MM-DD|null",
+    "banca": "string|null"
+  },
+  "selectedCargo": "string",
+  "subjects": [
+    {
+      "title": "Nome da disciplina",
+      "weight": {
+        "points": 0,
+        "questions": 0,
+        "percentage": 0,
+        "rawText": "trecho do edital|null"
+      },
+      "topics": [
+        { "name": "Topico", "position": 0 }
+      ]
+    }
+  ],
+  "warnings": []
+}`;
+
+const WEIGHT_EXTRACTION_RULES = `REGRAS OBRIGATORIAS PARA PESO / IMPORTANCIA:
+- "Peso" nao depende da palavra peso aparecer no edital.
+- Sempre procure tabelas de prova com colunas como "Quantidade de questoes", "Valor de cada questao", "Pontuacao maxima", "Pontos", "Total" ou equivalentes.
+- Se a tabela informar quantidade de questoes por disciplina, preencha weight.questions.
+- Se a tabela informar pontuacao maxima por disciplina, preencha weight.points.
+- Se a prova totalizar 100 pontos ou 100 questoes, use tambem weight.percentage igual a participacao daquela disciplina no total.
+- Exemplo: 17 questoes de 100 e pontuacao maxima 17,00 => questions: 17, points: 17, percentage: 17.
+- Se uma disciplina tiver mais questoes/pontos que outra, ela tem maior peso pratico, mesmo sem a palavra "peso".
+- O campo weight.rawText deve conter o trecho/tabela que justifica os numeros.
+- So use null se nao houver tabela ou evidencia clara para aquela disciplina.`;
+
+async function callGemini(apiKey: string, modelName: string, payload: any, timeoutMs = 90000): Promise<{ text: string; finishReason: string; usage: any }> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 50000); // 50s timeout
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
-        "Connection": "keep-alive"
+        "Connection": "keep-alive",
       },
       body: JSON.stringify(payload),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     if (!res.ok) {
@@ -29,20 +114,23 @@ async function callGemini(apiKey: string, modelName: string, payload: any): Prom
     }
 
     const result = await res.json();
-    
-    if (result.error) {
-      throw new Error(result.error.message || JSON.stringify(result.error));
-    }
+    if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
 
-    const finishReason = result.candidates?.[0]?.finishReason || 'UNKNOWN';
+    const finishReason = result.candidates?.[0]?.finishReason || "UNKNOWN";
     const usage = result.usageMetadata;
-    const text = result.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || '';
+    const text = result.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") || "";
 
-    console.log('[callGemini]', { finishReason, promptTokens: usage?.promptTokenCount, candidatesTokens: usage?.candidatesTokenCount });
+    console.log("[callGemini]", {
+      modelName,
+      finishReason,
+      promptTokens: usage?.promptTokenCount,
+      candidatesTokens: usage?.candidatesTokenCount,
+    });
+
     return { text, finishReason, usage };
   } catch (err: any) {
-    if (err.name === 'AbortError') {
-      throw new Error('Timeout: A API do Gemini demorou muito para responder (limite 50s).');
+    if (err.name === "AbortError") {
+      throw new Error("Timeout: A API do Gemini demorou muito para responder.");
     }
     throw err;
   } finally {
@@ -50,277 +138,385 @@ async function callGemini(apiKey: string, modelName: string, payload: any): Prom
   }
 }
 
-async function uploadPdfToGemini(apiKey: string, pdfUrl: string): Promise<string> {
-  const fileName = pdfUrl.split('/').pop() || `edital-${Date.now()}.pdf`;
-  
-  console.log('[uploadPdf] Downloading from:', pdfUrl);
-  const downloadRes = await fetch(pdfUrl);
-  if (!downloadRes.ok) throw new Error(`Falha ao baixar PDF do storage: ${downloadRes.status} - URL: ${pdfUrl}`);
-  const arrayBuffer = await downloadRes.arrayBuffer();
-  const fileBytes = new Uint8Array(arrayBuffer);
-  console.log('[uploadPdf] Downloaded:', fileBytes.length, 'bytes');
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  if (fileBytes.length < 100) {
-    throw new Error(`PDF muito pequeno (${fileBytes.length} bytes). Possível erro de upload.`);
+function isRetryableGeminiError(error: any) {
+  const message = String(error?.message || error || "");
+  return (
+    message.includes("Gemini API erro 429") ||
+    message.includes("Gemini API erro 500") ||
+    message.includes("Gemini API erro 502") ||
+    message.includes("Gemini API erro 503") ||
+    message.includes("Gemini API erro 504") ||
+    message.includes("UNAVAILABLE") ||
+    message.includes("RESOURCE_EXHAUSTED") ||
+    message.includes("high demand") ||
+    message.includes("Timeout:")
+  );
+}
+
+function uniqueModels(models: string[]) {
+  return [...new Set(models.map((model) => model.trim()).filter(Boolean))];
+}
+
+function getModelCandidates(config: any, primaryModel: string) {
+  const configuredFallbacks = Array.isArray(config.fallback_models) ? config.fallback_models : [];
+  return uniqueModels([
+    primaryModel,
+    ...configuredFallbacks,
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-lite",
+  ]);
+}
+
+function getMaxOutputTokensForModel(modelName: string, requestedMaxTokens: number) {
+  if (modelName.includes("2.0") || modelName.includes("1.5")) {
+    return Math.min(requestedMaxTokens, 8192);
+  }
+  return Math.min(requestedMaxTokens, 65536);
+}
+
+async function callGeminiWithFallbacks(
+  apiKey: string,
+  modelCandidates: string[],
+  payloadFactory: (modelName: string) => any,
+  timeoutMs: number,
+  attemptsPerModel = 1,
+): Promise<{ text: string; finishReason: string; usage: any; modelName: string }> {
+  let lastError: any = null;
+
+  for (const modelName of modelCandidates) {
+    for (let attempt = 1; attempt <= attemptsPerModel; attempt++) {
+      try {
+        const result = await callGemini(apiKey, modelName, payloadFactory(modelName), timeoutMs);
+        return { ...result, modelName };
+      } catch (error: any) {
+        lastError = error;
+        if (!isRetryableGeminiError(error)) {
+          throw error;
+        }
+
+        console.warn("[extract-edital] Gemini retryable error", {
+          modelName,
+          attempt,
+          message: error?.message,
+        });
+
+        if (attempt < attemptsPerModel) {
+          await sleep(1200 * attempt);
+        }
+      }
+    }
   }
 
+  throw lastError || new Error("A API do Gemini esta indisponivel no momento.");
+}
+
+async function uploadPdfBytesToGemini(apiKey: string, fileBytes: Uint8Array, fileName: string): Promise<string> {
+  if (fileBytes.length < 100) throw new Error(`PDF muito pequeno (${fileBytes.length} bytes).`);
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout para upload
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
-    const uploadRes = await fetch(
-      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'X-Goog-Upload-Command': 'start, upload, finalize',
-          'X-Goog-Upload-Header-Content-Length': String(fileBytes.length),
-          'X-Goog-Upload-Header-Content-Type': 'application/pdf',
-          'Content-Type': 'application/pdf',
-          'X-Goog-Upload-File-Name': fileName,
-          'Connection': 'keep-alive'
-        },
-        body: fileBytes,
-        signal: controller.signal
-      }
-    );
+    const uploadRes = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`, {
+      method: "POST",
+      headers: {
+        "X-Goog-Upload-Command": "start, upload, finalize",
+        "X-Goog-Upload-Header-Content-Length": String(fileBytes.length),
+        "X-Goog-Upload-Header-Content-Type": "application/pdf",
+        "Content-Type": "application/pdf",
+        "X-Goog-Upload-File-Name": fileName,
+        "Connection": "keep-alive",
+      },
+      body: fileBytes,
+      signal: controller.signal,
+    });
 
     const responseText = await uploadRes.text();
-    console.log('[uploadPdf] Gemini upload response:', uploadRes.status, responseText.substring(0, 500));
+    if (!uploadRes.ok) throw new Error(`Upload PDF falhou (${uploadRes.status}): ${responseText}`);
 
-    if (!uploadRes.ok) {
-      throw new Error(`Upload PDF falhou (${uploadRes.status}): ${responseText}`);
-    }
-
-    let uploadData: any;
-    try {
-      uploadData = JSON.parse(responseText);
-    } catch {
-      throw new Error(`Resposta inválida do Gemini upload: ${responseText.substring(0, 200)}`);
-    }
-
-    const fileUri = uploadData.file?.uri || uploadData.name;
-    if (!fileUri) {
-      throw new Error(`Upload retornou sem URI. Resposta: ${JSON.stringify(uploadData).substring(0, 300)}`);
-    }
-
-    console.log('[uploadPdf] Success! fileUri:', fileUri);
+    const uploadData = JSON.parse(responseText);
+    const activeFile = await waitForGeminiFileActive(apiKey, uploadData.file);
+    const fileUri = activeFile?.uri || uploadData.file?.uri || uploadData.name;
+    if (!fileUri) throw new Error(`Upload retornou sem URI.`);
     return fileUri;
   } catch (err: any) {
-    if (err.name === 'AbortError') {
-      throw new Error('Timeout: O upload do PDF para o Gemini demorou muito (limite 30s).');
+    if (err.name === "AbortError") {
+      throw new Error("Timeout: O upload do PDF para o Gemini demorou muito.");
     }
     throw err;
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> {
+  if (!file?.name) return file;
+  if (!file.state || file.state === "ACTIVE") return file;
+
+  const startedAt = Date.now();
+  let currentFile = file;
+
+  while (currentFile?.state === "PROCESSING" && Date.now() - startedAt < 45000) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${currentFile.name}?key=${apiKey}`);
+    const text = await res.text();
+    if (!res.ok) throw new Error(`Falha ao consultar processamento do PDF (${res.status}): ${text}`);
+    const parsed = JSON.parse(text);
+    currentFile = parsed.file || parsed;
+  }
+
+  if (currentFile?.state === "FAILED") {
+    throw new Error("O Gemini falhou ao processar o PDF enviado.");
+  }
+
+  if (currentFile?.state && currentFile.state !== "ACTIVE") {
+    throw new Error("O Gemini ainda esta processando o PDF. Tente novamente em alguns segundos.");
+  }
+
+  return currentFile;
+}
+
+async function uploadPdfUrlToGemini(apiKey: string, pdfUrl: string): Promise<string> {
+  const fileName = pdfUrl.split("/").pop() || `edital-${Date.now()}.pdf`;
+  const downloadRes = await fetch(pdfUrl);
+  if (!downloadRes.ok) throw new Error(`Falha ao baixar PDF do storage: ${downloadRes.status}`);
+
+  const arrayBuffer = await downloadRes.arrayBuffer();
+  return uploadPdfBytesToGemini(apiKey, new Uint8Array(arrayBuffer), fileName);
+}
+
+async function uploadStoragePdfToGemini(supabaseClient: any, apiKey: string, pdfPath: string, userId: string): Promise<string> {
+  if (!pdfPath.startsWith(`${userId}/`)) {
+    throw new Error("PDF fora da pasta do usuario autenticado.");
+  }
+
+  const { data, error } = await supabaseClient.storage
+    .from("temporary_editais")
+    .download(pdfPath);
+
+  if (error || !data) {
+    throw new Error(`Falha ao baixar PDF do storage: ${error?.message || "arquivo nao encontrado"}`);
+  }
+
+  const arrayBuffer = await data.arrayBuffer();
+  return uploadPdfBytesToGemini(apiKey, new Uint8Array(arrayBuffer), pdfPath.split("/").pop() || `edital-${Date.now()}.pdf`);
+}
+
+function stripJsonText(text: string): string {
+  return text
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
+function parseJsonObject(text: string): any {
+  const clean = stripJsonText(text);
+  try {
+    return JSON.parse(clean);
+  } catch {
+    const match = clean.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("A IA retornou uma resposta sem JSON valido.");
+    return JSON.parse(match[0]);
+  }
+}
+
+function normalizeDate(value: unknown): string | null {
+  if (!value || typeof value !== "string") return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const match = value.match(/(\d{2})[\/.-](\d{2})[\/.-](\d{4})/);
+  if (!match) return null;
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+function normalizeAnalysis(raw: any) {
+  const edital = raw?.edital || {};
+  const cargos = Array.isArray(raw?.cargos) ? raw.cargos : [];
+
+  const normalizedCargos = cargos
+    .map((cargo: any, index: number) => ({
+      id: String(cargo?.id || `cargo-${index + 1}`),
+      name: String(cargo?.name || cargo?.rawLabel || "").trim(),
+      rawLabel: String(cargo?.rawLabel || cargo?.name || "").trim(),
+      evidence: String(cargo?.evidence || "").trim(),
+    }))
+    .filter((cargo: any) => cargo.name.length > 0);
+
+  return {
+    edital: {
+      name: String(edital?.name || "Edital analisado por IA").trim(),
+      organ: edital?.organ ? String(edital.organ).trim() : null,
+      year: edital?.year ? String(edital.year).trim() : null,
+      examDate: normalizeDate(edital?.examDate),
+      banca: edital?.banca ? String(edital.banca).trim() : null,
+    },
+    cargos: normalizedCargos.length > 0
+      ? normalizedCargos
+      : [{ id: "cargo-1", name: "Cargo unico", rawLabel: "Cargo unico", evidence: "" }],
+  };
+}
+
+function normalizeNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const normalized = value.replace(",", ".").replace(/[^\d.-]/g, "");
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeExtraction(raw: any, selectedCargo: string) {
+  const edital = raw?.edital || {};
+  const subjects = Array.isArray(raw?.subjects) ? raw.subjects : [];
+
+  return {
+    edital: {
+      name: String(edital?.name || "Edital importado por IA").trim(),
+      organ: edital?.organ ? String(edital.organ).trim() : null,
+      year: edital?.year ? String(edital.year).trim() : null,
+      examDate: normalizeDate(edital?.examDate),
+      banca: edital?.banca ? String(edital.banca).trim() : null,
+    },
+    selectedCargo: String(raw?.selectedCargo || selectedCargo || "").trim(),
+    subjects: subjects
+      .map((subject: any) => {
+        const weight = subject?.weight || {};
+        const topics = Array.isArray(subject?.topics) ? subject.topics : [];
+        return {
+          title: String(subject?.title || subject?.name || "").trim(),
+          weight: {
+            points: normalizeNumber(weight.points),
+            questions: normalizeNumber(weight.questions),
+            percentage: normalizeNumber(weight.percentage),
+            rawText: weight.rawText ? String(weight.rawText).trim() : null,
+          },
+          topics: topics
+            .map((topic: any, index: number) => ({
+              name: String(typeof topic === "string" ? topic : topic?.name || "").replace(/\s+/g, " ").trim(),
+              position: normalizeNumber(topic?.position) ?? index,
+            }))
+            .filter((topic: any) => topic.name.length >= 2),
+        };
+      })
+      .filter((subject: any) => subject.title.length > 0 && subject.topics.length > 0),
+    warnings: Array.isArray(raw?.warnings) ? raw.warnings.map((w: any) => String(w)) : [],
+  };
+}
+
+function buildContents(instruction: string, inputText?: string, fileUri?: string | null) {
+  const parts: any[] = [{ text: `${instruction}\n\n${inputText ? `TEXTO DO EDITAL:\n${inputText}` : "Leia o PDF anexado integralmente."}` }];
+  if (fileUri) {
+    parts.push({ file_data: { mime_type: "application/pdf", file_uri: fileUri } });
+  }
+  return [{ role: "user", parts }];
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const supabaseClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-    const authHeader = req.headers.get('Authorization');
-    const { data: { user } } = await supabaseClient.auth.getUser(authHeader?.replace('Bearer ', '') ?? '');
-    if (!user) throw new Error('Unauthorized');
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+
+    const authHeader = req.headers.get("Authorization");
+    const { data: { user } } = await supabaseClient.auth.getUser(authHeader?.replace("Bearer ", "") ?? "");
+    if (!user) throw new Error("Unauthorized");
 
     const reqData = await req.json();
-    const { inputText, pdfUrl, origin, position, year, isComplementMode, subjectName } = reqData;
-    
-    console.log('[extract-edital] Received request:', {
-      hasInputText: !!inputText,
-      inputTextLength: inputText?.length || 0,
-      inputTextPreview: inputText?.substring(0, 200) || 'EMPTY',
-      hasPdfUrl: !!pdfUrl,
-      origin,
-      position,
-      year,
-      isComplementMode,
-      subjectName
-    });
-    
-    const { data: systemSetting } = await supabaseClient.from('system_settings').select('value').eq('key', 'ai_edital_config').single();
-    const config = (systemSetting?.value || {}) as any;
-    console.log('[extract-edital] Config:', { modelName: config.model || "gemini-1.5-flash", temperature: config.temperature, max_tokens: config.max_tokens });
+    const mode: ExtractMode = reqData.mode || (reqData.position ? "extractForCargo" : "analyze");
+    const { inputText, pdfUrl, pdfPath, pdfFileUri, selectedCargo, analysis } = reqData;
 
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!apiKey) throw new Error('GEMINI_API_KEY não configurada nos secrets da Edge Function.');
+    if (!inputText && !pdfUrl && !pdfPath && !pdfFileUri) {
+      throw new Error("Forneca um arquivo PDF ou o texto do edital.");
+    }
+
+    const { data: systemSetting } = await supabaseClient
+      .from("system_settings")
+      .select("value")
+      .eq("key", "ai_edital_config")
+      .maybeSingle();
+
+    const config = (systemSetting?.value || {}) as any;
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!apiKey) throw new Error("GEMINI_API_KEY nao configurada nos secrets da Edge Function.");
 
     let fileUri: string | null = null;
-    if (pdfUrl) {
-      console.log('[extract-edital] Uploading PDF to Gemini...');
-      fileUri = await uploadPdfToGemini(apiKey, pdfUrl);
-      console.log('[extract-edital] PDF uploaded, fileUri:', fileUri);
-    } else if (!inputText) {
-      console.log('[extract-edital] No PDF or text provided');
+    if (pdfFileUri) {
+      fileUri = String(pdfFileUri);
+    } else if (pdfPath) {
+      fileUri = await uploadStoragePdfToGemini(supabaseClient, apiKey, pdfPath, user.id);
+    } else if (pdfUrl) {
+      fileUri = await uploadPdfUrlToGemini(apiKey, pdfUrl);
     }
 
-    // Use the model from config if available, otherwise fallback to defaults
-    // gemini-2.0-flash is excellent for PDFs due to its context window
-    const modelName = config.model || (fileUri ? 'gemini-2.0-flash' : 'gemini-1.5-flash');
-    const maxTokens = config.max_tokens || (fileUri ? 32768 : 16384);
+    const primaryModelName = config.model || "gemini-2.5-flash";
+    const modelCandidates = getModelCandidates(config, primaryModelName);
+    const maxTokens = config.max_tokens || (mode === "analyze" ? 8192 : 32768);
+    const prompt =
+      mode === "analyze"
+        ? (config.analysis_prompt || config.ai_analysis_prompt || DEFAULT_ANALYSIS_PROMPT)
+        : `${(config.extraction_prompt || config.ai_extraction_prompt || config.system_prompt || DEFAULT_EXTRACTION_PROMPT)
+            .replace(/{{selectedCargo}}/g, selectedCargo || reqData.position || "")}
 
-    const context = `${origin || ''} ${position || ''} ${year || ''}`.trim();
-    const hasContent = inputText && inputText.trim().length > 0;
-    const hasPdf = !!fileUri;
+${WEIGHT_EXTRACTION_RULES}`;
 
-    // Use system_prompt from DB if available, otherwise use default
-    const basePrompt = config.system_prompt || `Você é um especialista em extrair estrutura de editais de concursos públicos brasileiros.`;
-    
-    // Replace {position} with actual value from the form
-    const positionValue = position || '';
-    const systemPrompt = basePrompt.replace(/{position}/g, positionValue);
+    const contextInstruction = mode === "extractForCargo" && analysis
+      ? `${prompt}\n\nDADOS JA IDENTIFICADOS NA ETAPA ANTERIOR:\n${JSON.stringify(analysis)}`
+      : prompt;
 
-    let complementInstruction = '';
-    if (isComplementMode && subjectName) {
-      complementInstruction = `\n\nMODO COMPLEMENTO (IMPORTANTE):
-- O texto fornecido JA CONTEM APENAS OS TOPICOS da matéria "${subjectName}".
-- NAO PROCURE POR NOMES DE MATÉRIAS no texto - o texto já são apenas tópicos avulsos.
-- NAO CRIE mais de uma matéria - retorne OBRIGATORIAMENTE uma única matéria com o nome "${subjectName}".
-- Simplesmente estruture/organize os tópicos do texto em uma única lista.
-- Se o texto tiver numeração (1., 1.1, etc), preserve a ordem e separe cada item em um tópico individual.
-- Nome da matéria no JSON DEVE SER EXATAMENTE: "${subjectName}"`;
-    }
-
-    const baseInstruction = `${systemPrompt}
-${complementInstruction}
-
-${hasPdf ? 'O PDF do edital está anexado. Leia TODO o conteúdo do PDF.' : ''}
-${hasContent ? `\nTEXTO COPIADO DO EDITAL:\n${inputText}` : ''}
-
-${isComplementMode && subjectName ? `Matéria alvo: ${subjectName}` : `CONHECIMENTO DO EDITAL:
-Instituição: ${origin || 'Não informada'}
-Cargo: ${position || 'Não informado'}
-Ano: ${year || 'Não informado'}`}
-
-INSTRUÇÕES FINAIS E FORMATURAÇÃO DE SAÍDA (MANDATÓRIO):
-1. Verifique se o texto fornecido (acima ou em anexo) tem alguma matéria/conteúdo para extrair.
-2. Siga as regras de formato de JSON já definidas no prompt (ex: {"subjects": [...]}).
-3. Responda APENAS com JSON válido.
-4. Se o texto não contiver absolutamente nenhuma matéria ou conteúdo válido para extração, retorne exatamente: {"erro":"Não foram encontradas matérias no texto"}`;
-
-    let contents: any[];
-    if (fileUri) {
-      contents = [{ role: "user", parts: [
-        { text: baseInstruction },
-        { fileData: { mimeType: "application/pdf", fileUri } }
-      ]}];
-    } else {
-      contents = [{ role: "user", parts: [{ text: baseInstruction }] }];
-    }
-
-    const payload = {
-      contents,
+    const buildPayload = (modelName: string) => ({
+      contents: buildContents(contextInstruction, inputText, fileUri),
       generationConfig: {
         temperature: config.temperature !== undefined ? config.temperature : 0.1,
         topK: config.top_k,
         topP: config.top_p,
         presencePenalty: config.presence_penalty,
-        maxOutputTokens: maxTokens,
-        responseMimeType: "application/json"
-      }
-    };
+        maxOutputTokens: getMaxOutputTokensForModel(modelName, maxTokens),
+        responseMimeType: "application/json",
+      },
+    });
 
-    // First call
-    console.log('[extract-edital] Calling Gemini API...');
-    let { text, finishReason, usage } = await callGemini(apiKey, modelName, payload);
-    console.log('[extract-edital] First call done:', { finishReason, textLength: text.length });
+    console.log("[extract-edital] Calling Gemini", { mode, modelCandidates, hasPdf: !!fileUri, hasText: !!inputText });
+    const timeoutMs = mode === "extractForCargo" ? 85000 : 70000;
+    const { text, finishReason, usage, modelName } = await callGeminiWithFallbacks(apiKey, modelCandidates, buildPayload, timeoutMs, 1);
 
-    // Continue loop if MAX_TOKENS
-    let continueAttempts = 0;
-    while (finishReason === 'MAX_TOKENS' && continueAttempts < MAX_CONTINUE_ATTEMPTS) {
-      continueAttempts++;
-      console.log(`[extract-edital] Response truncated, continuing (attempt ${continueAttempts}/${MAX_CONTINUE_ATTEMPTS})...`);
-
-      // Find last complete topic/subject to tell Gemini where we stopped
-      const lastTopicMatch = text.match(/"n":"[^"]{0,50}"\}\]?\}\]?$/);
-      const lastPoint = lastTopicMatch ? lastTopicMatch[0] : text.slice(-80);
-
-      const continuePayload = {
-        contents: [
-          ...contents,
-          { role: "model", parts: [{ text }] },
-          { role: "user", parts: [{ text: `O JSON foi cortado. Último ponto gerado terminou com: ...${lastPoint}
-
-Continue a extração a partir desse ponto. Retorne APENAS o restante do array de matérias (objetos {"t":"...","p":[...]}) que faltam. Não repita nada que já foi gerado. Não inclua {"s":[ no início.` }] }
-        ],
-        generationConfig: {
-          temperature: config.temperature ?? 0.1,
-          maxOutputTokens: maxTokens,
-          responseMimeType: "application/json"
-        }
-      };
-
-      const continueResult = await callGemini(apiKey, modelName, continuePayload);
-      finishReason = continueResult.finishReason;
-
-      let continuation = continueResult.text.trim();
-      console.log('[extract-edital] Continuation received, length:', continuation.length);
-
-      // Clean continuation: remove markdown, find JSON start
-      continuation = continuation.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-
-      // Try to extract array items from continuation
-      // It might start with [{"t":... or {"t":... or just "t":...
-      let items = '';
-      const arrayMatch = continuation.match(/\[\s*\{[\s\S]*\}\s*\]/);
-      if (arrayMatch) {
-        items = arrayMatch[0];
-      } else {
-        // Maybe it's just one or more objects without array wrapper
-        const objMatch = continuation.match(/\{[\s\S]*\}/);
-        if (objMatch) {
-          items = `[${objMatch[0]}]`;
-        } else {
-          items = continuation;
-        }
-      }
-
-      // Clean first part: ensure it ends properly for concatenation
-      let firstPart = text;
-      // Remove incomplete trailing object (might end with partial "n":"...)
-      const lastCompleteBracket = firstPart.lastIndexOf('}]');
-      if (lastCompleteBracket > 0) {
-        // Find the subject object that contains this bracket
-        const beforeBracket = firstPart.substring(0, lastCompleteBracket + 2);
-        // Close the subject object if needed
-        if (!beforeBracket.endsWith('}]}'  )) {
-          firstPart = beforeBracket + '}';
-        } else {
-          firstPart = beforeBracket;
-        }
-      }
-
-      // Remove trailing }]}" or similar
-      firstPart = firstPart.replace(/,?\s*\}?\s*\]?\s*\}?\s*$/, '');
-
-      // Combine
-      text = firstPart + ',' + items.replace(/^\[/, '').replace(/\]$/, '');
-      console.log('[extract-edital] Merged result length:', text.length);
+    if (finishReason === "MAX_TOKENS") {
+      throw new Error("A resposta da IA foi cortada por limite de tokens. Tente enviar apenas a parte do conteudo programatico ou reduzir o edital.");
     }
 
-    if (continueAttempts > 0) {
-      console.log('[extract-edital] Completed with', continueAttempts, 'continue attempts');
-      // Ensure JSON is properly closed
-      text = text.replace(/,?\s*$/, ''); // Remove trailing comma
-      // Count open brackets and close them
-      const openBraces = (text.match(/\{/g) || []).length;
-      const closeBraces = (text.match(/\}/g) || []).length;
-      const openArrays = (text.match(/\[/g) || []).length;
-      const closeArrays = (text.match(/\]/g) || []).length;
-      for (let i = 0; i < openBraces - closeBraces; i++) text += '}';
-      for (let i = 0; i < openArrays - closeArrays; i++) text += ']';
+    const parsed = parseJsonObject(text);
+
+    if (mode === "analyze") {
+      return new Response(JSON.stringify({
+        success: true,
+        mode,
+        analysis: normalizeAnalysis(parsed),
+        usage,
+        modelName,
+        pdfFileUri: fileUri,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-    console.log('[extract-edital] Final extracted text:', text.substring(0, 300));
-
-    return new Response(JSON.stringify({ text }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+    return new Response(JSON.stringify({
+      success: true,
+      mode,
+      extraction: normalizeExtraction(parsed, selectedCargo || reqData.position || ""),
+      usage,
+      modelName,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400
+    console.error("[extract-edital] error:", error?.message || error);
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
     });
   }
 });
