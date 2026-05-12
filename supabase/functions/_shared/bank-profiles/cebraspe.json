@@ -1,0 +1,99 @@
+{
+  "banca": "Cebraspe",
+  "aliases": [
+    "Cebraspe",
+    "Cespe",
+    "Centro Brasileiro de Pesquisa em Avaliação e Seleção e de Promoção de Eventos",
+    "Método Cespe"
+  ],
+  "objetivo": "Orientar a IA a entender a estrutura típica de editais Cebraspe antes de extrair cargos, matérias e tópicos. Este arquivo deve ser ajustado quando uma extração errar por causa de uma variação real da banca.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "DOS OBJETOS DE AVALIAÇÃO (HABILIDADES E CONHECIMENTOS)",
+      "DOS OBJETOS DE AVALIAÇÃO",
+      "OBJETOS DE AVALIAÇÃO",
+      "CONTEÚDO PROGRAMÁTICO"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BÁSICOS (PARA TODOS OS CARGOS/ÁREAS)",
+      "CONHECIMENTOS GERAIS",
+      "COMUM A TODOS OS CARGOS"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS PARA O CARGO",
+      "CONHECIMENTOS ESPECÍFICOS"
+    ],
+    "marcadores_de_opcao": [
+      "CARGO",
+      "ÁREA",
+      "AREA",
+      "ÊNFASE",
+      "ENFASE",
+      "ESPECIALIDADE"
+    ],
+    "marcadores_de_agrupamento": [
+      "BLOCO",
+      "P1",
+      "P2",
+      "P3"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "REQUISITO",
+      "REQUISITOS",
+      "DAS VAGAS",
+      "DA JORNADA DE TRABALHO",
+      "DA REMUNERAÇÃO",
+      "DA LOTAÇÃO",
+      "DAS INSCRIÇÕES",
+      "DA PROVA OBJETIVA",
+      "DAS PROVAS",
+      "DOS CRITÉRIOS DE AVALIAÇÃO",
+      "DA CLASSIFICAÇÃO"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "Primeiro identifique todas as opções reais de escolha do aluno: cargo único, cargo, cargo + área, cargo + ênfase ou cargo + especialidade.",
+    "Se uma área, ênfase ou especialidade altera conteúdo, vagas, prova ou classificação, ela deve virar uma opção separada.",
+    "Não reduza cargo + área para o cargo pai quando a área tiver conteúdo próprio.",
+    "Use requisitos, vagas ou tabela de provas apenas para identificar opções; não extraia matérias dessas seções.",
+    "Ao listar opções, retorne o nome limpo do cargo/área/ênfase/especialidade. Não use requisito, jornada, lotação ou descrição administrativa como subtítulo de conteúdo."
+  ],
+  "regras_para_extrair_conteudo": [
+    "Matérias e tópicos só podem ser extraídos a partir da seção de conteúdo programático/objetos de avaliação.",
+    "Em editais Cebraspe, a mesma área pode aparecer primeiro na seção de requisitos e depois novamente dentro de objetos de avaliação. Para extrair matérias, ignore a ocorrência de requisitos e use a ocorrência dentro de DOS OBJETOS DE AVALIAÇÃO, CONTEÚDO PROGRAMÁTICO, CONHECIMENTOS BÁSICOS ou CONHECIMENTOS ESPECÍFICOS.",
+    "Se o trecho encontrado contém palavras como REQUISITO, diploma, certificado, registro profissional, jornada, remuneração, vagas, lotação ou inscrição, ele não é conteúdo programático e deve ser descartado como fonte de matéria.",
+    "Ao extrair uma opção escolhida, inclua os blocos comuns aplicáveis e os blocos específicos daquela opção.",
+    "Ao entrar em um cargo, pare quando encontrar o próximo cargo.",
+    "Ao entrar em uma área, ênfase ou especialidade, pare quando encontrar a próxima área, próxima ênfase, próxima especialidade ou próximo cargo.",
+    "Se a opção escolhida tiver código de área, como ÁREA 8, extraia somente o bloco específico dessa área exata. Não use matérias de ÁREA 7, ÁREA 9 ou qualquer outra área do mesmo cargo.",
+    "Se o bloco exato da área escolhida não for encontrado nos objetos de avaliação/conteúdo programático, não substitua por conteúdo específico de outra área.",
+    "CONHECIMENTOS BÁSICOS, CONHECIMENTOS GERAIS, CONHECIMENTOS ESPECÍFICOS, CARGO, ÁREA, ÊNFASE, ESPECIALIDADE, BLOCO, P1, P2 e P3 são escopos ou agrupadores; não devem virar matéria.",
+    "Uma matéria normalmente aparece em caixa alta seguida de dois-pontos e tópicos numerados.",
+    "Tópicos normalmente aparecem como números e subnúmeros: 1, 2, 3, 1.1, 1.2 etc.",
+    "Preserve a ordem em que as matérias aparecem no edital."
+  ],
+  "quando_der_errado_ajustar_aqui": [
+    {
+      "problema": "A IA pegou requisitos, jornada, vagas, lotação ou tabela como matéria.",
+      "instrucao": "Essas seções servem apenas para identificar cargo/opção. Matérias só saem de objetos de avaliação/conteúdo programático/conhecimentos."
+    },
+    {
+      "problema": "A IA encontrou a área certa, mas usou o trecho de REQUISITO em vez do conteúdo programático.",
+      "instrucao": "Quando a mesma área aparece em REQUISITO e depois em OBJETOS DE AVALIAÇÃO, ignore o primeiro trecho e extraia apenas o bloco posterior de conhecimentos."
+    },
+    {
+      "problema": "A IA continuou lendo depois da área, ênfase ou especialidade escolhida.",
+      "instrucao": "A extração da opção deve parar no próximo marcador de mesmo nível: próxima ÁREA, próxima ÊNFASE, próxima ESPECIALIDADE ou próximo CARGO."
+    },
+    {
+      "problema": "A IA trouxe matéria de outra área ou de outro cargo.",
+      "instrucao": "Reforce que blocos específicos pertencem apenas ao cargo/área/ênfase em que aparecem; não misture conteúdos de opções diferentes."
+    },
+    {
+      "problema": "A IA transformou agrupador em matéria.",
+      "instrucao": "Agrupadores como CONHECIMENTOS BÁSICOS, CONHECIMENTOS ESPECÍFICOS, BLOCO, P1/P2/P3, CARGO e ÁREA não são matérias estudáveis."
+    }
+  ],
+  "instrucao_para_ia": "Para Cebraspe/Cespe, leia primeiro a estrutura do edital. Identifique onde começa a seção de objetos de avaliação/conteúdo programático/conhecimentos. Identifique opções reais de escolha por cargo, área, ênfase ou especialidade. Requisitos podem ajudar a reconhecer que uma área existe, mas nunca são fonte de matéria ou tópico. Na extração final, use apenas conhecimentos comuns aplicáveis e conhecimentos específicos da opção escolhida. Se a opção tiver código como ÁREA 8, use somente o bloco específico dessa área exata e pare na próxima área, próxima ênfase, próxima especialidade ou próximo cargo. Não substitua área ausente por conteúdo de outra área. Não use requisitos, vagas, jornada, lotação, inscrição, remuneração ou tabela de provas como fonte de matéria. Não extraia peso agora; peso será tratado em etapa própria a partir de quantidade de questões ou pontuação por matéria quando houver regra confiável."
+}

@@ -31,6 +31,7 @@ Este arquivo é a fonte principal de instruções para agentes neste projeto. Se
   - `npm run lint`
   - `npm run test:run`
 - Servidor local: Vite usa `http://localhost:8081/` por padrão neste repo.
+- Ao alterar uma Edge Function em `supabase/functions/`, informe explicitamente o comando de deploy necessário. Exemplo para extração de edital: `supabase functions deploy extract-edital`.
 
 ## Arquitetura e organização
 

@@ -18,6 +18,7 @@ interface AiTopic {
 interface AiSubject {
     id: string;
     title: string;
+    knowledgeType?: string | null;
     selected: boolean;
     expanded: boolean;
     weight?: {
@@ -42,6 +43,10 @@ interface AiEditalAnalysis {
         name: string;
         rawLabel: string;
         evidence: string;
+        label_exibicao?: string | null;
+        nome_cargo?: string | null;
+        area_codigo?: string | null;
+        area_enfase?: string | null;
     }>;
 }
 
@@ -102,6 +107,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [selectedCargoName, setSelectedCargoName] = useState('');
     const [sourcePayload, setSourcePayload] = useState<DocumentPayload | null>(null);
     const [loadingPending, setLoadingPending] = useState(false);
+    const [iaErrorMessage, setIaErrorMessage] = useState('');
     const iaFlowCancelledRef = useRef(false);
 
     // Legacy complement mode states (kept for compatibility)
@@ -219,9 +225,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     });
                 }
                 setIaEditalName(data.edital_name);
-                if (data.origin) setIaOrigin(data.origin);
+                const pendingExamDate = data.analysis_result?.edital?.examDate || data.analysis_result?.edital?.exam_date;
+                if (data.origin || data.analysis_result?.edital?.organ) setIaOrigin(data.origin || data.analysis_result.edital.organ);
                 if (data.position) setIaPosition(data.position);
-                setIaYear(data.year);
+                setIaYear(data.year || data.analysis_result?.edital?.year || new Date().getFullYear().toString());
+                if (pendingExamDate) setExamDate(pendingExamDate);
                 setIaStage(data.ai_result?.length ? 'review' : data.analysis_result ? 'selectCargo' : 'input');
             }
         } catch (err: any) {
@@ -242,14 +250,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         const normalized = message.toLowerCase();
         if (stage === 'analyzing') {
             if (normalized.includes('extraindo cargos')) return 88;
-            if (normalized.includes('identificando')) return 66;
+            if (normalized.includes('identificando cargos')) return 66;
+            if (normalized.includes('lendo edital') || normalized.includes('lendo o documento')) return 24;
             return 24;
         }
         if (stage === 'extracting') {
             if (normalized.includes('finalizando')) return 92;
-            if (normalized.includes('verificando')) return 78;
-            if (normalized.includes('mapeando')) return 58;
-            if (normalized.includes('identificando')) return 38;
+            if (normalized.includes('preparando revisão')) return 86;
+            if (normalized.includes('mapeando tópicos')) return 70;
+            if (normalized.includes('identificando disciplinas')) return 52;
+            if (normalized.includes('separando conhecimentos')) return 38;
+            if (normalized.includes('localizando conteúdo')) return 26;
             return 20;
         }
         return 0;
@@ -290,9 +301,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             const payload = {
                 user_id: user.id,
                 edital_name: editalName,
-                origin: iaOrigin,
-                position: iaPosition,
-                year: iaYear,
+                origin: iaOrigin || options?.analysis?.edital?.organ || null,
+                position: (options?.selectedCargo ?? selectedCargoName ?? iaPosition) || null,
+                year: iaYear || options?.analysis?.edital?.year || null,
                 ai_result: results,
                 analysis_result: options?.analysis ?? analysisResult,
                 selected_cargo: (options?.selectedCargo ?? selectedCargoName) || null,
@@ -333,6 +344,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setIaStage('input');
     };
 
+    const isGenericEditalName = (value?: string | null) => {
+        const normalized = String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
+        return !normalized || ['edital', 'edital analisado por ia', 'edital importado por ia'].includes(normalized);
+    };
+
     const discardPendingExtractionData = async () => {
         if (pendingExtraction && user && pendingExtraction.id && !pendingExtraction.id.startsWith('pending-')) {
             try {
@@ -360,13 +380,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     };
 
     const handleCloseModal = async () => {
-        const shouldDiscardIaState =
-            activeTab === 'ia' &&
-            ['analyzing', 'extracting', 'selectCargo', 'review'].includes(iaStage);
-
-        if (shouldDiscardIaState) {
+        if (activeTab === 'ia' && ['analyzing', 'extracting'].includes(iaStage)) {
             iaFlowCancelledRef.current = true;
-            await discardPendingExtractionData();
         }
 
         onClose();
@@ -594,9 +609,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             const result = rawSubjects.map((s: any, idx: number): AiSubject => ({
                 id: `ia-${idx}-${Date.now()}`,
-                title: s.t || s.title || "Sem Título",
+                title: s.t || s.title || s.disciplina || "Sem Título",
+                knowledgeType: s.tipo || s.type || null,
                 expanded: idx === 0,
-                topics: (s.p || s.topics || []).map((t: any, tIdx: number): AiTopic => {
+                topics: (s.p || s.topics || s.topicos || []).map((t: any, tIdx: number): AiTopic => {
                     const rawName = typeof t === 'string' ? t : (t.n || t.name || "");
                     const { position, cleanName } = extractPosition(rawName);
                     return {
@@ -695,24 +711,42 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     };
 
     const mapExtractionToAiSubjects = (extraction: any): AiSubject[] => {
-        const rawSubjects = Array.isArray(extraction?.subjects) ? extraction.subjects : [];
-        return rawSubjects.map((s: any, idx: number): AiSubject => ({
-            id: `ia-${idx}-${Date.now()}`,
-            title: s.title || s.name || 'Sem Título',
-            selected: true,
-            expanded: idx === 0,
-            weight: {
-                points: s.weight?.points ?? null,
-                questions: s.weight?.questions ?? null,
-                percentage: s.weight?.percentage ?? null,
-                rawText: s.weight?.rawText ?? null
-            },
-            topics: (Array.isArray(s.topics) ? s.topics : []).map((t: any, tIdx: number): AiTopic => ({
-                name: String(typeof t === 'string' ? t : t.name || '').trim(),
+        const rawSubjects = Array.isArray(extraction?.subjects)
+            ? extraction.subjects
+            : Array.isArray(extraction?.conteudo)
+                ? extraction.conteudo
+                : [];
+        const normalizeKnowledgeType = (value: any): string | null => {
+            const normalized = String(value || '').trim();
+            if (!normalized) return null;
+            const ascii = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            if (ascii.includes('basico')) return 'Conhecimentos Básicos';
+            if (ascii.includes('especifico')) return 'Conhecimentos Específicos';
+            if (ascii.includes('geral')) return 'Geral';
+            return normalized;
+        };
+
+        return rawSubjects.map((s: any, idx: number): AiSubject => {
+            const rawTopics = Array.isArray(s.topics) ? s.topics : Array.isArray(s.topicos) ? s.topicos : [];
+            return {
+                id: `ia-${idx}-${Date.now()}`,
+                title: s.title || s.name || s.disciplina || 'Sem Título',
+                knowledgeType: normalizeKnowledgeType(s.type || s.tipo),
                 selected: true,
-                position: typeof t?.position === 'number' ? t.position : tIdx
-            })).filter((t: AiTopic) => t.name.length >= 2)
-        })).filter((s: AiSubject) => s.title.trim().length > 0 && s.topics.length > 0);
+                expanded: idx === 0,
+                weight: {
+                    points: s.weight?.points ?? null,
+                    questions: s.weight?.questions ?? null,
+                    percentage: s.weight?.percentage ?? null,
+                    rawText: s.weight?.rawText ?? null
+                },
+                topics: rawTopics.map((t: any, tIdx: number): AiTopic => ({
+                    name: String(typeof t === 'string' ? t : t.name || t.n || '').trim(),
+                    selected: true,
+                    position: typeof t?.position === 'number' ? t.position : tIdx
+                })).filter((t: AiTopic) => t.name.length >= 2)
+            };
+        }).filter((s: AiSubject) => s.title.trim().length > 0 && s.topics.length > 0);
     };
 
     const handleIaImport = async () => {
@@ -724,12 +758,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setAnalysisResult(null);
         setSelectedCargoId('');
         setSelectedCargoName('');
+        setIaErrorMessage('');
 
         try {
             const documentPayload = await buildDocumentPayload();
             setSourcePayload(documentPayload);
             await sleep(250);
-            setProcessingMsg('Identificando o concurso...');
+            setProcessingMsg('Identificando cargos e áreas...');
 
             const result = await supabase.functions.invoke('extract-edital', {
                 body: {
@@ -796,6 +831,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
         setIaStage('extracting');
         setIaProgress(0);
+        setIaErrorMessage('');
         setSelectedCargoName(cargo.name);
         setIaPosition(cargo.name);
         setProcessingMsg(`Analisando conteúdo programático de ${cargo.name}...`);
@@ -807,9 +843,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             await sleep(200);
             setProcessingMsg('Analisando conteúdo programático...');
             stopProgressHints = startProgressHints([
-                { delay: 8000, message: 'Identificando disciplinas...' },
-                { delay: 22000, message: 'Mapeando tópicos por disciplina...' },
-                { delay: 38000, message: 'Verificando peso das matérias...' }
+                { delay: 5000, message: 'Localizando conteúdo do cargo e área...' },
+                { delay: 12000, message: 'Separando conhecimentos básicos e específicos...' },
+                { delay: 20000, message: 'Identificando disciplinas...' },
+                { delay: 32000, message: 'Mapeando tópicos por disciplina...' }
             ]);
 
             const result = await supabase.functions.invoke('extract-edital', {
@@ -832,7 +869,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             if (iaFlowCancelledRef.current) return;
 
-            setProcessingMsg('Mapeando tópicos por disciplina...');
+            setProcessingMsg('Preparando revisão...');
             await sleep(200);
             const extraction = result.data?.extraction;
             const mappedResults = mapExtractionToAiSubjects(extraction);
@@ -841,15 +878,20 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 throw new Error("A IA não conseguiu extrair matérias para o cargo selecionado.");
             }
 
-            setProcessingMsg('Verificando peso das matérias...');
-            await sleep(200);
-
-            const edital = extraction?.edital || analysisResult.edital;
-            const finalName = `${edital.organ || iaOrigin || 'Edital'} - ${cargo.name}${edital.year ? ` (${edital.year})` : ''}`;
+            const edital = extraction?.edital || {};
+            const analysisEdital = analysisResult.edital;
+            const baseName = !isGenericEditalName(edital.name)
+                ? edital.name
+                : !isGenericEditalName(analysisEdital.name)
+                    ? analysisEdital.name
+                    : edital.organ || analysisEdital.organ || iaOrigin || 'Edital';
+            const finalYear = edital.year || analysisEdital.year || iaYear;
+            const finalExamDate = edital.examDate || analysisEdital.examDate;
+            const finalName = `${baseName} - ${cargo.name}${finalYear ? ` (${finalYear})` : ''}`;
             setIaEditalName(finalName);
-            setIaOrigin(edital.organ || iaOrigin);
-            setIaYear(edital.year || iaYear);
-            if (edital.examDate) setExamDate(edital.examDate);
+            setIaOrigin(edital.organ || analysisEdital.organ || iaOrigin);
+            setIaYear(finalYear || iaYear);
+            if (finalExamDate) setExamDate(finalExamDate);
             setAiResult(mappedResults);
 
             setProcessingMsg('Finalizando extração...');
@@ -865,9 +907,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         } catch (error: any) {
             stopProgressHints?.();
             console.error('Erro na extração do cargo:', error);
-            await discardPendingExtractionData();
-            toastGate.notifyError(error.message || 'Erro desconhecido', 'IA-EXTRACT-01');
-            setIaStage('input');
+            const message = error.message || 'Erro desconhecido';
+            setIaErrorMessage(message);
+            toastGate.notifyError(message, 'IA-EXTRACT-01');
+            setIaStage(analysisResult ? 'selectCargo' : 'input');
         }
     };
 
@@ -1636,16 +1679,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         <div className="space-y-4">
                                             {(iaStage === 'analyzing'
                                                 ? [
-                                                    { label: 'Lendo o documento', from: 0, to: 34 },
-                                                    { label: 'Identificando o concurso', from: 34, to: 80 },
+                                                    { label: 'Lendo edital', from: 0, to: 34 },
+                                                    { label: 'Identificando cargos e áreas', from: 34, to: 80 },
                                                     { label: 'Extraindo cargos disponíveis', from: 80, to: 100 }
                                                 ]
                                                 : [
-                                                    { label: 'Analisando conteúdo programático', from: 0, to: 25 },
-                                                    { label: 'Identificando disciplinas', from: 25, to: 45 },
-                                                    { label: 'Mapeando tópicos por disciplina', from: 45, to: 70 },
-                                                    { label: 'Verificando peso das matérias', from: 70, to: 90 },
-                                                    { label: 'Finalizando extração', from: 90, to: 100 }
+                                                    { label: 'Analisando conteúdo programático', from: 0, to: 22 },
+                                                    { label: 'Localizando conteúdo do cargo e área', from: 22, to: 36 },
+                                                    { label: 'Separando conhecimentos básicos e específicos', from: 36, to: 52 },
+                                                    { label: 'Identificando disciplinas', from: 52, to: 68 },
+                                                    { label: 'Mapeando tópicos por disciplina', from: 68, to: 86 },
+                                                    { label: 'Preparando revisão', from: 86, to: 100 }
                                                 ]
                                             ).map((step) => {
                                                 const stepProgress = Math.max(0, Math.min(100, ((iaProgress - step.from) / (step.to - step.from)) * 100));
@@ -1683,7 +1727,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                             )}
 
                             {iaStage === 'selectCargo' && analysisResult && (
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-2xl mx-auto space-y-4">
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-4">
                                     <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
                                         <h3 className="text-sm font-bold text-content-main">{analysisResult.edital.name}</h3>
                                         <p className="text-xs text-content-muted mt-1">
@@ -1695,6 +1739,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             {analysisResult.cargos.length} cargo(s) identificado(s)
                                         </p>
                                     </div>
+
+                                    {iaErrorMessage && (
+                                        <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
+                                            <p className="text-xs font-bold text-red-300">
+                                                Não consegui extrair as disciplinas desse cargo.
+                                            </p>
+                                            <p className="text-[11px] text-red-200/80 mt-1 leading-relaxed">
+                                                {iaErrorMessage}
+                                            </p>
+                                        </div>
+                                    )}
 
                                     <div className="rounded-2xl border border-border dark:border-white/10 bg-card dark:bg-zinc-900/40 p-4">
                                         <label className="text-[10px] font-bold uppercase tracking-[0.16em] text-content-muted">
@@ -1710,16 +1765,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                         setSelectedCargoName(cargo.name);
                                                         setIaPosition(cargo.name);
                                                     }}
-                                                    className={`w-full text-left p-3 rounded-xl border transition-all ${
+                                                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
                                                         selectedCargoId === cargo.id
                                                             ? 'border-primary bg-primary/10 text-content-main'
                                                             : 'border-border dark:border-white/10 bg-secondary/40 hover:border-primary/40 text-content-main'
                                                     }`}
                                                 >
-                                                    <p className="text-xs font-bold">{cargo.name}</p>
-                                                    {cargo.evidence && (
-                                                        <p className="text-[10px] text-content-muted mt-1 line-clamp-2">{cargo.evidence}</p>
-                                                    )}
+                                                    <p className="text-xs font-bold leading-snug break-words">{cargo.label_exibicao || cargo.name}</p>
                                                 </button>
                                             ))}
                                         </div>
@@ -1817,9 +1869,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         <div>
                                             <p className="text-[9px] font-black text-content-muted uppercase tracking-[0.16em]">Matérias extraídas</p>
                                             <p className="text-[10px] text-content-muted">
-                                                {aiResult.some(s => s.weight?.questions || s.weight?.points || s.weight?.percentage)
-                                                    ? 'Pesos encontrados aparecem em cada matéria.'
-                                                    : 'Nenhum peso claro foi encontrado no edital. As matérias serão importadas sem peso.'}
+                                                Revise as disciplinas e tópicos antes de importar.
                                             </p>
                                         </div>
                                         <button
@@ -1832,12 +1882,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             {aiResult.some(s => !s.expanded) ? 'Expandir tudo' : 'Recolher tudo'}
                                         </button>
                                     </div>
-
-                                    {!aiResult.some(s => s.weight?.questions || s.weight?.points || s.weight?.percentage) && (
-                                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
-                                            A IA não encontrou peso por matéria de forma confiável. Isso não bloqueia a importação; os campos de peso ficarão vazios.
-                                        </div>
-                                    )}
 
                                     <div className="space-y-2 pr-2 no-scrollbar">
                                         {aiResult.map((subj, sIdx) => (
@@ -1866,22 +1910,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                         />
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0">
-                                                        <span
-                                                            title={subj.weight?.rawText || 'Peso não identificado claramente no edital'}
-                                                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                                                                (subj.weight?.questions || subj.weight?.points || subj.weight?.percentage)
-                                                                    ? 'bg-primary/10 text-primary border-primary/20'
-                                                                    : 'bg-secondary dark:bg-zinc-800 text-content-muted border-border dark:border-white/5'
-                                                            }`}
-                                                        >
-                                                            {(subj.weight?.questions || subj.weight?.points || subj.weight?.percentage)
-                                                                ? `Peso: ${[
-                                                                    subj.weight?.questions ? `${subj.weight.questions} questões` : null,
-                                                                    subj.weight?.points ? `${subj.weight.points} pts` : null,
-                                                                    subj.weight?.percentage ? `${subj.weight.percentage}%` : null
-                                                                ].filter(Boolean).join(' · ')}`
-                                                                : 'Peso não identificado'}
-                                                        </span>
+                                                        {subj.knowledgeType && (
+                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                                                subj.knowledgeType.toLowerCase().includes('básic') || subj.knowledgeType.toLowerCase().includes('basic')
+                                                                    ? 'bg-sky-500/10 text-sky-300 border-sky-500/20'
+                                                                    : subj.knowledgeType.toLowerCase().includes('espec')
+                                                                        ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                                                        : 'bg-secondary dark:bg-zinc-800 text-content-muted border-border dark:border-white/5'
+                                                            }`}>
+                                                                {subj.knowledgeType}
+                                                            </span>
+                                                        )}
                                                         <span className="text-[10px] font-bold bg-secondary dark:bg-zinc-800 text-muted-foreground px-1.5 py-0.5 rounded border border-border dark:border-white/5">
                                                             {subj.topics.length} tópicos
                                                         </span>
@@ -1924,7 +1963,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-3 border-t border-border dark:border-white/5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-border dark:border-white/5">
                                         <div className="rounded-lg bg-secondary/40 dark:bg-zinc-900/40 border border-border dark:border-white/5 px-3 py-2">
                                             <p className="text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Matérias selecionadas</p>
                                             <p className="text-sm font-bold text-content-main">{aiResult.filter(s => s.selected).length} de {aiResult.length}</p>
@@ -1933,14 +1972,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             <p className="text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Tópicos selecionados</p>
                                             <p className="text-sm font-bold text-content-main">
                                                 {aiResult.reduce((acc, s) => acc + s.topics.filter(t => t.selected).length, 0)} de {aiResult.reduce((acc, s) => acc + s.topics.length, 0)}
-                                            </p>
-                                        </div>
-                                        <div className="rounded-lg bg-secondary/40 dark:bg-zinc-900/40 border border-border dark:border-white/5 px-3 py-2">
-                                            <p className="text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Matérias com peso</p>
-                                            <p className="text-sm font-bold text-content-main">
-                                                {aiResult.filter(s => s.weight?.questions || s.weight?.points || s.weight?.percentage).length > 0
-                                                    ? `${aiResult.filter(s => s.weight?.questions || s.weight?.points || s.weight?.percentage).length} de ${aiResult.length}`
-                                                    : 'Nenhum peso encontrado'}
                                             </p>
                                         </div>
                                     </div>
@@ -2240,7 +2271,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-[1120px] max-h-[90vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col"
+                className="relative w-full max-w-[1280px] max-h-[90vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col"
             >
                 {modalInnerContent}
             </motion.div>

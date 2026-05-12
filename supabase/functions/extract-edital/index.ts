@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import cebraspeProfile from "../_shared/bank-profiles/cebraspe.json" assert { type: "json" };
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,91 +8,90 @@ const corsHeaders = {
 };
 
 type ExtractMode = "analyze" | "extractForCargo";
+type BankProfile = {
+  banca: string;
+  aliases: string[];
+  instrucao_para_ia?: string;
+  [key: string]: unknown;
+};
 
-const DEFAULT_ANALYSIS_PROMPT = `Voce e um especialista em editais de concursos publicos brasileiros.
-Analise o edital fornecido e identifique metadados e cargos disponiveis.
+const BANK_PROFILES: BankProfile[] = [cebraspeProfile as BankProfile];
+
+const DEFAULT_ANALYSIS_PROMPT = `Voce e um extrator de dados automatizado especializado em editais de concursos publicos. Sua tarefa e ler o documento fornecido e identificar a banca organizadora e os cargos ofertados.
 
 Regras:
-- Leia o documento inteiro antes de responder.
-- Identifique o nome do concurso/edital, orgao/instituicao, ano, banca e data de prova quando estiverem explicitamente no documento.
-- Extraia todos os cargos, funcoes, especialidades ou areas quando houver mais de um.
-- Se o edital tiver cargo unico, retorne uma lista com um unico cargo.
-- Nao invente dados. Use null quando nao houver evidencia.
-- O campo evidence deve conter um trecho curto do edital que justifique o cargo.
+- Seja adaptativo: se o edital oferecer apenas UM cargo, retorne apenas ele. Se oferecer multiplos cargos, areas ou especialidades, liste cada variacao como um item separado.
+- Ignore nivel de escolaridade, salarios, cronogramas e regras administrativas.
+- Identifique a banca organizadora quando ela aparecer explicitamente no documento. Exemplos: Cebraspe, Cespe, FGV, FCC, Vunesp, AOCP.
+- Se a banca nao aparecer explicitamente, use null. Nao chute a banca pelo estilo do edital.
+- Identifique o orgao/instituicao, ano do edital/concurso e data da prova quando estiverem explicitamente no documento.
+- Para data da prova, retorne null se ela nao estiver no edital. Nao invente data.
+- Se um cargo nao tiver area, enfase ou especialidade especifica, deixe area_codigo e area_enfase como null.
+- Nao invente cargos, areas, enfases ou especialidades.
+- Use tabelas de vagas, provas, criterios de avaliacao ou classificacao apenas para confirmar que opcoes existem. Nao use essas tabelas para criar nomes que nao estejam identificados em secoes oficiais de cargo, area, enfase, especialidade, requisito ou conteudo programatico.
+- A area pode ser rotulada por codigo, como "Area 8", e por enfase, como "Tecnologia da Informacao". Se ambos existirem, mantenha os dois separados.
+- O campo label_exibicao deve ser o texto mais claro para o aluno escolher no modal, combinando cargo + area_codigo + area_enfase quando existirem.
+- Retorne ESTRITAMENTE JSON puro, sem markdown e sem texto adicional.
 
-Retorne APENAS JSON valido no formato:
+Formato JSON esperado:
 {
-  "edital": {
-    "name": "string",
-    "organ": "string|null",
-    "year": "string|null",
-    "examDate": "YYYY-MM-DD|null",
-    "banca": "string|null"
-  },
+  "concurso": "Nome do Orgao/Concurso",
+  "orgao": "Nome do orgao/instituicao ou null",
+  "ano": "Ano do edital/concurso ou null",
+  "data_prova": "YYYY-MM-DD ou null",
+  "banca": "Nome da banca ou null",
   "cargos": [
     {
-      "id": "cargo-1",
-      "name": "Nome limpo do cargo",
-      "rawLabel": "Texto original do edital",
-      "evidence": "Trecho curto usado como evidencia"
+      "id": 1,
+      "nome_cargo": "Nome do Cargo Identificado",
+      "area_codigo": "Area 8 ou null",
+      "area_enfase": "Nome da Area/Enfase/Especialidade ou null",
+      "label_exibicao": "Nome claro para o aluno escolher"
     }
   ]
 }`;
 
-const DEFAULT_EXTRACTION_PROMPT = `Voce e um especialista em estruturar conteudo programatico de editais de concursos publicos brasileiros.
-Extraia disciplinas, topicos e pesos SOMENTE para o cargo selecionado.
+const DEFAULT_EXTRACTION_PROMPT = `Voce e um assistente de estruturacao de dados. Sua tarefa e extrair o conteudo programatico, materias e topicos, de um edital de concurso, focado EXCLUSIVAMENTE nos parametros do cargo alvo fornecido.
 
-Regras criticas:
-- Cargo selecionado: "{{selectedCargo}}".
-- Se houver secoes por cargo, extraia apenas o conteudo desse cargo.
-- Se o edital tiver cargo unico, extraia o conteudo programatico disponivel.
-- Ignore macrogrupos como Conhecimentos Gerais, Conhecimentos Basicos, Conhecimentos Especificos quando eles forem apenas agrupadores.
-- Cada disciplina real deve virar um item em subjects.
-- Preserve a ordem original das disciplinas e topicos.
-- Separe topicos atomicos por numeracao (1, 1.1, 1.2), ponto e virgula ou itens claros.
-- Preserve numeracao original no inicio do topico quando existir.
-- Extraia pesos quando houver tabela de prova, numero de questoes, pontos, peso ou percentual por disciplina.
-- Se o peso nao estiver claro para uma disciplina, use null nos campos de weight.
-- Nao inclua bibliografia, avisos administrativos ou regras de inscricao como topicos.
-- Nao invente materias, topicos, datas ou pesos.
+Dados do Cargo Alvo:
+- Nome do Cargo: "{{selectedCargoName}}"
+- Area/Enfase: "{{selectedCargoArea}}"
 
-Retorne APENAS JSON valido no formato:
+Regras de Extracao:
+- Mapeamento flexivel: se o edital tiver apenas um cargo ou nao separar os conteudos, extraia todo o programa de provas disponivel.
+- Se houver separacao por cargo, area, enfase ou especialidade, busque os Conhecimentos Basicos comuns ao cargo e os Conhecimentos Especificos vinculados EXATAMENTE ao Nome do Cargo e Area/Enfase.
+- Ignore qualquer conteudo de conhecimentos especificos pertencente a outros cargos, areas, enfases ou especialidades.
+- Se a Area/Enfase selecionada contiver um codigo como "Area 8", localize exatamente o bloco de conteudo dessa area em Conhecimentos Especificos e extraia apenas ate o inicio da proxima area, proxima enfase, proxima especialidade ou proximo cargo. Nao misture materias de outras areas do mesmo cargo.
+- Se nao encontrar o bloco especifico exato da Area/Enfase selecionada, retorne os Conhecimentos Basicos aplicaveis e deixe os Conhecimentos Especificos vazios; nao preencha com conteudo de area parecida.
+- Use apenas a parte de conteudo programatico, objetos de avaliacao ou conhecimentos como fonte de materias e topicos.
+- Ignore requisitos, diploma, registro profissional, salarios, vagas, cronograma, lotacao, inscricoes e regras administrativas.
+- Atomicidade: quebre paragrafos longos em topicos curtos e diretos. Exemplo: em vez de "Direito Civil: Bens, Posse, Propriedade", crie tres topicos separados.
+- Preserve a numeracao original no inicio de cada topico quando ela existir no edital. Exemplo: "6 Deduplicacao. ILM - Information Lifecycle Management".
+- Preserve a ordem original das disciplinas e dos topicos.
+- O campo tipo deve marcar claramente a origem da disciplina: "Conhecimentos Basicos", "Conhecimentos Especificos" ou "Geral".
+- Nao extraia peso nesta etapa.
+- Retorne ESTRITAMENTE JSON puro, sem markdown e sem explicacoes.
+
+Formato JSON esperado:
 {
-  "edital": {
-    "name": "string",
-    "organ": "string|null",
-    "year": "string|null",
-    "examDate": "YYYY-MM-DD|null",
-    "banca": "string|null"
-  },
-  "selectedCargo": "string",
-  "subjects": [
+  "cargo_alvo": "Nome do Cargo - Area se houver",
+  "conteudo": [
     {
-      "title": "Nome da disciplina",
-      "weight": {
-        "points": 0,
-        "questions": 0,
-        "percentage": 0,
-        "rawText": "trecho do edital|null"
-      },
-      "topics": [
-        { "name": "Topico", "position": 0 }
+      "tipo": "Conhecimentos Basicos ou Especificos ou Geral se nao houver divisao",
+      "disciplina": "Nome da Disciplina",
+      "topicos": [
+        "1 Topico atomico com numeracao original quando houver",
+        "2 Proximo topico apenas quando iniciar a proxima numeracao"
       ]
     }
-  ],
-  "warnings": []
+  ]
 }`;
 
-const WEIGHT_EXTRACTION_RULES = `REGRAS OBRIGATORIAS PARA PESO / IMPORTANCIA:
-- "Peso" nao depende da palavra peso aparecer no edital.
-- Sempre procure tabelas de prova com colunas como "Quantidade de questoes", "Valor de cada questao", "Pontuacao maxima", "Pontos", "Total" ou equivalentes.
-- Se a tabela informar quantidade de questoes por disciplina, preencha weight.questions.
-- Se a tabela informar pontuacao maxima por disciplina, preencha weight.points.
-- Se a prova totalizar 100 pontos ou 100 questoes, use tambem weight.percentage igual a participacao daquela disciplina no total.
-- Exemplo: 17 questoes de 100 e pontuacao maxima 17,00 => questions: 17, points: 17, percentage: 17.
-- Se uma disciplina tiver mais questoes/pontos que outra, ela tem maior peso pratico, mesmo sem a palavra "peso".
-- O campo weight.rawText deve conter o trecho/tabela que justifica os numeros.
-- So use null se nao houver tabela ou evidencia clara para aquela disciplina.`;
+const WEIGHT_EXTRACTION_DISABLED_RULES = `PESO / IMPORTANCIA:
+- Nao calcule peso nesta etapa.
+- Nao procure tabela de prova para tentar inferir peso agora.
+- Para todas as disciplinas, retorne weight.points, weight.questions, weight.percentage e weight.rawText como null.
+- O peso sera tratado em uma etapa propria depois, normalmente a partir de quantidade de questoes ou pontuacao por materia.`;
 
 async function callGemini(apiKey: string, modelName: string, payload: any, timeoutMs = 90000): Promise<{ text: string; finishReason: string; usage: any }> {
   const controller = new AbortController();
@@ -170,6 +170,83 @@ function getModelCandidates(config: any, primaryModel: string) {
     "gemini-2.5-flash-lite",
     "gemini-2.0-flash-lite",
   ]);
+}
+
+function normalizeSearchText(value: unknown) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function matchesBankProfile(profile: BankProfile, inputText?: string, analysis?: any) {
+  const haystack = normalizeSearchText([
+    analysis?.edital?.banca,
+    analysis?.banca,
+    analysis?.edital?.name,
+    analysis?.edital?.organ,
+    inputText ? inputText.slice(0, 80000) : "",
+  ].filter(Boolean).join(" "));
+
+  return profile.aliases.some((alias) => {
+    const normalizedAlias = normalizeSearchText(alias);
+    return normalizedAlias.length >= 4 && haystack.includes(normalizedAlias);
+  });
+}
+
+function buildBankProfileInstruction(mode: ExtractMode, inputText?: string, analysis?: any) {
+  const matchedProfiles = BANK_PROFILES.filter((profile) => matchesBankProfile(profile, inputText, analysis));
+  if (!matchedProfiles.length) return "";
+
+  const instructions = matchedProfiles
+    .map((profile) => JSON.stringify(profile, null, 2))
+    .join("\n\n");
+
+  return `\n\nPERFIL DA BANCA PARA GUIAR A IA:
+Use o perfil abaixo como regra de leitura estrutural. O perfil nao substitui o edital: se nao houver evidencia no edital, nao invente. Quando a extracao der errado, o ajuste deve ser feito neste perfil, nao com regra especifica de edital no codigo.
+${instructions}`;
+}
+
+function withBankProfileInstruction(basePrompt: string, mode: ExtractMode, inputText?: string, analysis?: any) {
+  return `${basePrompt}${buildBankProfileInstruction(mode, inputText, analysis)}`;
+}
+
+function buildSelectedOptionContext(analysis: any, selectedCargo: string) {
+  if (!analysis) return "";
+  const selected = Array.isArray(analysis?.cargos)
+    ? analysis.cargos.find((cargo: any) => {
+        const optionText = `${cargo?.id || ""} ${cargo?.name || ""} ${cargo?.label_exibicao || ""} ${cargo?.nome_cargo || ""} ${cargo?.area_codigo || ""} ${cargo?.area_enfase || ""} ${cargo?.rawLabel || ""}`.toLowerCase();
+        const selectedText = String(selectedCargo || "").toLowerCase();
+        return optionText.includes(selectedText) || selectedText.includes(String(cargo?.name || "").toLowerCase());
+      })
+    : null;
+
+  return [
+    `Edital identificado: ${analysis?.edital?.name || "nao identificado"}`,
+    `Orgao: ${analysis?.edital?.organ || "nao identificado"}`,
+    `Banca: ${analysis?.edital?.banca || "nao identificada"}`,
+    `Opcao selecionada: ${selected?.label_exibicao || selected?.name || selectedCargo}`,
+    selected?.nome_cargo ? `Nome do cargo: ${selected.nome_cargo}` : "",
+    selected?.area_codigo ? `Codigo da area: ${selected.area_codigo}` : "",
+    selected?.area_enfase ? `Area/enfase/especialidade: ${selected.area_enfase}` : "",
+    selected?.rawLabel ? `Rotulo original da opcao: ${selected.rawLabel}` : "",
+    selected?.evidence ? `Evidencia da opcao: ${selected.evidence}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function getSelectedCargoParts(analysis: any, selectedCargo: string) {
+  const selectedText = String(selectedCargo || "").toLowerCase();
+  const selected = Array.isArray(analysis?.cargos)
+    ? analysis.cargos.find((cargo: any) => {
+        const optionText = `${cargo?.id || ""} ${cargo?.name || ""} ${cargo?.label_exibicao || ""} ${cargo?.nome_cargo || ""} ${cargo?.area_codigo || ""} ${cargo?.area_enfase || ""} ${cargo?.rawLabel || ""}`.toLowerCase();
+        return optionText.includes(selectedText) || selectedText.includes(String(cargo?.name || "").toLowerCase());
+      })
+    : null;
+
+  return {
+    name: String(selected?.nome_cargo || selected?.name || selectedCargo || "").trim(),
+    area: [selected?.area_codigo, selected?.area_enfase].filter(Boolean).join(" - ") || "null",
+  };
 }
 
 function getMaxOutputTokensForModel(modelName: string, requestedMaxTokens: number) {
@@ -338,23 +415,43 @@ function normalizeDate(value: unknown): string | null {
 function normalizeAnalysis(raw: any) {
   const edital = raw?.edital || {};
   const cargos = Array.isArray(raw?.cargos) ? raw.cargos : [];
+  const concurso = raw?.concurso ? String(raw.concurso).trim() : "";
+  const banca = raw?.banca ? String(raw.banca).trim() : "";
+  const orgao = raw?.orgao ? String(raw.orgao).trim() : "";
+  const ano = raw?.ano ? String(raw.ano).trim() : "";
 
   const normalizedCargos = cargos
-    .map((cargo: any, index: number) => ({
-      id: String(cargo?.id || `cargo-${index + 1}`),
-      name: String(cargo?.name || cargo?.rawLabel || "").trim(),
-      rawLabel: String(cargo?.rawLabel || cargo?.name || "").trim(),
-      evidence: String(cargo?.evidence || "").trim(),
-    }))
+    .map((cargo: any, index: number) => {
+      const nomeCargo = cargo?.nome_cargo ? String(cargo.nome_cargo).trim() : "";
+      const areaCodigo = cargo?.area_codigo ? String(cargo.area_codigo).trim() : "";
+      const areaEnfase = cargo?.area_enfase ? String(cargo.area_enfase).trim() : "";
+      const labelExibicao = cargo?.label_exibicao ? String(cargo.label_exibicao).trim() : "";
+      const fallbackName = [
+        nomeCargo || cargo?.name || cargo?.rawLabel || "",
+        areaCodigo ? `- ${areaCodigo}` : "",
+        areaEnfase ? `- ${areaEnfase}` : "",
+      ].filter(Boolean).join(" ").trim();
+
+      return {
+        id: String(cargo?.id || `cargo-${index + 1}`),
+        name: labelExibicao || fallbackName,
+        rawLabel: String(cargo?.rawLabel || cargo?.name || labelExibicao || nomeCargo || "").trim(),
+        evidence: String(cargo?.evidence || "").trim(),
+        nome_cargo: nomeCargo || null,
+        area_codigo: areaCodigo || null,
+        area_enfase: areaEnfase || null,
+        label_exibicao: labelExibicao || fallbackName || null,
+      };
+    })
     .filter((cargo: any) => cargo.name.length > 0);
 
   return {
     edital: {
-      name: String(edital?.name || "Edital analisado por IA").trim(),
-      organ: edital?.organ ? String(edital.organ).trim() : null,
-      year: edital?.year ? String(edital.year).trim() : null,
-      examDate: normalizeDate(edital?.examDate),
-      banca: edital?.banca ? String(edital.banca).trim() : null,
+      name: String(edital?.name || concurso || "Edital analisado por IA").trim(),
+      organ: edital?.organ ? String(edital.organ).trim() : orgao || null,
+      year: edital?.year ? String(edital.year).trim() : ano || null,
+      examDate: normalizeDate(edital?.examDate || raw?.data_prova),
+      banca: edital?.banca ? String(edital.banca).trim() : banca || null,
     },
     cargos: normalizedCargos.length > 0
       ? normalizedCargos
@@ -373,7 +470,11 @@ function normalizeNumber(value: unknown): number | null {
 
 function normalizeExtraction(raw: any, selectedCargo: string) {
   const edital = raw?.edital || {};
-  const subjects = Array.isArray(raw?.subjects) ? raw.subjects : [];
+  const subjects = Array.isArray(raw?.subjects)
+    ? raw.subjects
+    : Array.isArray(raw?.conteudo)
+      ? raw.conteudo
+      : [];
 
   return {
     edital: {
@@ -383,13 +484,18 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
       examDate: normalizeDate(edital?.examDate),
       banca: edital?.banca ? String(edital.banca).trim() : null,
     },
-    selectedCargo: String(raw?.selectedCargo || selectedCargo || "").trim(),
+    selectedCargo: String(raw?.selectedCargo || raw?.cargo_alvo || selectedCargo || "").trim(),
     subjects: subjects
       .map((subject: any) => {
         const weight = subject?.weight || {};
-        const topics = Array.isArray(subject?.topics) ? subject.topics : [];
+        const topics = Array.isArray(subject?.topics)
+          ? subject.topics
+          : Array.isArray(subject?.topicos)
+            ? subject.topicos
+            : [];
         return {
-          title: String(subject?.title || subject?.name || "").trim(),
+          title: String(subject?.title || subject?.name || subject?.disciplina || "").trim(),
+          type: subject?.type || subject?.tipo ? String(subject.type || subject.tipo).trim() : null,
           weight: {
             points: normalizeNumber(weight.points),
             questions: normalizeNumber(weight.questions),
@@ -398,7 +504,7 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
           },
           topics: topics
             .map((topic: any, index: number) => ({
-              name: String(typeof topic === "string" ? topic : topic?.name || "").replace(/\s+/g, " ").trim(),
+              name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
               position: normalizeNumber(topic?.position) ?? index,
             }))
             .filter((topic: any) => topic.name.length >= 2),
@@ -460,16 +566,21 @@ serve(async (req) => {
     const primaryModelName = config.model || "gemini-2.5-flash";
     const modelCandidates = getModelCandidates(config, primaryModelName);
     const maxTokens = config.max_tokens || (mode === "analyze" ? 8192 : 32768);
-    const prompt =
+    const selectedCargoParts = getSelectedCargoParts(analysis, selectedCargo || reqData.position || "");
+    const basePrompt =
       mode === "analyze"
-        ? (config.analysis_prompt || config.ai_analysis_prompt || DEFAULT_ANALYSIS_PROMPT)
-        : `${(config.extraction_prompt || config.ai_extraction_prompt || config.system_prompt || DEFAULT_EXTRACTION_PROMPT)
-            .replace(/{{selectedCargo}}/g, selectedCargo || reqData.position || "")}
+        ? DEFAULT_ANALYSIS_PROMPT
+        : `${DEFAULT_EXTRACTION_PROMPT
+            .replace(/{{selectedCargo}}/g, selectedCargo || reqData.position || "")
+            .replace(/{{selectedCargoName}}/g, selectedCargoParts.name || selectedCargo || reqData.position || "")
+            .replace(/{{selectedCargoArea}}/g, selectedCargoParts.area || "null")}
 
-${WEIGHT_EXTRACTION_RULES}`;
+${WEIGHT_EXTRACTION_DISABLED_RULES}`;
+    const prompt = withBankProfileInstruction(basePrompt, mode, inputText, analysis);
 
-    const contextInstruction = mode === "extractForCargo" && analysis
-      ? `${prompt}\n\nDADOS JA IDENTIFICADOS NA ETAPA ANTERIOR:\n${JSON.stringify(analysis)}`
+    const selectedOptionContext = buildSelectedOptionContext(analysis, selectedCargo || reqData.position || "");
+    const contextInstruction = mode === "extractForCargo" && selectedOptionContext
+      ? `${prompt}\n\nDADOS DA OPCAO SELECIONADA:\n${selectedOptionContext}`
       : prompt;
 
     const buildPayload = (modelName: string) => ({
