@@ -83,5 +83,8 @@ Este arquivo é a fonte principal de instruções para agentes neste projeto. Se
 
 - Pode haver mudanças locais do usuário. Nunca reverta arquivos que você não alterou sem pedido explícito.
 - Mantenha diffs pequenos e focados no pedido.
+- Antes de alterações arriscadas ou sensíveis, crie ou proponha um checkpoint local para permitir desfazer com segurança. Isso vale especialmente para Edge Functions, prompts/perfis de IA, migrations/RLS/RPCs, autenticação, merge de editais/ciclos, revisões/histórico, assinaturas e dados financeiros.
+- O checkpoint padrão, quando não houver pedido de commit, é um stash local nomeado, por exemplo: `git stash push -m "checkpoint antes de mexer na IA edital"`. Isso não exige `git push`.
+- Use commit local como checkpoint apenas quando o usuário pedir ou aprovar. Não envie para o remoto só para criar ponto de restauração.
 - Não use comandos destrutivos como reset hard, checkout para descartar alterações ou limpeza agressiva sem autorização clara.
 - Antes de commitar, revise o diff e garanta que não incluiu secrets, arquivos temporários ou mudanças fora do escopo.

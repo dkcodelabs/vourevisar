@@ -116,6 +116,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [iaComplementSubjectName, setIaComplementSubjectName] = useState('');
     const [manualComplementSubjectName, setManualComplementSubjectName] = useState('');
     const [manualComplementTopics, setManualComplementTopics] = useState('');
+    const shouldLockIaMetadataFields = Boolean(pdfFile && !isComplementMode);
+    const lockedMetadataInputClass = shouldLockIaMetadataFields
+        ? 'opacity-60 cursor-not-allowed bg-black/10 dark:bg-white/[0.03] text-content-muted'
+        : '';
 
     // Filter user editais (not from public catalog)
     const userCreatedEditais = userEditais.filter(e => !e.sourceId);
@@ -255,13 +259,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             return 24;
         }
         if (stage === 'extracting') {
+            if (normalized.includes('organizando resultado')) return 94;
+            if (normalized.includes('validando estrutura')) return 91;
             if (normalized.includes('finalizando')) return 92;
             if (normalized.includes('preparando revisão')) return 86;
-            if (normalized.includes('mapeando tópicos')) return 70;
-            if (normalized.includes('identificando disciplinas')) return 52;
-            if (normalized.includes('separando conhecimentos')) return 38;
-            if (normalized.includes('localizando conteúdo')) return 26;
-            return 20;
+            if (normalized.includes('mapeando tópicos')) return 82;
+            if (normalized.includes('identificando disciplinas')) return 64;
+            if (normalized.includes('separando conhecimentos')) return 46;
+            if (normalized.includes('localizando conteúdo')) return 31;
+            return 22;
         }
         return 0;
     };
@@ -316,6 +322,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     .from('pending_ai_extractions')
                     .update(payload)
                     .eq('id', existing.id);
+                setPendingExtraction({
+                    id: existing.id,
+                    editalName,
+                    updatedAt: new Date().toISOString(),
+                    source: 'fresh'
+                });
             } else {
                 const { data: inserted } = await (supabase as any)
                     .from('pending_ai_extractions')
@@ -323,7 +335,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     .select('id')
                     .single();
                 if (inserted?.id) {
-                    setPendingExtraction(prev => prev ? { ...prev, id: inserted.id } : prev);
+                    setPendingExtraction({
+                        id: inserted.id,
+                        editalName,
+                        updatedAt: new Date().toISOString(),
+                        source: 'fresh'
+                    });
                 }
             }
         } catch (err: any) {
@@ -846,7 +863,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 { delay: 5000, message: 'Localizando conteúdo do cargo e área...' },
                 { delay: 12000, message: 'Separando conhecimentos básicos e específicos...' },
                 { delay: 20000, message: 'Identificando disciplinas...' },
-                { delay: 32000, message: 'Mapeando tópicos por disciplina...' }
+                { delay: 32000, message: 'Mapeando tópicos por disciplina...' },
+                { delay: 47000, message: 'Validando estrutura extraída...' },
+                { delay: 62000, message: 'Organizando resultado para revisão...' }
             ]);
 
             const result = await supabase.functions.invoke('extract-edital', {
@@ -856,6 +875,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     pdfUrl: documentPayload.pdfUrl,
                     pdfPath: documentPayload.pdfPath,
                     pdfFileUri: documentPayload.pdfFileUri,
+                    selectedCargoId: cargo.id,
                     selectedCargo: cargo.name,
                     analysis: analysisResult
                 }
@@ -1530,6 +1550,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                     <div className="w-1 h-4 bg-primary rounded-full"></div>
                                                     <h4 className="text-xs font-bold text-foreground uppercase tracking-[0.14em]">Dados do Edital</h4>
                                                 </div>
+                                                {shouldLockIaMetadataFields && (
+                                                    <div className="mb-4 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-[11px] font-medium text-content-muted">
+                                                        Os dados serão extraídos do PDF. Você poderá revisar e ajustar antes de importar.
+                                                    </div>
+                                                )}
                                                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 w-full">
                                                     {/* Primeira Coluna: Instituição e Cargo */}
                                                     <div className="sm:col-span-8 space-y-4">
@@ -1539,8 +1564,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 type="text"
                                                                 value={iaOrigin}
                                                                 onChange={(e) => setIaOrigin(e.target.value)}
+                                                                disabled={shouldLockIaMetadataFields}
                                                                 placeholder="EX: PC-ES"
-                                                                className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                                className={`w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10 ${lockedMetadataInputClass}`}
                                                             />
                                                         </div>
 
@@ -1550,8 +1576,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 type="text"
                                                                 value={iaPosition}
                                                                 onChange={(e) => setIaPosition(e.target.value)}
+                                                                disabled={shouldLockIaMetadataFields}
                                                                 placeholder="EX: INVESTIGADOR"
-                                                                className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                                className={`w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10 ${lockedMetadataInputClass}`}
                                                             />
                                                         </div>
                                                     </div>
@@ -1564,10 +1591,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 type="text"
                                                                 value={iaYear}
                                                                 onChange={(e) => setIaYear(e.target.value.replace(/\D/g, ''))}
+                                                                disabled={shouldLockIaMetadataFields}
                                                                 inputMode="numeric"
                                                                 maxLength={4}
                                                                 placeholder="EX: 2024"
-                                                                className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                                className={`w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10 ${lockedMetadataInputClass}`}
                                                             />
                                                         </div>
 
@@ -1577,7 +1605,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                 type="date"
                                                                 value={examDate}
                                                                 onChange={(e) => setExamDate(e.target.value)}
-                                                                className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                                disabled={shouldLockIaMetadataFields}
+                                                                className={`w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10 ${lockedMetadataInputClass}`}
                                                             />
                                                         </div>
                                                     </div>
@@ -1708,8 +1737,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                             <span className={`text-xs font-bold flex-1 ${done || active ? 'text-content-main' : 'text-content-muted/60'}`}>
                                                                 {step.label}
                                                             </span>
-                                                            <span className={`text-[10px] tabular-nums font-bold ${done || active ? 'text-primary' : 'text-content-muted/40'}`}>
-                                                                {Math.round(stepProgress)}%
+                                                            <span className={`text-[10px] font-bold ${done || active ? 'text-primary' : 'text-content-muted/40'}`}>
+                                                                {done ? 'Concluído' : active ? 'Em andamento' : 'Aguardando'}
                                                             </span>
                                                         </div>
                                                         <div className="ml-5 h-1 rounded-full bg-white/10 overflow-hidden">

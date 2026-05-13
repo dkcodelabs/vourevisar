@@ -20,7 +20,8 @@ const BANK_PROFILES: BankProfile[] = [cebraspeProfile as BankProfile];
 const DEFAULT_ANALYSIS_PROMPT = `Voce e um extrator de dados automatizado especializado em editais de concursos publicos. Sua tarefa e ler o documento fornecido e identificar a banca organizadora e os cargos ofertados.
 
 Regras:
-- Seja adaptativo: se o edital oferecer apenas UM cargo, retorne apenas ele. Se oferecer multiplos cargos, areas ou especialidades, liste cada variacao como um item separado.
+- Seja adaptativo: se o edital oferecer apenas UM cargo, retorne apenas ele. Se oferecer multiplos cargos, areas, enfases ou especialidades, liste cada variacao como um item separado.
+- Opcoes reais do aluno sao apenas cargo, area, enfase ou especialidade. Nao trate perfil, bloco, trilha, P1, P2 ou similares como cargo/opcao.
 - Ignore nivel de escolaridade, salarios, cronogramas e regras administrativas.
 - Identifique a banca organizadora quando ela aparecer explicitamente no documento. Exemplos: Cebraspe, Cespe, FGV, FCC, Vunesp, AOCP.
 - Se a banca nao aparecer explicitamente, use null. Nao chute a banca pelo estilo do edital.
@@ -29,6 +30,7 @@ Regras:
 - Se um cargo nao tiver area, enfase ou especialidade especifica, deixe area_codigo e area_enfase como null.
 - Nao invente cargos, areas, enfases ou especialidades.
 - Use tabelas de vagas, provas, criterios de avaliacao ou classificacao apenas para confirmar que opcoes existem. Nao use essas tabelas para criar nomes que nao estejam identificados em secoes oficiais de cargo, area, enfase, especialidade, requisito ou conteudo programatico.
+- BLOCO I, BLOCO II, BLOCO III, P1, P2 e similares sao agrupadores internos de conteudo. Eles nao sao cargos, areas, enfases ou especialidades e nao devem virar opcoes no modal.
 - A area pode ser rotulada por codigo, como "Area 8", e por enfase, como "Tecnologia da Informacao". Se ambos existirem, mantenha os dois separados.
 - O campo label_exibicao deve ser o texto mais claro para o aluno escolher no modal, combinando cargo + area_codigo + area_enfase quando existirem.
 - Retorne ESTRITAMENTE JSON puro, sem markdown e sem texto adicional.
@@ -67,6 +69,7 @@ Regras de Extracao:
 - Ignore requisitos, diploma, registro profissional, salarios, vagas, cronograma, lotacao, inscricoes e regras administrativas.
 - Atomicidade: quebre paragrafos longos em topicos curtos e diretos. Exemplo: em vez de "Direito Civil: Bens, Posse, Propriedade", crie tres topicos separados.
 - Preserve a numeracao original no inicio de cada topico quando ela existir no edital. Exemplo: "6 Deduplicacao. ILM - Information Lifecycle Management".
+- Quando houver agrupadores como "BLOCO I", "BLOCO II", "P1" ou "P2" antes de uma lista numerada, trate-os apenas como agrupadores. Nao coloque "BLOCO I:" junto do nome do primeiro topico.
 - Preserve a ordem original das disciplinas e dos topicos.
 - O campo tipo deve marcar claramente a origem da disciplina: "Conhecimentos Basicos", "Conhecimentos Especificos" ou "Geral".
 - Nao extraia peso nesta etapa.
@@ -211,15 +214,66 @@ function withBankProfileInstruction(basePrompt: string, mode: ExtractMode, input
   return `${basePrompt}${buildBankProfileInstruction(mode, inputText, analysis)}`;
 }
 
-function buildSelectedOptionContext(analysis: any, selectedCargo: string) {
+function getCargoOptionText(cargo: any) {
+  return [
+    cargo?.id,
+    cargo?.name,
+    cargo?.label_exibicao,
+    cargo?.nome_cargo,
+    cargo?.area_codigo,
+    cargo?.area_enfase,
+    cargo?.rawLabel,
+  ].filter(Boolean).join(" ");
+}
+
+function extractAreaCode(value: unknown) {
+  const normalized = normalizeSearchText(value);
+  const match = normalized.match(/\barea\s*(\d+)\b/);
+  return match ? `area ${match[1]}` : null;
+}
+
+function findSelectedCargo(analysis: any, selectedCargo: string, selectedCargoId?: string) {
+  if (!Array.isArray(analysis?.cargos)) return null;
+
+  const selectedId = String(selectedCargoId || "").trim();
+  if (selectedId) {
+    const byId = analysis.cargos.find((cargo: any) => String(cargo?.id || "").trim() === selectedId);
+    if (byId) return byId;
+  }
+
+  const selectedText = normalizeSearchText(selectedCargo);
+  const selectedAreaCode = extractAreaCode(selectedCargo);
+  if (!selectedText) return null;
+
+  let best: { cargo: any; score: number } | null = null;
+
+  for (const cargo of analysis.cargos) {
+    const optionText = normalizeSearchText(getCargoOptionText(cargo));
+    if (!optionText) continue;
+
+    const cargoAreaCode = extractAreaCode(getCargoOptionText(cargo));
+    if (selectedAreaCode && cargoAreaCode !== selectedAreaCode) {
+      continue;
+    }
+
+    let score = 0;
+    if (optionText === selectedText) score += 1000;
+    if (optionText.includes(selectedText)) score += 500;
+    if (selectedText.includes(optionText)) score += cargoAreaCode ? 300 : 10;
+    if (cargo?.area_codigo || cargo?.area_enfase) score += 100;
+    score += Math.min(optionText.length, 200) / 10;
+
+    if (score > 0 && (!best || score > best.score)) {
+      best = { cargo, score };
+    }
+  }
+
+  return best?.cargo || null;
+}
+
+function buildSelectedOptionContext(analysis: any, selectedCargo: string, selectedCargoId?: string) {
   if (!analysis) return "";
-  const selected = Array.isArray(analysis?.cargos)
-    ? analysis.cargos.find((cargo: any) => {
-        const optionText = `${cargo?.id || ""} ${cargo?.name || ""} ${cargo?.label_exibicao || ""} ${cargo?.nome_cargo || ""} ${cargo?.area_codigo || ""} ${cargo?.area_enfase || ""} ${cargo?.rawLabel || ""}`.toLowerCase();
-        const selectedText = String(selectedCargo || "").toLowerCase();
-        return optionText.includes(selectedText) || selectedText.includes(String(cargo?.name || "").toLowerCase());
-      })
-    : null;
+  const selected = findSelectedCargo(analysis, selectedCargo, selectedCargoId);
 
   return [
     `Edital identificado: ${analysis?.edital?.name || "nao identificado"}`,
@@ -234,15 +288,8 @@ function buildSelectedOptionContext(analysis: any, selectedCargo: string) {
   ].filter(Boolean).join("\n");
 }
 
-function getSelectedCargoParts(analysis: any, selectedCargo: string) {
-  const selectedText = String(selectedCargo || "").toLowerCase();
-  const selected = Array.isArray(analysis?.cargos)
-    ? analysis.cargos.find((cargo: any) => {
-        const optionText = `${cargo?.id || ""} ${cargo?.name || ""} ${cargo?.label_exibicao || ""} ${cargo?.nome_cargo || ""} ${cargo?.area_codigo || ""} ${cargo?.area_enfase || ""} ${cargo?.rawLabel || ""}`.toLowerCase();
-        return optionText.includes(selectedText) || selectedText.includes(String(cargo?.name || "").toLowerCase());
-      })
-    : null;
-
+function getSelectedCargoParts(analysis: any, selectedCargo: string, selectedCargoId?: string) {
+  const selected = findSelectedCargo(analysis, selectedCargo, selectedCargoId);
   return {
     name: String(selected?.nome_cargo || selected?.name || selectedCargo || "").trim(),
     area: [selected?.area_codigo, selected?.area_enfase].filter(Boolean).join(" - ") || "null",
@@ -468,6 +515,48 @@ function normalizeNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function getLeadingTopicNumber(value: string): number | null {
+  const match = value.trim().match(/^(\d+)(?!\.\d)(?:[.)]|\s)/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function mergeNumberedTopicContinuations<T extends { name: string; position: number | null }>(topics: T[]): T[] {
+  const merged: T[] = [];
+
+  for (let index = 0; index < topics.length; index++) {
+    const current = topics[index];
+    const currentNumber = getLeadingTopicNumber(current.name);
+
+    if (currentNumber === null) {
+      merged.push(current);
+      continue;
+    }
+
+    const continuationItems: T[] = [];
+    let cursor = index + 1;
+
+    while (cursor < topics.length && getLeadingTopicNumber(topics[cursor].name) === null) {
+      continuationItems.push(topics[cursor]);
+      cursor++;
+    }
+
+    const nextNumber = cursor < topics.length ? getLeadingTopicNumber(topics[cursor].name) : null;
+    if (continuationItems.length > 0 && nextNumber === currentNumber + 1) {
+      merged.push({
+        ...current,
+        name: [current.name, ...continuationItems.map((topic) => topic.name)].join(" ").replace(/\s+/g, " ").trim(),
+      });
+      index = cursor - 1;
+    } else {
+      merged.push(current);
+    }
+  }
+
+  return merged.map((topic, index) => ({ ...topic, position: index }));
+}
+
 function normalizeExtraction(raw: any, selectedCargo: string) {
   const edital = raw?.edital || {};
   const subjects = Array.isArray(raw?.subjects)
@@ -502,12 +591,14 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
             percentage: normalizeNumber(weight.percentage),
             rawText: weight.rawText ? String(weight.rawText).trim() : null,
           },
-          topics: topics
-            .map((topic: any, index: number) => ({
-              name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
-              position: normalizeNumber(topic?.position) ?? index,
-            }))
-            .filter((topic: any) => topic.name.length >= 2),
+          topics: mergeNumberedTopicContinuations(
+            topics
+              .map((topic: any, index: number) => ({
+                name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
+                position: normalizeNumber(topic?.position) ?? index,
+              }))
+              .filter((topic: any) => topic.name.length >= 2),
+          ),
         };
       })
       .filter((subject: any) => subject.title.length > 0 && subject.topics.length > 0),
@@ -538,7 +629,7 @@ serve(async (req) => {
 
     const reqData = await req.json();
     const mode: ExtractMode = reqData.mode || (reqData.position ? "extractForCargo" : "analyze");
-    const { inputText, pdfUrl, pdfPath, pdfFileUri, selectedCargo, analysis } = reqData;
+    const { inputText, pdfUrl, pdfPath, pdfFileUri, selectedCargo, selectedCargoId, analysis } = reqData;
 
     if (!inputText && !pdfUrl && !pdfPath && !pdfFileUri) {
       throw new Error("Forneca um arquivo PDF ou o texto do edital.");
@@ -566,7 +657,7 @@ serve(async (req) => {
     const primaryModelName = config.model || "gemini-2.5-flash";
     const modelCandidates = getModelCandidates(config, primaryModelName);
     const maxTokens = config.max_tokens || (mode === "analyze" ? 8192 : 32768);
-    const selectedCargoParts = getSelectedCargoParts(analysis, selectedCargo || reqData.position || "");
+    const selectedCargoParts = getSelectedCargoParts(analysis, selectedCargo || reqData.position || "", selectedCargoId);
     const basePrompt =
       mode === "analyze"
         ? DEFAULT_ANALYSIS_PROMPT
@@ -578,7 +669,7 @@ serve(async (req) => {
 ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     const prompt = withBankProfileInstruction(basePrompt, mode, inputText, analysis);
 
-    const selectedOptionContext = buildSelectedOptionContext(analysis, selectedCargo || reqData.position || "");
+    const selectedOptionContext = buildSelectedOptionContext(analysis, selectedCargo || reqData.position || "", selectedCargoId);
     const contextInstruction = mode === "extractForCargo" && selectedOptionContext
       ? `${prompt}\n\nDADOS DA OPCAO SELECIONADA:\n${selectedOptionContext}`
       : prompt;
