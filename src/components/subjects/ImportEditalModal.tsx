@@ -83,13 +83,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [expandedCatalogSubjectKeys, setExpandedCatalogSubjectKeys] = useState<Set<string>>(new Set());
     const [iaOrigin, setIaOrigin] = useState('');
     const [iaPosition, setIaPosition] = useState('');
+    const [iaBanca, setIaBanca] = useState('');
 
     // Manual States
     const [manualOrigin, setManualOrigin] = useState('');
     const [manualPosition, setManualPosition] = useState('');
     const [importingManual, setImportingManual] = useState(false);
     const [manualYear, setManualYear] = useState('');
-    const [iaYear, setIaYear] = useState(new Date().getFullYear().toString());
+    const [iaYear, setIaYear] = useState('');
     const [examDate, setExamDate] = useState('');
 
     // IA States
@@ -108,6 +109,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [sourcePayload, setSourcePayload] = useState<DocumentPayload | null>(null);
     const [loadingPending, setLoadingPending] = useState(false);
     const [iaErrorMessage, setIaErrorMessage] = useState('');
+    const [showIaDataEditor, setShowIaDataEditor] = useState(false);
     const iaFlowCancelledRef = useRef(false);
 
     // Legacy complement mode states (kept for compatibility)
@@ -116,13 +118,57 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [iaComplementSubjectName, setIaComplementSubjectName] = useState('');
     const [manualComplementSubjectName, setManualComplementSubjectName] = useState('');
     const [manualComplementTopics, setManualComplementTopics] = useState('');
-    const shouldLockIaMetadataFields = Boolean(pdfFile && !isComplementMode);
-    const lockedMetadataInputClass = shouldLockIaMetadataFields
-        ? 'opacity-60 cursor-not-allowed bg-black/10 dark:bg-white/[0.03] text-content-muted'
-        : '';
-
     // Filter user editais (not from public catalog)
     const userCreatedEditais = userEditais.filter(e => !e.sourceId);
+
+    const resolveCargoIdFromAnalysis = (analysis: AiEditalAnalysis | null, cargoName?: string | null) => {
+        if (!analysis?.cargos?.length) return '';
+        if (!cargoName) return analysis.cargos[0].id;
+        const normalizedCargoName = cargoName.trim().toLowerCase();
+        const matched = analysis.cargos.find(cargo =>
+            cargo.id === cargoName ||
+            cargo.name.trim().toLowerCase() === normalizedCargoName ||
+            (cargo.label_exibicao || '').trim().toLowerCase() === normalizedCargoName
+        );
+        return matched?.id || analysis.cargos[0].id;
+    };
+
+    const getModalWidthClass = () => {
+        if (activeTab === 'ia') {
+            if (iaStage === 'analyzing' || iaStage === 'extracting') return 'max-w-[720px]';
+            if (iaStage === 'selectCargo') return 'max-w-[960px]';
+            if (iaStage === 'review') return 'max-w-[960px]';
+            return 'max-w-[1040px]';
+        }
+
+        return 'max-w-5xl';
+    };
+
+    const isGenericCargoName = (value?: string | null) => {
+        const normalized = String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
+        return !normalized || ['cargo unico', 'cargo único', 'cargo', 'sem cargo'].includes(normalized);
+    };
+
+    const shouldOpenIaDataEditor = (analysis: AiEditalAnalysis | null, cargoName?: string | null) => {
+        if (!analysis) return false;
+        return Boolean(
+            iaErrorMessage ||
+            !analysis.edital?.banca ||
+            !analysis.edital?.organ ||
+            isGenericCargoName(cargoName || analysis.cargos?.[0]?.name)
+        );
+    };
+
+    const hasManualCargoTarget = () => false;
+
+    const hasOnlyGenericCargoAnalysis = () => {
+        if (!analysisResult?.cargos?.length) return false;
+        return analysisResult.cargos.length === 1 && isGenericCargoName(analysisResult.cargos[0]?.name);
+    };
 
     // State for dynamic editais from database
     interface ReadyEdital {
@@ -202,7 +248,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 .maybeSingle();
             
             if (data && !error) {
-                if (!Array.isArray(data.ai_result) || data.ai_result.length === 0) {
+                const storedAiResult = Array.isArray(data.ai_result) ? data.ai_result : [];
+                const storedAnalysis = data.analysis_result || null;
+
+                if (storedAiResult.length === 0 && !storedAnalysis?.cargos?.length) {
                     await (supabase as any)
                         .from('pending_ai_extractions')
                         .delete()
@@ -216,10 +265,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     updatedAt: data.updated_at,
                     source: 'db'
                 });
-                setAiResult(data.ai_result);
-                setAnalysisResult(data.analysis_result || null);
+                setAiResult(storedAiResult);
+                setAnalysisResult(storedAnalysis);
                 setSelectedCargoName(data.selected_cargo || data.position || '');
-                setSelectedCargoId(data.selected_cargo || data.position || '');
+                setSelectedCargoId(resolveCargoIdFromAnalysis(storedAnalysis, data.selected_cargo || data.position));
                 if (data.source_type || data.pdf_url) {
                     const storedPdfRef = data.pdf_url || undefined;
                     setSourcePayload({
@@ -231,10 +280,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 setIaEditalName(data.edital_name);
                 const pendingExamDate = data.analysis_result?.edital?.examDate || data.analysis_result?.edital?.exam_date;
                 if (data.origin || data.analysis_result?.edital?.organ) setIaOrigin(data.origin || data.analysis_result.edital.organ);
+                if (data.analysis_result?.edital?.banca) setIaBanca(data.analysis_result.edital.banca);
                 if (data.position) setIaPosition(data.position);
-                setIaYear(data.year || data.analysis_result?.edital?.year || new Date().getFullYear().toString());
+                setIaYear(data.year || data.analysis_result?.edital?.year || '');
                 if (pendingExamDate) setExamDate(pendingExamDate);
-                setIaStage(data.ai_result?.length ? 'review' : data.analysis_result ? 'selectCargo' : 'input');
+                setIaStage(storedAiResult.length ? 'review' : storedAnalysis?.cargos?.length ? 'selectCargo' : 'input');
+                setShowIaDataEditor(shouldOpenIaDataEditor(storedAnalysis, data.selected_cargo || data.position));
             }
         } catch (err: any) {
             console.error('[loadPending] catch error:', err?.code, err?.message);
@@ -307,9 +358,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             const payload = {
                 user_id: user.id,
                 edital_name: editalName,
-                origin: iaOrigin || options?.analysis?.edital?.organ || null,
+                origin: options?.analysis?.edital?.organ || iaOrigin || null,
                 position: (options?.selectedCargo ?? selectedCargoName ?? iaPosition) || null,
-                year: iaYear || options?.analysis?.edital?.year || null,
+                year: options?.analysis?.edital?.year || iaYear || null,
                 ai_result: results,
                 analysis_result: options?.analysis ?? analysisResult,
                 selected_cargo: (options?.selectedCargo ?? selectedCargoName) || null,
@@ -348,19 +399,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
     };
 
-    const handleResumePendingExtraction = () => {
-        setActiveTab('ia');
-        if (aiResult.length > 0) {
-            setIaStage('review');
-            return;
-        }
-        if (analysisResult?.cargos?.length) {
-            setIaStage('selectCargo');
-            return;
-        }
-        setIaStage('input');
-    };
-
     const isGenericEditalName = (value?: string | null) => {
         const normalized = String(value || '')
             .normalize('NFD')
@@ -391,6 +429,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setIaStage('input');
         setIaOrigin('');
         setIaPosition('');
+        setIaBanca('');
+        setShowIaDataEditor(false);
         setInputText('');
         setPdfFile(null);
         setExamDate('');
@@ -415,6 +455,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setIaStage('input');
         setIaOrigin('');
         setIaPosition('');
+        setIaBanca('');
+        setShowIaDataEditor(false);
         setInputText('');
         setPdfFile(null);
         setExamDate('');
@@ -469,6 +511,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             }
             setPdfFile(file);
             setInputText(''); // limpa texto se enviar pdf
+            setSourcePayload(null);
+            setAnalysisResult(null);
+            setAiResult([]);
+            setIaErrorMessage('');
         }
     };
 
@@ -677,6 +723,37 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         return error?.message || JSON.stringify(error);
     };
 
+    const extractPdfPreviewText = async (file: File): Promise<string | undefined> => {
+        try {
+            const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+            pdfjsLib.GlobalWorkerOptions.workerSrc ||= new URL('pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString();
+
+            const data = new Uint8Array(await file.arrayBuffer());
+            const pdf = await pdfjsLib.getDocument({ data }).promise;
+            const maxPages = Math.min(pdf.numPages, 8);
+            const pages: string[] = [];
+
+            for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
+                const page = await pdf.getPage(pageNumber);
+                const content = await page.getTextContent();
+                const pageText = content.items
+                    .map((item: any) => typeof item?.str === 'string' ? item.str : '')
+                    .filter(Boolean)
+                    .join(' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                if (pageText) pages.push(`--- PAGINA ${pageNumber} ---\n${pageText}`);
+            }
+
+            const preview = pages.join('\n\n').slice(0, 30000).trim();
+            return preview || undefined;
+        } catch (error) {
+            console.warn('[ImportEditalModal] Falha ao extrair preview textual do PDF:', error);
+            return undefined;
+        }
+    };
+
     const buildDocumentPayload = async () => {
         const payload: DocumentPayload = { sourceType: 'text' };
 
@@ -686,6 +763,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             }
 
             setProcessingMsg('Lendo o documento...');
+            payload.inputText = await extractPdfPreviewText(pdfFile);
             const safeFileName = pdfFile.name
                 .normalize('NFD')
                 .replace(/[\u0300-\u036f]/g, '')
@@ -725,6 +803,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         if (edital.year) setIaYear(edital.year);
         if (edital.examDate) setExamDate(edital.examDate);
         if (edital.name) setIaEditalName(edital.name);
+        if (edital.banca) setIaBanca(edital.banca);
     };
 
     const mapExtractionToAiSubjects = (extraction: any): AiSubject[] => {
@@ -775,9 +854,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setAnalysisResult(null);
         setSelectedCargoId('');
         setSelectedCargoName('');
+        setShowIaDataEditor(false);
         setIaErrorMessage('');
 
         try {
+            const targetCargoBeforeAnalysis = iaPosition.trim();
             const documentPayload = await buildDocumentPayload();
             setSourcePayload(documentPayload);
             await sleep(250);
@@ -791,6 +872,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     pdfPath: documentPayload.pdfPath,
                     pdfFileUri: documentPayload.pdfFileUri,
                     origin: iaOrigin,
+                    banca: iaBanca,
                     year: iaYear
                 }
             });
@@ -816,16 +898,26 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             await sleep(250);
             setIaProgress(100);
             await sleep(180);
-            setAnalysisResult(analysis);
-            applyAnalysisToForm(analysis);
 
             const firstCargo = analysis.cargos[0];
-            setSelectedCargoId(firstCargo.id);
-            setSelectedCargoName(firstCargo.name);
-            setIaPosition(firstCargo.name);
+            const analysisOnlyFoundGenericCargo = analysis.cargos.length === 1 && isGenericCargoName(firstCargo.name);
+            const cargoFieldForNextStep = analysisOnlyFoundGenericCargo && targetCargoBeforeAnalysis
+                ? targetCargoBeforeAnalysis
+                : firstCargo.name;
+            setAnalysisResult(analysis);
+            applyAnalysisToForm(analysis);
+            setSelectedCargoId(analysisOnlyFoundGenericCargo ? '' : firstCargo.id);
+            setSelectedCargoName(analysisOnlyFoundGenericCargo ? '' : firstCargo.name);
+            setIaPosition(cargoFieldForNextStep);
+            setShowIaDataEditor(shouldOpenIaDataEditor(analysis, cargoFieldForNextStep));
 
             const editalName = analysis.edital.name || `${analysis.edital.organ || iaOrigin || 'Edital'} - ${analysis.edital.year || iaYear}`;
             setIaEditalName(editalName);
+            await savePendingExtraction(editalName, [], {
+                analysis,
+                selectedCargo: analysisOnlyFoundGenericCargo ? null : firstCargo.name,
+                source: documentPayload
+            });
 
             setIaStage('selectCargo');
 
@@ -840,18 +932,61 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const handleExtractSelectedCargo = async () => {
         if (!analysisResult) return;
         iaFlowCancelledRef.current = false;
-        const cargo = analysisResult.cargos.find(c => c.id === selectedCargoId) || analysisResult.cargos[0];
-        if (!cargo) {
-            toastGate.notifyError('Selecione um cargo para continuar.', 'IA-CARGO-01');
+        if (hasOnlyGenericCargoAnalysis()) {
+            toastGate.notifyError('A IA não listou cargos reais do edital. Tente analisar novamente sem preencher cargo, ou use o nome completo exatamente como aparece no edital.', 'IA-CARGO-03');
+            setShowIaDataEditor(true);
             return;
         }
+        if (!selectedCargoId) {
+            toastGate.notifyError('Selecione um cargo identificado no edital antes de extrair as disciplinas.', 'IA-CARGO-04');
+            return;
+        }
+        const selectedCargo = analysisResult.cargos.find(c => c.id === selectedCargoId);
+        const confirmedCargoName = (iaPosition || selectedCargoName || selectedCargo?.name || '').trim();
+        if (!confirmedCargoName) {
+            toastGate.notifyError('Informe o cargo, área ou ênfase para a extração.', 'IA-CARGO-02');
+            return;
+        }
+        const cargo = selectedCargo || {
+            id: `manual-${Date.now()}`,
+            name: confirmedCargoName,
+            rawLabel: confirmedCargoName,
+            evidence: 'Informado manualmente pelo aluno',
+            label_exibicao: confirmedCargoName,
+            nome_cargo: confirmedCargoName,
+            area_codigo: null,
+            area_enfase: null
+        };
+        const confirmedAnalysis: AiEditalAnalysis = {
+            ...analysisResult,
+            edital: {
+                ...analysisResult.edital,
+                organ: iaOrigin.trim() || analysisResult.edital.organ,
+                year: iaYear.trim() || analysisResult.edital.year,
+                examDate: examDate || analysisResult.edital.examDate,
+                banca: iaBanca.trim() || analysisResult.edital.banca
+            },
+            cargos: selectedCargo
+                ? analysisResult.cargos.map(item => item.id === selectedCargo.id
+                    ? {
+                        ...item,
+                        name: confirmedCargoName,
+                        rawLabel: confirmedCargoName,
+                        label_exibicao: confirmedCargoName,
+                        nome_cargo: confirmedCargoName
+                    }
+                    : item
+                )
+                : [cargo, ...analysisResult.cargos]
+        };
 
         setIaStage('extracting');
         setIaProgress(0);
         setIaErrorMessage('');
-        setSelectedCargoName(cargo.name);
-        setIaPosition(cargo.name);
-        setProcessingMsg(`Analisando conteúdo programático de ${cargo.name}...`);
+        setAnalysisResult(confirmedAnalysis);
+        setSelectedCargoName(confirmedCargoName);
+        setIaPosition(confirmedCargoName);
+        setProcessingMsg(`Analisando conteúdo programático de ${confirmedCargoName}...`);
         let stopProgressHints: (() => void) | null = null;
 
         try {
@@ -876,8 +1011,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     pdfPath: documentPayload.pdfPath,
                     pdfFileUri: documentPayload.pdfFileUri,
                     selectedCargoId: cargo.id,
-                    selectedCargo: cargo.name,
-                    analysis: analysisResult
+                    selectedCargo: confirmedCargoName,
+                    analysis: confirmedAnalysis
                 }
             });
             stopProgressHints?.();
@@ -899,7 +1034,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             }
 
             const edital = extraction?.edital || {};
-            const analysisEdital = analysisResult.edital;
+            const analysisEdital = confirmedAnalysis.edital;
             const baseName = !isGenericEditalName(edital.name)
                 ? edital.name
                 : !isGenericEditalName(analysisEdital.name)
@@ -907,7 +1042,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     : edital.organ || analysisEdital.organ || iaOrigin || 'Edital';
             const finalYear = edital.year || analysisEdital.year || iaYear;
             const finalExamDate = edital.examDate || analysisEdital.examDate;
-            const finalName = `${baseName} - ${cargo.name}${finalYear ? ` (${finalYear})` : ''}`;
+            const finalName = `${baseName} - ${confirmedCargoName}${finalYear ? ` (${finalYear})` : ''}`;
             setIaEditalName(finalName);
             setIaOrigin(edital.organ || analysisEdital.organ || iaOrigin);
             setIaYear(finalYear || iaYear);
@@ -916,8 +1051,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             setProcessingMsg('Finalizando extração...');
             await savePendingExtraction(finalName, mappedResults, {
-                analysis: analysisResult,
-                selectedCargo: cargo.name,
+                analysis: confirmedAnalysis,
+                selectedCargo: confirmedCargoName,
                 source: documentPayload
             });
             setIaProgress(100);
@@ -929,6 +1064,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             console.error('Erro na extração do cargo:', error);
             const message = error.message || 'Erro desconhecido';
             setIaErrorMessage(message);
+            setShowIaDataEditor(true);
             toastGate.notifyError(message, 'IA-EXTRACT-01');
             setIaStage(analysisResult ? 'selectCargo' : 'input');
         }
@@ -1151,13 +1287,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     </div>
 
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        <button 
-                                            onClick={handleResumePendingExtraction}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
-                                        >
-                                            <Eye size={12} />
-                                            Continuar
-                                        </button>
                                         <button 
                                             onClick={discardPendingExtractionData}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
@@ -1503,13 +1632,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <button
-                                            onClick={handleResumePendingExtraction}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
-                                        >
-                                            <Eye size={12} />
-                                            Continuar
-                                        </button>
-                                        <button
                                             onClick={discardPendingExtractionData}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
                                         >
@@ -1544,71 +1666,49 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 </div>
                                             </div>
 
-                                            {/* Coluna Direita: Formulário */}
+                                            {/* Coluna Direita: Contexto opcional */}
                                             <div className="md:col-span-8 flex flex-col justify-start bg-card dark:bg-zinc-900/40 rounded-2xl p-5 border border-border/50 dark:border-white/5">
-                                                <div className="mb-5 flex items-center gap-2">
-                                                    <div className="w-1 h-4 bg-primary rounded-full"></div>
-                                                    <h4 className="text-xs font-bold text-foreground uppercase tracking-[0.14em]">Dados do Edital</h4>
+                                                <div className="mb-3 flex items-center gap-2">
+                                                    <div className="w-1 h-4 bg-primary rounded-full" />
+                                                    <h4 className="text-xs font-bold text-foreground uppercase tracking-[0.14em]">Dados para melhorar a extração</h4>
                                                 </div>
-                                                {shouldLockIaMetadataFields && (
-                                                    <div className="mb-4 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-[11px] font-medium text-content-muted">
-                                                        Os dados serão extraídos do PDF. Você poderá revisar e ajustar antes de importar.
-                                                    </div>
-                                                )}
+                                                <p className="text-[11px] text-content-muted font-medium leading-relaxed mb-5">
+                                                    Opcional. Se você souber a banca ou o cargo alvo, informe aqui para a IA usar as regras certas desde a primeira leitura. Ano e data da prova podem ser revisados antes de importar.
+                                                </p>
                                                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 w-full">
-                                                    {/* Primeira Coluna: Instituição e Cargo */}
-                                                    <div className="sm:col-span-8 space-y-4">
-                                                        <div className="space-y-1.5 group">
-                                                            <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Instituição</label>
-                                                            <input
-                                                                type="text"
-                                                                value={iaOrigin}
-                                                                onChange={(e) => setIaOrigin(e.target.value)}
-                                                                disabled={shouldLockIaMetadataFields}
-                                                                placeholder="EX: PC-ES"
-                                                                className={`w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10 ${lockedMetadataInputClass}`}
-                                                            />
-                                                        </div>
-
-                                                        <div className="space-y-1.5 group">
-                                                            <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Cargo</label>
-                                                            <input
-                                                                type="text"
-                                                                value={iaPosition}
-                                                                onChange={(e) => setIaPosition(e.target.value)}
-                                                                disabled={shouldLockIaMetadataFields}
-                                                                placeholder="EX: INVESTIGADOR"
-                                                                className={`w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10 ${lockedMetadataInputClass}`}
-                                                            />
-                                                        </div>
+                                                    <div className="space-y-1.5 group sm:col-span-3">
+                                                        <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Banca</label>
+                                                        <input
+                                                            type="text"
+                                                            value={iaBanca}
+                                                            onChange={(e) => setIaBanca(e.target.value)}
+                                                            placeholder="EX: CEBRASPE"
+                                                            className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                        />
                                                     </div>
-
-                                                    {/* Segunda Coluna: Ano e Data da Prova */}
-                                                    <div className="sm:col-span-4 space-y-4">
-                                                        <div className="space-y-1.5 group">
-                                                            <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Ano</label>
-                                                            <input
-                                                                type="text"
-                                                                value={iaYear}
-                                                                onChange={(e) => setIaYear(e.target.value.replace(/\D/g, ''))}
-                                                                disabled={shouldLockIaMetadataFields}
-                                                                inputMode="numeric"
-                                                                maxLength={4}
-                                                                placeholder="EX: 2024"
-                                                                className={`w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10 ${lockedMetadataInputClass}`}
-                                                            />
-                                                        </div>
-
-                                                        <div className="space-y-1.5 group">
-                                                            <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Data da Prova</label>
-                                                            <input
-                                                                type="date"
-                                                                value={examDate}
-                                                                onChange={(e) => setExamDate(e.target.value)}
-                                                                disabled={shouldLockIaMetadataFields}
-                                                                className={`w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10 ${lockedMetadataInputClass}`}
-                                                            />
-                                                        </div>
+                                                    <div className="space-y-1.5 group sm:col-span-4">
+                                                        <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Órgão / concurso</label>
+                                                        <input
+                                                            type="text"
+                                                            value={iaOrigin}
+                                                            onChange={(e) => setIaOrigin(e.target.value)}
+                                                            placeholder="EX: POLÍCIA FEDERAL"
+                                                            className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5 group sm:col-span-5">
+                                                        <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Cargo / área / ênfase alvo</label>
+                                                        <input
+                                                            type="text"
+                                                            value={iaPosition}
+                                                            onChange={(e) => {
+                                                                setIaPosition(e.target.value);
+                                                                setSelectedCargoName(e.target.value);
+                                                                setSelectedCargoId('');
+                                                            }}
+                                                            placeholder="EX: DELEGADO DE POLÍCIA FEDERAL"
+                                                            className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
@@ -1760,13 +1860,113 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
                                         <h3 className="text-sm font-bold text-content-main">{analysisResult.edital.name}</h3>
                                         <p className="text-xs text-content-muted mt-1">
-                                            {analysisResult.edital.organ || 'Órgão não identificado'}
+                                            {iaOrigin || analysisResult.edital.organ || 'Órgão não identificado'}
                                             {analysisResult.edital.year ? ` · ${analysisResult.edital.year}` : ''}
-                                            {analysisResult.edital.banca ? ` · ${analysisResult.edital.banca}` : ''}
+                                            {(iaBanca || analysisResult.edital.banca) ? ` · ${iaBanca || analysisResult.edital.banca}` : ''}
                                         </p>
                                         <p className="text-[11px] text-primary mt-2 font-bold">
-                                            {analysisResult.cargos.length} cargo(s) identificado(s)
+                                            {hasManualCargoTarget()
+                                                ? 'Cargo alvo informado manualmente'
+                                                : hasOnlyGenericCargoAnalysis()
+                                                    ? 'Nenhum cargo real identificado'
+                                                    : `${analysisResult.cargos.length} cargo(s) identificado(s)`}
                                         </p>
+                                    </div>
+
+                                    <div className={`rounded-2xl border p-3 transition-colors ${
+                                        showIaDataEditor
+                                            ? 'border-amber-500/20 bg-amber-500/10'
+                                            : 'border-border dark:border-white/10 bg-card dark:bg-zinc-900/40'
+                                    }`}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowIaDataEditor(prev => !prev)}
+                                            className="w-full flex items-center justify-between gap-3 text-left"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                {showIaDataEditor ? (
+                                                    <AlertTriangle size={16} className="text-amber-400 shrink-0" />
+                                                ) : (
+                                                    <Info size={16} className="text-primary shrink-0" />
+                                                )}
+                                                <div className="min-w-0">
+                                                    <p className={`text-xs font-bold ${showIaDataEditor ? 'text-amber-200' : 'text-content-main'}`}>
+                                                        {showIaDataEditor ? 'Confirme os dados antes de extrair.' : 'Dados identificados'}
+                                                    </p>
+                                                    <p className={`text-[11px] mt-0.5 truncate ${showIaDataEditor ? 'text-amber-100/75' : 'text-content-muted'}`}>
+                                                        {[
+                                                            `Banca: ${iaBanca || analysisResult.edital.banca || 'não informada'}`,
+                                                            `Concurso/órgão: ${iaOrigin || analysisResult.edital.organ || 'não informado'}`,
+                                                            `Cargo/área/ênfase: ${iaPosition || selectedCargoName || 'não informado'}`
+                                                        ].join(' · ')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className="text-[10px] font-bold text-primary">
+                                                    {showIaDataEditor ? 'Ocultar' : 'Editar'}
+                                                </span>
+                                                <ChevronDown className={`w-4 h-4 text-content-muted transition-transform ${showIaDataEditor ? 'rotate-180' : ''}`} />
+                                            </div>
+                                        </button>
+
+                                        {showIaDataEditor && (
+                                            <>
+                                                <p className="text-[11px] text-amber-100/75 mt-3 leading-relaxed">
+                                                    A IA pode falhar ao identificar metadados do edital. A banca ajuda a aplicar a instrução correta; o cargo, área ou ênfase define qual conteúdo será extraído.
+                                                </p>
+                                                {isGenericCargoName(iaPosition || selectedCargoName) && (
+                                                    <div className="mt-3 rounded-lg border border-amber-400/20 bg-black/15 px-3 py-2">
+                                                        <p className="text-[11px] font-semibold text-amber-100 leading-relaxed">
+                                                            Substitua "Cargo unico" pelo nome real do cargo no edital. Use o formato mais específico possível, como "Agente de Polícia Federal" ou "Perito Criminal Federal - Área 3".
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                {hasOnlyGenericCargoAnalysis() && (
+                                                    <div className="mt-3 rounded-lg border border-amber-400/20 bg-black/15 px-3 py-2">
+                                                        <p className="text-[11px] font-semibold text-amber-100 leading-relaxed">
+                                                            A IA não listou cargos reais com segurança. Não vou extrair usando "Cargo unico" para evitar trazer conteúdo errado.
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-4">
+                                            <div className="space-y-1.5 md:col-span-2">
+                                                <label className="text-[9px] font-bold text-amber-100/70 uppercase tracking-[0.16em] ml-1">Banca</label>
+                                                <input
+                                                    type="text"
+                                                    value={iaBanca}
+                                                    onChange={(e) => setIaBanca(e.target.value)}
+                                                    placeholder="EX: CEBRASPE"
+                                                    className="w-full h-10 bg-black/20 border border-amber-500/15 rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-amber-100/30 focus:border-amber-400/40"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 md:col-span-4">
+                                                <label className="text-[9px] font-bold text-amber-100/70 uppercase tracking-[0.16em] ml-1">Concurso / órgão</label>
+                                                <input
+                                                    type="text"
+                                                    value={iaOrigin}
+                                                    onChange={(e) => setIaOrigin(e.target.value)}
+                                                    placeholder="EX: POLÍCIA FEDERAL"
+                                                    className="w-full h-10 bg-black/20 border border-amber-500/15 rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-amber-100/30 focus:border-amber-400/40"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5 md:col-span-6">
+                                                <label className="text-[9px] font-bold text-amber-100/70 uppercase tracking-[0.16em] ml-1">Cargo / área / ênfase</label>
+                                                <input
+                                                    type="text"
+                                                    value={iaPosition}
+                                                    onChange={(e) => {
+                                                        setIaPosition(e.target.value);
+                                                        setSelectedCargoName(e.target.value);
+                                                        setSelectedCargoId('');
+                                                    }}
+                                                    placeholder="EX: POLICIAL RODOVIÁRIO FEDERAL"
+                                                    className="w-full h-10 bg-black/20 border border-amber-500/15 rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-amber-100/30 focus:border-amber-400/40"
+                                                />
+                                            </div>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
 
                                     {iaErrorMessage && (
@@ -1782,45 +1982,60 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                                     <div className="rounded-2xl border border-border dark:border-white/10 bg-card dark:bg-zinc-900/40 p-4">
                                         <label className="text-[10px] font-bold uppercase tracking-[0.16em] text-content-muted">
-                                            Selecione seu cargo
+                                            {hasManualCargoTarget()
+                                                ? 'Cargo alvo'
+                                                : 'Selecione seu cargo'}
                                         </label>
                                         <div className="mt-3 max-h-72 overflow-y-auto space-y-2 pr-1">
-                                            {analysisResult.cargos.map((cargo) => (
-                                                <button
-                                                    key={cargo.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedCargoId(cargo.id);
-                                                        setSelectedCargoName(cargo.name);
-                                                        setIaPosition(cargo.name);
-                                                    }}
-                                                    className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
-                                                        selectedCargoId === cargo.id
-                                                            ? 'border-primary bg-primary/10 text-content-main'
-                                                            : 'border-border dark:border-white/10 bg-secondary/40 hover:border-primary/40 text-content-main'
-                                                    }`}
-                                                >
-                                                    <p className="text-xs font-bold leading-snug break-words">{cargo.label_exibicao || cargo.name}</p>
-                                                </button>
-                                            ))}
+                                            {hasManualCargoTarget() ? (
+                                                <div className="w-full px-4 py-3 rounded-xl border border-primary/20 bg-primary/5 text-content-main">
+                                                    <p className="text-xs font-bold leading-snug break-words">{iaPosition}</p>
+                                                    <p className="text-[11px] text-content-muted mt-1">
+                                                        A IA não listou cargos com segurança. A extração usará o cargo, área ou ênfase informado acima.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                analysisResult.cargos.filter((cargo) => !isGenericCargoName(cargo.name)).length > 0 ? (
+                                                    analysisResult.cargos
+                                                        .filter((cargo) => !isGenericCargoName(cargo.name))
+                                                        .map((cargo) => (
+                                                            <button
+                                                                key={cargo.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedCargoId(cargo.id);
+                                                                    setSelectedCargoName(cargo.name);
+                                                                    setIaPosition(cargo.name);
+                                                                }}
+                                                                className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                                                                    selectedCargoId === cargo.id
+                                                                        ? 'border-primary bg-primary/10 text-content-main'
+                                                                        : 'border-border dark:border-white/10 bg-secondary/40 hover:border-primary/40 text-content-main'
+                                                                }`}
+                                                            >
+                                                                <p className="text-xs font-bold leading-snug break-words">{cargo.label_exibicao || cargo.name}</p>
+                                                            </button>
+                                                        ))
+                                                ) : (
+                                                    <div className="w-full px-4 py-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-content-main">
+                                                        <p className="text-xs font-bold leading-snug">Não consegui identificar cargos reais no edital.</p>
+                                                        <p className="text-[11px] text-content-muted mt-1">
+                                                            Revise banca e órgão/concurso e clique em Analisar novamente.
+                                                        </p>
+                                                    </div>
+                                                )
+                                            )}
                                         </div>
 
                                         <div className="flex justify-end gap-2 mt-4">
                                             <button
                                                 type="button"
-                                                onClick={() => setIaStage('input')}
-                                                className="px-4 h-10 rounded-xl border border-border text-xs font-bold text-content-muted hover:text-content-main transition-colors"
-                                            >
-                                                Voltar
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={handleExtractSelectedCargo}
-                                                disabled={!selectedCargoId}
+                                                onClick={hasOnlyGenericCargoAnalysis() ? handleIaImport : handleExtractSelectedCargo}
+                                                disabled={!hasOnlyGenericCargoAnalysis() && !selectedCargoId}
                                                 className="px-5 h-10 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-2 disabled:opacity-50"
                                             >
                                                 <Sparkles size={14} />
-                                                Extrair disciplinas
+                                                {hasOnlyGenericCargoAnalysis() ? 'Analisar novamente' : 'Extrair disciplinas'}
                                             </button>
                                         </div>
                                     </div>
@@ -2031,13 +2246,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     </div>
 
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        <button 
-                                            onClick={handleResumePendingExtraction}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
-                                        >
-                                            <Eye size={12} />
-                                            Continuar
-                                        </button>
                                         <button 
                                             onClick={discardPendingExtractionData}
                                             className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all"
@@ -2300,7 +2508,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-[1280px] max-h-[90vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col"
+                className={`relative w-full ${getModalWidthClass()} max-h-[90vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col`}
             >
                 {modalInnerContent}
             </motion.div>

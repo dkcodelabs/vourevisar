@@ -214,6 +214,21 @@ function withBankProfileInstruction(basePrompt: string, mode: ExtractMode, input
   return `${basePrompt}${buildBankProfileInstruction(mode, inputText, analysis)}`;
 }
 
+function buildUserProvidedContext(reqData: any) {
+  const lines = [
+    reqData?.banca ? `Banca informada pelo aluno: ${reqData.banca}` : "",
+    reqData?.origin ? `Orgao/concurso informado pelo aluno: ${reqData.origin}` : "",
+    reqData?.targetCargo ? `Cargo/area/enfase alvo informado pelo aluno: ${reqData.targetCargo}` : "",
+  ].filter(Boolean);
+
+  if (!lines.length) return "";
+
+  return `DADOS INFORMADOS PELO ALUNO:
+${lines.join("\n")}
+
+Use estes dados como pistas de leitura estrutural. Confirme no edital quando houver evidencia. Se o cargo/area/enfase alvo foi informado, procure a opcao equivalente mesmo que a grafia ou ordem esteja diferente. Nao invente conteudo que nao esteja no edital.`;
+}
+
 function getCargoOptionText(cargo: any) {
   return [
     cargo?.id,
@@ -657,7 +672,14 @@ serve(async (req) => {
     const primaryModelName = config.model || "gemini-2.5-flash";
     const modelCandidates = getModelCandidates(config, primaryModelName);
     const maxTokens = config.max_tokens || (mode === "analyze" ? 8192 : 32768);
-    const selectedCargoParts = getSelectedCargoParts(analysis, selectedCargo || reqData.position || "", selectedCargoId);
+    const profileAnalysisContext = analysis || {
+      edital: {
+        banca: reqData.banca || null,
+        organ: reqData.origin || null,
+        name: reqData.origin || null,
+      },
+    };
+    const selectedCargoParts = getSelectedCargoParts(analysis, selectedCargo || reqData.position || reqData.targetCargo || "", selectedCargoId);
     const basePrompt =
       mode === "analyze"
         ? DEFAULT_ANALYSIS_PROMPT
@@ -667,12 +689,13 @@ serve(async (req) => {
             .replace(/{{selectedCargoArea}}/g, selectedCargoParts.area || "null")}
 
 ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
-    const prompt = withBankProfileInstruction(basePrompt, mode, inputText, analysis);
+    const prompt = withBankProfileInstruction(basePrompt, mode, inputText, profileAnalysisContext);
+    const userProvidedContext = buildUserProvidedContext(reqData);
 
     const selectedOptionContext = buildSelectedOptionContext(analysis, selectedCargo || reqData.position || "", selectedCargoId);
     const contextInstruction = mode === "extractForCargo" && selectedOptionContext
-      ? `${prompt}\n\nDADOS DA OPCAO SELECIONADA:\n${selectedOptionContext}`
-      : prompt;
+      ? `${prompt}\n\n${userProvidedContext}\n\nDADOS DA OPCAO SELECIONADA:\n${selectedOptionContext}`.trim()
+      : `${prompt}\n\n${userProvidedContext}`.trim();
 
     const buildPayload = (modelName: string) => ({
       contents: buildContents(contextInstruction, inputText, fileUri),
