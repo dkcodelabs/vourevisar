@@ -61,7 +61,7 @@ type DocumentPayload = {
 interface ImportEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string, extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; source_updated_at?: string | null }) => Promise<void> | void;
+    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string, extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; exam_board?: string | null; source_updated_at?: string | null }) => Promise<void> | void;
     subjects: Subject[];
     userEditais?: UserEdital[];
     initialTab?: 'ready' | 'ia' | 'manual';
@@ -185,6 +185,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }[];
         category?: string;
         exam_date?: string;
+        exam_board?: string | null;
         published_at?: string;
         updated_at?: string | null;
     }
@@ -1077,7 +1078,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return;
             }
             
-            const extraInfo = { organ: iaOrigin, position: selectedCargoName || iaPosition, year: iaYear, exam_date: examDate };
+            const extraInfo = { organ: iaOrigin, position: selectedCargoName || iaPosition, year: iaYear, exam_date: examDate, exam_board: iaBanca.trim() || analysisResult.edital.banca || null };
             await onImport(newSubjects, finalName, true, undefined, extraInfo);
             await discardPendingExtractionData();
             onClose();
@@ -1119,7 +1120,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return;
             }
 
-            const extraInfo = { organ: manualOrigin, position: manualPosition, year: manualYear, exam_date: examDate };
+            const extraInfo = { organ: manualOrigin, position: manualPosition, year: manualYear, exam_date: examDate, exam_board: null };
             // Descartar extração por IA pendente se existir, para evitar conflitos
             await discardPendingExtractionData();
 
@@ -1184,6 +1185,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     year: edital.year || '',
                     category: edital.category,
                     exam_date: edital.exam_date,
+                    exam_board: edital.exam_board ?? null,
                     source_updated_at: edital.updated_at ?? null
                 }
             );

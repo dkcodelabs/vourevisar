@@ -144,11 +144,19 @@ export const EditalCard = ({
                                     </>
                                 )}
                             </h3>
-                            {displayPosition && (
-                                <p className="text-[11px] text-content-muted font-bold tracking-tight uppercase truncate">
-                                    {displayPosition}
-                                </p>
-                            )}
+                            <div className="space-y-0.5">
+                                {displayPosition && (
+                                    <p className="text-[11px] text-content-muted font-bold tracking-tight uppercase truncate">
+                                        {displayPosition}
+                                    </p>
+                                )}
+                                {edital.examBoard && (
+                                    <p className="flex items-center gap-1.5 text-[10px] text-primary/80 font-black tracking-[0.12em] uppercase truncate">
+                                        <GraduationCap size={11} className="shrink-0" />
+                                        <span className="truncate">{edital.examBoard}</span>
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

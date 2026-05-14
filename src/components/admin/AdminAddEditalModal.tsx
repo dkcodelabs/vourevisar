@@ -25,6 +25,7 @@ const EMPTY_FORM = {
     year: new Date().getFullYear().toString(),
     category: 'Carreiras Policiais',
     exam_date: '',
+    exam_board: '',
     is_public: true,
 };
 
@@ -74,7 +75,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
         editalName?: string,
         _isImported?: boolean,
         _sourceId?: string,
-        extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string }
+        extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; exam_board?: string | null; source_updated_at?: string | null }
     ) => {
         if (!user) return;
 
@@ -91,6 +92,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
             year: (extraInfo?.year || new Date().getFullYear().toString()).trim(),
             category: extraInfo?.category || 'Outros',
             exam_date: extraInfo?.exam_date || null,
+            exam_board: extraInfo?.exam_board?.trim() || null,
             is_public: true,
             status: 'published',
             subjects: mappedSubjects,
@@ -121,6 +123,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
                 year: form.year.trim(),
                 category: categoryDraft || form.category,
                 exam_date: form.exam_date || null,
+                exam_board: form.exam_board.trim() || null,
                 is_public: form.is_public,
                 status: 'published',
                 created_by: user?.id ?? null,
@@ -285,6 +288,15 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
                                                         value={form.exam_date}
                                                         onChange={e => setForm(p => ({ ...p, exam_date: e.target.value }))}
                                                         className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all [color-scheme:dark]"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-xs font-black text-content-muted uppercase tracking-widest px-1">Banca</label>
+                                                    <input
+                                                        value={form.exam_board}
+                                                        onChange={e => setForm(p => ({ ...p, exam_board: e.target.value }))}
+                                                        placeholder="Ex: Cebraspe, FGV, FCC..."
+                                                        className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
                                                     />
                                                 </div>
                                                 <div className="space-y-2 relative">

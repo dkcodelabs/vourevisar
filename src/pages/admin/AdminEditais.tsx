@@ -32,6 +32,7 @@ interface PublicEdital {
     year: string;
     category: string;
     exam_date?: string;
+    exam_board?: string | null;
     is_public?: boolean;
     status?: string;
     created_at?: string;
@@ -69,6 +70,7 @@ const EMPTY_FORM = {
     year: new Date().getFullYear().toString(),
     category: 'Carreiras Policiais',
     exam_date: '',
+    exam_board: '',
     is_public: true,
 };
 
@@ -146,6 +148,7 @@ const AdminEditais = () => {
             year: edital.year,
             category: edital.category,
             exam_date: edital.exam_date || '',
+            exam_board: edital.exam_board || '',
             is_public: edital.is_public ?? true,
         });
         setCategoryDraft(edital.category);
@@ -164,6 +167,7 @@ const AdminEditais = () => {
             year: form.year.trim(),
             category: categoryDraft || form.category,
             exam_date: form.exam_date || null,
+            exam_board: form.exam_board.trim() || null,
             is_public: form.is_public,
             status: 'published',
             updated_at: new Date().toISOString()
@@ -193,20 +197,13 @@ const AdminEditais = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            const { error } = await (supabase as any)
-                .from('public_editais')
-                .update({
-                    is_public: false,
-                    status: 'archived',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', id);
+            const { error } = await (supabase as any).from('public_editais').delete().eq('id', id);
             if (error) throw error;
-            toast.success('Edital arquivado.');
+            toast.success('Edital removido.');
             setConfirmDeleteId(null);
             fetchEditais();
         } catch (err) {
-            errorService.report(err, { module: 'AdminEditais', action: 'archive', userMessage: 'Erro ao arquivar.' });
+            errorService.report(err, { module: 'AdminEditais', action: 'delete', userMessage: 'Erro ao remover.' });
         }
     };
 
@@ -244,7 +241,10 @@ const AdminEditais = () => {
     };
 
     const filteredEditais = useMemo(() => 
-        editais.filter(e => `${e.organ} ${e.position}`.toLowerCase().includes(searchQuery.toLowerCase())),
+        editais.filter(e =>
+            e.status !== 'archived' &&
+            `${e.organ} ${e.position} ${e.category} ${e.exam_board || ''}`.toLowerCase().includes(searchQuery.toLowerCase())
+        ),
         [editais, searchQuery]
     );
 
@@ -382,6 +382,15 @@ const AdminEditais = () => {
                                                         className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all [color-scheme:dark]"
                                                     />
                                                 </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-xs font-black text-content-muted uppercase tracking-widest px-1">Banca</label>
+                                                    <input
+                                                        value={form.exam_board}
+                                                        onChange={e => setForm(p => ({ ...p, exam_board: e.target.value }))}
+                                                        placeholder="Ex: Cebraspe, FGV, FCC..."
+                                                        className="w-full h-12 bg-secondary dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-2xl px-5 text-sm font-medium text-content-main dark:text-white focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all placeholder:text-content-muted/30"
+                                                    />
+                                                </div>
                                                 <div className="space-y-2 relative">
                                                     <label className="text-xs font-black text-content-muted uppercase tracking-widest px-1">Categoria</label>
                                                     <input
@@ -463,7 +472,7 @@ const AdminEditais = () => {
                                 )}
                             </AnimatePresence>
 
-                            {/* Lista de Editais - Layout Híbrido Linear (Fidelidade Absoluta + PT-BR) */}
+                            {/* Lista de Editais */}
                             <div className="flex flex-col gap-2">
                                 {isLoading ? (
                                     <div className="py-20 text-center"><LoadingSpinner size="large" /></div>
@@ -485,53 +494,79 @@ const AdminEditais = () => {
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: idx * 0.02 }}
-                                                className="group relative bg-card border border-border hover:border-primary/30 hover:bg-secondary/30 transition-all duration-200 rounded-xl overflow-hidden cursor-pointer h-20"
+                                                className="group relative bg-card border border-border hover:border-primary/30 hover:bg-secondary/30 transition-all duration-200 rounded-xl overflow-hidden cursor-pointer min-h-[124px]"
 
                                                 onClick={() => {
                                                     setSelectedEditalForSubjects(edital);
                                                     setIsSubjectsModalOpen(true);
                                                 }}
                                             >
-                                                <div className="px-6 h-full flex flex-row items-center gap-8">
+                                                <div className="px-5 py-4 min-h-[124px] grid grid-cols-1 items-center gap-4 md:grid-cols-[minmax(0,1fr)_112px_56px] md:gap-x-5 md:gap-y-4 xl:grid-cols-[minmax(260px,1.05fr)_minmax(360px,1.5fr)_132px_64px]">
                                                     {/* Indicador de Seleção Lateral */}
-                                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-12 bg-white/5 group-hover:bg-primary transition-colors" />
+                                                    <div className="absolute left-0 top-4 bottom-4 w-[3px] bg-white/5 group-hover:bg-primary transition-colors" />
                                                     
-                                                    {/* Órgão Section (Esquerda) */}
-                                                    <div className="w-56 shrink-0">
-                                                        <h3 className="text-xl font-black text-foreground dark:text-white uppercase tracking-tighter leading-none mb-1 group-hover:text-primary transition-colors">
+                                                    {/* Concurso / Órgão */}
+                                                    <div className="min-w-0 space-y-2 pr-16 md:col-start-1 md:row-start-1 md:pr-0">
+                                                        <span className="block text-[9px] font-black text-zinc-600 uppercase tracking-[0.18em]">
+                                                            Concurso
+                                                        </span>
+                                                        <h3
+                                                            className="text-[15px] font-black text-foreground dark:text-white uppercase tracking-normal leading-[1.12] break-words group-hover:text-primary transition-colors"
+                                                            title={edital.organ}
+                                                        >
                                                             {edital.organ}
                                                         </h3>
-                                                        <p className="text-[11px] font-medium text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2">
-                                                            {edital.year}
+                                                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.16em] flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                            <span>{edital.year}</span>
                                                             {edital.exam_date && (
                                                                 <>
-                                                                    <span className="w-1 h-1 rounded-full bg-zinc-800" />
+                                                                    <span className="w-1 h-1 rounded-full bg-zinc-700" />
                                                                     <span className="text-primary/80 font-black">{new Date(edital.exam_date).toLocaleDateString('pt-BR')}</span>
                                                                 </>
                                                             )}
                                                         </p>
                                                     </div>
 
-                                                    {/* Detalhes Empilhados (Centro) */}
-                                                    <div className="flex-1 flex flex-col justify-center gap-2 min-w-0">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest w-16 text-right shrink-0">Cargo:</span>
-                                                            <span className="text-sm font-black text-foreground dark:text-white uppercase italic tracking-tight truncate">
-                                                                {edital.position}
+                                                    {/* Detalhes */}
+                                                    <div className="min-w-0 grid grid-cols-1 gap-x-4 gap-y-3 pr-16 md:col-span-3 md:col-start-1 md:row-start-2 md:grid-cols-3 md:pr-0 xl:col-span-1 xl:col-auto xl:row-auto xl:grid-cols-2">
+                                                        <div className="min-w-0">
+                                                            <span className="block text-[9px] font-black text-zinc-600 uppercase tracking-[0.18em] mb-1">
+                                                                Cargo
                                                             </span>
+                                                            <p
+                                                                className="text-[13px] font-bold text-foreground dark:text-white uppercase tracking-normal leading-snug break-words"
+                                                                title={edital.position || 'Não informado'}
+                                                            >
+                                                                {edital.position || 'Não informado'}
+                                                            </p>
                                                         </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest w-16 text-right shrink-0 py-1">Categoria:</span>
-                                                            <div className="px-2 py-1 bg-white/5 border border-white/5 rounded text-[10px] font-black text-zinc-400 uppercase tracking-wider truncate inline-block max-w-[200px] leading-tight">
-                                                                {edital.category}
-                                                            </div>
+                                                        <div className="min-w-0">
+                                                            <span className="block text-[9px] font-black text-zinc-600 uppercase tracking-[0.18em] mb-1">
+                                                                Categoria
+                                                            </span>
+                                                            <p
+                                                                className="text-[12px] font-bold text-zinc-300 uppercase tracking-normal leading-snug break-words"
+                                                                title={edital.category || 'Não informada'}
+                                                            >
+                                                                {edital.category || 'Não informada'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="min-w-0 md:col-span-1 xl:col-span-2">
+                                                            <span className="block text-[9px] font-black text-zinc-600 uppercase tracking-[0.18em] mb-1">
+                                                                Banca
+                                                            </span>
+                                                            <p
+                                                                className="text-[12px] font-bold text-zinc-500 uppercase tracking-normal leading-snug break-words"
+                                                                title={edital.exam_board || 'Não cadastrada'}
+                                                            >
+                                                                {edital.exam_board || 'Não cadastrada'}
+                                                            </p>
                                                         </div>
                                                     </div>
 
                                                     {/* Métricas e Status (Direita) */}
-                                                    <div className="flex items-center shrink-0 border-l border-white/5 pl-8 pr-1 min-w-[280px]">
-                                                        {/* Métricas Independentes */}
-                                                        <div className="flex flex-col items-end gap-1.5 w-24">
+                                                    <div className="flex items-center justify-start md:col-start-2 md:row-start-1 md:justify-end xl:col-auto xl:row-auto xl:border-l xl:border-white/5 xl:pl-5">
+                                                        <div className="flex w-auto flex-col items-start gap-1.5 md:w-[104px] md:items-end">
                                                             <div className="flex items-baseline gap-1.5">
                                                                 <span className={`text-base font-black leading-none tracking-tighter ${subjectsCount === 0 ? 'text-amber-500 animate-pulse' : 'text-primary'}`}>{subjectsCount}</span>
                                                                 <span className={`text-[10px] font-black uppercase tracking-tighter ${subjectsCount === 0 ? 'text-amber-500/60' : 'text-primary/60'}`}>Matérias</span>
@@ -541,12 +576,10 @@ const AdminEditais = () => {
                                                                 <span className={`text-[9px] font-black uppercase tracking-tighter ${topicsCount === 0 ? 'text-amber-500/60' : 'text-white'}`}>Tópicos</span>
                                                             </div>
                                                         </div>
+                                                    </div>
 
-                                                        {/* Separador Vertical (Deslocado mais p/ direita) */}
-                                                        <div className="h-10 w-px bg-white/10 ml-auto mr-0" />
-                                                        
-                                                        {/* Segmento Final: Centralizado entre Barra e Fim */}
-                                                        <div className="w-24 flex items-center justify-center">
+                                                    {/* Status / ações */}
+                                                    <div className="absolute right-4 top-4 flex items-center justify-center md:static md:col-start-3 md:row-start-1 xl:col-auto xl:row-auto xl:border-l xl:border-white/5 xl:pl-4">
                                                             <div className="relative w-full flex items-center justify-center">
                                                                 {/* Visibilidade Padrão: Status */}
                                                                 <div className="flex flex-col items-center gap-1 group-hover:opacity-0 group-hover:scale-75 transition-all duration-300">
@@ -581,7 +614,6 @@ const AdminEditais = () => {
                                                                     </button>
                                                                 </div>
                                                             </div>
-                                                        </div>
                                                     </div>
                                                 </div>
 

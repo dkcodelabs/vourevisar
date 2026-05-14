@@ -50,6 +50,7 @@ export interface UserEdital {
     year?: string;
     category?: string;
     examDate?: string;
+    examBoard?: string;
     createdAt: string;
     updatedAt: string;
     isImported: boolean;
@@ -91,6 +92,7 @@ const rowToEdital = (row: Record<string, unknown>): UserEdital => ({
     year: (row.year as string) || undefined,
     category: (row.category as string) || undefined,
     examDate: (row.exam_date as string) || undefined,
+    examBoard: (row.exam_board as string) || undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     isImported: row.is_imported as boolean,
@@ -203,6 +205,7 @@ const Editais = () => {
             year?: string | null;
             category?: string | null;
             exam_date?: string | null;
+            exam_board?: string | null;
         } | null;
     }>({ isOpen: false, edital: null, localSubjects: [], sourceSubjects: [] });
     const [editModal, setEditModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
@@ -309,7 +312,7 @@ const Editais = () => {
     }, [user?.id]);
 
     // ── Salvar Edital ──
-    const handleSaveEdital = useCallback(async (id: string, updates: { organ: string; position: string; year: string; exam_date?: string }) => {
+    const handleSaveEdital = useCallback(async (id: string, updates: { organ: string; position: string; year: string; exam_date?: string; exam_board?: string }) => {
         try {
             const { error } = await editaisTable()
                 .update({
@@ -317,6 +320,7 @@ const Editais = () => {
                     position: updates.position,
                     year: updates.year,
                     exam_date: updates.exam_date || null,
+                    exam_board: updates.exam_board || null,
                     name: updates.position ? `${updates.organ} - ${updates.position}` : updates.organ,
                     updated_at: new Date().toISOString()
                 } as any)
@@ -346,7 +350,7 @@ const Editais = () => {
 
     const hasMetadataDiff = (
         edital: UserEdital,
-        source?: { organ?: string | null; position?: string | null; year?: string | null; category?: string | null; exam_date?: string | null }
+        source?: { organ?: string | null; position?: string | null; year?: string | null; category?: string | null; exam_date?: string | null; exam_board?: string | null }
     ) => {
         if (!source) return false;
         const normalize = (value?: string | null) => (value || '').trim();
@@ -355,7 +359,8 @@ const Editais = () => {
             normalize(source.position) !== normalize(edital.position) ||
             normalize(source.year) !== normalize(edital.year) ||
             normalize(source.category) !== normalize(edital.category) ||
-            normalize(source.exam_date) !== normalize(edital.examDate)
+            normalize(source.exam_date) !== normalize(edital.examDate) ||
+            normalize(source.exam_board) !== normalize(edital.examBoard)
         );
     };
 
@@ -365,7 +370,7 @@ const Editais = () => {
             const { data, error } = await withTimeout(
                 (supabase as any)
                     .from('public_editais')
-                    .select('id, updated_at, organ, position, year, category, exam_date, subjects'),
+                    .select('id, updated_at, organ, position, year, category, exam_date, exam_board, subjects'),
                 10000,
                 'Carregamento de editais publicos'
             );
@@ -1318,7 +1323,7 @@ const Editais = () => {
         editalName?: string,
         isImported: boolean = false,
         sourceId?: string,
-        extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; source_updated_at?: string | null }
+        extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; exam_board?: string | null; source_updated_at?: string | null }
     ) => {
         console.log("🚀 handleImportDone acionado - Versão 2.3 (Correção P0001)");
         console.log("Parâmetros:", { editalName, isImported, sourceId, extraInfo });
@@ -1353,6 +1358,7 @@ const Editais = () => {
                 year: extraInfo?.year,
                 category: extraInfo?.category,
                 exam_date: sanitizedExamDate,
+                exam_board: extraInfo?.exam_board?.trim() || null,
                 subject_ids: [], // Será atualizado no final
                 active_subject_ids: [],
                 merged_into_cycle: false,
@@ -1512,6 +1518,7 @@ const Editais = () => {
                 subject_ids: updatedEdital.subjectIds,
                 active_subject_ids: updatedEdital.activeSubjectIds,
                 exam_date: updatedEdital.examDate || null,
+                exam_board: updatedEdital.examBoard || null,
                 updated_at: new Date().toISOString()
             } as any).eq('id', updatedEdital.id).eq('user_id', user.id);
             if (error) throw error;
@@ -1567,6 +1574,7 @@ const Editais = () => {
                     year: sourceResult.data.year ?? null,
                     category: sourceResult.data.category ?? null,
                     exam_date: sourceResult.data.exam_date ?? null,
+                    exam_board: sourceResult.data.exam_board ?? null,
                 },
             });
 
@@ -1686,6 +1694,7 @@ const Editais = () => {
                 year: sourceMetadata?.year ?? edital.year ?? null,
                 category: sourceMetadata?.category ?? null,
                 exam_date: sanitizeExamDate(sourceMetadata?.exam_date || undefined),
+                exam_board: sourceMetadata?.exam_board ?? edital.examBoard ?? null,
                 subject_ids: finalSubjectIds,
                 active_subject_ids: finalSubjectIds,
                 last_sync_snapshot: edital.sourceId ? {

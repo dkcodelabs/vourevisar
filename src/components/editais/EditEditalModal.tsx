@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, Building2, Briefcase, CalendarDays, Loader2 } from 'lucide-react';
+import { X, Save, Building2, Briefcase, CalendarDays, Loader2, GraduationCap } from 'lucide-react';
 import { UserEdital } from '@/pages/Editais';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
@@ -9,7 +9,7 @@ interface EditEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
     edital: UserEdital | null;
-    onSave: (id: string, updates: { organ: string; position: string; year: string; exam_date?: string }) => Promise<void>;
+    onSave: (id: string, updates: { organ: string; position: string; year: string; exam_date?: string; exam_board?: string }) => Promise<void>;
 }
 
 export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalModalProps) => {
@@ -17,6 +17,7 @@ export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalM
     const [position, setPosition] = useState('');
     const [year, setYear] = useState('');
     const [examDate, setExamDate] = useState('');
+    const [examBoard, setExamBoard] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
@@ -25,6 +26,7 @@ export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalM
             setPosition(edital.position || (edital.name.split(' - ').length > 1 ? edital.name.split(' - ').slice(1).join(' - ') : ''));
             setYear(edital.year || '');
             setExamDate(edital.examDate || (edital as any).exam_date || '');
+            setExamBoard(edital.examBoard || (edital as any).exam_board || '');
         }
     }, [edital, isOpen]);
 
@@ -41,7 +43,8 @@ export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalM
                 organ: organ.trim(), 
                 position: position.trim(), 
                 year: year.trim(),
-                exam_date: examDate.trim() || undefined
+                exam_date: examDate.trim() || undefined,
+                exam_board: examBoard.trim() || undefined
             });
             onClose();
         } catch (err) {
@@ -162,6 +165,25 @@ export const EditEditalModal = ({ isOpen, onClose, edital, onSave }: EditEditalM
                                         value={examDate}
                                         onChange={(e) => setExamDate(e.target.value)}
                                         className="w-full h-14 bg-zinc-950/50 border border-white/5 rounded-2xl pl-12 pr-4 text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all [color-scheme:dark]"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Banca */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">
+                                    Nome da Banca
+                                </label>
+                                <div className="relative group">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-primary transition-colors">
+                                        <GraduationCap size={18} />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={examBoard}
+                                        onChange={(e) => setExamBoard(e.target.value)}
+                                        placeholder="Ex: Cebraspe, FGV, FCC..."
+                                        className="w-full h-14 bg-zinc-950/50 border border-white/5 rounded-2xl pl-12 pr-4 text-white placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
                                     />
                                 </div>
                             </div>

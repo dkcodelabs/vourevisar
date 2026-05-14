@@ -1191,6 +1191,7 @@ export type Database = {
           category: string
           created_at: string | null
           exam_date: string | null
+          exam_board: string | null
           id: string
           is_public: boolean | null
           organ: string
@@ -1204,6 +1205,7 @@ export type Database = {
           category: string
           created_at?: string | null
           exam_date?: string | null
+          exam_board?: string | null
           id?: string
           is_public?: boolean | null
           organ: string
@@ -1217,6 +1219,7 @@ export type Database = {
           category?: string
           created_at?: string | null
           exam_date?: string | null
+          exam_board?: string | null
           id?: string
           is_public?: boolean | null
           organ?: string
@@ -1938,6 +1941,7 @@ export type Database = {
           category: string | null
           created_at: string
           exam_date: string | null
+          exam_board: string | null
           id: string
           is_imported: boolean
           last_sync_snapshot: Json | null
@@ -1957,6 +1961,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           exam_date?: string | null
+          exam_board?: string | null
           id?: string
           is_imported?: boolean
           last_sync_snapshot?: Json | null
@@ -1976,6 +1981,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           exam_date?: string | null
+          exam_board?: string | null
           id?: string
           is_imported?: boolean
           last_sync_snapshot?: Json | null
