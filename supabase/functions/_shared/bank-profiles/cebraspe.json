@@ -53,8 +53,9 @@
     ]
   },
   "regras_para_identificar_opcoes": [
-    "Primeiro identifique todas as opções reais de escolha do aluno: cargo único, cargo, cargo + área, cargo + ênfase ou cargo + especialidade.",
+    "Primeiro identifique todas as opções reais de escolha do aluno: cargo, cargo + área, cargo + ênfase ou cargo + especialidade. Se houver apenas uma opção, retorne o nome real dessa opção; nunca use Cargo unico como nome.",
     "Se uma área, ênfase ou especialidade altera conteúdo, vagas, prova ou classificação, ela deve virar uma opção separada.",
+    "Listas de curso de formação, capacitação, treinamento, contratação ou lotação podem ser parciais. Não use essas listas como fonte final de opções; procure a lista oficial em vagas, requisitos, anexos de cargos/áreas/ênfases ou objetos de avaliação.",
     "BLOCO I, BLOCO II, BLOCO III, P1, P2 e equivalentes não são opções do aluno; são agrupadores internos dentro de uma área, ênfase ou matéria.",
     "Não reduza cargo + área para o cargo pai quando a área tiver conteúdo próprio.",
     "Use requisitos, vagas ou tabela de provas apenas para identificar opções; não extraia matérias dessas seções.",

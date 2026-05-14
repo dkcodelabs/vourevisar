@@ -26,6 +26,8 @@ interface EditalCardProps {
     isProcessing?: boolean;
     processingProgress?: { percentage: number; message: string };
     hasUpdate?: boolean;
+    sourceAvailable?: boolean;
+    sourceStatusKnown?: boolean;
     onSync?: () => void;
     onEdit?: () => void;
     isHighlighted?: boolean;
@@ -34,7 +36,7 @@ interface EditalCardProps {
 export const EditalCard = ({
     edital, metrics, daysLeft, isSelected,
     onToggleSelect, onViewSubjects, onLoadCycle, onUnloadCycle, onDelete,
-    isProcessing = false, processingProgress, hasUpdate = false, onSync, onEdit, isHighlighted = false
+    isProcessing = false, processingProgress, hasUpdate = false, sourceAvailable = false, sourceStatusKnown = false, onSync, onEdit, isHighlighted = false
 }: EditalCardProps) => {
     const progress = metrics.totalTopics > 0
         ? Math.round((metrics.completedTopics / metrics.totalTopics) * 100)
@@ -85,24 +87,20 @@ export const EditalCard = ({
 
             {/* Ações Topo Direito */}
             <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-                {edital.sourceId && (
+                {edital.sourceId && hasUpdate && (
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             onSync?.();
                         }}
                         disabled={isProcessing}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-50 ${
-                            hasUpdate 
-                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 animate-pulse border border-emerald-400' 
-                                : 'bg-secondary/50 dark:bg-zinc-800/50 border border-border dark:border-white/5 text-content-muted hover:text-emerald-400'
-                        }`}
-                        title={hasUpdate ? "Atualização disponível!" : "Sincronizar com edital base"}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-50 bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 animate-pulse border border-emerald-400"
+                        title="Atualização disponível!"
                     >
                         {isProcessing && edital.sourceId ? (
                             <Loader2 size={16} className="animate-spin" />
                         ) : (
-                            <RefreshCw size={16} className={hasUpdate ? "animate-spin-slow" : ""} />
+                            <RefreshCw size={16} className="animate-spin-slow" />
                         )}
                     </button>
                 )}
@@ -157,7 +155,11 @@ export const EditalCard = ({
 
                 <div className="flex items-center justify-between border-b border-border dark:border-white/5 pb-3 mb-4">
                     <span className="text-[10px] text-content-muted font-medium">{createdDate}</span>
-                    {edital.sourceId ? (
+                    {edital.sourceId && sourceStatusKnown && !sourceAvailable ? (
+                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-amber-500">
+                            CATÁLOGO REMOVIDO
+                        </span>
+                    ) : edital.sourceId ? (
                         <span className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-500">
                             CÓPIA • CATÁLOGO
                         </span>

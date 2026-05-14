@@ -12,6 +12,7 @@ interface SyncReviewModalProps {
     localSubjects: Subject[];
     sourceSubjects: Subject[];
     editalName: string;
+    hasMetadataUpdate?: boolean;
 }
 
 export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
@@ -20,7 +21,8 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
     onApply,
     localSubjects,
     sourceSubjects,
-    editalName
+    editalName,
+    hasMetadataUpdate = false
 }) => {
     const [isApplying, setIsApplying] = useState(false);
 
@@ -335,7 +337,7 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
 
                     {/* Content Area with Custom Scrollbar */}
                     <div className="p-5 overflow-y-auto custom-scrollbar space-y-8 min-h-[300px]">
-                        {!hasChanges ? (
+                        {!hasChanges && !hasMetadataUpdate ? (
                             <motion.div 
                                 initial={{ opacity: 0, scale: 0.9 }}
                                 animate={{ opacity: 1, scale: 1 }}
@@ -347,6 +349,18 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                                 <h3 className="text-lg font-bold text-foreground mb-1">Tudo em dia!</h3>
                                 <p className="text-sm text-content-muted max-w-[240px] mx-auto leading-relaxed">Seu edital já está totalmente sincronizado conforme a última atualização oficial.</p>
 
+                            </motion.div>
+                        ) : !hasChanges && hasMetadataUpdate ? (
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="text-center py-16"
+                            >
+                                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-primary/20 shadow-[0_0_40px_rgba(59,130,246,0.1)]">
+                                    <RefreshCw className="text-primary" size={32} />
+                                </div>
+                                <h3 className="text-lg font-bold text-foreground mb-1">Dados do edital atualizados</h3>
+                                <p className="text-sm text-content-muted max-w-[260px] mx-auto leading-relaxed">As informações gerais do catálogo serão aplicadas ao seu edital.</p>
                             </motion.div>
                         ) : (
                             <div className="space-y-12 pb-4">
@@ -718,7 +732,7 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
 
                         <button
                             onClick={handleConfirm}
-                            disabled={!hasChanges || isApplying}
+                            disabled={(!hasChanges && !hasMetadataUpdate) || isApplying}
                             className="flex-[2] h-12 relative overflow-hidden group bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center gap-3 active:scale-95"
                         >
                             {isApplying ? (

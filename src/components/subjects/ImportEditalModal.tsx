@@ -61,7 +61,7 @@ type DocumentPayload = {
 interface ImportEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string, extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string }) => Promise<void> | void;
+    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string, extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; source_updated_at?: string | null }) => Promise<void> | void;
     subjects: Subject[];
     userEditais?: UserEdital[];
     initialTab?: 'ready' | 'ia' | 'manual';
@@ -186,6 +186,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         category?: string;
         exam_date?: string;
         published_at?: string;
+        updated_at?: string | null;
     }
     const [editais, setEditais] = useState<ReadyEdital[]>([]);
     const [loadingEditais, setLoadingEditais] = useState(true);
@@ -723,37 +724,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         return error?.message || JSON.stringify(error);
     };
 
-    const extractPdfPreviewText = async (file: File): Promise<string | undefined> => {
-        try {
-            const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-            pdfjsLib.GlobalWorkerOptions.workerSrc ||= new URL('pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString();
-
-            const data = new Uint8Array(await file.arrayBuffer());
-            const pdf = await pdfjsLib.getDocument({ data }).promise;
-            const maxPages = Math.min(pdf.numPages, 8);
-            const pages: string[] = [];
-
-            for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
-                const page = await pdf.getPage(pageNumber);
-                const content = await page.getTextContent();
-                const pageText = content.items
-                    .map((item: any) => typeof item?.str === 'string' ? item.str : '')
-                    .filter(Boolean)
-                    .join(' ')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-
-                if (pageText) pages.push(`--- PAGINA ${pageNumber} ---\n${pageText}`);
-            }
-
-            const preview = pages.join('\n\n').slice(0, 30000).trim();
-            return preview || undefined;
-        } catch (error) {
-            console.warn('[ImportEditalModal] Falha ao extrair preview textual do PDF:', error);
-            return undefined;
-        }
-    };
-
     const buildDocumentPayload = async () => {
         const payload: DocumentPayload = { sourceType: 'text' };
 
@@ -763,7 +733,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             }
 
             setProcessingMsg('Lendo o documento...');
-            payload.inputText = await extractPdfPreviewText(pdfFile);
             const safeFileName = pdfFile.name
                 .normalize('NFD')
                 .replace(/[\u0300-\u036f]/g, '')
@@ -795,6 +764,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
 
         throw new Error('Forneça um arquivo PDF ou o texto do edital.');
+    };
+
+    const getInputTextForFunction = (payload: DocumentPayload) => {
+        const hasPdfSource = Boolean(payload.pdfFileUri || payload.pdfPath || payload.pdfUrl);
+        return hasPdfSource ? undefined : payload.inputText;
     };
 
     const applyAnalysisToForm = (analysis: AiEditalAnalysis) => {
@@ -867,7 +841,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             const result = await supabase.functions.invoke('extract-edital', {
                 body: {
                     mode: 'analyze',
-                    inputText: documentPayload.inputText,
+                    inputText: getInputTextForFunction(documentPayload),
                     pdfUrl: documentPayload.pdfUrl,
                     pdfPath: documentPayload.pdfPath,
                     pdfFileUri: documentPayload.pdfFileUri,
@@ -1006,7 +980,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             const result = await supabase.functions.invoke('extract-edital', {
                 body: {
                     mode: 'extractForCargo',
-                    inputText: documentPayload.inputText,
+                    inputText: getInputTextForFunction(documentPayload),
                     pdfUrl: documentPayload.pdfUrl,
                     pdfPath: documentPayload.pdfPath,
                     pdfFileUri: documentPayload.pdfFileUri,
@@ -1209,7 +1183,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     position: edital.position, 
                     year: edital.year || '',
                     category: edital.category,
-                    exam_date: edital.exam_date
+                    exam_date: edital.exam_date,
+                    source_updated_at: edital.updated_at ?? null
                 }
             );
             onClose();

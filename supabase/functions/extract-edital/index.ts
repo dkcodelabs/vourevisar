@@ -25,9 +25,12 @@ Regras:
 - Ignore nivel de escolaridade, salarios, cronogramas e regras administrativas.
 - Identifique a banca organizadora quando ela aparecer explicitamente no documento. Exemplos: Cebraspe, Cespe, FGV, FCC, Vunesp, AOCP.
 - Se a banca nao aparecer explicitamente, use null. Nao chute a banca pelo estilo do edital.
+- Nao use listas parciais de curso de formacao, capacitacao, treinamento, contratacao ou lotacao como lista final de cargos/opcoes. Essas listas sao administrativas e podem omitir opcoes.
+- Para listar cargos/opcoes, procure secoes oficiais como DAS VAGAS, DOS CARGOS, DOS REQUISITOS, ANEXO DAS ENFASES/AREAS/CARGOS ou a secao de CONHECIMENTOS/OBJETOS DE AVALIACAO.
 - Identifique o orgao/instituicao, ano do edital/concurso e data da prova quando estiverem explicitamente no documento.
 - Para data da prova, retorne null se ela nao estiver no edital. Nao invente data.
 - Se um cargo nao tiver area, enfase ou especialidade especifica, deixe area_codigo e area_enfase como null.
+- Se o edital tiver apenas uma opcao, retorne o nome real do cargo/opcao conforme aparece no edital. Nunca use "Cargo unico" como nome de cargo.
 - Nao invente cargos, areas, enfases ou especialidades.
 - Use tabelas de vagas, provas, criterios de avaliacao ou classificacao apenas para confirmar que opcoes existem. Nao use essas tabelas para criar nomes que nao estejam identificados em secoes oficiais de cargo, area, enfase, especialidade, requisito ou conteudo programatico.
 - BLOCO I, BLOCO II, BLOCO III, P1, P2 e similares sao agrupadores internos de conteudo. Eles nao sao cargos, areas, enfases ou especialidades e nao devem virar opcoes no modal.
@@ -199,14 +202,24 @@ function matchesBankProfile(profile: BankProfile, inputText?: string, analysis?:
 
 function buildBankProfileInstruction(mode: ExtractMode, inputText?: string, analysis?: any) {
   const matchedProfiles = BANK_PROFILES.filter((profile) => matchesBankProfile(profile, inputText, analysis));
-  if (!matchedProfiles.length) return "";
+  const profilesToShow = matchedProfiles.length > 0
+    ? matchedProfiles
+    : mode === "analyze"
+      ? BANK_PROFILES
+      : [];
 
-  const instructions = matchedProfiles
+  if (!profilesToShow.length) return "";
+
+  const instructions = profilesToShow
     .map((profile) => JSON.stringify(profile, null, 2))
     .join("\n\n");
 
-  return `\n\nPERFIL DA BANCA PARA GUIAR A IA:
-Use o perfil abaixo como regra de leitura estrutural. O perfil nao substitui o edital: se nao houver evidencia no edital, nao invente. Quando a extracao der errado, o ajuste deve ser feito neste perfil, nao com regra especifica de edital no codigo.
+  const profileModeInstruction = matchedProfiles.length > 0
+    ? "Use o perfil abaixo como regra de leitura estrutural."
+    : "A banca ainda nao foi confirmada antes da leitura. Leia o PDF, identifique a banca explicitamente e use apenas o perfil cuja banca ou alias aparecer no edital. Se nenhum perfil corresponder, use as regras gerais do prompt.";
+
+  return `\n\nPERFIS DE BANCA PARA GUIAR A IA:
+${profileModeInstruction} O perfil nao substitui o edital: se nao houver evidencia no edital, nao invente. Quando a extracao der errado, o ajuste deve ser feito neste perfil, nao com regra especifica de edital no codigo.
 ${instructions}`;
 }
 
@@ -537,6 +550,55 @@ function getLeadingTopicNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function hasLeadingTopicMarker(value: string) {
+  return /^\d{1,2}(?:\.\d{1,2})*(?:[.)]|\s|(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ]))/.test(value.trim());
+}
+
+type NormalizedTopic = { name: string; position: number | null };
+
+function removeLeadingContentGroup(value: string) {
+  return value
+    .replace(/^(BLOCO|P)\s*[IVXLCDM\d]+(?:\s*[-–]\s*[^:]+)?\s*:\s*/i, "")
+    .trim();
+}
+
+function splitInlineNumberedTopics(topic: NormalizedTopic): NormalizedTopic[] {
+  const name = removeLeadingContentGroup(topic.name.replace(/\s+/g, " ").trim());
+  if (!/^\d{1,2}(?:\.\d{1,2})*(?:\s+|(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ]))\S/.test(name)) {
+    return [{ ...topic, name }];
+  }
+
+  const markerRegex = /(?:^|\s)(\d{1,2}(?:\.\d{1,2})*)(?=(?:\s+|[A-ZÁÉÍÓÚÂÊÔÃÕÇ])\S)/g;
+  const markers: Array<{ index: number; value: string }> = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = markerRegex.exec(name)) !== null) {
+    markers.push({
+      index: match.index + (match[0].startsWith(" ") ? 1 : 0),
+      value: match[1],
+    });
+  }
+
+  if (markers.length <= 1) {
+    return [{ ...topic, name }];
+  }
+
+  return markers
+    .map((marker, index) => {
+      const next = markers[index + 1];
+      return {
+        ...topic,
+        name: name.slice(marker.index, next?.index ?? name.length).trim(),
+        position: null,
+      };
+    })
+    .filter((item) => item.name.length >= 2);
+}
+
+function expandInlineNumberedTopics(topics: NormalizedTopic[]) {
+  return topics.flatMap(splitInlineNumberedTopics);
+}
+
 function mergeNumberedTopicContinuations<T extends { name: string; position: number | null }>(topics: T[]): T[] {
   const merged: T[] = [];
 
@@ -552,7 +614,7 @@ function mergeNumberedTopicContinuations<T extends { name: string; position: num
     const continuationItems: T[] = [];
     let cursor = index + 1;
 
-    while (cursor < topics.length && getLeadingTopicNumber(topics[cursor].name) === null) {
+    while (cursor < topics.length && !hasLeadingTopicMarker(topics[cursor].name)) {
       continuationItems.push(topics[cursor]);
       cursor++;
     }
@@ -607,12 +669,14 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
             rawText: weight.rawText ? String(weight.rawText).trim() : null,
           },
           topics: mergeNumberedTopicContinuations(
-            topics
-              .map((topic: any, index: number) => ({
-                name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
-                position: normalizeNumber(topic?.position) ?? index,
-              }))
-              .filter((topic: any) => topic.name.length >= 2),
+            expandInlineNumberedTopics(
+              topics
+                .map((topic: any, index: number) => ({
+                  name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
+                  position: normalizeNumber(topic?.position) ?? index,
+                }))
+                .filter((topic: any) => topic.name.length >= 2),
+            ),
           ),
         };
       })
@@ -621,8 +685,22 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
   };
 }
 
+function buildSourceInstruction(inputText?: string, fileUri?: string | null) {
+  const text = inputText?.trim();
+
+  if (fileUri) {
+    return "Leia o PDF anexado integralmente.";
+  }
+
+  if (text) {
+    return `TEXTO DO EDITAL:\n${text}`;
+  }
+
+  return "Leia o PDF anexado integralmente.";
+}
+
 function buildContents(instruction: string, inputText?: string, fileUri?: string | null) {
-  const parts: any[] = [{ text: `${instruction}\n\n${inputText ? `TEXTO DO EDITAL:\n${inputText}` : "Leia o PDF anexado integralmente."}` }];
+  const parts: any[] = [{ text: `${instruction}\n\n${buildSourceInstruction(inputText, fileUri)}` }];
   if (fileUri) {
     parts.push({ file_data: { mime_type: "application/pdf", file_uri: fileUri } });
   }

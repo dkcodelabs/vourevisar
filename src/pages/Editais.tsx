@@ -48,11 +48,17 @@ export interface UserEdital {
     organ?: string;
     position?: string;
     year?: string;
+    category?: string;
     examDate?: string;
     createdAt: string;
     updatedAt: string;
     isImported: boolean;
     sourceId?: string;
+    lastSyncSnapshot?: {
+        source_id?: string;
+        source_updated_at?: string | null;
+        synced_at?: string;
+    } | null;
     subjectIds: string[];
     activeSubjectIds: string[];
     isMergedWith?: string[];
@@ -83,11 +89,13 @@ const rowToEdital = (row: Record<string, unknown>): UserEdital => ({
     organ: (row.organ as string) || undefined,
     position: (row.position as string) || undefined,
     year: (row.year as string) || undefined,
+    category: (row.category as string) || undefined,
     examDate: (row.exam_date as string) || undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     isImported: row.is_imported as boolean,
     sourceId: (row.source_id as string) || undefined,
+    lastSyncSnapshot: (row.last_sync_snapshot as UserEdital['lastSyncSnapshot']) || null,
     subjectIds: (row.subject_ids as string[]) || [],
     activeSubjectIds: (row.active_subject_ids as string[]) || [],
     isMergedWith: (row.merged_with as string[]) || undefined,
@@ -188,6 +196,14 @@ const Editais = () => {
         edital: UserEdital | null;
         localSubjects: Subject[];
         sourceSubjects: any[];
+        sourceUpdatedAt?: string | null;
+        sourceMetadata?: {
+            organ?: string | null;
+            position?: string | null;
+            year?: string | null;
+            category?: string | null;
+            exam_date?: string | null;
+        } | null;
     }>({ isOpen: false, edital: null, localSubjects: [], sourceSubjects: [] });
     const [editModal, setEditModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [loadedEditalSubjects, setLoadedEditalSubjects] = useState<Subject[]>([]);
@@ -319,13 +335,37 @@ const Editais = () => {
     const [scrolledTo, setScrolledTo] = useState(false);
 
     const [publicEditais, setPublicEditais] = useState<any[]>([]);
+    const [publicEditaisLoaded, setPublicEditaisLoaded] = useState(false);
+
+    const getSyncedSourceTime = (edital: UserEdital): number | null => {
+        const sourceUpdatedAt = edital.lastSyncSnapshot?.source_updated_at;
+        if (!sourceUpdatedAt) return null;
+        const time = new Date(sourceUpdatedAt).getTime();
+        return Number.isNaN(time) ? null : time;
+    };
+
+    const hasMetadataDiff = (
+        edital: UserEdital,
+        source?: { organ?: string | null; position?: string | null; year?: string | null; category?: string | null; exam_date?: string | null }
+    ) => {
+        if (!source) return false;
+        const normalize = (value?: string | null) => (value || '').trim();
+        return (
+            normalize(source.organ) !== normalize(edital.organ) ||
+            normalize(source.position) !== normalize(edital.position) ||
+            normalize(source.year) !== normalize(edital.year) ||
+            normalize(source.category) !== normalize(edital.category) ||
+            normalize(source.exam_date) !== normalize(edital.examDate)
+        );
+    };
 
     const fetchPublicEditais = useCallback(async () => {
         try {
+            setPublicEditaisLoaded(false);
             const { data, error } = await withTimeout(
                 (supabase as any)
                     .from('public_editais')
-                    .select('id, updated_at, subjects'),
+                    .select('id, updated_at, organ, position, year, category, exam_date, subjects'),
                 10000,
                 'Carregamento de editais publicos'
             );
@@ -334,6 +374,8 @@ const Editais = () => {
             }
         } catch (err) {
             console.error('Error fetching public editais for sync check:', err);
+        } finally {
+            setPublicEditaisLoaded(true);
         }
     }, []);
 
@@ -431,10 +473,25 @@ const Editais = () => {
     useEffect(() => {
         const handleExternalUpdate = () => {
             fetchEditais();
+            fetchPublicEditais();
         };
         window.addEventListener('subjectUpdated', handleExternalUpdate);
         return () => window.removeEventListener('subjectUpdated', handleExternalUpdate);
-    }, [fetchEditais]);
+    }, [fetchEditais, fetchPublicEditais]);
+
+    useEffect(() => {
+        const refreshCatalogOnFocus = () => {
+            if (document.visibilityState === 'visible') {
+                fetchPublicEditais();
+            }
+        };
+        window.addEventListener('focus', fetchPublicEditais);
+        document.addEventListener('visibilitychange', refreshCatalogOnFocus);
+        return () => {
+            window.removeEventListener('focus', fetchPublicEditais);
+            document.removeEventListener('visibilitychange', refreshCatalogOnFocus);
+        };
+    }, [fetchPublicEditais]);
 
     // Carrega sugestões pendentes da IA
     const loadPendingSuggestions = useCallback(async () => {
@@ -669,32 +726,49 @@ const Editais = () => {
                 const topicIds = ((topicRows || []) as Array<{ id: string }>).map(t => t.id);
 
                 if (topicIds.length > 0) {
-                    await Promise.allSettled([
-                        (supabase as any).from('topic_review_history').delete().in('topic_id', topicIds),
-                        (supabase as any).from('topic_merges').delete().in('primary_topic_id', topicIds),
-                        (supabase as any).from('topic_merges').delete().overlaps('merged_topic_ids', topicIds)
-                    ]);
+                    // Batch deletes em chunks de 50 para evitar estouro de URL no PostgREST (~8KB limit)
+                    const CHUNK_SIZE = 50;
+                    for (let i = 0; i < topicIds.length; i += CHUNK_SIZE) {
+                        const chunk = topicIds.slice(i, i + CHUNK_SIZE);
+                        await Promise.allSettled([
+                            (supabase as any).from('topic_review_history').delete().in('topic_id', chunk),
+                            // Limpa merges onde o tópico é primário (coluna uuid, .in() funciona)
+                            // Nota: merges onde o tópico é secundário (merged_topic_ids jsonb) 
+                            // já foram tratados por cleanupMergesAfterEditalRemoval() acima.
+                            (supabase as any).from('topic_merges').delete().in('primary_topic_id', chunk),
+                        ]);
+                    }
 
-                    const { error: topicsDeleteError } = await supabase
-                        .from('topics')
-                        .delete()
-                        .in('id', topicIds);
-
-                    if (topicsDeleteError) throw topicsDeleteError;
+                    for (let i = 0; i < topicIds.length; i += CHUNK_SIZE) {
+                        const chunk = topicIds.slice(i, i + CHUNK_SIZE);
+                        const { error: topicsDeleteError } = await supabase
+                            .from('topics')
+                            .delete()
+                            .in('id', chunk);
+                        if (topicsDeleteError) throw topicsDeleteError;
+                    }
                 }
 
-                await Promise.allSettled([
-                    (supabase as any).from('study_sessions').delete().in('subject_id', subjectIds),
-                    (supabase as any).from('subject_merges').delete().in('primary_subject_id', subjectIds),
-                    (supabase as any).from('subject_merges').delete().overlaps('merged_subject_ids', subjectIds)
-                ]);
+                // Limpa study_sessions e subject_merges (por primary_subject_id, coluna uuid).
+                // Merges onde a matéria é secundária (merged_subject_ids jsonb)
+                // já foram tratados por cleanupMergesAfterEditalRemoval() acima.
+                const SUBJECT_CHUNK = 50;
+                for (let i = 0; i < subjectIds.length; i += SUBJECT_CHUNK) {
+                    const chunk = subjectIds.slice(i, i + SUBJECT_CHUNK);
+                    await Promise.allSettled([
+                        (supabase as any).from('study_sessions').delete().in('subject_id', chunk),
+                        (supabase as any).from('subject_merges').delete().in('primary_subject_id', chunk),
+                    ]);
+                }
 
-                const { error: subjectsDeleteError } = await supabase
-                    .from('subjects')
-                    .delete()
-                    .in('id', subjectIds);
-
-                if (subjectsDeleteError) throw subjectsDeleteError;
+                for (let i = 0; i < subjectIds.length; i += SUBJECT_CHUNK) {
+                    const chunk = subjectIds.slice(i, i + SUBJECT_CHUNK);
+                    const { error: subjectsDeleteError } = await supabase
+                        .from('subjects')
+                        .delete()
+                        .in('id', chunk);
+                    if (subjectsDeleteError) throw subjectsDeleteError;
+                }
             }
 
             // 5. DELEÇÃO FÍSICA ÚNICA
@@ -1244,7 +1318,7 @@ const Editais = () => {
         editalName?: string,
         isImported: boolean = false,
         sourceId?: string,
-        extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string }
+        extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; source_updated_at?: string | null }
     ) => {
         console.log("🚀 handleImportDone acionado - Versão 2.3 (Correção P0001)");
         console.log("Parâmetros:", { editalName, isImported, sourceId, extraInfo });
@@ -1269,6 +1343,11 @@ const Editais = () => {
                 name: finalName,
                 is_imported: isImported,
                 source_id: sourceId,
+                last_sync_snapshot: sourceId ? {
+                    source_id: sourceId,
+                    source_updated_at: extraInfo?.source_updated_at ?? null,
+                    synced_at: new Date().toISOString()
+                } : null,
                 organ: extraInfo?.organ,
                 position: extraInfo?.position,
                 year: extraInfo?.year,
@@ -1458,14 +1537,15 @@ const Editais = () => {
                     .from('public_editais')
                     .select('*')
                     .eq('id', edital.sourceId)
-                    .single(),
+                    .maybeSingle(),
                 supabase
                     .from('subjects')
                     .select('id, name, status, topics(id, name, completed, review_count)')
                     .in('id', edital.subjectIds || [])
             ]);
 
-            if (sourceResult.error || !sourceResult.data) throw new Error('Edital original não encontrado');
+            if (sourceResult.error) throw sourceResult.error;
+            if (!sourceResult.data) throw new Error('Edital original não encontrado');
             if (localResult.error) console.error('Erro no refetch local:', localResult.error);
 
             console.log('[Sync DEBUG]', {
@@ -1480,6 +1560,14 @@ const Editais = () => {
                 edital: edital,
                 localSubjects: (localResult.data as unknown as Subject[]) || [],
                 sourceSubjects: sourceResult.data.subjects || [],
+                sourceUpdatedAt: sourceResult.data.updated_at ?? null,
+                sourceMetadata: {
+                    organ: sourceResult.data.organ ?? null,
+                    position: sourceResult.data.position ?? null,
+                    year: sourceResult.data.year ?? null,
+                    category: sourceResult.data.category ?? null,
+                    exam_date: sourceResult.data.exam_date ?? null,
+                },
             });
 
         } catch (err) {
@@ -1583,9 +1671,28 @@ const Editais = () => {
 
             // 5. Finalizar atualização do edital local
             console.log('[Sync Apply] Finalizando. subjectIds finais:', finalSubjectIds);
+            const sourceMetadata = syncReview.sourceMetadata;
+            const sourceOrgan = sourceMetadata?.organ?.trim() || edital.organ || edital.name;
+            const sourcePosition = sourceMetadata?.position?.trim() || edital.position || '';
+            const sourceYear = sourceMetadata?.year?.trim() || edital.year || '';
+            const sourceName = sourcePosition
+                ? `${sourceOrgan} - ${sourcePosition}${sourceYear ? ` (${sourceYear})` : ''}`
+                : sourceOrgan;
+
             const { error: updErr } = await editaisTable().update({
+                name: sourceName,
+                organ: sourceMetadata?.organ ?? edital.organ ?? null,
+                position: sourceMetadata?.position ?? edital.position ?? null,
+                year: sourceMetadata?.year ?? edital.year ?? null,
+                category: sourceMetadata?.category ?? null,
+                exam_date: sanitizeExamDate(sourceMetadata?.exam_date || undefined),
                 subject_ids: finalSubjectIds,
                 active_subject_ids: finalSubjectIds,
+                last_sync_snapshot: edital.sourceId ? {
+                    source_id: edital.sourceId,
+                    source_updated_at: syncReview.sourceUpdatedAt ?? null,
+                    synced_at: new Date().toISOString()
+                } : null,
                 updated_at: new Date().toISOString()
             } as any).eq('id', edital.id);
 
@@ -1888,8 +1995,9 @@ const Editais = () => {
 
                         const source = publicEditais.find(p => p.id === edital.sourceId);
                         const sourceTime = source ? new Date(source.updated_at).getTime() : 0;
-                        const localCreatedTime = new Date(edital.createdAt).getTime();
-                        const localUpdatedTime = edital.updatedAt ? new Date(edital.updatedAt).getTime() : localCreatedTime;
+                        const syncedSourceTime = getSyncedSourceTime(edital);
+                        const fallbackImportTime = new Date(edital.createdAt).getTime();
+                        const sourceBaselineTime = syncedSourceTime ?? (Number.isNaN(fallbackImportTime) ? null : fallbackImportTime);
 
                         const hasRealUpdate = (() => {
                             if (!source) return false;
@@ -1956,7 +2064,13 @@ const Editais = () => {
                             return false;
                         })();
 
-                        const hasUpdate = hasRealUpdate;
+                        const hasCatalogVersionUpdate =
+                            !!source &&
+                            !Number.isNaN(sourceTime) &&
+                            sourceBaselineTime !== null &&
+                            sourceTime > sourceBaselineTime;
+
+                        const hasUpdate = !!source && (hasCatalogVersionUpdate || hasRealUpdate || hasMetadataDiff(edital, source));
 
                         const editalSubjects = subjects.filter(s => (edital.subjectIds || []).includes(s.id));
                         const isDeleteModalProcessingThisEdital =
@@ -1987,6 +2101,8 @@ const Editais = () => {
                                     isProcessing={isCardProcessing}
                                     processingProgress={isCardProcessing ? removalProgress : undefined}
                                     hasUpdate={!!hasUpdate}
+                                    sourceAvailable={!!source}
+                                    sourceStatusKnown={publicEditaisLoaded}
                                     isHighlighted={highlightedSourceId === edital.sourceId || highlightedSourceId === edital.id}
                                 />
                             </div>
@@ -2890,6 +3006,7 @@ const Editais = () => {
                     localSubjects={syncReview.localSubjects}
                     sourceSubjects={syncReview.sourceSubjects}
                     editalName={syncReview.edital.name}
+                    hasMetadataUpdate={hasMetadataDiff(syncReview.edital, syncReview.sourceMetadata || undefined)}
                 />
             )}
 

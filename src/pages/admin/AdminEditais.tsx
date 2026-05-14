@@ -11,6 +11,7 @@ import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { errorService } from '@/lib/errors/errorService';
 import { AdminEditalSubjectsModal } from '@/components/admin/AdminEditalSubjectsModal';
+import { AdminAddEditalModal } from '@/components/admin/AdminAddEditalModal';
 
 
 interface Topic {
@@ -76,7 +77,7 @@ const AdminEditais = () => {
     const [editais, setEditais] = useState<PublicEdital[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isAddingNew, setIsAddingNew] = useState(false);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [savingEdital, setSavingEdital] = useState(false);
@@ -133,12 +134,10 @@ const AdminEditais = () => {
         fetchSuggestions();
     }, [fetchEditais, fetchSuggestions]);
 
-    const openAddForm = () => {
-        setForm(EMPTY_FORM);
-        setCategoryDraft('Carreiras Policiais');
-        setIsAddingNew(true);
-        setEditingId(null);
+    const openAddModal = () => {
+        setIsAddModalOpen(true);
     };
+
 
     const openEditForm = (edital: PublicEdital) => {
         setForm({
@@ -151,7 +150,6 @@ const AdminEditais = () => {
         });
         setCategoryDraft(edital.category);
         setEditingId(edital.id);
-        setIsAddingNew(false);
     };
 
     const handleSave = async () => {
@@ -167,7 +165,8 @@ const AdminEditais = () => {
             category: categoryDraft || form.category,
             exam_date: form.exam_date || null,
             is_public: form.is_public,
-            status: 'published'
+            status: 'published',
+            updated_at: new Date().toISOString()
         };
 
         setSavingEdital(true);
@@ -183,7 +182,6 @@ const AdminEditais = () => {
             if (error) throw error;
             
             toast.success(editingId ? 'Edital atualizado!' : 'Edital cadastrado!');
-            setIsAddingNew(false);
             setEditingId(null);
             fetchEditais();
         } catch (err) {
@@ -195,13 +193,20 @@ const AdminEditais = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            const { error } = await (supabase as any).from('public_editais').delete().eq('id', id);
+            const { error } = await (supabase as any)
+                .from('public_editais')
+                .update({
+                    is_public: false,
+                    status: 'archived',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id);
             if (error) throw error;
-            toast.success('Edital removido.');
+            toast.success('Edital arquivado.');
             setConfirmDeleteId(null);
             fetchEditais();
         } catch (err) {
-            errorService.report(err, { module: 'AdminEditais', action: 'delete', userMessage: 'Erro ao remover.' });
+            errorService.report(err, { module: 'AdminEditais', action: 'archive', userMessage: 'Erro ao arquivar.' });
         }
     };
 
@@ -244,7 +249,6 @@ const AdminEditais = () => {
     );
 
     const pendingCount = suggestions.filter(s => s.status === 'pending').length;
-    const isFormOpen = isAddingNew || !!editingId;
 
     return (
         <div className="min-h-screen p-4 md:p-6 lg:p-8 space-y-6">
@@ -294,7 +298,7 @@ const AdminEditais = () => {
                         </div>
 
                         <button
-                            onClick={openAddForm}
+                            onClick={openAddModal}
                             className="w-full sm:w-auto h-11 px-6 bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group active:scale-95 shrink-0"
                         >
                             <Plus size={18} className="group-hover:rotate-90 transition-transform" /> Novo Edital
@@ -307,9 +311,9 @@ const AdminEditais = () => {
                     {activeTab === 'editais' && (
                         <motion.div key="ed" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
 
-                            {/* Formulário de Cadastro / Edição Centralizado */}
+                            {/* Formulário de Edição (inline, apenas para edição de existente) */}
                             <AnimatePresence>
-                                {isFormOpen && (
+                                {!!editingId && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0, y: -20 }}
                                         animate={{ opacity: 1, height: 'auto', y: 0 }}
@@ -333,7 +337,7 @@ const AdminEditais = () => {
                                                     </div>
                                                 </div>
                                                 <button 
-                                                    onClick={() => { setIsAddingNew(false); setEditingId(null); }} 
+                                                    onClick={() => { setEditingId(null); }} 
                                                     className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary text-content-muted hover:text-foreground hover:bg-secondary/80 transition-all border border-border"
 
                                                 >
@@ -440,7 +444,7 @@ const AdminEditais = () => {
 
                                             <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-8 pt-6 border-t border-white/5">
                                                 <button 
-                                                    onClick={() => { setIsAddingNew(false); setEditingId(null); }} 
+                                                    onClick={() => { setEditingId(null); }} 
                                                     className="px-6 py-3 text-sm font-black text-content-muted hover:text-white transition-colors"
                                                 >
                                                     DESCARTAR
@@ -451,7 +455,7 @@ const AdminEditais = () => {
                                                     className="h-12 px-10 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-sm font-black rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                                                 >
                                                     {savingEdital ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                                                    SALVAR EDITAL
+                                                    ATUALIZAR EDITAL
                                                 </button>
                                             </div>
                                         </div>
@@ -727,10 +731,17 @@ const AdminEditais = () => {
                 isOpen={isSubjectsModalOpen}
                 onClose={() => {
                     setIsSubjectsModalOpen(false);
-                    fetchEditais(); // Refresh background data
+                    fetchEditais();
                 }}
                 edital={selectedEditalForSubjects}
                 onUpdate={fetchEditais}
+            />
+
+            {/* Modal de Adição com picker IA/Manual */}
+            <AdminAddEditalModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                onSuccess={fetchEditais}
             />
         </div>
     );
