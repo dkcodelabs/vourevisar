@@ -58,6 +58,8 @@ Este arquivo é a fonte principal de instruções para agentes neste projeto. Se
 - Não apagar, recriar ou "limpar" `subject_merges`, `topic_merges`, `pending_cycle_merges`, `user_cycles` ou histórico de revisão sem entender o efeito sobre progresso, unificação e rastreabilidade.
 - Revisões e histórico: mudanças em `topic_review_history`, intervalos, dificuldade, status de tópico ou conclusão podem corromper métricas e agenda do aluno.
 - GUT/IA: mudanças em `src/services/gutCalculator.ts`, `ai-handler`, extração de edital ou sugestões de merge precisam de fallback claro e tratamento de erro.
+- Ao validar estrutura de edital, prompt ou perfil de banca, não crie regra específica para um edital/concurso isolado. A correção deve generalizar a leitura estrutural para outros editais sem quebrar os que já funcionam.
+- Antes de ajustar perfil/prompt de extração, descreva a regra estrutural reaproveitável: quais marcadores indicam opção, quais indicam agrupador, onde começa/finaliza conteúdo programático e quando uma divisão de conteúdo é realmente explícita.
 - Assinaturas/Asaas/admin/roles: trate como área sensível. Verifique permissão, auditoria e impacto financeiro antes de alterar.
 - Área admin não deve depender apenas de ocultar UI. Permissão precisa existir no backend/RPC/RLS quando aplicável.
 

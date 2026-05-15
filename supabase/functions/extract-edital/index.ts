@@ -72,6 +72,7 @@ Regras de Extracao:
 - Ignore requisitos, diploma, registro profissional, salarios, vagas, cronograma, lotacao, inscricoes e regras administrativas.
 - Atomicidade: quebre paragrafos longos em topicos curtos e diretos. Exemplo: em vez de "Direito Civil: Bens, Posse, Propriedade", crie tres topicos separados.
 - Preserve a numeracao original no inicio de cada topico quando ela existir no edital. Exemplo: "6 Deduplicacao. ILM - Information Lifecycle Management".
+- Nao transcreva trechos longos literalmente do edital. Para cada item numerado, gere um rotulo de estudo curto e fiel, mantendo a numeracao original e os termos essenciais. O objetivo e estruturar para estudo, nao copiar o documento.
 - Quando houver agrupadores como "BLOCO I", "BLOCO II", "P1" ou "P2" antes de uma lista numerada, trate-os apenas como agrupadores. Nao coloque "BLOCO I:" junto do nome do primeiro topico.
 - Preserve a ordem original das disciplinas e dos topicos.
 - O campo tipo deve marcar claramente a origem da disciplina: "Conhecimentos Basicos", "Conhecimentos Especificos" ou "Geral".
@@ -795,7 +796,35 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
       throw new Error("A resposta da IA foi cortada por limite de tokens. Tente enviar apenas a parte do conteudo programatico ou reduzir o edital.");
     }
 
-    const parsed = parseJsonObject(text);
+    if (finishReason === "RECITATION") {
+      throw new Error(
+        `A IA bloqueou a resposta por recitacao literal do documento. Diagnostico: model=${modelName}; finishReason=${finishReason}; responseLength=${text.length}; promptTokens=${usage?.promptTokenCount ?? "n/a"}; candidatesTokens=${usage?.candidatesTokenCount ?? "n/a"}.`,
+      );
+    }
+
+    if (!text.trim()) {
+      throw new Error(
+        `A IA retornou resposta vazia. Diagnostico: model=${modelName}; finishReason=${finishReason}; responseLength=0; promptTokens=${usage?.promptTokenCount ?? "n/a"}; candidatesTokens=${usage?.candidatesTokenCount ?? "n/a"}.`,
+      );
+    }
+
+    let parsed: any;
+    try {
+      parsed = parseJsonObject(text);
+    } catch (parseError: any) {
+      console.error("[extract-edital] invalid JSON response:", {
+        mode,
+        modelName,
+        finishReason,
+        responseLength: text.length,
+        promptTokens: usage?.promptTokenCount,
+        candidatesTokens: usage?.candidatesTokenCount,
+        parseError: parseError?.message,
+      });
+      throw new Error(
+        `A IA retornou uma resposta sem JSON valido. Diagnostico: model=${modelName}; finishReason=${finishReason}; responseLength=${text.length}; promptTokens=${usage?.promptTokenCount ?? "n/a"}; candidatesTokens=${usage?.candidatesTokenCount ?? "n/a"}.`,
+      );
+    }
 
     if (mode === "analyze") {
       return new Response(JSON.stringify({
