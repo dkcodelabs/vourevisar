@@ -30,6 +30,23 @@ interface AiSubject {
     topics: AiTopic[];
 }
 
+type WeightExtractionStatus = 'idle' | 'found' | 'not_found' | 'block_only' | 'ambiguous' | 'failed';
+
+type ExtractedSubjectWeight = {
+    subjectId: string;
+    points: number | null;
+    questions: number | null;
+    percentage: number | null;
+    rawText: string | null;
+};
+
+type WeightExtractionResponse = {
+    status?: WeightExtractionStatus;
+    subjects?: ExtractedSubjectWeight[];
+    blockWeights?: unknown[];
+    message?: string | null;
+};
+
 interface AiEditalAnalysis {
     edital: {
         name: string;
@@ -124,6 +141,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [loadingPending, setLoadingPending] = useState(false);
     const [iaErrorMessage, setIaErrorMessage] = useState('');
     const [showIaDataEditor, setShowIaDataEditor] = useState(false);
+    const [weightExtractionStatus, setWeightExtractionStatus] = useState<WeightExtractionStatus>('idle');
     const iaFlowCancelledRef = useRef(false);
 
     // Legacy complement mode states (kept for compatibility)
@@ -329,6 +347,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             if (normalized.includes('organizando resultado')) return 94;
             if (normalized.includes('validando estrutura')) return 91;
             if (normalized.includes('finalizando')) return 92;
+            if (normalized.includes('buscando peso')) return 90;
             if (normalized.includes('preparando revisão')) return 86;
             if (normalized.includes('mapeando tópicos')) return 82;
             if (normalized.includes('identificando disciplinas')) return 64;
@@ -805,6 +824,30 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         return payload.inputText?.trim() ? payload.inputText : undefined;
     };
 
+    const parseOptionalNumberInput = (value: string) => {
+        if (!value.trim()) return null;
+        const parsed = Number(value.replace(',', '.'));
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const getManualWeightRawText = () => {
+        return 'Informado manualmente pelo aluno na revisão da importação';
+    };
+
+    const getCurrentAiEditalName = () => {
+        const visibleCargo = (iaPosition || selectedCargoName).trim();
+        if (!visibleCargo) return iaEditalName.trim() || 'Edital Importado por IA';
+
+        const rawBase = iaOrigin.trim() || iaEditalName.trim() || analysisResult?.edital?.name || 'Edital';
+        const withoutYear = rawBase.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        const baseWithoutCargo = withoutYear.includes(' - ')
+            ? withoutYear.slice(0, withoutYear.lastIndexOf(' - ')).trim()
+            : withoutYear;
+        const baseName = baseWithoutCargo || 'Edital';
+
+        return `${baseName} - ${visibleCargo}${iaYear.trim() ? ` (${iaYear.trim()})` : ''}`;
+    };
+
     const applyAnalysisToForm = (analysis: AiEditalAnalysis) => {
         const edital = analysis.edital;
         if (edital.organ) setIaOrigin(edital.organ);
@@ -883,6 +926,96 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             },
             topics
         };
+    };
+
+    const mergeSubjectsWithOptionalWeights = (baseSubjects: AiSubject[], weightData?: WeightExtractionResponse): AiSubject[] => {
+        const weightedSubjects = Array.isArray(weightData?.subjects) ? weightData.subjects : [];
+        if (weightedSubjects.length === 0) return baseSubjects;
+
+        const weightsById = new Map<string, ExtractedSubjectWeight>(
+            weightedSubjects
+                .filter((item) => item?.subjectId && item?.rawText)
+                .map((item) => [String(item.subjectId), {
+                    subjectId: String(item.subjectId),
+                    points: typeof item.points === 'number' ? item.points : null,
+                    questions: typeof item.questions === 'number' ? item.questions : null,
+                    percentage: typeof item.percentage === 'number' ? item.percentage : null,
+                    rawText: item.rawText ? String(item.rawText) : null
+                }])
+        );
+
+        return baseSubjects.map(subject => {
+            const weight = weightsById.get(subject.id);
+            if (!weight) return subject;
+
+            return {
+                ...subject,
+                weight: {
+                    points: typeof weight.points === 'number' ? weight.points : null,
+                    questions: typeof weight.questions === 'number' ? weight.questions : null,
+                    percentage: typeof weight.percentage === 'number' ? weight.percentage : null,
+                    rawText: weight.rawText ? String(weight.rawText) : null
+                }
+            };
+        });
+    };
+
+    const extractOptionalWeights = async (
+        documentPayload: DocumentPayload,
+        confirmedAnalysis: AiEditalAnalysis,
+        cargo: AiEditalAnalysis['cargos'][number],
+        confirmedCargoName: string,
+        baseSubjects: AiSubject[]
+    ): Promise<AiSubject[]> => {
+        if (!baseSubjects.length) return baseSubjects;
+
+        setProcessingMsg('Buscando peso oficial das disciplinas...');
+        setIaProgress(prev => Math.max(prev, 86));
+        setWeightExtractionStatus('idle');
+
+        try {
+            const result = await supabase.functions.invoke('extract-edital', {
+                body: {
+                    mode: 'extractWeights',
+                    inputText: getInputTextForFunction(documentPayload),
+                    pdfUrl: documentPayload.pdfUrl,
+                    pdfPath: documentPayload.pdfPath,
+                    pdfFileUri: documentPayload.pdfFileUri,
+                    selectedCargoId: cargo.id,
+                    selectedCargo: confirmedCargoName,
+                    analysis: confirmedAnalysis,
+                    subjects: baseSubjects.map(subject => ({
+                        id: subject.id,
+                        title: subject.title,
+                        knowledgeType: subject.knowledgeType || null
+                    }))
+                }
+            });
+
+            if (result.error) {
+                const errBody = await getFunctionErrorMessage(result.error, result.response);
+                throw new Error(errBody);
+            }
+
+            const weights = result.data?.weights as WeightExtractionResponse | undefined;
+            const status = (weights?.status || 'not_found') as WeightExtractionStatus;
+            setWeightExtractionStatus(status);
+
+            if (status !== 'found') {
+                console.info('[extract-edital weights] Peso por matéria não aplicado:', {
+                    status,
+                    message: weights?.message,
+                    blockWeights: weights?.blockWeights
+                });
+                return baseSubjects;
+            }
+
+            return mergeSubjectsWithOptionalWeights(baseSubjects, weights);
+        } catch (error) {
+            console.warn('[extract-edital weights] Falha opcional. Continuando sem peso.', error);
+            setWeightExtractionStatus('failed');
+            return baseSubjects;
+        }
     };
 
     const tryIncrementalExtraction = async (
@@ -990,6 +1123,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setSelectedCargoName('');
         setShowIaDataEditor(false);
         setIaErrorMessage('');
+        setWeightExtractionStatus('idle');
 
         try {
             const targetCargoBeforeAnalysis = iaPosition.trim();
@@ -1148,10 +1282,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     setIaOrigin(analysisEdital.organ || iaOrigin);
                     setIaYear(finalYear || iaYear);
                     if (finalExamDate) setExamDate(finalExamDate);
-                    setAiResult(incrementalResults);
+
+                    const weightedResults = await extractOptionalWeights(
+                        documentPayload,
+                        confirmedAnalysis,
+                        cargo,
+                        confirmedCargoName,
+                        incrementalResults
+                    );
+                    if (iaFlowCancelledRef.current) return;
+                    setAiResult(weightedResults);
 
                     setProcessingMsg('Finalizando extração incremental...');
-                    await savePendingExtraction(finalName, incrementalResults, {
+                    await savePendingExtraction(finalName, weightedResults, {
                         analysis: confirmedAnalysis,
                         selectedCargo: confirmedCargoName,
                         source: documentPayload
@@ -1171,7 +1314,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 { delay: 12000, message: 'Separando conhecimentos básicos e específicos...' },
                 { delay: 20000, message: 'Identificando disciplinas...' },
                 { delay: 32000, message: 'Mapeando tópicos por disciplina...' },
-                { delay: 47000, message: 'Validando estrutura extraída...' },
+                { delay: 47000, message: 'Buscando peso oficial das disciplinas...' },
                 { delay: 62000, message: 'Organizando resultado para revisão...' }
             ]);
 
@@ -1219,10 +1362,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             setIaOrigin(edital.organ || analysisEdital.organ || iaOrigin);
             setIaYear(finalYear || iaYear);
             if (finalExamDate) setExamDate(finalExamDate);
-            setAiResult(mappedResults);
+
+            const weightedResults = await extractOptionalWeights(
+                documentPayload,
+                confirmedAnalysis,
+                cargo,
+                confirmedCargoName,
+                mappedResults
+            );
+            if (iaFlowCancelledRef.current) return;
+            setAiResult(weightedResults);
 
             setProcessingMsg('Finalizando extração...');
-            await savePendingExtraction(finalName, mappedResults, {
+            await savePendingExtraction(finalName, weightedResults, {
                 analysis: confirmedAnalysis,
                 selectedCargo: confirmedCargoName,
                 source: documentPayload
@@ -1252,7 +1404,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 exam_weight_points: s.weight?.points ?? null,
                 exam_weight_questions: s.weight?.questions ?? null,
                 exam_weight_percentage: s.weight?.percentage ?? null,
-                exam_weight_raw: s.weight?.rawText ?? null,
+                exam_weight_raw: (s.weight?.points !== null && s.weight?.points !== undefined) ||
+                    (s.weight?.questions !== null && s.weight?.questions !== undefined) ||
+                    (s.weight?.percentage !== null && s.weight?.percentage !== undefined)
+                    ? s.weight?.rawText ?? null
+                    : null,
                 topics: s.topics.filter(t => t.selected && t.name.trim().length >= 2).map((t, idx) => ({
                     id: Math.random().toString(36).substr(2, 9),
                     name: t.name.length > 500 ? t.name.substring(0, 497) + '...' : t.name,
@@ -1263,19 +1419,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 }))
             } as Subject));
 
-            const finalName = iaEditalName.trim() || 'Edital Importado por IA';
+            const finalName = getCurrentAiEditalName();
 
             // Validação de duplicidade por nome
             const normalizedName = finalName.toLowerCase().trim();
             const exists = userEditais.some(e => e.name.toLowerCase().trim() === normalizedName);
             
             if (exists) {
-                toastGate.notifyError('Você já possui um edital com este nome.', 'VAL-DUP-01', { severity: 'medium' });
+                toast.error('Você já possui um edital com este nome.');
                 setIsSavingAi(false);
                 return;
             }
             
-            const extraInfo = { organ: iaOrigin, position: selectedCargoName || iaPosition, year: iaYear, exam_date: examDate, exam_board: iaBanca.trim() || analysisResult.edital.banca || null };
+            const extraInfo = { organ: iaOrigin, position: iaPosition || selectedCargoName, year: iaYear, exam_date: examDate, exam_board: iaBanca.trim() || analysisResult.edital.banca || null };
             await onImport(newSubjects, finalName, true, undefined, extraInfo);
             await discardPendingExtractionData();
             onClose();
@@ -1992,7 +2148,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                     { label: 'Separando conhecimentos básicos e específicos', from: 36, to: 52 },
                                                     { label: 'Identificando disciplinas', from: 52, to: 68 },
                                                     { label: 'Mapeando tópicos por disciplina', from: 68, to: 86 },
-                                                    { label: 'Preparando revisão', from: 86, to: 100 }
+                                                    { label: 'Buscando peso oficial das disciplinas', from: 86, to: 94 },
+                                                    { label: 'Preparando revisão', from: 94, to: 100 }
                                                 ]
                                             ).map((step) => {
                                                 const stepProgress = Math.max(0, Math.min(100, ((iaProgress - step.from) / (step.to - step.from)) * 100));
@@ -2222,11 +2379,24 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         <div className="min-w-0">
                                             <p className="text-[9px] font-black text-primary uppercase tracking-[0.16em]">Resultado da extração</p>
                                             <h3 className="text-base font-bold text-content-main mt-1 truncate">
-                                                {iaEditalName || `${iaOrigin || 'Edital'} - ${iaPosition || selectedCargoName || 'Cargo'}`}
+                                                {getCurrentAiEditalName() || `${iaOrigin || 'Edital'} - ${iaPosition || selectedCargoName || 'Cargo'}`}
                                             </h3>
                                             <p className="text-[11px] text-content-muted mt-1">
                                                 Revise os dados antes de importar para sua lista de editais.
                                             </p>
+                                            {weightExtractionStatus !== 'idle' && (
+                                                <p className={`text-[11px] mt-1 font-semibold ${
+                                                    weightExtractionStatus === 'found'
+                                                        ? 'text-emerald-500'
+                                                        : 'text-amber-500'
+                                                }`}>
+                                                    {weightExtractionStatus === 'found'
+                                                        ? 'Peso oficial identificado em uma ou mais disciplinas. Revise antes de salvar.'
+                                                        : weightExtractionStatus === 'block_only'
+                                                            ? 'O edital indicou peso apenas por bloco. As disciplinas ficaram sem peso individual.'
+                                                            : 'Peso oficial por disciplina não identificado. Você pode preencher manualmente ou deixar em branco.'}
+                                                </p>
+                                            )}
                                         </div>
                                         {pendingExtraction && (
                                             <button
@@ -2357,6 +2527,65 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                                                 {subj.expanded && (
                                                     <div className="flex flex-col gap-1 pl-6 mt-2">
+                                                        <div className="mb-3 rounded-xl border border-white/5 bg-zinc-950/25 overflow-hidden">
+                                                            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-white/5">
+                                                                <div>
+                                                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-content-muted">Peso da prova</p>
+                                                                    <p className="text-[10px] text-content-muted">Preencha só se constar no edital.</p>
+                                                                </div>
+                                                                <span className="text-[8px] font-black uppercase tracking-[0.14em] text-content-muted border border-white/10 rounded-md px-1.5 py-0.5">
+                                                                    Opcional
+                                                                </span>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+                                                                <label className="space-y-1">
+                                                                    <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Questões</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        value={subj.weight?.questions ?? ''}
+                                                                        onChange={(e) => {
+                                                                            const newResult = [...aiResult];
+                                                                            const value = parseOptionalNumberInput(e.target.value);
+                                                                            newResult[sIdx].weight = {
+                                                                                ...(newResult[sIdx].weight || { points: null, questions: null, percentage: null, rawText: null }),
+                                                                                questions: value,
+                                                                                rawText: value !== null ? getManualWeightRawText() : newResult[sIdx].weight?.rawText || null
+                                                                            };
+                                                                            setAiResult(newResult);
+                                                                        }}
+                                                                        className="w-full h-9 px-3 bg-black/30 border border-white/5 rounded-lg text-[12px] font-bold text-content-main outline-none focus:border-primary/30 transition-colors"
+                                                                        placeholder="Ex.: 10"
+                                                                    />
+                                                                </label>
+                                                                <label className="space-y-1">
+                                                                    <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Pontos</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        step="0.01"
+                                                                        value={subj.weight?.points ?? ''}
+                                                                        onChange={(e) => {
+                                                                            const newResult = [...aiResult];
+                                                                            const value = parseOptionalNumberInput(e.target.value);
+                                                                            newResult[sIdx].weight = {
+                                                                                ...(newResult[sIdx].weight || { points: null, questions: null, percentage: null, rawText: null }),
+                                                                                points: value,
+                                                                                rawText: value !== null ? getManualWeightRawText() : newResult[sIdx].weight?.rawText || null
+                                                                            };
+                                                                            setAiResult(newResult);
+                                                                        }}
+                                                                        className="w-full h-9 px-3 bg-black/30 border border-white/5 rounded-lg text-[12px] font-bold text-content-main outline-none focus:border-primary/30 transition-colors"
+                                                                        placeholder="Ex.: 20"
+                                                                    />
+                                                                </label>
+                                                                {subj.weight?.rawText && (
+                                                                    <p className="sm:col-span-2 text-[10px] text-content-muted leading-relaxed border-t border-white/5 pt-2">
+                                                                        Evidência: {subj.weight.rawText}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                         {subj.topics.map((topic, tIdx) => (
                                                             <div key={tIdx} className="flex items-start gap-2 py-1">
                                                                 <input

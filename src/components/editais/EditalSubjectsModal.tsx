@@ -42,6 +42,28 @@ interface EditalSubjectsModalProps {
 const editaisTable = () => supabase.from('user_editais');
 const tmpId = () => `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
+const parseOptionalNumberInput = (value: string) => {
+    if (!value.trim()) return null;
+    const parsed = Number(value.replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const hasSubjectWeight = (subject: Subject) =>
+    subject.exam_weight_questions !== null && subject.exam_weight_questions !== undefined ||
+    subject.exam_weight_points !== null && subject.exam_weight_points !== undefined ||
+    subject.exam_weight_percentage !== null && subject.exam_weight_percentage !== undefined;
+
+const getSubjectWeightLabel = (subject: Subject) => {
+    const parts = [];
+    if (subject.exam_weight_questions !== null && subject.exam_weight_questions !== undefined) {
+        parts.push(`${subject.exam_weight_questions} questões`);
+    }
+    if (subject.exam_weight_points !== null && subject.exam_weight_points !== undefined) {
+        parts.push(`${subject.exam_weight_points} pts`);
+    }
+    return parts.length ? parts.join(' / ') : 'Peso';
+};
+
 const getProgress = (subject: Subject) => {
     if (!subject.topics?.length) return 0;
     const completed = subject.topics.filter(t => t.completed).length;
@@ -88,7 +110,11 @@ export const EditalSubjectsModal = ({
             subtopics: t.subtopics || []
         })),
         status: (s.status as Status) || 'Nova',
-        is_visible: s.is_visible ?? true
+        is_visible: s.is_visible ?? true,
+        exam_weight_points: s.exam_weight_points ?? null,
+        exam_weight_questions: s.exam_weight_questions ?? null,
+        exam_weight_percentage: s.exam_weight_percentage ?? null,
+        exam_weight_raw: s.exam_weight_raw ?? null
     }), []);
 
     useEffect(() => {
@@ -746,6 +772,53 @@ export const EditalSubjectsModal = ({
         }
     }, [editingSubjectId, editingSubjectName, allSubjects, edital.subjectIds]);
 
+    const updateSubjectWeightLocal = useCallback((
+        subjectId: string,
+        field: 'exam_weight_questions' | 'exam_weight_points' | 'exam_weight_percentage',
+        value: string
+    ) => {
+        const parsed = parseOptionalNumberInput(value);
+        setLocalSubjects(prev => prev.map(subject => {
+            if (subject.id !== subjectId) return subject;
+            const nextSubject = {
+                ...subject,
+                [field]: parsed
+            };
+
+            if (parsed !== null) {
+                nextSubject.exam_weight_raw = 'Informado manualmente pelo aluno na edição do edital';
+            }
+
+            return nextSubject;
+        }));
+    }, []);
+
+    const handleSaveSubjectWeight = useCallback(async (subjectId: string) => {
+        const subject = localSubjects.find(item => item.id === subjectId);
+        if (!subject) return;
+
+        setSyncStatus('saving');
+        try {
+            const hasWeight = hasSubjectWeight(subject);
+            const { error } = await supabase
+                .from('subjects')
+                .update({
+                    exam_weight_questions: subject.exam_weight_questions ?? null,
+                    exam_weight_points: subject.exam_weight_points ?? null,
+                    exam_weight_percentage: subject.exam_weight_percentage ?? null,
+                    exam_weight_raw: hasWeight ? subject.exam_weight_raw || 'Informado manualmente pelo aluno na edição do edital' : null
+                } as any)
+                .eq('id', subjectId);
+
+            if (error) throw error;
+            hasPendingSync.current = true;
+            setSyncStatus('saved');
+        } catch (err) {
+            setSyncStatus('error');
+            errorService.report(err, { module: 'EditalSubjectsModal', action: 'editSubjectWeight', userMessage: 'Erro ao salvar peso da matéria.' });
+        }
+    }, [localSubjects]);
+
     // ── Excluir tópico — pede confirmação inline primeiro ─────────────────
     const handleRequestDeleteTopic = useCallback((topicId: string) => {
         setConfirmDeleteTopicId(prev => prev === topicId ? null : topicId);
@@ -1246,6 +1319,11 @@ export const EditalSubjectsModal = ({
                                                         <span className="text-[10px] text-content-muted font-semibold tabular-nums ml-2">
                                                             {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                                         </span>
+                                                        {hasSubjectWeight(subject) && (
+                                                            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-1.5 py-0.5">
+                                                                {getSubjectWeightLabel(subject)}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1355,6 +1433,57 @@ export const EditalSubjectsModal = ({
                                                     onClick={e => e.stopPropagation()}
                                                 >
                                                     <div className="flex flex-col">
+                                                        <div className="px-4 py-3 border-b border-white/5">
+                                                            <div className="rounded-xl border border-white/5 bg-white/[0.03] overflow-hidden">
+                                                                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-white/5">
+                                                                    <div>
+                                                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-content-muted">Peso da prova</p>
+                                                                        <p className="text-[10px] text-content-muted">Preencha só se constar no edital.</p>
+                                                                    </div>
+                                                                    <span className="text-[8px] font-black uppercase tracking-[0.14em] text-content-muted border border-white/10 rounded-md px-1.5 py-0.5">
+                                                                        Opcional
+                                                                    </span>
+                                                                </div>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
+                                                                    <label className="space-y-1">
+                                                                        <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Questões</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={subject.exam_weight_questions ?? ''}
+                                                                            onChange={e => updateSubjectWeightLocal(subject.id, 'exam_weight_questions', e.target.value)}
+                                                                            onBlur={() => handleSaveSubjectWeight(subject.id)}
+                                                                            onKeyDown={e => { if (e.key === 'Enter') handleSaveSubjectWeight(subject.id); }}
+                                                                            disabled={!isEditable}
+                                                                            className="w-full h-9 px-3 bg-black/30 border border-white/5 rounded-lg text-[12px] font-bold text-content-main outline-none disabled:opacity-60 focus:border-primary/30 transition-colors"
+                                                                            placeholder="Ex.: 10"
+                                                                        />
+                                                                    </label>
+                                                                    <label className="space-y-1">
+                                                                        <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Pontos</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            step="0.01"
+                                                                            value={subject.exam_weight_points ?? ''}
+                                                                            onChange={e => updateSubjectWeightLocal(subject.id, 'exam_weight_points', e.target.value)}
+                                                                            onBlur={() => handleSaveSubjectWeight(subject.id)}
+                                                                            onKeyDown={e => { if (e.key === 'Enter') handleSaveSubjectWeight(subject.id); }}
+                                                                            disabled={!isEditable}
+                                                                            className="w-full h-9 px-3 bg-black/30 border border-white/5 rounded-lg text-[12px] font-bold text-content-main outline-none disabled:opacity-60 focus:border-primary/30 transition-colors"
+                                                                            placeholder="Ex.: 20"
+                                                                        />
+                                                                    </label>
+                                                                    {subject.exam_weight_raw && (
+                                                                        <p className="sm:col-span-2 text-[10px] text-content-muted leading-relaxed border-t border-white/5 pt-2">
+                                                                            {subject.exam_weight_raw.includes('Informado manualmente')
+                                                                                ? 'Peso informado manualmente.'
+                                                                                : `Evidência: ${subject.exam_weight_raw}`}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
                                                         {/* Input "Novo tópico..." (IA ou MANUAL) */}
                                                         {isEditable && (

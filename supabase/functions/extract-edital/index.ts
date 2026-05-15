@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type ExtractMode = "analyze" | "extractForCargo" | "mapContentStructure" | "extractSubject";
+type ExtractMode = "analyze" | "extractForCargo" | "mapContentStructure" | "extractSubject" | "extractWeights";
 type BankProfile = {
   banca: string;
   aliases: string[];
@@ -16,7 +16,7 @@ type BankProfile = {
 };
 
 const BANK_PROFILES: BankProfile[] = [cebraspeProfile as BankProfile];
-const VALID_EXTRACT_MODES = ["analyze", "extractForCargo", "mapContentStructure", "extractSubject"] as const;
+const VALID_EXTRACT_MODES = ["analyze", "extractForCargo", "mapContentStructure", "extractSubject", "extractWeights"] as const;
 
 const DEFAULT_ANALYSIS_PROMPT = `Voce e um extrator de dados automatizado especializado em editais de concursos publicos. Sua tarefa e ler o documento fornecido e identificar a banca organizadora e os cargos ofertados.
 
@@ -168,6 +168,54 @@ const WEIGHT_EXTRACTION_DISABLED_RULES = `PESO / IMPORTANCIA:
 - Nao procure tabela de prova para tentar inferir peso agora.
 - Para todas as disciplinas, retorne weight.points, weight.questions, weight.percentage e weight.rawText como null.
 - O peso sera tratado em uma etapa propria depois, normalmente a partir de quantidade de questoes ou pontuacao por materia.`;
+
+const EXTRACT_WEIGHTS_PROMPT = `Voce e um extrator conservador de pesos oficiais de disciplinas em editais de concursos publicos.
+
+Sua tarefa e procurar APENAS informacoes explicitas de peso, numero de questoes, valor por questao, pontuacao total ou percentual por disciplina para o cargo alvo.
+
+Dados do Cargo Alvo:
+- Nome do Cargo: "{{selectedCargoName}}"
+- Area/Enfase: "{{selectedCargoArea}}"
+
+Disciplinas ja extraidas pelo sistema:
+{{subjectsJson}}
+
+Regras obrigatorias:
+- Responda somente sobre as disciplinas recebidas na lista. Nunca crie disciplina nova.
+- Use secoes como "Das Provas", "Prova Objetiva", "Quadro de Provas", "Conteudos e Pontuacao", "Distribuicao das Questoes" ou equivalentes.
+- Preencha peso por disciplina apenas quando houver evidencia explicita ligada a essa disciplina.
+- Se o edital trouxer apenas peso por bloco/area (ex.: "Conhecimentos Basicos - 40 questoes") sem detalhar por disciplina, retorne status "block_only" e nao distribua esse peso entre disciplinas.
+- Se houver apenas pontuacao geral da prova sem quebra por disciplina, retorne status "not_found".
+- Nao use quantidade de topicos, criterios de desempate, importancia percebida, ordem de aparicao ou conhecimento comum para inferir peso.
+- Nao assuma que questao vale 1 ponto se o edital nao disser isso explicitamente.
+- Se houver numero de questoes e valor/peso por questao explicitamente para a disciplina, voce pode calcular points = questions * valor_por_questao.
+- rawText deve conter trecho curto do edital que justifica o peso. Se nao houver evidencia, use null.
+- Retorne ESTRITAMENTE JSON puro, sem markdown e sem explicacoes.
+
+Formato JSON esperado:
+{
+  "status": "found | not_found | block_only | ambiguous",
+  "subjects": [
+    {
+      "subjectId": "id exatamente como recebido",
+      "subjectName": "nome exatamente como recebido",
+      "questions": 10,
+      "points": 20,
+      "percentage": null,
+      "rawText": "Disciplina X: 10 questoes, peso 2"
+    }
+  ],
+  "blockWeights": [
+    {
+      "blockName": "Conhecimentos Basicos",
+      "questions": 40,
+      "points": null,
+      "percentage": null,
+      "rawText": "Conhecimentos Basicos: 40 questoes"
+    }
+  ],
+  "message": "Resumo curto ou null"
+}`;
 
 async function callGemini(apiKey: string, modelName: string, payload: any, timeoutMs = 90000): Promise<{ text: string; finishReason: string; usage: any }> {
   const controller = new AbortController();
@@ -768,6 +816,75 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
   };
 }
 
+function normalizeWeightStatus(value: unknown) {
+  const normalized = String(value || "").trim();
+  if (["found", "not_found", "block_only", "ambiguous", "failed"].includes(normalized)) {
+    return normalized;
+  }
+  return "not_found";
+}
+
+function normalizeWeightExtraction(raw: any, allowedSubjects: any[]) {
+  const allowedById = new Map(
+    allowedSubjects
+      .map((subject: any) => ({
+        id: String(subject?.id || "").trim(),
+        title: String(subject?.title || subject?.name || subject?.subjectName || "").trim(),
+      }))
+      .filter((subject) => subject.id && subject.title)
+      .map((subject) => [subject.id, subject]),
+  );
+
+  const rawSubjects = Array.isArray(raw?.subjects) ? raw.subjects : [];
+  const subjects = rawSubjects
+    .map((subject: any) => {
+      const subjectId = String(subject?.subjectId || subject?.id || "").trim();
+      const allowed = allowedById.get(subjectId);
+      if (!allowed) return null;
+
+      const rawText = subject?.rawText ? String(subject.rawText).replace(/\s+/g, " ").trim() : null;
+      return {
+        subjectId: allowed.id,
+        subjectName: allowed.title,
+        questions: normalizeNumber(subject?.questions),
+        points: normalizeNumber(subject?.points),
+        percentage: normalizeNumber(subject?.percentage),
+        rawText: rawText && rawText.length <= 500 ? rawText : rawText ? rawText.slice(0, 497) + "..." : null,
+      };
+    })
+    .filter((subject: any) =>
+      subject &&
+      subject.rawText &&
+      (subject.questions !== null || subject.points !== null || subject.percentage !== null),
+    );
+
+  const blockWeights = Array.isArray(raw?.blockWeights)
+    ? raw.blockWeights.map((block: any) => ({
+        blockName: block?.blockName ? String(block.blockName).trim() : null,
+        questions: normalizeNumber(block?.questions),
+        points: normalizeNumber(block?.points),
+        percentage: normalizeNumber(block?.percentage),
+        rawText: block?.rawText ? String(block.rawText).replace(/\s+/g, " ").trim() : null,
+      })).filter((block: any) => block.blockName && block.rawText)
+    : [];
+
+  const requestedStatus = normalizeWeightStatus(raw?.status);
+  const status = subjects.length > 0
+    ? "found"
+    : blockWeights.length > 0 || requestedStatus === "block_only"
+      ? "block_only"
+      : requestedStatus === "ambiguous"
+        ? "ambiguous"
+        : "not_found";
+
+  return {
+    status,
+    subjects,
+    blockWeights,
+    message: raw?.message ? String(raw.message).trim() : null,
+  };
+}
+
 function normalizeSubjectKey(value: unknown, fallback: string) {
   const normalized = String(value || fallback || "")
     .normalize("NFD")
@@ -912,6 +1029,11 @@ serve(async (req) => {
       throw new Error("extractSubject exige sourceExcerpt fatiado da disciplina.");
     }
 
+    const weightSubjects = Array.isArray(reqData.subjects) ? reqData.subjects : [];
+    if (mode === "extractWeights" && weightSubjects.length === 0) {
+      throw new Error("extractWeights exige a lista de disciplinas ja extraidas.");
+    }
+
     if (mode !== "extractSubject" && !inputText && !pdfUrl && !pdfPath && !pdfFileUri) {
       throw new Error("Forneca um arquivo PDF ou o texto do edital.");
     }
@@ -942,7 +1064,9 @@ serve(async (req) => {
       ? Math.min(config.max_tokens || 8192, 12000)
       : mode === "extractSubject"
         ? Math.min(config.max_tokens || 8192, 12000)
-        : config.max_tokens || (mode === "analyze" ? 8192 : 32768);
+        : mode === "extractWeights"
+          ? Math.min(config.max_tokens || 8192, 12000)
+          : config.max_tokens || (mode === "analyze" ? 8192 : 32768);
     const profileAnalysisContext = analysis || {
       edital: {
         banca: reqData.banca || null,
@@ -962,6 +1086,22 @@ serve(async (req) => {
       basePrompt = EXTRACT_SUBJECT_PROMPT
         .replace(/{{subjectTitle}}/g, String(reqData.subjectTitle || reqData.disciplina || ""))
         .replace(/{{knowledgeType}}/g, String(reqData.knowledgeType || reqData.tipo || "Geral"));
+    } else if (mode === "extractWeights") {
+      const subjectsJson = JSON.stringify(
+        weightSubjects
+          .map((subject: any) => ({
+            id: String(subject?.id || "").trim(),
+            name: String(subject?.title || subject?.name || subject?.subjectName || "").trim(),
+            knowledgeType: subject?.knowledgeType || subject?.type || null,
+          }))
+          .filter((subject: any) => subject.id && subject.name),
+        null,
+        2,
+      );
+      basePrompt = EXTRACT_WEIGHTS_PROMPT
+        .replace(/{{selectedCargoName}}/g, selectedCargoParts.name || selectedCargo || reqData.position || "")
+        .replace(/{{selectedCargoArea}}/g, selectedCargoParts.area || "null")
+        .replace(/{{subjectsJson}}/g, subjectsJson);
     } else {
       basePrompt = `${DEFAULT_EXTRACTION_PROMPT
         .replace(/{{selectedCargo}}/g, selectedCargo || reqData.position || "")
@@ -974,7 +1114,7 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     const userProvidedContext = buildUserProvidedContext(reqData);
 
     const selectedOptionContext = buildSelectedOptionContext(analysis, selectedCargo || reqData.position || "", selectedCargoId);
-    const contextInstruction = (mode === "extractForCargo" || mode === "mapContentStructure") && selectedOptionContext
+    const contextInstruction = (mode === "extractForCargo" || mode === "mapContentStructure" || mode === "extractWeights") && selectedOptionContext
       ? `${prompt}\n\n${userProvidedContext}\n\nDADOS DA OPCAO SELECIONADA:\n${selectedOptionContext}`.trim()
       : `${prompt}\n\n${userProvidedContext}`.trim();
 
@@ -984,7 +1124,7 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     const buildPayload = (modelName: string) => ({
       contents: buildContents(contextInstruction, payloadInputText, payloadFileUri),
       generationConfig: {
-        temperature: mode === "extractSubject" ? 0 : config.temperature !== undefined ? config.temperature : 0.1,
+        temperature: mode === "extractSubject" || mode === "extractWeights" ? 0 : config.temperature !== undefined ? config.temperature : 0.1,
         topK: config.top_k,
         topP: config.top_p,
         presencePenalty: config.presence_penalty,
@@ -994,7 +1134,7 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     });
 
     console.log("[extract-edital] Calling Gemini", { mode, modelCandidates, hasPdf: !!payloadFileUri, hasText: !!payloadInputText });
-    const timeoutMs = mode === "extractForCargo" ? 85000 : mode === "extractSubject" ? 45000 : 70000;
+    const timeoutMs = mode === "extractForCargo" ? 85000 : mode === "extractSubject" ? 45000 : mode === "extractWeights" ? 25000 : 70000;
     const { text, finishReason, usage, modelName } = await callGeminiWithFallbacks(apiKey, modelCandidates, buildPayload, timeoutMs, 1);
 
     if (finishReason === "MAX_TOKENS") {
@@ -1063,6 +1203,17 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
         ),
         usage,
         modelName,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (mode === "extractWeights") {
+      return new Response(JSON.stringify({
+        success: true,
+        mode,
+        weights: normalizeWeightExtraction(parsed, weightSubjects),
+        usage,
+        modelName,
+        pdfFileUri: fileUri,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

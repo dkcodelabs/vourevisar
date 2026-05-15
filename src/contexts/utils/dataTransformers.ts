@@ -14,6 +14,10 @@ export const transformSubjectsData = (data: any[]): Subject[] => {
     is_visible: subject.is_visible !== false, // default true
     edital_id: subject.edital_id,
     origin_id: subject.origin_id,
+    exam_weight_points: subject.exam_weight_points ?? null,
+    exam_weight_questions: subject.exam_weight_questions ?? null,
+    exam_weight_percentage: subject.exam_weight_percentage ?? null,
+    exam_weight_raw: subject.exam_weight_raw ?? null,
     topics: subject.topics ? subject.topics.map((topic: any) => transformTopicData(topic)) : []
   }));
 };
