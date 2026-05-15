@@ -50,6 +50,20 @@ interface AiEditalAnalysis {
     }>;
 }
 
+interface MappedSubjectAnchor {
+    chave: string;
+    titulo: string;
+    tipo_conhecimento: string;
+    ordem: number;
+    startHeading: string;
+    endHeading?: string | null;
+    startAnchor?: string | null;
+    endAnchor?: string | null;
+    firstTopicAnchor?: string | null;
+    lastTopicAnchor?: string | null;
+    confidence?: 'high' | 'medium' | 'low';
+}
+
 type DocumentPayload = {
     inputText?: string;
     pdfUrl?: string;
@@ -498,7 +512,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
             if (file.size > 5 * 1024 * 1024) {
@@ -512,11 +526,27 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return;
             }
             setPdfFile(file);
-            setInputText(''); // limpa texto se enviar pdf
             setSourcePayload(null);
             setAnalysisResult(null);
             setAiResult([]);
             setIaErrorMessage('');
+            
+            try {
+                const { extractPdfText } = await import('@/utils/pdfTextExtractor');
+                const result = await extractPdfText(file);
+                console.log('📊 [pdfTextExtractor] Métricas de qualidade:', result.metrics);
+                
+                // Preenche o campo de texto apenas se a extração tiver qualidade razoável
+                if (result.metrics.extractionQuality !== 'poor') {
+                    setInputText(result.fullText);
+                } else {
+                    setInputText('');
+                    console.warn('⚠️ [pdfTextExtractor] Qualidade poor. O backend usará a File API.');
+                }
+            } catch (err) {
+                console.error('❌ [pdfTextExtractor] Erro ao extrair texto localmente:', err);
+                setInputText('');
+            }
         }
     };
 
@@ -753,6 +783,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 throw new Error('Falha ao enviar o arquivo para o storage temporário.');
             }
 
+            if (inputText.trim()) {
+                payload.inputText = inputText;
+            }
             payload.pdfPath = fileName;
             payload.sourceType = 'pdf';
             return payload;
@@ -768,8 +801,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     };
 
     const getInputTextForFunction = (payload: DocumentPayload) => {
-        const hasPdfSource = Boolean(payload.pdfFileUri || payload.pdfPath || payload.pdfUrl);
-        return hasPdfSource ? undefined : payload.inputText;
+        if (payload.pdfFileUri || payload.pdfPath || payload.pdfUrl) return undefined;
+        return payload.inputText?.trim() ? payload.inputText : undefined;
     };
 
     const applyAnalysisToForm = (analysis: AiEditalAnalysis) => {
@@ -818,6 +851,132 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 })).filter((t: AiTopic) => t.name.length >= 2)
             };
         }).filter((s: AiSubject) => s.title.trim().length > 0 && s.topics.length > 0);
+    };
+
+    const mapIncrementalSubjectToAiSubject = (subjectResult: any, fallback: MappedSubjectAnchor, idx: number): AiSubject | null => {
+        const rawTopics = Array.isArray(subjectResult?.topicos)
+            ? subjectResult.topicos
+            : Array.isArray(subjectResult?.topics)
+                ? subjectResult.topics
+                : [];
+        const topics = rawTopics
+            .map((topic: any, tIdx: number): AiTopic => ({
+                name: String(typeof topic === 'string' ? topic : topic?.name || topic?.n || '').trim(),
+                selected: true,
+                position: typeof topic?.position === 'number' ? topic.position : tIdx
+            }))
+            .filter((topic: AiTopic) => topic.name.length >= 2);
+
+        if (topics.length === 0) return null;
+
+        return {
+            id: `ia-incremental-${idx}-${Date.now()}`,
+            title: String(subjectResult?.disciplina || subjectResult?.title || fallback.titulo || 'Sem Título').trim(),
+            knowledgeType: subjectResult?.tipo || fallback.tipo_conhecimento || null,
+            selected: true,
+            expanded: idx === 0,
+            weight: {
+                points: null,
+                questions: null,
+                percentage: null,
+                rawText: null
+            },
+            topics
+        };
+    };
+
+    const tryIncrementalExtraction = async (
+        documentPayload: DocumentPayload,
+        confirmedAnalysis: AiEditalAnalysis,
+        cargo: AiEditalAnalysis['cargos'][number],
+        confirmedCargoName: string
+    ): Promise<AiSubject[] | null> => {
+        const fullText = documentPayload.inputText?.trim();
+        if (!fullText || fullText.length < 3000) return null;
+
+        setProcessingMsg('Mapeando matérias do conteúdo programático...');
+        setIaProgress(prev => Math.max(prev, 12));
+
+        const structureResult = await supabase.functions.invoke('extract-edital', {
+            body: {
+                mode: 'mapContentStructure',
+                inputText: fullText,
+                selectedCargoId: cargo.id,
+                selectedCargo: confirmedCargoName,
+                analysis: confirmedAnalysis
+            }
+        });
+
+        if (structureResult.error) {
+            const errBody = await getFunctionErrorMessage(structureResult.error, structureResult.response);
+            throw new Error(errBody);
+        }
+
+        const mappedSubjects = structureResult.data?.structure?.materias as MappedSubjectAnchor[] | undefined;
+        if (!mappedSubjects?.length) {
+            throw new Error('O mapeamento incremental não retornou matérias.');
+        }
+
+        const { sliceTextForSubjects } = await import('@/utils/editalTextSlicer');
+        const slices = sliceTextForSubjects(fullText, mappedSubjects);
+        const usableSlices = slices.filter(slice => slice.confidence !== 'failed' && slice.sourceExcerpt.trim().length >= 50);
+
+        console.log('[extract-edital incremental] Slices:', {
+            total: slices.length,
+            usable: usableSlices.length,
+            failed: slices.length - usableSlices.length,
+            warnings: slices.flatMap(slice => slice.warnings)
+        });
+
+        if (usableSlices.length === 0 || usableSlices.length / mappedSubjects.length < 0.6) {
+            throw new Error('Fatiamento incremental com baixa confiança.');
+        }
+
+        const extractedSubjects: AiSubject[] = [];
+        let consecutiveFailures = 0;
+
+        for (let index = 0; index < usableSlices.length; index += 1) {
+            if (iaFlowCancelledRef.current) return null;
+
+            const slice = usableSlices[index];
+            const subjectTitle = slice.subject.titulo;
+            setProcessingMsg(`Extraindo ${subjectTitle}...`);
+            setIaProgress(Math.min(92, 18 + Math.round((index / Math.max(usableSlices.length, 1)) * 70)));
+
+            const subjectResult = await supabase.functions.invoke('extract-edital', {
+                body: {
+                    mode: 'extractSubject',
+                    subjectTitle,
+                    knowledgeType: slice.subject.tipo_conhecimento,
+                    sourceExcerpt: slice.sourceExcerpt
+                }
+            });
+
+            if (subjectResult.error) {
+                consecutiveFailures += 1;
+                const errBody = await getFunctionErrorMessage(subjectResult.error, subjectResult.response);
+                console.warn('[extract-edital incremental] Falha ao extrair matéria:', subjectTitle, errBody);
+            } else {
+                const mapped = mapIncrementalSubjectToAiSubject(subjectResult.data?.subject, slice.subject, index);
+                if (mapped) {
+                    extractedSubjects.push(mapped);
+                    consecutiveFailures = 0;
+                } else {
+                    consecutiveFailures += 1;
+                    console.warn('[extract-edital incremental] Matéria sem tópicos:', subjectTitle);
+                }
+            }
+
+            if (consecutiveFailures >= 3) {
+                throw new Error('Muitas falhas consecutivas na extração incremental.');
+            }
+        }
+
+        if (extractedSubjects.length === 0 || extractedSubjects.length / usableSlices.length < 0.6) {
+            throw new Error('Extração incremental retornou poucas matérias úteis.');
+        }
+
+        return extractedSubjects;
     };
 
     const handleIaImport = async () => {
@@ -969,6 +1128,44 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             setSourcePayload(documentPayload);
             await sleep(200);
             setProcessingMsg('Analisando conteúdo programático...');
+
+            try {
+                const incrementalResults = await tryIncrementalExtraction(documentPayload, confirmedAnalysis, cargo, confirmedCargoName);
+                if (incrementalResults && incrementalResults.length > 0) {
+                    stopProgressHints?.();
+                    stopProgressHints = null;
+                    if (iaFlowCancelledRef.current) return;
+
+                    const analysisEdital = confirmedAnalysis.edital;
+                    const baseName = !isGenericEditalName(analysisEdital.name)
+                        ? analysisEdital.name
+                        : analysisEdital.organ || iaOrigin || 'Edital';
+                    const finalYear = analysisEdital.year || iaYear;
+                    const finalExamDate = analysisEdital.examDate;
+                    const finalName = `${baseName} - ${confirmedCargoName}${finalYear ? ` (${finalYear})` : ''}`;
+
+                    setIaEditalName(finalName);
+                    setIaOrigin(analysisEdital.organ || iaOrigin);
+                    setIaYear(finalYear || iaYear);
+                    if (finalExamDate) setExamDate(finalExamDate);
+                    setAiResult(incrementalResults);
+
+                    setProcessingMsg('Finalizando extração incremental...');
+                    await savePendingExtraction(finalName, incrementalResults, {
+                        analysis: confirmedAnalysis,
+                        selectedCargo: confirmedCargoName,
+                        source: documentPayload
+                    });
+                    setIaProgress(100);
+                    await sleep(180);
+                    setIaStage('review');
+                    return;
+                }
+            } catch (incrementalError: any) {
+                console.warn('[extract-edital incremental] Fallback para extração antiga:', incrementalError?.message || incrementalError);
+                setProcessingMsg('Usando extração compatível...');
+            }
+
             stopProgressHints = startProgressHints([
                 { delay: 5000, message: 'Localizando conteúdo do cargo e área...' },
                 { delay: 12000, message: 'Separando conhecimentos básicos e específicos...' },

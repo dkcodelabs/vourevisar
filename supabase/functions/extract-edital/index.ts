@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type ExtractMode = "analyze" | "extractForCargo";
+type ExtractMode = "analyze" | "extractForCargo" | "mapContentStructure" | "extractSubject";
 type BankProfile = {
   banca: string;
   aliases: string[];
@@ -16,6 +16,7 @@ type BankProfile = {
 };
 
 const BANK_PROFILES: BankProfile[] = [cebraspeProfile as BankProfile];
+const VALID_EXTRACT_MODES = ["analyze", "extractForCargo", "mapContentStructure", "extractSubject"] as const;
 
 const DEFAULT_ANALYSIS_PROMPT = `Voce e um extrator de dados automatizado especializado em editais de concursos publicos. Sua tarefa e ler o documento fornecido e identificar a banca organizadora e os cargos ofertados.
 
@@ -92,6 +93,74 @@ Formato JSON esperado:
       ]
     }
   ]
+}`;
+
+const MAP_CONTENT_STRUCTURE_PROMPT = `Voce e um mapeador de estruturas textuais especializado em editais de concursos publicos. Sua tarefa e localizar os limites de cada disciplina do conteudo programatico APENAS para o cargo alvo fornecido.
+
+Dados do Cargo Alvo:
+- Nome do Cargo: "{{selectedCargoName}}"
+- Area/Enfase: "{{selectedCargoArea}}"
+
+Regras de Mapeamento:
+- Use o TEXTO DO EDITAL fornecido como fonte principal. As ancoras precisam existir nesse texto, pois um sistema fara o recorte deterministico depois.
+- Identifique materias de Conhecimentos Basicos, Conhecimentos Especificos ou Geral que se aplicam ao cargo alvo.
+- Se houver modalidades, cargos, areas ou enfases, use apenas divisao explicita no edital. Se o conteudo programatico nao separar por modalidade, mapeie o bloco comum.
+- Nao transcreva o conteudo completo da materia. Retorne apenas titulos e ancoras curtas.
+- startHeading deve ser o titulo da disciplina como aparece no texto, sem inventar. Exemplo: "DIREITO CONSTITUCIONAL:".
+- startAnchor deve conter de 5 a 12 palavras literais do inicio da disciplina, preferencialmente incluindo o titulo e o primeiro item numerado.
+- firstTopicAnchor deve ser o primeiro topico numerado literal quando existir.
+- endHeading deve ser o titulo da proxima disciplina como aparece no texto. Se for a ultima disciplina do bloco, use null.
+- endAnchor deve conter de 5 a 12 palavras literais do inicio da proxima disciplina quando existir. Se for a ultima disciplina do bloco, use null.
+- Nao crie materia a partir de agrupadores como CONHECIMENTOS, BLOCO I, BLOCO II, P1 ou P2. Eles sao agrupadores, nao disciplinas.
+- Retorne as materias na ordem original.
+- Retorne ESTRITAMENTE JSON puro, sem markdown e sem explicacoes.
+
+Formato JSON esperado:
+{
+  "cargo_alvo": "Nome do Cargo - Area se houver",
+  "materias": [
+    {
+      "chave": "direito_constitucional",
+      "titulo": "DIREITO CONSTITUCIONAL",
+      "tipo_conhecimento": "Conhecimentos Basicos ou Conhecimentos Especificos ou Geral",
+      "ordem": 1,
+      "startHeading": "DIREITO CONSTITUCIONAL:",
+      "endHeading": "DIREITO ADMINISTRATIVO:",
+      "startAnchor": "DIREITO CONSTITUCIONAL: 1 Constitucionalismo",
+      "endAnchor": "DIREITO ADMINISTRATIVO: 1 Estado, governo",
+      "firstTopicAnchor": "1 Constitucionalismo",
+      "lastTopicAnchor": null,
+      "confidence": "high",
+      "evidencia_localizacao": "Encontrado no bloco de conhecimentos especificos"
+    }
+  ],
+  "avisos": []
+}`;
+
+const EXTRACT_SUBJECT_PROMPT = `Voce e um assistente de estruturacao de conteudo programatico. Sua tarefa e extrair fielmente os topicos da disciplina alvo usando APENAS o trecho fornecido.
+
+Disciplina Alvo: "{{subjectTitle}}"
+Tipo: "{{knowledgeType}}"
+
+Regras:
+- Preserve a numeracao original quando ela existir.
+- Preserve o texto integral de cada topico como aparece no trecho, incluindo complementos apos virgula, ponto e virgula, dois-pontos, parenteses e expressoes como "tais como", "incluindo", "especialmente" ou "entre outros".
+- Nao resuma nomes de leis, atos, provimentos, resolucoes, sumulas ou listas normativas.
+- Nao reduza listas exemplificativas ou listas normativas. Se o topico mencionar varias areas, leis, numeros ou exemplos, mantenha todos no mesmo topico.
+- Nao invente titulos e nao use conhecimento externo.
+- So quebre em topicos menores quando houver enumeracao interna clara no proprio trecho.
+- Ignore o titulo da disciplina se ele aparecer no inicio do trecho; ele nao deve virar topico.
+- Retorne ESTRITAMENTE JSON puro, sem markdown e sem explicacoes.
+
+Formato JSON esperado:
+{
+  "disciplina": "{{subjectTitle}}",
+  "tipo": "{{knowledgeType}}",
+  "topicos": [
+    "1 Topico conforme o trecho",
+    "1.1 Subtopico conforme o trecho"
+  ],
+  "avisos": []
 }`;
 
 const WEIGHT_EXTRACTION_DISABLED_RULES = `PESO / IMPORTANCIA:
@@ -551,8 +620,17 @@ function getLeadingTopicNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function isLikelyTopicMarker(value: string, markerIndex: number, markerValue: string) {
+  const next = value.slice(markerIndex + markerValue.length);
+  if (/^[.)]/.test(next)) return true;
+  const nextVisibleChar = next.trimStart()[0] || "";
+  return /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9]/.test(nextVisibleChar);
+}
+
 function hasLeadingTopicMarker(value: string) {
-  return /^\d{1,2}(?:\.\d{1,2})*(?:[.)]|\s|(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ]))/.test(value.trim());
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{1,2}(?:\.\d{1,2})*)/);
+  return !!match && isLikelyTopicMarker(trimmed, 0, match[1]);
 }
 
 type NormalizedTopic = { name: string; position: number | null };
@@ -565,7 +643,8 @@ function removeLeadingContentGroup(value: string) {
 
 function splitInlineNumberedTopics(topic: NormalizedTopic): NormalizedTopic[] {
   const name = removeLeadingContentGroup(topic.name.replace(/\s+/g, " ").trim());
-  if (!/^\d{1,2}(?:\.\d{1,2})*(?:\s+|(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ]))\S/.test(name)) {
+  const firstMarker = name.match(/^(\d{1,2}(?:\.\d{1,2})*)/);
+  if (!firstMarker || !isLikelyTopicMarker(name, 0, firstMarker[1])) {
     return [{ ...topic, name }];
   }
 
@@ -574,10 +653,13 @@ function splitInlineNumberedTopics(topic: NormalizedTopic): NormalizedTopic[] {
   let match: RegExpExecArray | null;
 
   while ((match = markerRegex.exec(name)) !== null) {
-    markers.push({
-      index: match.index + (match[0].startsWith(" ") ? 1 : 0),
-      value: match[1],
-    });
+    const index = match.index + (match[0].startsWith(" ") ? 1 : 0);
+    if (isLikelyTopicMarker(name, index, match[1])) {
+      markers.push({
+        index,
+        value: match[1],
+      });
+    }
   }
 
   if (markers.length <= 1) {
@@ -686,6 +768,99 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
   };
 }
 
+function normalizeSubjectKey(value: unknown, fallback: string) {
+  const normalized = String(value || fallback || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || "materia";
+}
+
+function normalizeKnowledgeType(value: unknown) {
+  const raw = String(value || "").trim();
+  const normalized = normalizeSearchText(raw);
+  if (normalized.includes("basico")) return "Conhecimentos Básicos";
+  if (normalized.includes("especifico")) return "Conhecimentos Específicos";
+  if (normalized.includes("geral")) return "Geral";
+  return raw || "Geral";
+}
+
+function normalizeConfidence(value: unknown) {
+  const normalized = normalizeSearchText(value);
+  if (normalized === "high" || normalized === "medium" || normalized === "low") return normalized;
+  return "medium";
+}
+
+function normalizeContentStructure(raw: any, selectedCargo: string) {
+  const materias = Array.isArray(raw?.materias)
+    ? raw.materias
+    : Array.isArray(raw?.subjects)
+      ? raw.subjects
+      : [];
+
+  return {
+    cargo_alvo: String(raw?.cargo_alvo || raw?.selectedCargo || selectedCargo || "").trim(),
+    materias: materias
+      .map((subject: any, index: number) => {
+        const title = String(subject?.titulo || subject?.title || subject?.disciplina || subject?.name || "").trim();
+        return {
+          chave: normalizeSubjectKey(subject?.chave || subject?.key, title || `materia_${index + 1}`),
+          titulo: title,
+          tipo_conhecimento: normalizeKnowledgeType(subject?.tipo_conhecimento || subject?.tipo || subject?.type),
+          ordem: normalizeNumber(subject?.ordem ?? subject?.order) ?? index + 1,
+          startHeading: subject?.startHeading ? String(subject.startHeading).trim() : title,
+          endHeading: subject?.endHeading ? String(subject.endHeading).trim() : null,
+          startAnchor: subject?.startAnchor ? String(subject.startAnchor).trim() : null,
+          endAnchor: subject?.endAnchor ? String(subject.endAnchor).trim() : null,
+          firstTopicAnchor: subject?.firstTopicAnchor ? String(subject.firstTopicAnchor).trim() : null,
+          lastTopicAnchor: subject?.lastTopicAnchor ? String(subject.lastTopicAnchor).trim() : null,
+          confidence: normalizeConfidence(subject?.confidence),
+          evidencia_localizacao: subject?.evidencia_localizacao || subject?.evidence
+            ? String(subject.evidencia_localizacao || subject.evidence).trim()
+            : null,
+        };
+      })
+      .filter((subject: any) => subject.titulo.length > 0 && subject.startHeading.length > 0),
+    avisos: Array.isArray(raw?.avisos)
+      ? raw.avisos.map((w: any) => String(w))
+      : Array.isArray(raw?.warnings)
+        ? raw.warnings.map((w: any) => String(w))
+        : [],
+  };
+}
+
+function normalizeSubjectTopicExtraction(raw: any, subjectTitle: string, knowledgeType: string) {
+  const topics = Array.isArray(raw?.topicos)
+    ? raw.topicos
+    : Array.isArray(raw?.topics)
+      ? raw.topics
+      : [];
+
+  const normalizedTopics = mergeNumberedTopicContinuations(
+    expandInlineNumberedTopics(
+      topics
+        .map((topic: any, index: number) => ({
+          name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
+          position: normalizeNumber(topic?.position) ?? index,
+        }))
+        .filter((topic: any) => topic.name.length >= 2),
+    ),
+  );
+
+  return {
+    disciplina: String(raw?.disciplina || raw?.title || subjectTitle || "").trim(),
+    tipo: normalizeKnowledgeType(raw?.tipo || raw?.type || knowledgeType),
+    topicos: normalizedTopics,
+    avisos: Array.isArray(raw?.avisos)
+      ? raw.avisos.map((w: any) => String(w))
+      : Array.isArray(raw?.warnings)
+        ? raw.warnings.map((w: any) => String(w))
+        : [],
+  };
+}
+
 function buildSourceInstruction(inputText?: string, fileUri?: string | null) {
   const text = inputText?.trim();
 
@@ -723,9 +898,21 @@ serve(async (req) => {
 
     const reqData = await req.json();
     const mode: ExtractMode = reqData.mode || (reqData.position ? "extractForCargo" : "analyze");
-    const { inputText, pdfUrl, pdfPath, pdfFileUri, selectedCargo, selectedCargoId, analysis } = reqData;
+    const { inputText, pdfUrl, pdfPath, pdfFileUri, selectedCargo, selectedCargoId, analysis, sourceExcerpt } = reqData;
 
-    if (!inputText && !pdfUrl && !pdfPath && !pdfFileUri) {
+    if (!VALID_EXTRACT_MODES.includes(mode)) {
+      throw new Error(`Modo de extracao invalido: ${mode}`);
+    }
+
+    if (mode === "mapContentStructure" && !String(inputText || "").trim()) {
+      throw new Error("mapContentStructure exige inputText extraido do PDF para que as ancoras batam com o fatiamento local.");
+    }
+
+    if (mode === "extractSubject" && !String(sourceExcerpt || "").trim()) {
+      throw new Error("extractSubject exige sourceExcerpt fatiado da disciplina.");
+    }
+
+    if (mode !== "extractSubject" && !inputText && !pdfUrl && !pdfPath && !pdfFileUri) {
       throw new Error("Forneca um arquivo PDF ou o texto do edital.");
     }
 
@@ -740,17 +927,22 @@ serve(async (req) => {
     if (!apiKey) throw new Error("GEMINI_API_KEY nao configurada nos secrets da Edge Function.");
 
     let fileUri: string | null = null;
-    if (pdfFileUri) {
+    const shouldUsePdfFile = mode !== "mapContentStructure" && mode !== "extractSubject";
+    if (shouldUsePdfFile && pdfFileUri) {
       fileUri = String(pdfFileUri);
-    } else if (pdfPath) {
+    } else if (shouldUsePdfFile && pdfPath) {
       fileUri = await uploadStoragePdfToGemini(supabaseClient, apiKey, pdfPath, user.id);
-    } else if (pdfUrl) {
+    } else if (shouldUsePdfFile && pdfUrl) {
       fileUri = await uploadPdfUrlToGemini(apiKey, pdfUrl);
     }
 
     const primaryModelName = config.model || "gemini-2.5-flash";
     const modelCandidates = getModelCandidates(config, primaryModelName);
-    const maxTokens = config.max_tokens || (mode === "analyze" ? 8192 : 32768);
+    const maxTokens = mode === "mapContentStructure"
+      ? Math.min(config.max_tokens || 8192, 12000)
+      : mode === "extractSubject"
+        ? Math.min(config.max_tokens || 8192, 12000)
+        : config.max_tokens || (mode === "analyze" ? 8192 : 32768);
     const profileAnalysisContext = analysis || {
       edital: {
         banca: reqData.banca || null,
@@ -759,27 +951,40 @@ serve(async (req) => {
       },
     };
     const selectedCargoParts = getSelectedCargoParts(analysis, selectedCargo || reqData.position || reqData.targetCargo || "", selectedCargoId);
-    const basePrompt =
-      mode === "analyze"
-        ? DEFAULT_ANALYSIS_PROMPT
-        : `${DEFAULT_EXTRACTION_PROMPT
-            .replace(/{{selectedCargo}}/g, selectedCargo || reqData.position || "")
-            .replace(/{{selectedCargoName}}/g, selectedCargoParts.name || selectedCargo || reqData.position || "")
-            .replace(/{{selectedCargoArea}}/g, selectedCargoParts.area || "null")}
+    let basePrompt: string;
+    if (mode === "analyze") {
+      basePrompt = DEFAULT_ANALYSIS_PROMPT;
+    } else if (mode === "mapContentStructure") {
+      basePrompt = MAP_CONTENT_STRUCTURE_PROMPT
+        .replace(/{{selectedCargoName}}/g, selectedCargoParts.name || selectedCargo || reqData.position || "")
+        .replace(/{{selectedCargoArea}}/g, selectedCargoParts.area || "null");
+    } else if (mode === "extractSubject") {
+      basePrompt = EXTRACT_SUBJECT_PROMPT
+        .replace(/{{subjectTitle}}/g, String(reqData.subjectTitle || reqData.disciplina || ""))
+        .replace(/{{knowledgeType}}/g, String(reqData.knowledgeType || reqData.tipo || "Geral"));
+    } else {
+      basePrompt = `${DEFAULT_EXTRACTION_PROMPT
+        .replace(/{{selectedCargo}}/g, selectedCargo || reqData.position || "")
+        .replace(/{{selectedCargoName}}/g, selectedCargoParts.name || selectedCargo || reqData.position || "")
+        .replace(/{{selectedCargoArea}}/g, selectedCargoParts.area || "null")}
 
 ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
+    }
     const prompt = withBankProfileInstruction(basePrompt, mode, inputText, profileAnalysisContext);
     const userProvidedContext = buildUserProvidedContext(reqData);
 
     const selectedOptionContext = buildSelectedOptionContext(analysis, selectedCargo || reqData.position || "", selectedCargoId);
-    const contextInstruction = mode === "extractForCargo" && selectedOptionContext
+    const contextInstruction = (mode === "extractForCargo" || mode === "mapContentStructure") && selectedOptionContext
       ? `${prompt}\n\n${userProvidedContext}\n\nDADOS DA OPCAO SELECIONADA:\n${selectedOptionContext}`.trim()
       : `${prompt}\n\n${userProvidedContext}`.trim();
 
+    const payloadInputText = mode === "extractSubject" ? String(sourceExcerpt || "") : inputText;
+    const payloadFileUri = mode === "mapContentStructure" || mode === "extractSubject" ? null : fileUri;
+
     const buildPayload = (modelName: string) => ({
-      contents: buildContents(contextInstruction, inputText, fileUri),
+      contents: buildContents(contextInstruction, payloadInputText, payloadFileUri),
       generationConfig: {
-        temperature: config.temperature !== undefined ? config.temperature : 0.1,
+        temperature: mode === "extractSubject" ? 0 : config.temperature !== undefined ? config.temperature : 0.1,
         topK: config.top_k,
         topP: config.top_p,
         presencePenalty: config.presence_penalty,
@@ -788,8 +993,8 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
       },
     });
 
-    console.log("[extract-edital] Calling Gemini", { mode, modelCandidates, hasPdf: !!fileUri, hasText: !!inputText });
-    const timeoutMs = mode === "extractForCargo" ? 85000 : 70000;
+    console.log("[extract-edital] Calling Gemini", { mode, modelCandidates, hasPdf: !!payloadFileUri, hasText: !!payloadInputText });
+    const timeoutMs = mode === "extractForCargo" ? 85000 : mode === "extractSubject" ? 45000 : 70000;
     const { text, finishReason, usage, modelName } = await callGeminiWithFallbacks(apiKey, modelCandidates, buildPayload, timeoutMs, 1);
 
     if (finishReason === "MAX_TOKENS") {
@@ -834,6 +1039,30 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
         usage,
         modelName,
         pdfFileUri: fileUri,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (mode === "mapContentStructure") {
+      return new Response(JSON.stringify({
+        success: true,
+        mode,
+        structure: normalizeContentStructure(parsed, selectedCargo || reqData.position || ""),
+        usage,
+        modelName,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (mode === "extractSubject") {
+      return new Response(JSON.stringify({
+        success: true,
+        mode,
+        subject: normalizeSubjectTopicExtraction(
+          parsed,
+          String(reqData.subjectTitle || reqData.disciplina || ""),
+          String(reqData.knowledgeType || reqData.tipo || "Geral"),
+        ),
+        usage,
+        modelName,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
