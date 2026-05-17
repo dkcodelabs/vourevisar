@@ -211,23 +211,30 @@ const Editais = () => {
     const [editModal, setEditModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [loadedEditalSubjects, setLoadedEditalSubjects] = useState<Subject[]>([]);
 
-    const quickCreateOptions = [
+    const quickCreateOptions: Array<{
+        id: 'ready' | 'ia' | 'manual';
+        title: string;
+        description: string;
+        icon: typeof Library;
+        accent: 'cyan' | 'emerald' | 'amber';
+        badge?: string;
+    }> = [
         {
-            id: 'ready' as const,
+            id: 'ready',
             title: 'Catálogo',
             description: 'Modelos prontos',
             icon: Library,
             accent: 'cyan'
         },
         {
-            id: 'ia' as const,
+            id: 'ia',
             title: 'IA',
             description: 'Importar edital',
             icon: Sparkles,
             accent: 'emerald'
         },
         {
-            id: 'manual' as const,
+            id: 'manual',
             title: 'Manual',
             description: 'Criar do zero',
             icon: Plus,

@@ -655,40 +655,40 @@ export default function AuditLogs() {
                                                 <div className="flex items-start gap-2">
                                                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Fonte:</span>
                                                     <span className="text-sm text-slate-900 dark:text-slate-200">
-                                                        {selectedLog.metadata.source || selectedLog.metadata.request_id}
+                                                        {String(selectedLog.metadata.source || selectedLog.metadata.request_id)}
                                                     </span>
                                                 </div>
                                             )}
                                             {selectedLog.metadata.reason && (
                                                 <div className="flex items-start gap-2">
                                                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Motivo:</span>
-                                                    <span className="text-sm text-slate-900 dark:text-slate-200">{selectedLog.metadata.reason}</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200">{String(selectedLog.metadata.reason)}</span>
                                                 </div>
                                             )}
                                             {selectedLog.metadata.old_role && selectedLog.metadata.new_role && (
                                                 <div className="flex items-start gap-2">
                                                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Alteração:</span>
                                                     <span className="text-sm text-slate-900 dark:text-slate-200">
-                                                        {selectedLog.metadata.old_role} → {selectedLog.metadata.new_role}
+                                                        {String(selectedLog.metadata.old_role)} → {String(selectedLog.metadata.new_role)}
                                                     </span>
                                                 </div>
                                             )}
                                             {selectedLog.metadata.ip && (
                                                 <div className="flex items-start gap-2">
                                                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">IP:</span>
-                                                    <span className="text-sm text-slate-900 dark:text-slate-200 font-mono">{selectedLog.metadata.ip}</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200 font-mono">{String(selectedLog.metadata.ip)}</span>
                                                 </div>
                                             )}
                                             {selectedLog.metadata.user_agent && (
                                                 <div className="flex items-start gap-2">
                                                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Navegador:</span>
-                                                    <span className="text-sm text-slate-900 dark:text-slate-200 break-all">{selectedLog.metadata.user_agent}</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200 break-all">{String(selectedLog.metadata.user_agent)}</span>
                                                 </div>
                                             )}
                                             {selectedLog.metadata.tz && (
                                                 <div className="flex items-start gap-2">
                                                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400 min-w-[80px]">Fuso:</span>
-                                                    <span className="text-sm text-slate-900 dark:text-slate-200">{selectedLog.metadata.tz}</span>
+                                                    <span className="text-sm text-slate-900 dark:text-slate-200">{String(selectedLog.metadata.tz)}</span>
                                                 </div>
                                             )}
                                         </div>

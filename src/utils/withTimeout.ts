@@ -1,8 +1,18 @@
-export const withTimeout = async <T>(
-  promise: Promise<T>,
+export function withTimeout<T>(
+  promise: PromiseLike<T>,
+  timeoutMs?: number,
+  label?: string
+): Promise<T>;
+export function withTimeout(
+  promise: any,
+  timeoutMs?: number,
+  label?: string
+): Promise<any>;
+export async function withTimeout(
+  promise: any,
   timeoutMs = 15000,
   label = 'Operacao'
-): Promise<T> => {
+): Promise<any> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -16,4 +26,4 @@ export const withTimeout = async <T>(
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
-};
+}
