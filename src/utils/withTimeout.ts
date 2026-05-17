@@ -1,5 +1,5 @@
 export const withTimeout = async <T>(
-  promise: Promise<T>,
+  promise: PromiseLike<T>,
   timeoutMs = 15000,
   label = 'Operacao'
 ): Promise<T> => {
