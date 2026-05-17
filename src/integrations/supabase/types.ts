@@ -241,6 +241,63 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_extraction_jobs: {
+        Row: {
+          analysis_result: Json | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          extraction_result: Json | null
+          id: string
+          message: string | null
+          mode: string
+          progress: number
+          selected_cargo: string | null
+          source_payload: Json | null
+          stage: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_result?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          extraction_result?: Json | null
+          id?: string
+          message?: string | null
+          mode?: string
+          progress?: number
+          selected_cargo?: string | null
+          source_payload?: Json | null
+          stage?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_result?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          extraction_result?: Json | null
+          id?: string
+          message?: string | null
+          mode?: string
+          progress?: number
+          selected_cargo?: string | null
+          source_payload?: Json | null
+          stage?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_status: {
         Row: {
           error_message: string | null
@@ -1190,8 +1247,9 @@ export type Database = {
         Row: {
           category: string
           created_at: string | null
-          exam_date: string | null
+          created_by: string | null
           exam_board: string | null
+          exam_date: string | null
           id: string
           is_public: boolean | null
           organ: string
@@ -1204,8 +1262,9 @@ export type Database = {
         Insert: {
           category: string
           created_at?: string | null
-          exam_date?: string | null
+          created_by?: string | null
           exam_board?: string | null
+          exam_date?: string | null
           id?: string
           is_public?: boolean | null
           organ: string
@@ -1218,8 +1277,9 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string | null
-          exam_date?: string | null
+          created_by?: string | null
           exam_board?: string | null
+          exam_date?: string | null
           id?: string
           is_public?: boolean | null
           organ?: string
@@ -1940,8 +2000,8 @@ export type Database = {
           active_subject_ids: string[] | null
           category: string | null
           created_at: string
-          exam_date: string | null
           exam_board: string | null
+          exam_date: string | null
           id: string
           is_imported: boolean
           last_sync_snapshot: Json | null
@@ -1960,8 +2020,8 @@ export type Database = {
           active_subject_ids?: string[] | null
           category?: string | null
           created_at?: string
-          exam_date?: string | null
           exam_board?: string | null
+          exam_date?: string | null
           id?: string
           is_imported?: boolean
           last_sync_snapshot?: Json | null
@@ -1980,8 +2040,8 @@ export type Database = {
           active_subject_ids?: string[] | null
           category?: string | null
           created_at?: string
-          exam_date?: string | null
           exam_board?: string | null
+          exam_date?: string | null
           id?: string
           is_imported?: boolean
           last_sync_snapshot?: Json | null
@@ -2399,6 +2459,10 @@ export type Database = {
       }
       admin_deactivate_user: {
         Args: { target_user_id: string }
+        Returns: undefined
+      }
+      admin_purge_user: {
+        Args: { p_target_user_id: string }
         Returns: undefined
       }
       admin_reactivate_user: {
