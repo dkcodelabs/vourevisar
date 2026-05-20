@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, FileText, Sparkles, Loader2, Edit3, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info, Eye, ArrowLeft, BookOpen, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -774,6 +775,26 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         return error?.message || JSON.stringify(error);
     };
 
+    const getFriendlyAiExtractionError = (message: string) => {
+        const normalized = message.toLowerCase();
+
+        if (
+            normalized.includes('429') ||
+            normalized.includes('quota') ||
+            normalized.includes('rate-limit') ||
+            normalized.includes('rate limit') ||
+            normalized.includes('exceeded')
+        ) {
+            return 'A IA ficou temporariamente indisponível para novas extrações. Tente novamente em alguns minutos.';
+        }
+
+        if (normalized.includes('failed to fetch') || normalized.includes('network') || normalized.includes('internet')) {
+            return 'Não consegui conectar com a IA agora. Confira sua conexão e tente novamente.';
+        }
+
+        return 'Não consegui concluir a extração agora. Tente novamente ou revise os dados do edital antes de extrair.';
+    };
+
     const buildDocumentPayload = async () => {
         const payload: DocumentPayload = { sourceType: 'text' };
 
@@ -1386,10 +1407,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         } catch (error: any) {
             stopProgressHints?.();
             console.error('Erro na extração do cargo:', error);
-            const message = error.message || 'Erro desconhecido';
-            setIaErrorMessage(message);
+            const technicalMessage = error.message || 'Erro desconhecido';
+            const friendlyMessage = getFriendlyAiExtractionError(technicalMessage);
+            setIaErrorMessage(friendlyMessage);
             setShowIaDataEditor(true);
-            toastGate.notifyError(message, 'IA-EXTRACT-01');
+            toastGate.notifyError(friendlyMessage, 'IA-EXTRACT-01');
             setIaStage(analysisResult ? 'selectCargo' : 'input');
         }
     };
@@ -1426,7 +1448,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             const exists = userEditais.some(e => e.name.toLowerCase().trim() === normalizedName);
             
             if (exists) {
-                toast.error('Você já possui um edital com este nome.');
+                toastGate.notifyError('Você já possui um edital com este nome.', 'COMPONENTS-SUBJECTS-IMPORTEDITALMODAL-01', { severity: 'medium' });
                 setIsSavingAi(false);
                 return;
             }
@@ -1578,16 +1600,40 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                             </button>
                         )}
                         <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 tracking-normal border-r border-border/50 dark:border-white/10 pr-3">
-                            {activeTab === 'ready' ? 'Catálogo Oficial' : activeTab === 'ia' ? 'Importar com IA' : 'Criar Manualmente'}
+                            {activeTab === 'ready'
+                                ? 'Catálogo Oficial'
+                                : activeTab === 'ia' && iaStage === 'review'
+                                    ? 'Resultado da extração - Importando com IA'
+                                    : activeTab === 'ia'
+                                        ? 'Importar com IA'
+                                        : 'Criar Manualmente'}
                         </h2>
                         <p className="text-[11px] text-content-muted font-medium italic hidden md:block">
-                            {activeTab === 'ready' ? 'Milhares de concursos já organizados pela nossa equipe.' : activeTab === 'ia' ? 'Extraia matérias e tópicos de PDFs ou sites automaticamente.' : 'Monte sua própria matriz de estudos e organize seu conteúdo do zero.'}
+                            {activeTab === 'ready'
+                                ? 'Milhares de concursos já organizados pela nossa equipe.'
+                                : activeTab === 'ia' && iaStage === 'review'
+                                    ? 'Revise os dados antes de importar para sua lista de editais.'
+                                    : activeTab === 'ia'
+                                        ? 'Extraia matérias e tópicos de PDFs ou sites automaticamente.'
+                                        : 'Monte sua própria matriz de estudos e organize seu conteúdo do zero.'}
                         </p>
                     </div>
                     {!inlineMode && (
-                        <button onClick={handleCloseModal} className="w-8 h-8 flex items-center justify-center rounded-lg bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
-                            <X size={16} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {activeTab === 'ia' && iaStage === 'review' && pendingExtraction && (
+                                <button
+                                    type="button"
+                                    onClick={discardPendingExtractionData}
+                                    className="flex h-8 items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 text-[10px] font-bold text-amber-500 transition-colors hover:bg-amber-500/15"
+                                >
+                                    <Trash2 size={12} />
+                                    Descartar
+                                </button>
+                            )}
+                            <button onClick={handleCloseModal} className="w-8 h-8 flex items-center justify-center rounded-lg bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
+                                <X size={16} />
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
@@ -2189,7 +2235,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                             {iaStage === 'selectCargo' && analysisResult && (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-4">
                                     <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
-                                        <h3 className="text-sm font-bold text-content-main">{analysisResult.edital.name}</h3>
+                                        <h3 className="text-sm font-bold text-foreground">
+                                            {analysisResult.edital.name}
+                                        </h3>
                                         <p className="text-xs text-content-muted mt-1">
                                             {iaOrigin || analysisResult.edital.organ || 'Órgão não identificado'}
                                             {analysisResult.edital.year ? ` · ${analysisResult.edital.year}` : ''}
@@ -2202,108 +2250,78 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                     ? 'Nenhum cargo real identificado'
                                                     : `${analysisResult.cargos.length} cargo(s) identificado(s)`}
                                         </p>
-                                    </div>
 
-                                    <div className={`rounded-2xl border p-3 transition-colors ${
-                                        showIaDataEditor
-                                            ? 'border-amber-500/20 bg-amber-500/10'
-                                            : 'border-border dark:border-white/10 bg-card dark:bg-zinc-900/40'
-                                    }`}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowIaDataEditor(prev => !prev)}
-                                            className="w-full flex items-center justify-between gap-3 text-left"
-                                        >
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                {showIaDataEditor ? (
-                                                    <AlertTriangle size={16} className="text-amber-400 shrink-0" />
-                                                ) : (
-                                                    <Info size={16} className="text-primary shrink-0" />
-                                                )}
+                                        <div className="mt-4 overflow-hidden rounded-xl border border-primary/15 bg-card/80 dark:bg-zinc-900/55">
+                                            <div className="flex items-start gap-3 p-4">
+                                                <Info size={16} className="text-primary shrink-0 mt-0.5" />
                                                 <div className="min-w-0">
-                                                    <p className={`text-xs font-bold ${showIaDataEditor ? 'text-amber-200' : 'text-content-main'}`}>
-                                                        {showIaDataEditor ? 'Confirme os dados antes de extrair.' : 'Dados identificados'}
+                                                    <p className="text-xs font-bold text-content-main">
+                                                        Conferir dados antes de extrair
                                                     </p>
-                                                    <p className={`text-[11px] mt-0.5 truncate ${showIaDataEditor ? 'text-amber-100/75' : 'text-content-muted'}`}>
-                                                        {[
-                                                            `Banca: ${iaBanca || analysisResult.edital.banca || 'não informada'}`,
-                                                            `Concurso/órgão: ${iaOrigin || analysisResult.edital.organ || 'não informado'}`,
-                                                            `Cargo/área/ênfase: ${iaPosition || selectedCargoName || 'não informado'}`
-                                                        ].join(' · ')}
+                                                    <p className="text-[11px] mt-1 leading-relaxed text-content-muted">
+                                                        Ajuste apenas se a IA tiver confundido banca, órgão ou cargo. Esses dados direcionam a extração do conteúdo.
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <span className="text-[10px] font-bold text-primary">
-                                                    {showIaDataEditor ? 'Ocultar' : 'Editar'}
-                                                </span>
-                                                <ChevronDown className={`w-4 h-4 text-content-muted transition-transform ${showIaDataEditor ? 'rotate-180' : ''}`} />
-                                            </div>
-                                        </button>
-
-                                        {showIaDataEditor && (
-                                            <>
-                                                <p className="text-[11px] text-amber-100/75 mt-3 leading-relaxed">
-                                                    A IA pode falhar ao identificar metadados do edital. A banca ajuda a aplicar a instrução correta; o cargo, área ou ênfase define qual conteúdo será extraído.
-                                                </p>
+                                            <div className="border-t border-primary/10 bg-primary/5 p-4">
                                                 {isGenericCargoName(iaPosition || selectedCargoName) && (
-                                                    <div className="mt-3 rounded-lg border border-amber-400/20 bg-black/15 px-3 py-2">
-                                                        <p className="text-[11px] font-semibold text-amber-100 leading-relaxed">
+                                                    <div className="mb-3 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2">
+                                                        <p className="text-[11px] font-semibold text-content-muted leading-relaxed">
                                                             Substitua "Cargo unico" pelo nome real do cargo no edital. Use o formato mais específico possível, como "Agente de Polícia Federal" ou "Perito Criminal Federal - Área 3".
                                                         </p>
                                                     </div>
                                                 )}
                                                 {hasOnlyGenericCargoAnalysis() && (
-                                                    <div className="mt-3 rounded-lg border border-amber-400/20 bg-black/15 px-3 py-2">
-                                                        <p className="text-[11px] font-semibold text-amber-100 leading-relaxed">
+                                                    <div className="mb-3 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2">
+                                                        <p className="text-[11px] font-semibold text-content-muted leading-relaxed">
                                                             A IA não listou cargos reais com segurança. Não vou extrair usando "Cargo unico" para evitar trazer conteúdo errado.
                                                         </p>
                                                     </div>
                                                 )}
-                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-4">
-                                            <div className="space-y-1.5 md:col-span-2">
-                                                <label className="text-[9px] font-bold text-amber-100/70 uppercase tracking-[0.16em] ml-1">Banca</label>
-                                                <input
-                                                    type="text"
-                                                    value={iaBanca}
-                                                    onChange={(e) => setIaBanca(e.target.value)}
-                                                    placeholder="EX: CEBRASPE"
-                                                    className="w-full h-10 bg-black/20 border border-amber-500/15 rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-amber-100/30 focus:border-amber-400/40"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5 md:col-span-4">
-                                                <label className="text-[9px] font-bold text-amber-100/70 uppercase tracking-[0.16em] ml-1">Concurso / órgão</label>
-                                                <input
-                                                    type="text"
-                                                    value={iaOrigin}
-                                                    onChange={(e) => setIaOrigin(e.target.value)}
-                                                    placeholder="EX: POLÍCIA FEDERAL"
-                                                    className="w-full h-10 bg-black/20 border border-amber-500/15 rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-amber-100/30 focus:border-amber-400/40"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5 md:col-span-6">
-                                                <label className="text-[9px] font-bold text-amber-100/70 uppercase tracking-[0.16em] ml-1">Cargo / área / ênfase</label>
-                                                <input
-                                                    type="text"
-                                                    value={iaPosition}
-                                                    onChange={(e) => {
-                                                        setIaPosition(e.target.value);
-                                                        setSelectedCargoName(e.target.value);
-                                                        setSelectedCargoId('');
-                                                    }}
-                                                    placeholder="EX: POLICIAL RODOVIÁRIO FEDERAL"
-                                                    className="w-full h-10 bg-black/20 border border-amber-500/15 rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-amber-100/30 focus:border-amber-400/40"
-                                                />
-                                            </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                                    <div className="space-y-1.5 md:col-span-2">
+                                                        <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Banca</label>
+                                                        <input
+                                                            type="text"
+                                                            value={iaBanca}
+                                                            onChange={(e) => setIaBanca(e.target.value)}
+                                                            placeholder="EX: CEBRASPE"
+                                                            className="w-full h-9 bg-background/70 dark:bg-zinc-950/35 border border-primary/10 rounded-[4px] px-2.5 text-[10px] font-semibold text-foreground outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/35 focus:border-primary/35"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5 md:col-span-4">
+                                                        <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Concurso / órgão</label>
+                                                        <input
+                                                            type="text"
+                                                            value={iaOrigin}
+                                                            onChange={(e) => setIaOrigin(e.target.value)}
+                                                            placeholder="EX: POLÍCIA FEDERAL"
+                                                            className="w-full h-9 bg-background/70 dark:bg-zinc-950/35 border border-primary/10 rounded-[4px] px-2.5 text-[10px] font-semibold text-foreground outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/35 focus:border-primary/35"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5 md:col-span-6">
+                                                        <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Cargo / área / ênfase</label>
+                                                        <input
+                                                            type="text"
+                                                            value={iaPosition}
+                                                            onChange={(e) => {
+                                                                setIaPosition(e.target.value);
+                                                                setSelectedCargoName(e.target.value);
+                                                                setSelectedCargoId('');
+                                                            }}
+                                                            placeholder="EX: POLICIAL RODOVIÁRIO FEDERAL"
+                                                            className="w-full h-9 bg-background/70 dark:bg-zinc-950/35 border border-primary/10 rounded-[4px] px-2.5 text-[10px] font-semibold text-foreground outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/35 focus:border-primary/35"
+                                                        />
+                                                    </div>
                                                 </div>
-                                            </>
-                                        )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {iaErrorMessage && (
                                         <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
                                             <p className="text-xs font-bold text-red-300">
-                                                Não consegui extrair as disciplinas desse cargo.
+                                                Não consegui concluir a extração agora.
                                             </p>
                                             <p className="text-[11px] text-red-200/80 mt-1 leading-relaxed">
                                                 {iaErrorMessage}
@@ -2317,7 +2335,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 ? 'Cargo alvo'
                                                 : 'Selecione seu cargo'}
                                         </label>
-                                        <div className="mt-3 max-h-72 overflow-y-auto space-y-2 pr-1">
+                                        <div className="mt-3 space-y-2">
                                             {hasManualCargoTarget() ? (
                                                 <div className="w-full px-4 py-3 rounded-xl border border-primary/20 bg-primary/5 text-content-main">
                                                     <p className="text-xs font-bold leading-snug break-words">{iaPosition}</p>
@@ -2357,32 +2375,20 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 )
                                             )}
                                         </div>
-
-                                        <div className="flex justify-end gap-2 mt-4">
-                                            <button
-                                                type="button"
-                                                onClick={hasOnlyGenericCargoAnalysis() ? handleIaImport : handleExtractSelectedCargo}
-                                                disabled={!hasOnlyGenericCargoAnalysis() && !selectedCargoId}
-                                                className="px-5 h-10 rounded-xl bg-primary text-white text-xs font-bold flex items-center gap-2 disabled:opacity-50"
-                                            >
-                                                <Sparkles size={14} />
-                                                {hasOnlyGenericCargoAnalysis() ? 'Analisar novamente' : 'Extrair disciplinas'}
-                                            </button>
-                                        </div>
                                     </div>
                                 </motion.div>
                             )}
 
                             {iaStage === 'review' && (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                                    <div className="flex items-start justify-between gap-4 pb-3 border-b border-border dark:border-white/5">
+                                    <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
                                         <div className="min-w-0">
-                                            <p className="text-[9px] font-black text-primary uppercase tracking-[0.16em]">Resultado da extração</p>
-                                            <h3 className="text-base font-bold text-content-main mt-1 truncate">
-                                                {getCurrentAiEditalName() || `${iaOrigin || 'Edital'} - ${iaPosition || selectedCargoName || 'Cargo'}`}
-                                            </h3>
-                                            <p className="text-[11px] text-content-muted mt-1">
+                                            <p className="text-[9px] font-black text-primary uppercase tracking-[0.16em]">Atenção</p>
+                                            <h3 className="text-base font-bold text-content-main mt-1">
                                                 Revise os dados antes de importar para sua lista de editais.
+                                            </h3>
+                                            <p className="text-[11px] text-content-muted mt-1 leading-relaxed">
+                                                Confira concurso, cargo, ano, data da prova, matérias, tópicos e pesos antes de salvar.
                                             </p>
                                             {weightExtractionStatus !== 'idle' && (
                                                 <p className={`text-[11px] mt-1 font-semibold ${
@@ -2394,31 +2400,20 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                         ? 'Peso oficial identificado em uma ou mais disciplinas. Revise antes de salvar.'
                                                         : weightExtractionStatus === 'block_only'
                                                             ? 'O edital indicou peso apenas por bloco. As disciplinas ficaram sem peso individual.'
-                                                            : 'Peso oficial por disciplina não identificado. Você pode preencher manualmente ou deixar em branco.'}
+                                                    : 'Peso oficial por disciplina não identificado. Você pode preencher manualmente ou deixar em branco.'}
                                                 </p>
                                             )}
                                         </div>
-                                        {pendingExtraction && (
-                                            <button
-                                                type="button"
-                                                onClick={discardPendingExtractionData}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-500 bg-amber-500/10 hover:bg-amber-500/15 rounded-lg border border-amber-500/20 transition-colors shrink-0"
-                                            >
-                                                <Trash2 size={12} />
-                                                Descartar
-                                            </button>
-                                        )}
-                                    </div>
 
-                                    <div className="grid gap-3 pb-4 border-b border-border dark:border-white/5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                                        <>
+                                        <div className="mt-3 grid grid-cols-1 gap-3 border-t border-primary/15 pt-3 md:grid-cols-[minmax(0,1fr)_150px]">
+                                            <div className="grid grid-cols-1 gap-3">
                                                 <div className="space-y-1">
                                                     <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Concurso</span>
                                                     <input
                                                         type="text"
                                                         value={iaOrigin}
                                                         onChange={(e) => setIaOrigin(e.target.value)}
-                                                        className="w-full px-2.5 py-2 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
+                                                        className="h-8 w-full rounded-[4px] border border-primary/15 bg-primary/10 px-2 text-[10px] font-bold uppercase text-content-main outline-none transition-all focus:border-primary/35"
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
@@ -2427,35 +2422,38 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                         type="text"
                                                         value={iaPosition}
                                                         onChange={(e) => setIaPosition(e.target.value)}
-                                                        className="w-full px-2.5 py-2 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main uppercase outline-none transition-all"
+                                                        className="h-8 w-full rounded-[4px] border border-primary/15 bg-primary/10 px-2 text-[10px] font-bold uppercase text-content-main outline-none transition-all focus:border-primary/35"
                                                     />
                                                 </div>
-                                                <div className="space-y-1">
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3 md:grid-cols-1 md:justify-self-end">
+                                                <div className="space-y-1 md:w-20">
                                                     <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Ano</span>
                                                     <input
                                                         type="text"
                                                         value={iaYear}
                                                         onChange={(e) => setIaYear(e.target.value.replace(/\D/g, ''))}
-                                                        className="w-full px-2.5 py-2 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main outline-none transition-all"
+                                                        className="h-8 w-full rounded-[4px] border border-primary/15 bg-primary/10 px-2 text-[10px] font-bold text-content-main outline-none transition-all focus:border-primary/35"
                                                         placeholder="AAAA"
                                                         maxLength={4}
                                                     />
                                                 </div>
-                                                <div className="space-y-1">
+                                                <div className="space-y-1 md:w-[150px]">
                                                     <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.15em]">Data da Prova</span>
                                                     <input
                                                         type="date"
                                                         value={examDate}
                                                         onChange={(e) => setExamDate(e.target.value)}
-                                                        className="w-full px-2.5 py-2 bg-secondary dark:bg-zinc-900/50 rounded-lg text-[10px] font-bold text-content-main outline-none transition-all"
+                                                        className="h-8 w-full rounded-[4px] border border-primary/15 bg-primary/10 px-2 text-[10px] font-bold text-content-main outline-none transition-all focus:border-primary/35"
                                                     />
                                                 </div>
-                                            </>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between gap-3 pt-1">
+                                    <div className="flex items-center justify-between gap-3 border-t border-border dark:border-white/5 pt-3">
                                         <div>
-                                            <p className="text-[9px] font-black text-content-muted uppercase tracking-[0.16em]">Matérias extraídas</p>
+                                            <p className="text-[11px] font-black text-content-main uppercase tracking-[0.14em]">Matérias extraídas</p>
                                             <p className="text-[10px] text-content-muted">
                                                 Revise as disciplinas e tópicos antes de importar.
                                             </p>
@@ -2465,7 +2463,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 const shouldExpand = aiResult.some(s => !s.expanded);
                                                 setAiResult(aiResult.map(s => ({ ...s, expanded: shouldExpand })));
                                             }}
-                                            className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-black uppercase tracking-wider rounded-lg transition-all border border-primary/20 shrink-0"
+                                            className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-black uppercase tracking-wider rounded-[4px] transition-all border border-primary/20 shrink-0"
                                         >
                                             {aiResult.some(s => !s.expanded) ? 'Expandir tudo' : 'Recolher tudo'}
                                         </button>
@@ -2481,7 +2479,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                             checked={subj.selected}
                                                             onChange={() => {
                                                                 const newResult = [...aiResult];
-                                                                newResult[sIdx].selected = !newResult[sIdx].selected;
+                                                                const nextSelected = !newResult[sIdx].selected;
+                                                                newResult[sIdx] = {
+                                                                    ...newResult[sIdx],
+                                                                    selected: nextSelected,
+                                                                    topics: newResult[sIdx].topics.map(topic => ({
+                                                                        ...topic,
+                                                                        selected: nextSelected
+                                                                    }))
+                                                                };
                                                                 setAiResult(newResult);
                                                             }}
                                                             className="w-4 h-4 rounded accent-primary shrink-0"
@@ -2527,22 +2533,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                                                 {subj.expanded && (
                                                     <div className="flex flex-col gap-1 pl-6 mt-2">
-                                                        <div className="mb-3 rounded-xl border border-white/5 bg-zinc-950/25 overflow-hidden">
-                                                            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-white/5">
-                                                                <div>
-                                                                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-content-muted">Peso da prova</p>
-                                                                    <p className="text-[10px] text-content-muted">Preencha só se constar no edital.</p>
-                                                                </div>
-                                                                <span className="text-[8px] font-black uppercase tracking-[0.14em] text-content-muted border border-white/10 rounded-md px-1.5 py-0.5">
-                                                                    Opcional
-                                                                </span>
-                                                            </div>
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
-                                                                <label className="space-y-1">
-                                                                    <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Questões</span>
+                                                        <div className="mb-3 w-fit max-w-full rounded-[4px] border border-white/5 bg-zinc-950/20 px-3 py-2">
+                                                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                                                                <p className="text-[10px] font-bold text-content-main">
+                                                                    Peso da prova
+                                                                </p>
+                                                                <label className="flex items-center gap-1.5">
+                                                                    <span className="text-[8px] font-bold text-content-muted uppercase tracking-[0.1em]">Questões</span>
                                                                     <input
-                                                                        type="number"
-                                                                        min="0"
+                                                                        type="text"
+                                                                        inputMode="numeric"
                                                                         value={subj.weight?.questions ?? ''}
                                                                         onChange={(e) => {
                                                                             const newResult = [...aiResult];
@@ -2554,16 +2554,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                             };
                                                                             setAiResult(newResult);
                                                                         }}
-                                                                        className="w-full h-9 px-3 bg-black/30 border border-white/5 rounded-lg text-[12px] font-bold text-content-main outline-none focus:border-primary/30 transition-colors"
-                                                                        placeholder="Ex.: 10"
+                                                                        className="h-6 w-10 rounded-[3px] border border-white/5 bg-black/25 px-1.5 text-center text-[10px] font-bold text-content-main outline-none transition-colors focus:border-primary/30"
                                                                     />
                                                                 </label>
-                                                                <label className="space-y-1">
-                                                                    <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Pontos</span>
+                                                                <label className="flex items-center gap-1.5">
+                                                                    <span className="text-[8px] font-bold text-content-muted uppercase tracking-[0.1em]">Pontos</span>
                                                                     <input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        step="0.01"
+                                                                        type="text"
+                                                                        inputMode="decimal"
                                                                         value={subj.weight?.points ?? ''}
                                                                         onChange={(e) => {
                                                                             const newResult = [...aiResult];
@@ -2575,17 +2573,24 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                             };
                                                                             setAiResult(newResult);
                                                                         }}
-                                                                        className="w-full h-9 px-3 bg-black/30 border border-white/5 rounded-lg text-[12px] font-bold text-content-main outline-none focus:border-primary/30 transition-colors"
-                                                                        placeholder="Ex.: 20"
+                                                                        className="h-6 w-10 rounded-[3px] border border-white/5 bg-black/25 px-1.5 text-center text-[10px] font-bold text-content-main outline-none transition-colors focus:border-primary/30"
                                                                     />
                                                                 </label>
-                                                                {subj.weight?.rawText && (
-                                                                    <p className="sm:col-span-2 text-[10px] text-content-muted leading-relaxed border-t border-white/5 pt-2">
-                                                                        Evidência: {subj.weight.rawText}
-                                                                    </p>
+                                                                {(subj.weight?.questions != null || subj.weight?.points != null) ? (
+                                                                    <span className="inline-flex h-5 items-center rounded-[3px] border border-emerald-500/20 bg-emerald-500/10 px-2 text-[8px] font-bold uppercase tracking-[0.08em] text-emerald-300">
+                                                                        Peso encontrado
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-2 text-[8px] font-bold uppercase tracking-[0.08em] text-amber-300">
+                                                                        Sem peso encontrado
+                                                                    </span>
                                                                 )}
                                                             </div>
-                                                        </div>
+                                                            <p className="mt-2 flex items-center gap-1.5 border-t border-white/5 pt-2 text-[10px] leading-snug text-content-muted">
+                                                                <Info size={12} className="shrink-0 text-primary/80" />
+                                                                O peso ajuda a destacar matérias mais relevantes no ciclo. Informe se souber.
+                                                            </p>
+                                                            </div>
                                                         {subj.topics.map((topic, tIdx) => (
                                                             <div key={tIdx} className="flex items-start gap-2 py-1">
                                                                 <input
@@ -2609,18 +2614,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 )}
                                             </div>
                                         ))}
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-border dark:border-white/5">
-                                        <div className="rounded-lg bg-secondary/40 dark:bg-zinc-900/40 border border-border dark:border-white/5 px-3 py-2">
-                                            <p className="text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Matérias selecionadas</p>
-                                            <p className="text-sm font-bold text-content-main">{aiResult.filter(s => s.selected).length} de {aiResult.length}</p>
-                                        </div>
-                                        <div className="rounded-lg bg-secondary/40 dark:bg-zinc-900/40 border border-border dark:border-white/5 px-3 py-2">
-                                            <p className="text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Tópicos selecionados</p>
-                                            <p className="text-sm font-bold text-content-main">
-                                                {aiResult.reduce((acc, s) => acc + s.topics.filter(t => t.selected).length, 0)} de {aiResult.reduce((acc, s) => acc + s.topics.length, 0)}
-                                            </p>
-                                        </div>
                                     </div>
                                     {/* Botão removido daqui para o rodapé fixo */}
                                 </motion.div>
@@ -2767,20 +2760,44 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             {/* ── Fixed Footer for Import ── */}
             {activeTab === 'ia' && iaStage === 'review' && (
-                <div className="px-6 py-4 border-t border-border dark:border-white/5 bg-card dark:bg-zinc-900 rounded-b-[32px] flex justify-center shrink-0">
+                <div className="flex shrink-0 flex-col gap-3 rounded-b-[32px] border-t border-border bg-card px-6 py-2.5 dark:border-white/5 dark:bg-zinc-900 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-content-muted">
+                        <span>
+                            <strong className="font-black text-content-main">{aiResult.filter(s => s.selected).length}</strong> de {aiResult.length} matérias
+                        </span>
+                        <span>
+                            <strong className="font-black text-content-main">
+                                {aiResult.reduce((acc, s) => s.selected ? acc + s.topics.filter(t => t.selected).length : acc, 0)}
+                            </strong> de {aiResult.reduce((acc, s) => s.selected ? acc + s.topics.length : acc, 0)} tópicos
+                        </span>
+                    </div>
                     <button
                         onClick={handleSaveAiResult}
                         disabled={isSavingAi}
-                        className="w-full max-w-sm py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-2xl shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-3 justify-center uppercase tracking-[0.1em]"
+                        className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-[6px] bg-emerald-500 px-5 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-lg shadow-emerald-500/15 transition-all hover:bg-emerald-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                     >
                         {isSavingAi ? (
-                            <><Loader2 className="animate-spin" size={18} /> SALVANDO EDITAL...</>
+                            <><Loader2 className="animate-spin" size={15} /> SALVANDO...</>
                         ) : (
                             <>
-                                <CheckCircle2 size={18} />
+                                <CheckCircle2 size={15} />
                                 {isComplementMode ? 'ADICIONAR AO EDITAL' : 'IMPORTAR SELECIONADOS'}
                             </>
                         )}
+                    </button>
+                </div>
+            )}
+
+            {activeTab === 'ia' && iaStage === 'selectCargo' && analysisResult && (
+                <div className="flex shrink-0 justify-end rounded-b-[32px] border-t border-border bg-card px-6 py-2.5 dark:border-white/5 dark:bg-zinc-900">
+                    <button
+                        type="button"
+                        onClick={hasOnlyGenericCargoAnalysis() ? handleIaImport : handleExtractSelectedCargo}
+                        disabled={!hasOnlyGenericCargoAnalysis() && !selectedCargoId}
+                        className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-[6px] bg-primary px-5 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-lg shadow-primary/15 transition-all hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                    >
+                        <Sparkles size={15} />
+                        {hasOnlyGenericCargoAnalysis() ? 'ANALISAR NOVAMENTE' : 'EXTRAIR DISCIPLINAS'}
                     </button>
                 </div>
             )}
@@ -2899,14 +2916,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         );
     }
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={handleCloseModal}
-                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                className="absolute inset-0 bg-background/78 backdrop-blur-md"
             />
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -2915,6 +2932,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             >
                 {modalInnerContent}
             </motion.div>
-        </div>
+        </div>,
+        document.body
     );
 };

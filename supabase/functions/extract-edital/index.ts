@@ -183,8 +183,10 @@ Disciplinas ja extraidas pelo sistema:
 Regras obrigatorias:
 - Responda somente sobre as disciplinas recebidas na lista. Nunca crie disciplina nova.
 - Use secoes como "Das Provas", "Prova Objetiva", "Quadro de Provas", "Conteudos e Pontuacao", "Distribuicao das Questoes" ou equivalentes.
+- Nesta etapa, tabelas de prova, quadros de pontuacao e distribuicao de questoes sao fontes validas. Nao confunda esta regra com a etapa de extracao de conteudo programatico, onde tabelas de prova nao viram materia.
 - Preencha peso por disciplina apenas quando houver evidencia explicita ligada a essa disciplina.
 - Se o edital trouxer apenas peso por bloco/area (ex.: "Conhecimentos Basicos - 40 questoes") sem detalhar por disciplina, retorne status "block_only" e nao distribua esse peso entre disciplinas.
+- Se uma tabela detalhar disciplinas dentro de um bloco e indicar quantidade de questoes, pontos, peso ou percentual por disciplina, use esses valores para as disciplinas correspondentes.
 - Se houver apenas pontuacao geral da prova sem quebra por disciplina, retorne status "not_found".
 - Nao use quantidade de topicos, criterios de desempate, importancia percebida, ordem de aparicao ou conhecimento comum para inferir peso.
 - Nao assuma que questao vale 1 ponto se o edital nao disser isso explicitamente.
@@ -292,7 +294,6 @@ function getModelCandidates(config: any, primaryModel: string) {
     ...configuredFallbacks,
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-2.0-flash-lite",
   ]);
 }
 
@@ -600,7 +601,7 @@ function normalizeDate(value: unknown): string | null {
   if (!value || typeof value !== "string") return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
 
-  const match = value.match(/(\d{2})[\/.-](\d{2})[\/.-](\d{4})/);
+  const match = value.match(/(\d{2})[/.-](\d{2})[/.-](\d{4})/);
   if (!match) return null;
   return `${match[3]}-${match[2]}-${match[1]}`;
 }
@@ -1135,7 +1136,7 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
 
     console.log("[extract-edital] Calling Gemini", { mode, modelCandidates, hasPdf: !!payloadFileUri, hasText: !!payloadInputText });
     const timeoutMs = mode === "extractForCargo" ? 85000 : mode === "extractSubject" ? 45000 : mode === "extractWeights" ? 25000 : 70000;
-    const { text, finishReason, usage, modelName } = await callGeminiWithFallbacks(apiKey, modelCandidates, buildPayload, timeoutMs, 1);
+    const { text, finishReason, usage, modelName } = await callGeminiWithFallbacks(apiKey, modelCandidates, buildPayload, timeoutMs, 2);
 
     if (finishReason === "MAX_TOKENS") {
       throw new Error("A resposta da IA foi cortada por limite de tokens. Tente enviar apenas a parte do conteudo programatico ou reduzir o edital.");
