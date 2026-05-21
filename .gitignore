@@ -35,3 +35,7 @@ temp-files/
 *.original.*
 
 src/backups/
+
+# Configurações locais/autogeradas
+.codex/
+supabase/.temp/linked-project.json

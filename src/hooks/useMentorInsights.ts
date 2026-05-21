@@ -191,7 +191,7 @@ export const useMentorInsights = (): MentorInsights => {
         }
       });
 
-    let topCriticals = Array.from(groupedCriticals.values())
+    const topCriticals = Array.from(groupedCriticals.values())
        .sort((a, b) => (b.totalVolume || 0) - (a.totalVolume || 0))
        .slice(0, 3);
     

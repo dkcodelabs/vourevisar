@@ -1,5 +1,5 @@
 import React from "react"
-import { BookOpen, Clock, TrendingUp, CheckCircle, Star, Target, Zap, Calendar, Award } from "lucide-react"
+import { BookOpen, Clock, TrendingUp, CheckCircle, Star, Target, Zap, Calendar, Award, WifiOff, RefreshCw } from "lucide-react"
 import {
     RevealCard,
     RevealCardFront,
@@ -8,6 +8,7 @@ import {
     StatsRevealCard,
     SubjectRevealCard,
     WelcomeBanner,
+    PremiumStateCard,
 } from "@/components/ui"
 
 // ============ Página de Demonstração ============
@@ -37,6 +38,47 @@ const RevealCardDemo: React.FC = () => {
                         badgeText="Novidade"
                         className="bg-blue-500/5 dark:bg-blue-500/10 border-blue-500/20"
                     />
+                </div>
+            </section>
+
+            {/* Seção 0.5: Premium State Card */}
+            <section>
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <WifiOff className="text-primary" size={24} />
+                    Premium State Card (Estados críticos)
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                    Padrão visual premium para modais, erros, offline, bloqueios e avisos importantes.
+                </p>
+
+                <PremiumStateCard
+                    icon={WifiOff}
+                    label="Conexão interrompida"
+                    title="Seus estudos estão salvos. Só não consegui buscar os dados agora."
+                    description="Parece que a internet caiu ou ficou instável por alguns segundos. Confira sua conexão e tente novamente para recarregar o painel."
+                    actionLabel="Tentar novamente"
+                    actionIcon={RefreshCw}
+                    onAction={() => window.location.reload()}
+                    helperText="Quando a conexão voltar, você continua de onde parou."
+                    technicalDetail="Exemplo visual do componente PremiumStateCard"
+                />
+
+                <div className="mt-6 rounded-2xl border border-border bg-muted/40 p-5">
+                    <h3 className="font-semibold mb-3">Importar e usar</h3>
+                    <pre className="bg-background p-4 rounded-xl overflow-x-auto text-sm">
+                        <code>{`import { PremiumStateCard } from "@/components/ui";
+import { WifiOff, RefreshCw } from "lucide-react";
+
+<PremiumStateCard
+  icon={WifiOff}
+  label="Conexão interrompida"
+  title="Seus estudos estão salvos."
+  description="Confira sua conexão e tente novamente."
+  actionLabel="Tentar novamente"
+  actionIcon={RefreshCw}
+  onAction={() => window.location.reload()}
+/>`}</code>
+                    </pre>
                 </div>
             </section>
 

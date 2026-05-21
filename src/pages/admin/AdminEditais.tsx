@@ -252,7 +252,7 @@ const AdminEditais = () => {
 
     return (
         <div className="min-h-screen p-4 md:p-6 lg:p-8 space-y-6">
-            <div className="max-w-5xl mx-auto space-y-6">
+            <div className="max-w-7xl mx-auto space-y-6">
                 
                 {/* ─── TOOLBAR SUPERIOR ─── */}
                 <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between w-full mb-8">
@@ -494,126 +494,104 @@ const AdminEditais = () => {
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: idx * 0.02 }}
-                                                className="group relative bg-card border border-border hover:border-primary/30 hover:bg-secondary/30 transition-all duration-200 rounded-xl overflow-hidden cursor-pointer min-h-[124px]"
+                                                className="group relative bg-card border border-border hover:border-primary/30 hover:bg-secondary/30 transition-all duration-200 rounded-xl overflow-hidden cursor-pointer"
 
                                                 onClick={() => {
                                                     setSelectedEditalForSubjects(edital);
                                                     setIsSubjectsModalOpen(true);
                                                 }}
                                             >
-                                                <div className="px-5 py-4 min-h-[124px] grid grid-cols-1 items-center gap-4 md:grid-cols-[minmax(0,1fr)_112px_56px] md:gap-x-5 md:gap-y-4 xl:grid-cols-[minmax(260px,1.05fr)_minmax(360px,1.5fr)_132px_64px]">
+                                                <div className="px-5 py-3 grid grid-cols-1 items-center gap-3 xl:grid-cols-[minmax(0,1fr)_112px_118px_58px] xl:gap-5">
                                                     {/* Indicador de Seleção Lateral */}
-                                                    <div className="absolute left-0 top-4 bottom-4 w-[3px] bg-white/5 group-hover:bg-primary transition-colors" />
+                                                    <div className="absolute left-0 top-3 bottom-3 w-[3px] bg-white/5 group-hover:bg-primary transition-colors" />
                                                     
-                                                    {/* Concurso / Órgão */}
-                                                    <div className="min-w-0 space-y-2 pr-16 md:col-start-1 md:row-start-1 md:pr-0">
-                                                        <span className="block text-[9px] font-black text-zinc-600 uppercase tracking-[0.18em]">
-                                                            Concurso
-                                                        </span>
+                                                    {/* Conteúdo principal */}
+                                                    <div className="min-w-0 space-y-1.5 pr-16 xl:pr-0">
+                                                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold uppercase leading-tight">
+                                                            <span className="text-[9px] font-black text-zinc-600 tracking-[0.18em]">Banca</span>
+                                                            <span
+                                                                className="max-w-full truncate text-zinc-400"
+                                                                title={edital.exam_board || 'Não cadastrada'}
+                                                            >
+                                                                {edital.exam_board || 'Não cadastrada'}
+                                                            </span>
+                                                            <span className="text-zinc-700">|</span>
+                                                            <span
+                                                                className="max-w-full truncate text-zinc-400"
+                                                                title={edital.category || 'Não informada'}
+                                                            >
+                                                                {edital.category || 'Não informada'}
+                                                            </span>
+                                                        </div>
                                                         <h3
-                                                            className="text-[15px] font-black text-foreground dark:text-white uppercase tracking-normal leading-[1.12] break-words group-hover:text-primary transition-colors"
+                                                            className="text-[15px] font-black text-foreground dark:text-white uppercase tracking-normal leading-tight break-words group-hover:text-primary transition-colors"
                                                             title={edital.organ}
                                                         >
                                                             {edital.organ}
                                                         </h3>
-                                                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.16em] flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                            <span>{edital.year}</span>
-                                                            {edital.exam_date && (
-                                                                <>
-                                                                    <span className="w-1 h-1 rounded-full bg-zinc-700" />
-                                                                    <span className="text-primary/80 font-black">{new Date(edital.exam_date).toLocaleDateString('pt-BR')}</span>
-                                                                </>
-                                                            )}
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Detalhes */}
-                                                    <div className="min-w-0 grid grid-cols-1 gap-x-4 gap-y-3 pr-16 md:col-span-3 md:col-start-1 md:row-start-2 md:grid-cols-3 md:pr-0 xl:col-span-1 xl:col-auto xl:row-auto xl:grid-cols-2">
-                                                        <div className="min-w-0">
-                                                            <span className="block text-[9px] font-black text-zinc-600 uppercase tracking-[0.18em] mb-1">
-                                                                Cargo
-                                                            </span>
-                                                            <p
-                                                                className="text-[13px] font-bold text-foreground dark:text-white uppercase tracking-normal leading-snug break-words"
-                                                                title={edital.position || 'Não informado'}
-                                                            >
-                                                                {edital.position || 'Não informado'}
-                                                            </p>
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <span className="block text-[9px] font-black text-zinc-600 uppercase tracking-[0.18em] mb-1">
-                                                                Categoria
-                                                            </span>
-                                                            <p
-                                                                className="text-[12px] font-bold text-zinc-300 uppercase tracking-normal leading-snug break-words"
-                                                                title={edital.category || 'Não informada'}
-                                                            >
-                                                                {edital.category || 'Não informada'}
-                                                            </p>
-                                                        </div>
-                                                        <div className="min-w-0 md:col-span-1 xl:col-span-2">
-                                                            <span className="block text-[9px] font-black text-zinc-600 uppercase tracking-[0.18em] mb-1">
-                                                                Banca
-                                                            </span>
-                                                            <p
-                                                                className="text-[12px] font-bold text-zinc-500 uppercase tracking-normal leading-snug break-words"
-                                                                title={edital.exam_board || 'Não cadastrada'}
-                                                            >
-                                                                {edital.exam_board || 'Não cadastrada'}
-                                                            </p>
+                                                        <div className="min-w-0 text-[12px] font-bold uppercase leading-snug text-zinc-300">
+                                                            <span className="mr-2 text-[9px] font-black text-zinc-600 tracking-[0.16em]">Cargo</span>
+                                                            <span title={edital.position || 'Não informado'}>{edital.position || 'Não informado'}</span>
                                                         </div>
                                                     </div>
 
-                                                    {/* Métricas e Status (Direita) */}
-                                                    <div className="flex items-center justify-start md:col-start-2 md:row-start-1 md:justify-end xl:col-auto xl:row-auto xl:border-l xl:border-white/5 xl:pl-5">
-                                                        <div className="flex w-auto flex-col items-start gap-1.5 md:w-[104px] md:items-end">
-                                                            <div className="flex items-baseline gap-1.5">
+                                                    {/* Ano e data */}
+                                                    <div className="flex flex-wrap items-center gap-2 xl:flex-col xl:items-start xl:gap-1">
+                                                        <span className="rounded-md border border-white/5 bg-secondary/60 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">{edital.year}</span>
+                                                        {edital.exam_date && (
+                                                            <span className="rounded-md border border-primary/15 bg-primary/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-primary/85">
+                                                                {new Date(edital.exam_date).toLocaleDateString('pt-BR')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Métricas */}
+                                                    <div className="flex min-w-[118px] items-center gap-4 xl:flex-col xl:items-start xl:gap-1 xl:border-l xl:border-white/5 xl:pl-5">
+                                                        <div className="flex items-baseline gap-1.5 whitespace-nowrap">
                                                                 <span className={`text-base font-black leading-none tracking-tighter ${subjectsCount === 0 ? 'text-amber-500 animate-pulse' : 'text-primary'}`}>{subjectsCount}</span>
                                                                 <span className={`text-[10px] font-black uppercase tracking-tighter ${subjectsCount === 0 ? 'text-amber-500/60' : 'text-primary/60'}`}>Matérias</span>
-                                                            </div>
-                                                            <div className={`flex items-baseline gap-1.5 ${topicsCount === 0 ? 'opacity-100' : 'opacity-30'}`}>
+                                                        </div>
+                                                        <div className={`flex items-baseline gap-1.5 whitespace-nowrap ${topicsCount === 0 ? 'opacity-100' : 'opacity-35'}`}>
                                                                 <span className={`text-xs font-black leading-none tracking-tighter ${topicsCount === 0 ? 'text-amber-500' : 'text-white'}`}>{topicsCount}</span>
                                                                 <span className={`text-[9px] font-black uppercase tracking-tighter ${topicsCount === 0 ? 'text-amber-500/60' : 'text-white'}`}>Tópicos</span>
-                                                            </div>
                                                         </div>
                                                     </div>
 
-                                                    {/* Status / ações */}
-                                                    <div className="absolute right-4 top-4 flex items-center justify-center md:static md:col-start-3 md:row-start-1 xl:col-auto xl:row-auto xl:border-l xl:border-white/5 xl:pl-4">
-                                                            <div className="relative w-full flex items-center justify-center">
-                                                                {/* Visibilidade Padrão: Status */}
-                                                                <div className="flex flex-col items-center gap-1 group-hover:opacity-0 group-hover:scale-75 transition-all duration-300">
-                                                                    {edital.is_public ? (
-                                                                        <>
-                                                                            <Globe size={18} className="text-emerald-500" />
-                                                                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Pub</span>
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <EyeOff size={18} className="text-zinc-600" />
-                                                                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Priv</span>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* Visibilidade Hover: Ações Verticais */}
-                                                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
-                                                                    <button 
-                                                                        onClick={(e) => { e.stopPropagation(); openEditForm(edital); }} 
-                                                                        className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                                                                        title="Editar Edital"
-                                                                    >
-                                                                        <Edit3 size={18} />
-                                                                    </button>
-                                                                    <button 
-                                                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(edital.id); }} 
-                                                                        className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                                                                        title="Excluir Edital"
-                                                                    >
-                                                                        <Trash2 size={18} />
-                                                                    </button>
-                                                                </div>
+                                                    <div className="absolute right-4 top-4 flex items-center justify-center xl:static xl:border-l xl:border-white/5 xl:pl-4">
+                                                        <div className="relative flex w-12 items-center justify-center">
+                                                            {/* Visibilidade Padrão: Status */}
+                                                            <div className="flex flex-col items-center gap-1 group-hover:opacity-0 group-hover:scale-75 transition-all duration-300">
+                                                                {edital.is_public ? (
+                                                                    <>
+                                                                        <Globe size={18} className="text-emerald-500" />
+                                                                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Pub</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <EyeOff size={18} className="text-zinc-600" />
+                                                                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Priv</span>
+                                                                    </>
+                                                                )}
                                                             </div>
+
+                                                            {/* Visibilidade Hover: Ações Verticais */}
+                                                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); openEditForm(edital); }} 
+                                                                    className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                                                    title="Editar Edital"
+                                                                >
+                                                                    <Edit3 size={18} />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(edital.id); }} 
+                                                                    className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                                                    title="Excluir Edital"
+                                                                >
+                                                                    <Trash2 size={18} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
 

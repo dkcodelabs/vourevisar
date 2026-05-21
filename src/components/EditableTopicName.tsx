@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface EditableTopicNameProps {
   topicId: string;
@@ -85,7 +86,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      toast.error("Nome do tópico não pode estar vazio");
+      toastGate.notifyError("Nome do tópico não pode estar vazio", 'COMPONENTS-EDITABLETOPICNAME-01', { severity: 'medium' });
       return;
     }
 
@@ -111,7 +112,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
       toast.success("Nome do tópico atualizado com sucesso");
     } catch (error) {
       console.error('Erro ao atualizar nome do tópico:', error);
-      toast.error("Erro ao atualizar nome do tópico");
+      toastGate.notifyError("Erro ao atualizar nome do tópico", 'COMPONENTS-EDITABLETOPICNAME-02', { severity: 'medium' });
     } finally {
       setIsSaving(false);
     }

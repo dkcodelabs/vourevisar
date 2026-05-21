@@ -29,6 +29,8 @@ import { toastManager } from "@/utils/toastManager";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { features } from "@/lib/features";
+import { useApp } from "@/contexts/AppContext";
+import { NetworkStatusOverlay } from "@/components/NetworkStatusOverlay";
 
 const routeTitles: Record<string, string> = {
   "/dashboard": "Painel",
@@ -93,6 +95,7 @@ export const AppLayout = () => {
   const { logSessionStart } = useUserLogger();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
+  const { error: appError } = useApp();
   const hour = new Date().getHours();
 
   React.useEffect(() => {
@@ -407,6 +410,8 @@ export const AppLayout = () => {
           </div>
         )}
       </AnimatePresence>
+
+      <NetworkStatusOverlay appError={appError} />
     </div >
   );
 };

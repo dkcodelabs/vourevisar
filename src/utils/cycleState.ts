@@ -1,5 +1,5 @@
 // Estado global simples para o ciclo
-let globalCycleState: {
+const globalCycleState: {
   studiedSubjects: Set<string>;
   cycleNumber: number;
 } = {

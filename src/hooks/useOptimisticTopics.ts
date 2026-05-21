@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Topic, TopicNotes } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export const useOptimisticTopics = (
   initialTopics: Topic[],
@@ -20,7 +21,7 @@ export const useOptimisticTopics = (
 
   const addTopic = useCallback(async (name: string) => {
     if (!name.trim()) {
-      toast.error('Digite o nome do tópico');
+      toastGate.notifyError('Digite o nome do tópico', 'HOOKS-USEOPTIMISTICTOPICS-01', { severity: 'medium' });
       return;
     }
 
@@ -101,7 +102,7 @@ export const useOptimisticTopics = (
       // Reverter atualização otimista
       setLocalTopics(localTopics);
       onTopicsUpdate(localTopics);
-      toast.error('Erro ao adicionar tópico');
+      toastGate.notifyError('Erro ao adicionar tópico', 'HOOKS-USEOPTIMISTICTOPICS-02', { severity: 'medium' });
       throw error;
     } finally {
       setIsLoading(false);
@@ -161,7 +162,7 @@ export const useOptimisticTopics = (
       // Reverter atualização otimista
       setLocalTopics(localTopics);
       onTopicsUpdate(localTopics);
-      toast.error('Erro ao atualizar tópico');
+      toastGate.notifyError('Erro ao atualizar tópico', 'HOOKS-USEOPTIMISTICTOPICS-03', { severity: 'medium' });
       throw error;
     }
   }, [localTopics, onTopicsUpdate]);
@@ -186,7 +187,7 @@ export const useOptimisticTopics = (
       // Reverter atualização otimista
       setLocalTopics(localTopics);
       onTopicsUpdate(localTopics);
-      toast.error('Erro ao excluir tópico');
+      toastGate.notifyError('Erro ao excluir tópico', 'HOOKS-USEOPTIMISTICTOPICS-04', { severity: 'medium' });
       throw error;
     }
   }, [localTopics, onTopicsUpdate]);

@@ -40,7 +40,7 @@ function parseQuestions(rawText: string, type: string): ParsedQuestion[] {
     if (lines.length === 0) return;
     
     let statement = '';
-    let options: string[] = [];
+    const options: string[] = [];
     let correctAnswer = '';
     let explanation = '';
     let isReadingStatement = true;

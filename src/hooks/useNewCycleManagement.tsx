@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Subject, UserCycle } from '@/types';
 import { toast } from '@/lib/toast';
 import { loadUserCycle } from '@/utils/cycleUtils';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export const useNewCycleManagement = (
   subjects: Subject[],
@@ -98,7 +99,7 @@ export const useNewCycleManagement = (
       toast.success('Novo ciclo iniciado com sucesso!');
     } catch (error) {
       console.error('Erro ao iniciar novo ciclo:', error);
-      toast.error('Erro ao iniciar novo ciclo');
+      toastGate.notifyError('Erro ao iniciar novo ciclo', 'HOOKS-USENEWCYCLEMANAGEMENT-01', { severity: 'medium' });
     } finally {
       setIsStartingNewCycle(false);
     }

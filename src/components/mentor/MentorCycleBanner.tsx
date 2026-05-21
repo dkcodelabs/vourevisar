@@ -76,7 +76,7 @@ export const MentorCycleBanner: React.FC<MentorCycleBannerProps> = ({
     } else {
       setIsVisible(false);
     }
-  }, [topInsight]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [topInsight]);  
 
   const handleDismiss = () => {
     if (!topInsight) return;

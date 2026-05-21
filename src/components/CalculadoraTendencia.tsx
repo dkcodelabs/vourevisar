@@ -1,3 +1,4 @@
+import { toastGate } from '@/lib/errors/toastGate';
 import React, { useState } from 'react'
 import { toast } from 'react-toastify'
 import { Loader2, Search, TrendingUp, AlertTriangle, ChevronDown, CheckCircle2, Sparkles, BrainCircuit, Split, AlertOctagon } from 'lucide-react'
@@ -35,7 +36,7 @@ export function CalculadoraImportancia() {
     const handleCalcular = async () => {
         // Check automático interno via .env agora
         if (!materia || !topico) {
-            toast.error('Preencha Matéria e Tópico')
+            toastGate.notifyError('Preencha Matéria e Tópico', 'COMPONENTS-CALCULADORATENDENCIA-01', { severity: 'medium' })
             return
         }
 
@@ -60,7 +61,7 @@ export function CalculadoraImportancia() {
 
         } catch (error) {
             console.error(error)
-            toast.error('Erro ao calcular importância. Verifique o console.')
+            toastGate.notifyError('Erro ao calcular importância. Verifique o console.', 'COMPONENTS-CALCULADORATENDENCIA-02', { severity: 'medium' })
         } finally {
             setLoading(false)
         }

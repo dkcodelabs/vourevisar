@@ -229,7 +229,7 @@ export const useDailyStudyProgress = () => {
 
       // Atualizar progresso diário no user_cycles
 
-      // @ts-ignore - Campo existe mas pode estar faltando na definição de tipos
+      // @ts-expect-error Campo existe mas pode estar faltando na definição de tipos
       const { data: currentCycleData, error: fetchError } = await supabase
         .from('user_cycles')
         .select('materias_estudadas_hoje')
@@ -244,7 +244,7 @@ export const useDailyStudyProgress = () => {
 
       const currentCycleRow = currentCycleData?.[0] || null;
 
-      // @ts-ignore - Campo existe mas pode estar faltando na definição de tipos
+      // @ts-expect-error Campo existe mas pode estar faltando na definição de tipos
       const currentStudied = (currentCycleRow?.materias_estudadas_hoje as string[]) || [];
 
       if (!currentStudied.includes(session.subjectId)) {
@@ -322,7 +322,7 @@ export const useDailyStudyProgress = () => {
     if (!user) return null;
 
     try {
-      // @ts-ignore - Tipo inferido muito complexo, mas funciona corretamente
+      // @ts-expect-error Tipo inferido muito complexo, mas funciona corretamente
       const { data, error } = await supabase
         .from('study_sessions')
         .select('completed_at')

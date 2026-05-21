@@ -6,6 +6,7 @@ import { toastManager } from '@/utils/toastManager';
 import { toast } from '@/lib/toast';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study'; // mantido para compatibilidade legada
 import { useStudySessionTracking } from './useStudySessionTracking';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export const useStudyCycle = () => {
   const { user } = useAuth();
@@ -60,7 +61,7 @@ export const useStudyCycle = () => {
       const profile = ReviewProfile.INTERMEDIATE;
       const { intervals } = REVIEW_PROFILES[profile];
 
-      let newReviewCount = topic.review_count + 1;
+      const newReviewCount = topic.review_count + 1;
       let reviewStage;
       let nextReview = null;
       let completed = false;
@@ -166,7 +167,7 @@ export const useStudyCycle = () => {
       });
     } catch (error) {
       console.error('Erro ao marcar tópico como revisado:', error);
-      toast.error('Erro ao registrar revisão');
+      toastGate.notifyError('Erro ao registrar revisão', 'HOOKS-USESTUDYCYCLE-01', { severity: 'medium' });
     }
   };
 
@@ -180,7 +181,7 @@ export const useStudyCycle = () => {
     try {
       const subject = subjects.find(s => s.id === subjectId);
       if (!subject) {
-        toast.error('Matéria não encontrada');
+        toastGate.notifyError('Matéria não encontrada', 'HOOKS-USESTUDYCYCLE-02', { severity: 'medium' });
         return;
       }
 
@@ -243,7 +244,7 @@ export const useStudyCycle = () => {
 
     } catch (error) {
       console.error('❌ Erro ao concluir sessão:', error);
-      toast.error('Erro ao concluir sessão');
+      toastGate.notifyError('Erro ao concluir sessão', 'HOOKS-USESTUDYCYCLE-03', { severity: 'medium' });
     }
   };
 

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from "@/lib/toast";
+import { toastGate } from '@/lib/errors/toastGate';
 
 const AddTopicForm: React.FC = () => {
   const { subjects, addTopic } = useApp();
@@ -17,7 +18,7 @@ const AddTopicForm: React.FC = () => {
     e.preventDefault();
 
     if (!selectedSubjectId || !topicName.trim()) {
-      toast.error('Selecione uma matéria e digite o nome do tópico');
+      toastGate.notifyError('Selecione uma matéria e digite o nome do tópico', 'COMPONENTS-TOPICS-ADDTOPICFORM-01', { severity: 'medium' });
       return;
     }
 
@@ -45,7 +46,7 @@ const AddTopicForm: React.FC = () => {
       setSelectedSubjectId('');
     } catch (error) {
       console.error('Erro ao adicionar tópico:', error);
-      toast.error('Erro ao adicionar tópico');
+      toastGate.notifyError('Erro ao adicionar tópico', 'COMPONENTS-TOPICS-ADDTOPICFORM-02', { severity: 'medium' });
     } finally {
       setIsAdding(false);
     }

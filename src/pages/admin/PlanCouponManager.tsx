@@ -42,7 +42,7 @@ export default function PlanCouponManager() {
   useEffect(() => {
     if (!roleLoading && !isOwner) {
       navigate('/dashboard');
-      toast.error('Acesso negado. Apenas proprietários podem acessar esta área.');
+      toastGate.notifyError('Acesso negado. Apenas proprietários podem acessar esta área.', 'PAGES-ADMIN-PLANCOUPONMANAGER-01', { severity: 'medium' });
     }
   }, [isOwner, roleLoading, navigate]);
 

@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { UserCycle } from '@/types';
 import { loadUserCycle } from '@/utils/cycleUtils';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export const useNextDay = () => {
   const { user } = useAuth();
@@ -231,7 +232,7 @@ export const useNextDay = () => {
       
     } catch (error) {
       console.error('Erro ao gerar próximo dia:', error);
-      toast.error('Erro ao carregar próximas matérias');
+      toastGate.notifyError('Erro ao carregar próximas matérias', 'HOOKS-USENEXTDAY-01', { severity: 'medium' });
     } finally {
       setIsNextDayLoading(false);
     }

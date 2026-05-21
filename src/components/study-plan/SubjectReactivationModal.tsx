@@ -9,6 +9,7 @@ import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface SubjectReactivationModalProps {
   isOpen: boolean;
@@ -125,7 +126,7 @@ const SubjectReactivationModal: React.FC<SubjectReactivationModalProps> = ({ isO
       onClose();
     } catch (error) {
       console.error('Erro ao reativar matérias:', error);
-      toast.error('Erro ao reativar matérias. Tente novamente.');
+      toastGate.notifyError('Erro ao reativar matérias. Tente novamente.', 'COMPONENTS-STUDY-PLAN-SUBJECTREACTIVATIONMODAL-01', { severity: 'medium' });
     } finally {
       setIsReactivating(false);
     }

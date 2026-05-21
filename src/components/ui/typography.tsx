@@ -104,7 +104,7 @@ export const ConsistentButton = ({
 };
 
 // Consistent Input component
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+type InputProps = React.InputHTMLAttributes<HTMLInputElement>
 
 export const ConsistentInput = ({ className, ...props }: InputProps) => (
   <input 

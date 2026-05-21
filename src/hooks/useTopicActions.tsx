@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
 import { toast } from '@/lib/toast';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export const useTopicActions = () => {
   const { user } = useAuth();
@@ -53,7 +54,7 @@ export const useTopicActions = () => {
       const profile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
       const { intervals } = REVIEW_PROFILES[profile];
 
-      let newReviewCount = topic.review_count + 1;
+      const newReviewCount = topic.review_count + 1;
       let reviewStage;
       let nextReview = null;
       let completed = false;
@@ -127,7 +128,7 @@ export const useTopicActions = () => {
       });
     } catch (error) {
       console.error('Erro ao marcar tópico como revisado:', error);
-      toast.error('Erro ao registrar revisão');
+      toastGate.notifyError('Erro ao registrar revisão', 'HOOKS-USETOPICACTIONS-01', { severity: 'medium' });
     }
   };
 

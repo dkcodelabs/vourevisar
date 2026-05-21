@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ExternalLink, Upload, FileText, CheckCircle2, AlertCircle, Copy, Check } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { subjectNameSchema, topicNameSchema } from '@/lib/validation';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface ContentUploadModalProps {
   open: boolean;
@@ -74,7 +75,7 @@ ${content}`;
 
   const handleCopyPromptAndOpenChatGPT = async () => {
     if (!content.trim()) {
-      toast.error('Por favor, cole o conteúdo programático primeiro');
+      toastGate.notifyError('Por favor, cole o conteúdo programático primeiro', 'COMPONENTS-CONTENTUPLOADMODAL-01', { severity: 'medium' });
       return;
     }
 
@@ -94,13 +95,13 @@ ${content}`;
       // Reset the copied state after 5 seconds
       setTimeout(() => setPromptCopied(false), 5000);
     } catch (error) {
-      toast.error('Erro ao copiar prompt. Tente novamente.');
+      toastGate.notifyError('Erro ao copiar prompt. Tente novamente.', 'COMPONENTS-CONTENTUPLOADMODAL-02', { severity: 'medium' });
     }
   };
 
   const handleProcessResult = () => {
     if (!chatGptResult.trim()) {
-      toast.error('Por favor, cole o resultado do ChatGPT primeiro');
+      toastGate.notifyError('Por favor, cole o resultado do ChatGPT primeiro', 'COMPONENTS-CONTENTUPLOADMODAL-03', { severity: 'medium' });
       return;
     }
 
@@ -115,7 +116,7 @@ ${content}`;
     console.log('Cleaned lines:', lines);
 
     if (lines.length === 0) {
-      toast.error('Resultado deve ter pelo menos uma linha de dados');
+      toastGate.notifyError('Resultado deve ter pelo menos uma linha de dados', 'COMPONENTS-CONTENTUPLOADMODAL-04', { severity: 'medium' });
       return;
     }
 
@@ -188,7 +189,7 @@ ${content}`;
     console.log('Final parsed data:', data);
 
     if (data.length === 0) {
-      toast.error('Nenhum dado válido encontrado no resultado. Verifique o formato.');
+      toastGate.notifyError('Nenhum dado válido encontrado no resultado. Verifique o formato.', 'COMPONENTS-CONTENTUPLOADMODAL-05', { severity: 'medium' });
       return;
     }
 
@@ -249,7 +250,7 @@ ${content}`;
         try {
           subjectNameSchema.parse(subjectName);
         } catch (error: any) {
-          toast.error(`Matéria "${subjectName}": ${error.errors[0]?.message}`);
+          toastGate.notifyError(`Matéria "${subjectName}": ${error.errors[0]?.message}`, 'COMPONENTS-CONTENTUPLOADMODAL-06', { severity: 'medium' });
           continue;
         }
 
@@ -291,7 +292,7 @@ ${content}`;
           try {
             topicNameSchema.parse(topicName);
           } catch (error: any) {
-            toast.error(`Tópico "${topicName}": ${error.errors[0]?.message}`);
+            toastGate.notifyError(`Tópico "${topicName}": ${error.errors[0]?.message}`, 'COMPONENTS-CONTENTUPLOADMODAL-07', { severity: 'medium' });
             continue;
           }
 
@@ -340,7 +341,7 @@ ${content}`;
       resetModal();
     } catch (error) {
       console.error('Erro ao importar dados:', error);
-      toast.error('Erro ao importar dados. Tente novamente.');
+      toastGate.notifyError('Erro ao importar dados. Tente novamente.', 'COMPONENTS-CONTENTUPLOADMODAL-08', { severity: 'medium' });
     } finally {
       setIsProcessing(false);
     }

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface DifficultyRatingState {
   isModalOpen: boolean;
@@ -68,7 +69,7 @@ export const useDifficultyRating = () => {
       }
     } catch (error) {
       console.error('Erro ao salvar dificuldade:', error);
-      toast.error('Erro ao salvar avaliação de dificuldade');
+      toastGate.notifyError('Erro ao salvar avaliação de dificuldade', 'HOOKS-USEDIFFICULTYRATING-01', { severity: 'medium' });
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +98,7 @@ export const useDifficultyRating = () => {
       }
     } catch (error) {
       console.error('Erro ao atualizar dificuldade:', error);
-      toast.error('Erro ao atualizar dificuldade');
+      toastGate.notifyError('Erro ao atualizar dificuldade', 'HOOKS-USEDIFFICULTYRATING-02', { severity: 'medium' });
     } finally {
       setIsLoading(false);
     }

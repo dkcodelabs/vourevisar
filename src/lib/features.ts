@@ -33,7 +33,7 @@ export const features = {
 
 // Expor no window para debug/override fácil
 if (typeof window !== 'undefined') {
-    // @ts-ignore
+    // @ts-expect-error Tipagem global intencional para compatibilidade
     window.FEATURES = {
         enable: (key: keyof typeof features) => {
             window.localStorage.setItem(`FEATURE_${key}`, 'true');

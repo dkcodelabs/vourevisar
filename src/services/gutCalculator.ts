@@ -181,7 +181,7 @@ function cleanSubjectName(materia: string): string {
     limpo = limpo.replace(regex, " ")
 
     // 3. Remover pontuação
-    limpo = limpo.replace(/[.,;:\-]/g, " ")
+    limpo = limpo.replace(/[.,;:-]/g, " ")
 
     // 4. Limpar espaços extras
     limpo = limpo.replace(/\s+/g, " ").trim()
@@ -231,10 +231,10 @@ async function gerarTermosBuscaIA(materia: string, topicoSujo: string): Promise<
     function fallbackSplitter(texto: string): { tags: string[], search_context: string } {
         console.log("⚠️ Ativando Fallback Manual (Regex)...")
         // 1. Remove termos inúteis
-        let limpo = texto.replace(/\b(noções de|compreensão de|básico de|introdução a)\b/gi, "")
+        const limpo = texto.replace(/\b(noções de|compreensão de|básico de|introdução a)\b/gi, "")
 
         // 2. Quebra por delimitadores comuns: , ; e +
-        let partes = limpo.split(/,|;| e | \+ /i)
+        const partes = limpo.split(/,|;| e | \+ /i)
 
         // 3. Limpa e normaliza
         const tags = partes
@@ -429,7 +429,7 @@ export async function calcularNotaImportancia(
     // 1. Limpeza inteligente do tópico original
     const topicoLimpo = topicoSujo
         .replace(/^(noções de|introdução [àa]|o |a |os |as )/gi, "") // Remove prefixos inúteis
-        .replace(/[.,;:\-]/g, " ") // Remove pontuação
+        .replace(/[.,;:-]/g, " ") // Remove pontuação
         .trim()
 
     // 2. Injeta como PRIMEIRA tag se já não estiver na lista (case insensitivo)
@@ -464,7 +464,7 @@ export async function calcularNotaImportancia(
     let maiorVolumeGeral = 0
     let termoCampeao = ""
     let termoCampeaoContexto = materiaOtimizada // Default: Contexto IA
-    let logDetalhado: string[] = []
+    const logDetalhado: string[] = []
     let usadasSessao = 0
 
     // Variáveis para Audit Log V30
@@ -483,7 +483,7 @@ export async function calcularNotaImportancia(
             // Tenta usar o contexto da IA. Se não tiver, usa a primeira palavra da matéria.
             const materiaOtimizada = iaResult.search_context || removeAccents(materia.split(' ')[0]);
             let volumeDesteTermo = 0;
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+             
             let strategyUsed = iaResult.search_context ? "IA Context" : "Auto Context";
 
             // 2. TENTATIVA 1: BUSCA PRECISA (Com Contexto + Aspas)
@@ -500,7 +500,7 @@ export async function calcularNotaImportancia(
             query += " questão concurso";
 
             console.log(`🔍 Query Google (V23 Aspas): "${query}"`)
-            let resultado = await buscarGoogle(query, anos);
+            const resultado = await buscarGoogle(query, anos);
 
             // ... após receber resultado ...
             if (!resultado.searchInformation) {

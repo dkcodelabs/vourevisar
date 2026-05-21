@@ -52,8 +52,8 @@ export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({
 
     return days.map(date => {
       const activities: DayDetail['activities'] = [];
-      let pomodoroSessions = 0;
-      let totalMinutes = 0;
+      const pomodoroSessions = 0;
+      const totalMinutes = 0;
 
       // Buscar revisões do dia no reviewData
       reviewData.forEach(review => {

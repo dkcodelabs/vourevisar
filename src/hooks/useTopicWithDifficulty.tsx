@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Topic } from '@/types';
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface TopicCompletionData {
   topicId: string;
@@ -35,7 +36,7 @@ export const useTopicWithDifficulty = () => {
       return true;
     } catch (error) {
       console.error('Erro ao completar tópico:', error);
-      toast.error('Erro ao completar tópico');
+      toastGate.notifyError('Erro ao completar tópico', 'HOOKS-USETOPICWITHDIFFICULTY-01', { severity: 'medium' });
       return false;
     }
   }, [updateTopic]);
@@ -63,7 +64,7 @@ export const useTopicWithDifficulty = () => {
       }
     } catch (error) {
       console.error('Erro ao salvar dificuldade:', error);
-      toast.error('Erro ao salvar avaliação de dificuldade');
+      toastGate.notifyError('Erro ao salvar avaliação de dificuldade', 'HOOKS-USETOPICWITHDIFFICULTY-02', { severity: 'medium' });
     }
   }, [updateTopic]);
 

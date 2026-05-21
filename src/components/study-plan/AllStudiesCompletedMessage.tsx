@@ -25,7 +25,7 @@ const AllStudiesCompletedMessage: React.FC = () => {
 
     const duration = 3000; // REDUZIDO: Duração menor
     const animationEnd = Date.now() + duration;
-    let intervalId: NodeJS.Timeout;
+    let intervalId: NodeJS.Timeout | null = null;
 
     const randomInRange = (min: number, max: number) => {
       return Math.random() * (max - min) + min;

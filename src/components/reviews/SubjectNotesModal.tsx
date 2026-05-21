@@ -10,6 +10,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { useCycleState } from '@/hooks/useCycleState';
 import { registerSubjectDualProgress } from '@/services/cycleMergeService';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface SubjectNotesModalProps {
   isOpen: boolean;
@@ -58,7 +59,7 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
       }
     } catch (error) {
       console.error('Erro ao carregar anotações:', error);
-      toast.error('Erro ao carregar anotações');
+      toastGate.notifyError('Erro ao carregar anotações', 'COMPONENTS-REVIEWS-SUBJECTNOTESMODAL-01', { severity: 'medium' });
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +91,7 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
       toast.success('Anotações salvas com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar anotações:', error);
-      toast.error('Erro ao salvar anotações');
+      toastGate.notifyError('Erro ao salvar anotações', 'COMPONENTS-REVIEWS-SUBJECTNOTESMODAL-02', { severity: 'medium' });
       throw error;
     } finally {
       setIsSaving(false);

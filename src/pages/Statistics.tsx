@@ -26,13 +26,15 @@ import {
   Activity,
   TrendingUp,
   Lightbulb,
-  Star
+  Star,
+  WifiOff
 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { errorService } from '@/lib/errors/errorService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
+import { PremiumStateCard } from '@/components/ui/PremiumStateCard';
 
 const Statistics = () => {
   const navigate = useNavigate();
@@ -79,25 +81,17 @@ const Statistics = () => {
 
   if (hasError) {
     return (
-      <div className="w-full">
-        <div className="container mx-auto p-4">
-          <div className="flex flex-col items-center justify-center h-96 space-y-4">
-            <div className="p-4 rounded-full bg-red-100">
-              <BarChart3 className="h-12 w-12 text-red-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-red-600">Erro ao Carregar Dados</h2>
-            <p className="text-content-muted text-center max-w-md">
-              Não foi possível carregar os dados estatísticos. Verifique sua conexão e tente novamente.
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Tentar Novamente
-            </button>
-          </div>
-        </div>
+      <div className="container mx-auto flex min-h-[70vh] items-center justify-center px-4 py-8">
+        <PremiumStateCard
+          icon={WifiOff}
+          label="Conexão interrompida"
+          title="Seus estudos estão salvos. Só falta reconectar."
+          description="A tela de estatísticas precisa consultar o Supabase, mas o navegador está sem conexão no momento. Assim que a internet voltar, tente carregar os dados novamente."
+          actionLabel="Tentar novamente"
+          actionIcon={RefreshCw}
+          onAction={() => window.location.reload()}
+          helperText="Quando a conexão voltar, seus dados aparecem aqui."
+        />
       </div>
     );
   }

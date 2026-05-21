@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-toastify';
 import { Tables } from '@/integrations/supabase/types';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export type StudyCycleV2 = Tables<'study_cycles_v2'>;
 export type CycleRotation = Tables<'cycle_rotations'>;
@@ -110,13 +111,13 @@ export const useStudyCycleV2 = () => {
       await fetchActiveCycleData();
     } catch (error) {
       console.error('Erro ao iniciar ciclo:', error);
-      toast.error('Não foi possível iniciar o ciclo de estudos.');
+      toastGate.notifyError('Não foi possível iniciar o ciclo de estudos.', 'HOOKS-USESTUDYCYCLEV2-01', { severity: 'medium' });
     }
   };
 
   const markSubjectAsStudied = async (subjectId: string) => {
     if (!activeCycle || !activeRotation) {
-      toast.error('Nenhum ciclo ou giro ativo encontrado.');
+      toastGate.notifyError('Nenhum ciclo ou giro ativo encontrado.', 'HOOKS-USESTUDYCYCLEV2-02', { severity: 'medium' });
       return;
     }
 
@@ -160,7 +161,7 @@ export const useStudyCycleV2 = () => {
       toast.success('Matéria marcada como estudada!');
     } catch (error) {
       console.error('Erro ao marcar matéria como estudada:', error);
-      toast.error('Erro ao registrar progresso.');
+      toastGate.notifyError('Erro ao registrar progresso.', 'HOOKS-USESTUDYCYCLEV2-03', { severity: 'medium' });
     }
   };
 
@@ -201,7 +202,7 @@ export const useStudyCycleV2 = () => {
       await fetchActiveCycleData();
     } catch (error) {
       console.error('Erro ao finalizar giro:', error);
-      toast.error('Erro ao reiniciar o giro.');
+      toastGate.notifyError('Erro ao reiniciar o giro.', 'HOOKS-USESTUDYCYCLEV2-04', { severity: 'medium' });
     }
   };
 

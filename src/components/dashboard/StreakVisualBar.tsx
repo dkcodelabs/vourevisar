@@ -38,7 +38,7 @@ export const StreakVisualBar: React.FC<StreakVisualBarProps> = ({
 
     return days.map(date => {
       const activities: DayActivity['activities'] = [];
-      let pomodoroSessions = 0;
+      const pomodoroSessions = 0;
 
       // Verificar atividades do dia
       subjects.forEach(subject => {

@@ -570,6 +570,9 @@ const Subjects = () => {
   });
   const [resetCycleConfirmOpen, setResetCycleConfirmOpen] = useState(false);
   const [isResettingCycle, setIsResettingCycle] = useState(false);
+  const [completeCycleConfirmOpen, setCompleteCycleConfirmOpen] = useState(false);
+  const [pendingCompleteSubjectId, setPendingCompleteSubjectId] = useState<string | null>(null);
+  const [startNextCycleConfirmOpen, setStartNextCycleConfirmOpen] = useState(false);
   // Confirmação inline de exclusão de matéria
   const [confirmHideSubjectId, setConfirmHideSubjectId] = useState<string | null>(null);
 
@@ -903,6 +906,11 @@ const Subjects = () => {
     return expanded;
   }, [userCycle?.ciclo_atual, dynamicUnificationMap, localSubjects, activeSubjectIdsSet, hiddenSubjectIds]);
 
+  const studiedCycleIdSet = useMemo(() => {
+    const studiedIds = userCycle?.materias_estudadas_ciclo || [];
+    return new Set(studiedIds.map((id: string) => getUnifiedSubjectId(id, dynamicUnificationMap)));
+  }, [userCycle?.materias_estudadas_ciclo, dynamicUnificationMap]);
+
   // Sincronização redundante de localSubjects removida para evitar flicker.
   // localSubjects agora é gerenciado diretamente no loadSubjects.
 
@@ -1206,7 +1214,7 @@ const Subjects = () => {
     // Mantém o estado aberto/fechado da fila durante a ordenação.
   };
 
-  const handleMarcarMateriaComoEstudada = useCallback(async (materiaId: string) => {
+  const executeMarcarMateriaComoEstudada = useCallback(async (materiaId: string) => {
     if (!user || !userCycle) return;
 
     const rawSubjectId = (userCycle.ciclo_atual || []).find((id: string) =>
@@ -1258,6 +1266,22 @@ const Subjects = () => {
       );
     }
   }, [dynamicUnificationMap, getUnifiedSubjectName, localSubjects, user, userCycle]);
+
+  const handleMarcarMateriaComoEstudada = useCallback((materiaId: string) => {
+    if (!userCycle) return;
+
+    // Verificar se é a última matéria pendente no ciclo
+    const pendingSubjects = expandedSubjectList.filter(item => !studiedCycleIdSet.has(item.subject.id));
+    const isLastPending = pendingSubjects.length === 1 && 
+      pendingSubjects[0].subject.id === getUnifiedSubjectId(materiaId, dynamicUnificationMap);
+
+    if (isLastPending) {
+      setPendingCompleteSubjectId(materiaId);
+      setCompleteCycleConfirmOpen(true);
+    } else {
+      executeMarcarMateriaComoEstudada(materiaId);
+    }
+  }, [userCycle, expandedSubjectList, studiedCycleIdSet, dynamicUnificationMap, executeMarcarMateriaComoEstudada]);
 
   const handleVoltarMateriaParaFila = useCallback(async (materiaId: string) => {
     if (!user || !userCycle) return;
@@ -1514,11 +1538,6 @@ const Subjects = () => {
 
     return list;
   }, [expandedSubjectList, newSubjectName, isImportEditalModalOpen]);
-
-  const studiedCycleIdSet = useMemo(() => {
-    const studiedIds = userCycle?.materias_estudadas_ciclo || [];
-    return new Set(studiedIds.map((id: string) => getUnifiedSubjectId(id, dynamicUnificationMap)));
-  }, [userCycle?.materias_estudadas_ciclo, dynamicUnificationMap]);
 
   const studiedCycleList = useMemo(() => {
     const studiedIds = (userCycle?.materias_estudadas_ciclo || [])
@@ -2166,7 +2185,7 @@ const Subjects = () => {
 
                   <div className="flex justify-end">
                     <button
-                      onClick={handleIniciarProximoCiclo}
+                      onClick={() => setStartNextCycleConfirmOpen(true)}
                       disabled={isStartingNextCycle}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all inline-flex items-center gap-2"
                     >
@@ -2207,7 +2226,7 @@ const Subjects = () => {
                     </p>
                   </div>
                   <button
-                    onClick={handleIniciarProximoCiclo}
+                    onClick={() => setStartNextCycleConfirmOpen(true)}
                     disabled={isStartingNextCycle}
                     className="h-9 px-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed text-[10px] font-black uppercase tracking-wider transition-colors shrink-0 inline-flex items-center gap-2"
                   >
@@ -2683,6 +2702,79 @@ const Subjects = () => {
               subjectName={selectedTopicForNotes.subjectName}
             />
           )}
+
+          <AlertDialog
+            open={completeCycleConfirmOpen}
+            onOpenChange={setCompleteCycleConfirmOpen}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-foreground">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  Concluir ciclo de estudos?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-content-muted">
+                  Esta é a última matéria pendente do seu ciclo de estudos. Ao marcá-la como estudada, você concluirá o ciclo atual.
+                  <br /><br />
+                  Deseja confirmar e concluir o ciclo?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async (event) => {
+                    event.preventDefault();
+                    if (pendingCompleteSubjectId) {
+                      await executeMarcarMateriaComoEstudada(pendingCompleteSubjectId);
+                      setPendingCompleteSubjectId(null);
+                    }
+                    setCompleteCycleConfirmOpen(false);
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                >
+                  Confirmar e Concluir
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog
+            open={startNextCycleConfirmOpen}
+            onOpenChange={(open) => !open && !isStartingNextCycle && setStartNextCycleConfirmOpen(false)}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-foreground">
+                  <RefreshCw className="w-5 h-5 text-emerald-500" />
+                  Iniciar próximo ciclo?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-content-muted">
+                  Isso limpará as matérias marcadas como estudadas neste ciclo e iniciará o Ciclo {(userCycle?.ciclos_realizados || 0) + 2}.
+                  <br /><br />
+                  Seu progresso nos tópicos e histórico de estudos anteriores serão mantidos.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isStartingNextCycle}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async (event) => {
+                    event.preventDefault();
+                    await handleIniciarProximoCiclo();
+                    setStartNextCycleConfirmOpen(false);
+                  }}
+                  disabled={isStartingNextCycle}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2"
+                >
+                  {isStartingNextCycle ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Iniciar Ciclo
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           <AlertDialog
             open={resetCycleConfirmOpen}

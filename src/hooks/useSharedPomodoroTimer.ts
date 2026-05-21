@@ -69,7 +69,7 @@ const saveStateToStorage = (state: any) => {
 };
 
 // Estado global compartilhado
-let globalState = loadStateFromStorage();
+const globalState = loadStateFromStorage();
 
 // Timer global único com timestamp para precisão
 let globalInterval: NodeJS.Timeout | null = null;

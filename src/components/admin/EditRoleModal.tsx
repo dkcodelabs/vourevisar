@@ -7,6 +7,7 @@ import { Shield, AlertTriangle, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-toastify';
 import { AdminUser } from '@/hooks/useAdminUsers';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface EditRoleModalProps {
     isOpen: boolean;
@@ -35,7 +36,7 @@ export function EditRoleModal({ isOpen, onClose, user, onRoleUpdated }: EditRole
 
     const handleSave = async () => {
         if (isProtectedUser) {
-            toast.error("Este usuário é protegido e seu papel não pode ser alterado.");
+            toastGate.notifyError("Este usuário é protegido e seu papel não pode ser alterado.", 'COMPONENTS-ADMIN-EDITROLEMODAL-01', { severity: 'medium' });
             return;
         }
 
@@ -71,7 +72,7 @@ export function EditRoleModal({ isOpen, onClose, user, onRoleUpdated }: EditRole
 
         } catch (error: any) {
             console.error('Error updating role:', error);
-            toast.error('Falha ao atualizar permissão: ' + (error.message || 'Unknown error'));
+            toastGate.notifyError('Falha ao atualizar permissão: ' + (error.message || 'Unknown error', 'COMPONENTS-ADMIN-EDITROLEMODAL-02', { severity: 'medium' }));
         } finally {
             setIsLoading(false);
             setShowOwnerConfirm(false);

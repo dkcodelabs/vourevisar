@@ -5,6 +5,7 @@ import { toast } from '@/lib/toast';
 import { Topic } from '@/types';
 import { updateStudiedSubjects, addStudiedSubject, resetCycle, isSubjectStudiedGlobal } from '@/utils/cycleState';
 import { cleanCycle } from '@/utils/cycleUtils';
+import { toastGate } from '@/lib/errors/toastGate';
 
 // Tipo estendido para UserCycle com propriedades adicionais
 interface ExtendedUserCycle {
@@ -384,7 +385,7 @@ export const useCycleStatus = () => {
       return true;
     } catch (error) {
       console.error('Erro ao marcar matéria como estudada:', error);
-      toast.error('Erro ao marcar matéria como estudada');
+      toastGate.notifyError('Erro ao marcar matéria como estudada', 'HOOKS-USECYCLESTATUS-01', { severity: 'medium' });
       return false;
     } finally {
       setIsLoading(false);

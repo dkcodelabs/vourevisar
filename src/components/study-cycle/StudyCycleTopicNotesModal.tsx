@@ -12,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { sanitizeHtml } from '@/lib/sanitize';
 // import { Difficulty } from '@/types/study-cycle'; // Removido - usando sistema de estrelas
 import { supabase } from '@/integrations/supabase/client';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface StudyCycleTopicNotesModalProps {
   isOpen: boolean;
@@ -38,12 +39,6 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
     isOpen,
     timestamp: new Date().toISOString()
   });
-
-  // Não renderizar se não tiver dados válidos
-  if (!subjectId || !topicId) {
-    console.log('🚫 Modal sem dados válidos, não renderizando');
-    return null;
-  }
 
   const [notes, setNotes] = useState<TopicNotes | undefined>(undefined);
   // const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.MEDIUM); // Removido - usando sistema de estrelas
@@ -106,7 +101,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
 
     } catch (error) {
       console.error('Erro ao carregar dados do tópico:', error);
-      toast.error('Erro ao carregar dados do tópico');
+      toastGate.notifyError('Erro ao carregar dados do tópico', 'COMPONENTS-STUDY-CYCLE-STUDYCYCLETOPICNOTESMODAL-01', { severity: 'medium' });
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +131,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
       toast.success('Anotações salvas com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar anotações:', error);
-      toast.error('Erro ao salvar anotações');
+      toastGate.notifyError('Erro ao salvar anotações', 'COMPONENTS-STUDY-CYCLE-STUDYCYCLETOPICNOTESMODAL-02', { severity: 'medium' });
       throw error;
     } finally {
       setIsSaving(false);
@@ -180,7 +175,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      toast.error('Erro ao salvar dados');
+      toastGate.notifyError('Erro ao salvar dados', 'COMPONENTS-STUDY-CYCLE-STUDYCYCLETOPICNOTESMODAL-03', { severity: 'medium' });
     } finally {
       setIsSaving(false);
     }
@@ -204,6 +199,12 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
   };
 
   // Funções de dificuldade removidas - usando sistema de estrelas
+
+  // Não renderizar se não tiver dados válidos
+  if (!subjectId || !topicId) {
+    console.log('🚫 Modal sem dados válidos, não renderizando');
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -377,7 +378,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
                   toast.success('Anotações salvas!');
                 } catch (error) {
                   console.error('Erro ao salvar:', error);
-                  toast.error('Erro ao salvar anotações');
+                  toastGate.notifyError('Erro ao salvar anotações', 'COMPONENTS-STUDY-CYCLE-STUDYCYCLETOPICNOTESMODAL-04', { severity: 'medium' });
                 } finally {
                   setIsSaving(false);
                 }

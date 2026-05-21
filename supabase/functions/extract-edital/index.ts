@@ -361,6 +361,44 @@ ${lines.join("\n")}
 Use estes dados como pistas de leitura estrutural. Confirme no edital quando houver evidencia. Se o cargo/area/enfase alvo foi informado, procure a opcao equivalente mesmo que a grafia ou ordem esteja diferente. Nao invente conteudo que nao esteja no edital.`;
 }
 
+function normalizeDetectedCargoOptions(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .slice(0, 80)
+    .map((cargo: any, index: number) => {
+      const label = String(cargo?.label_exibicao || cargo?.name || cargo?.rawLabel || cargo?.nome_cargo || "").replace(/\s+/g, " ").trim();
+      const nomeCargo = String(cargo?.nome_cargo || label || "").replace(/\s+/g, " ").trim();
+      if (!label || !nomeCargo) return null;
+
+      return {
+        id: String(cargo?.id || `detected-cargo-${index + 1}`),
+        name: label,
+        rawLabel: String(cargo?.rawLabel || label).replace(/\s+/g, " ").trim(),
+        evidence: String(cargo?.evidence || "Detectado por padrao CARGO N no texto extraido").replace(/\s+/g, " ").trim(),
+        nome_cargo: nomeCargo,
+        area_codigo: cargo?.area_codigo ? String(cargo.area_codigo).trim() : null,
+        area_enfase: cargo?.area_enfase ? String(cargo.area_enfase).trim() : null,
+        label_exibicao: label,
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildDetectedCargoOptionsContext(reqData: any) {
+  const detected = normalizeDetectedCargoOptions(reqData?.detectedCargoOptions);
+  if (!detected.length) return "";
+
+  const options = detected
+    .map((cargo: any, index: number) => `${index + 1}. ${cargo.label_exibicao}`)
+    .join("\n");
+
+  return `CARGOS DETECTADOS POR LEITURA ESTRUTURAL DO TEXTO:
+${options}
+
+Use esta lista apenas como pista verificavel do edital. Ela foi extraida de marcadores explicitos como "CARGO 1:" e nao substitui o PDF. Se a lista estiver coerente com o documento, preserve estes cargos/opcoes na resposta JSON.`;
+}
+
 function getCargoOptionText(cargo: any) {
   return [
     cargo?.id,
@@ -606,15 +644,21 @@ function normalizeDate(value: unknown): string | null {
   return `${match[3]}-${match[2]}-${match[1]}`;
 }
 
-function normalizeAnalysis(raw: any) {
+function normalizeAnalysis(raw: any, fallbackCargoOptions: any[] = []) {
   const edital = raw?.edital || {};
   const cargos = Array.isArray(raw?.cargos) ? raw.cargos : [];
+  const hasOnlyGenericCargo = cargos.length === 1 && ["cargo unico", "cargo único", "cargo", "sem cargo"].includes(
+    normalizeSearchText(getCargoOptionText(cargos[0])).trim(),
+  );
+  const sourceCargos = cargos.length > 0 && !(hasOnlyGenericCargo && fallbackCargoOptions.length > 0)
+    ? cargos
+    : fallbackCargoOptions;
   const concurso = raw?.concurso ? String(raw.concurso).trim() : "";
   const banca = raw?.banca ? String(raw.banca).trim() : "";
   const orgao = raw?.orgao ? String(raw.orgao).trim() : "";
   const ano = raw?.ano ? String(raw.ano).trim() : "";
 
-  const normalizedCargos = cargos
+  const normalizedCargos = sourceCargos
     .map((cargo: any, index: number) => {
       const nomeCargo = cargo?.nome_cargo ? String(cargo.nome_cargo).trim() : "";
       const areaCodigo = cargo?.area_codigo ? String(cargo.area_codigo).trim() : "";
@@ -660,6 +704,38 @@ function normalizeNumber(value: unknown): number | null {
   if (!normalized) return null;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function roundWeight(value: number): number {
+  return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
+
+function extractExplicitPointsPerQuestion(sourceText?: string): number | null {
+  if (!sourceText) return null;
+
+  const text = normalizeSearchText(sourceText).replace(/\s+/g, " ");
+  const patterns = [
+    /nota\s+em\s+cada\s+questao.{0,220}?(\d{1,2}(?:[,.]\d{1,4})?)\s*ponto/,
+    /cada\s+questao.{0,160}?(?:valera|vale|igual\s+a|valor\s+de)\s*(\d{1,2}(?:[,.]\d{1,4})?)\s*ponto/,
+    /questoes?.{0,160}?(?:valerao|valem|igual\s+a|valor\s+de)\s*(\d{1,2}(?:[,.]\d{1,4})?)\s*ponto/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const parsed = normalizeNumber(match?.[1]);
+    if (parsed !== null && parsed > 0 && parsed <= 10) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function appendWeightEvidence(rawText: string | null, evidence: string) {
+  if (!rawText) return evidence;
+  if (rawText.includes(evidence)) return rawText;
+  const merged = `${rawText} | ${evidence}`;
+  return merged.length <= 500 ? merged : `${merged.slice(0, 497)}...`;
 }
 
 function getLeadingTopicNumber(value: string): number | null {
@@ -825,7 +901,7 @@ function normalizeWeightStatus(value: unknown) {
   return "not_found";
 }
 
-function normalizeWeightExtraction(raw: any, allowedSubjects: any[]) {
+function normalizeWeightExtraction(raw: any, allowedSubjects: any[], sourceText?: string) {
   const allowedById = new Map(
     allowedSubjects
       .map((subject: any) => ({
@@ -869,8 +945,24 @@ function normalizeWeightExtraction(raw: any, allowedSubjects: any[]) {
       })).filter((block: any) => block.blockName && block.rawText)
     : [];
 
+  const pointsPerQuestion = extractExplicitPointsPerQuestion(sourceText);
+  const subjectsWithCalculatedPoints = pointsPerQuestion === null
+    ? subjects
+    : subjects.map((subject: any) => {
+        if (subject.points !== null || subject.questions === null) return subject;
+
+        return {
+          ...subject,
+          points: roundWeight(subject.questions * pointsPerQuestion),
+          rawText: appendWeightEvidence(
+            subject.rawText,
+            `Valor por questao identificado no edital: ${pointsPerQuestion} ponto.`,
+          ),
+        };
+      });
+
   const requestedStatus = normalizeWeightStatus(raw?.status);
-  const status = subjects.length > 0
+  const status = subjectsWithCalculatedPoints.length > 0
     ? "found"
     : blockWeights.length > 0 || requestedStatus === "block_only"
       ? "block_only"
@@ -880,7 +972,7 @@ function normalizeWeightExtraction(raw: any, allowedSubjects: any[]) {
 
   return {
     status,
-    subjects,
+    subjects: subjectsWithCalculatedPoints,
     blockWeights,
     message: raw?.message ? String(raw.message).trim() : null,
   };
@@ -1016,7 +1108,7 @@ serve(async (req) => {
 
     const reqData = await req.json();
     const mode: ExtractMode = reqData.mode || (reqData.position ? "extractForCargo" : "analyze");
-    const { inputText, pdfUrl, pdfPath, pdfFileUri, selectedCargo, selectedCargoId, analysis, sourceExcerpt } = reqData;
+    const { inputText, pdfUrl, pdfPath, pdfFileUri, selectedCargo, selectedCargoId, analysis, sourceExcerpt, validationText } = reqData;
 
     if (!VALID_EXTRACT_MODES.includes(mode)) {
       throw new Error(`Modo de extracao invalido: ${mode}`);
@@ -1113,11 +1205,14 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     }
     const prompt = withBankProfileInstruction(basePrompt, mode, inputText, profileAnalysisContext);
     const userProvidedContext = buildUserProvidedContext(reqData);
+    const detectedCargoOptions = normalizeDetectedCargoOptions(reqData?.detectedCargoOptions);
+    const detectedCargoOptionsContext = mode === "analyze" ? buildDetectedCargoOptionsContext(reqData) : "";
 
     const selectedOptionContext = buildSelectedOptionContext(analysis, selectedCargo || reqData.position || "", selectedCargoId);
+    const baseContextInstruction = `${prompt}\n\n${userProvidedContext}\n\n${detectedCargoOptionsContext}`.trim();
     const contextInstruction = (mode === "extractForCargo" || mode === "mapContentStructure" || mode === "extractWeights") && selectedOptionContext
-      ? `${prompt}\n\n${userProvidedContext}\n\nDADOS DA OPCAO SELECIONADA:\n${selectedOptionContext}`.trim()
-      : `${prompt}\n\n${userProvidedContext}`.trim();
+      ? `${baseContextInstruction}\n\nDADOS DA OPCAO SELECIONADA:\n${selectedOptionContext}`.trim()
+      : baseContextInstruction;
 
     const payloadInputText = mode === "extractSubject" ? String(sourceExcerpt || "") : inputText;
     const payloadFileUri = mode === "mapContentStructure" || mode === "extractSubject" ? null : fileUri;
@@ -1176,7 +1271,7 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
       return new Response(JSON.stringify({
         success: true,
         mode,
-        analysis: normalizeAnalysis(parsed),
+        analysis: normalizeAnalysis(parsed, detectedCargoOptions),
         usage,
         modelName,
         pdfFileUri: fileUri,
@@ -1211,7 +1306,7 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
       return new Response(JSON.stringify({
         success: true,
         mode,
-        weights: normalizeWeightExtraction(parsed, weightSubjects),
+        weights: normalizeWeightExtraction(parsed, weightSubjects, validationText || inputText),
         usage,
         modelName,
         pdfFileUri: fileUri,

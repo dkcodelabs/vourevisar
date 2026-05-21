@@ -187,7 +187,6 @@ class ToastGate {
         // Actually, we can't easily get the ID back from toast.error if we need it synchronously for the map?
         // react-toastify returns id synchronously.
 
-        // eslint-disable-next-line no-restricted-syntax
         const toastId = toast.error(fullMessage, {
             autoClose: severity === 'critical' ? false : 6000, // Critical stays until dismissed
             onClose: () => {

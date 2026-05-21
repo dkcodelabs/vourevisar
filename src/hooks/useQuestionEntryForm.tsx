@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface QuestionEntry {
   subject: string;
@@ -65,17 +66,17 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
     e.preventDefault();
 
     if (!user || !formData.subject || !formData.bank) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toastGate.notifyError('Preencha todos os campos obrigatórios', 'HOOKS-USEQUESTIONENTRYFORM-01', { severity: 'medium' });
       return;
     }
 
     if (formData.totalQuestions === 0) {
-      toast.error('O total de questões deve ser maior que zero');
+      toastGate.notifyError('O total de questões deve ser maior que zero', 'HOOKS-USEQUESTIONENTRYFORM-02', { severity: 'medium' });
       return;
     }
 
     if (formData.correctQuestions > formData.totalQuestions) {
-      toast.error('Questões corretas não pode ser maior que o total');
+      toastGate.notifyError('Questões corretas não pode ser maior que o total', 'HOOKS-USEQUESTIONENTRYFORM-03', { severity: 'medium' });
       return;
     }
 
@@ -149,9 +150,9 @@ export const useQuestionEntryForm = (onEntryAdded: () => void) => {
     } catch (error) {
       console.error('Erro ao registrar questões:', error);
       if (error instanceof Error) {
-        toast.error(`Erro ao registrar questões: ${error.message}`);
+        toastGate.notifyError(`Erro ao registrar questões: ${error.message}`, 'HOOKS-USEQUESTIONENTRYFORM-04', { severity: 'medium' });
       } else {
-        toast.error('Erro ao registrar questões. Tente novamente.');
+        toastGate.notifyError('Erro ao registrar questões. Tente novamente.', 'HOOKS-USEQUESTIONENTRYFORM-05', { severity: 'medium' });
       }
     } finally {
       setIsSubmitting(false);

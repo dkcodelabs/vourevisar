@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import type { Tables } from '@/integrations/supabase/types';
 import { useStudySessionTracking } from './useStudySessionTracking';
+import { toastGate } from '@/lib/errors/toastGate';
 
 type PomodoroSession = Tables<'pomodoro_sessions'>;
 
@@ -99,7 +100,7 @@ export const usePomodoroTimer = () => {
       }
     } catch (error) {
       console.error('Erro ao salvar sessão do Pomodoro:', error);
-      toast.error('Erro ao salvar sessão do Pomodoro');
+      toastGate.notifyError('Erro ao salvar sessão do Pomodoro', 'HOOKS-USEPOMODOROTIMER-01', { severity: 'medium' });
     }
   }, [user]);
 

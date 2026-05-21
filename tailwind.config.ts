@@ -1,5 +1,7 @@
 import type { Config } from "tailwindcss";
-const svgToDataUri = require("mini-svg-data-uri");
+import type { PluginAPI } from "tailwindcss/types/config";
+import animate from "tailwindcss-animate";
+import svgToDataUri from "mini-svg-data-uri";
 
 export default {
 	darkMode: ["class"],
@@ -114,8 +116,8 @@ export default {
 		}
 	},
 	plugins: [
-		require("tailwindcss-animate"),
-		function ({ matchUtilities, theme }: { matchUtilities: any, theme: any }) {
+		animate,
+		function ({ matchUtilities, theme }: PluginAPI) {
 			matchUtilities(
 				{
 					"bg-grid": (value: string) => ({

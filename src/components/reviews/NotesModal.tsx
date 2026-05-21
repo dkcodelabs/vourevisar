@@ -15,6 +15,7 @@ import { useApp } from '@/contexts/AppContext';
 import { TopicReviewHistorySection } from '@/components/TopicReviewHistorySection';
 import { useCycleState } from '@/hooks/useCycleState';
 import { registerDualProgress, registerSubjectDualProgress } from '@/services/cycleMergeService';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface NotesModalProps {
   isOpen: boolean;
@@ -111,7 +112,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       }
     } catch (error) {
       console.error('Erro ao carregar anotações:', error);
-      toast.error('Erro ao carregar anotações');
+      toastGate.notifyError('Erro ao carregar anotações', 'COMPONENTS-REVIEWS-NOTESMODAL-01', { severity: 'medium' });
     } finally {
       setIsLoading(false);
     }
@@ -171,7 +172,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       // Não atualizar dados - evitar refresh da página
     } catch (error) {
       console.error('Erro ao salvar anotações:', error);
-      toast.error('Erro ao salvar anotações');
+      toastGate.notifyError('Erro ao salvar anotações', 'COMPONENTS-REVIEWS-NOTESMODAL-02', { severity: 'medium' });
       throw error;
     } finally {
       setIsSaving(false);
@@ -229,7 +230,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       }
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      toast.error('Erro ao salvar dados');
+      toastGate.notifyError('Erro ao salvar dados', 'COMPONENTS-REVIEWS-NOTESMODAL-03', { severity: 'medium' });
     } finally {
       setIsSaving(false);
     }
@@ -262,7 +263,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       toast.success('Anotações da matéria salvas com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar anotações da matéria:', error);
-      toast.error('Erro ao salvar anotações da matéria');
+      toastGate.notifyError('Erro ao salvar anotações da matéria', 'COMPONENTS-REVIEWS-NOTESMODAL-04', { severity: 'medium' });
       throw error;
     } finally {
       setIsSaving(false);
@@ -468,7 +469,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
                   toast.success('Anotações salvas!');
                 } catch (error) {
                   console.error('Erro ao salvar:', error);
-                  toast.error('Erro ao salvar anotações');
+                  toastGate.notifyError('Erro ao salvar anotações', 'COMPONENTS-REVIEWS-NOTESMODAL-05', { severity: 'medium' });
                 } finally {
                   setIsSaving(false);
                 }

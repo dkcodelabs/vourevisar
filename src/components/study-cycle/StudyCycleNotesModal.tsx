@@ -11,6 +11,7 @@ import { TopicNotes } from '@/types';
 import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface StudyCycleNotesModalProps {
   isOpen: boolean;
@@ -60,7 +61,7 @@ const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ isOpen, sub
       toast.success('Anotações salvas com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar anotações:', error);
-      toast.error('Erro ao salvar anotações');
+      toastGate.notifyError('Erro ao salvar anotações', 'COMPONENTS-STUDY-CYCLE-STUDYCYCLENOTESMODAL-01', { severity: 'medium' });
       throw error;
     } finally {
       setIsSaving(false);
@@ -87,7 +88,7 @@ const StudyCycleNotesModal: React.FC<StudyCycleNotesModalProps> = ({ isOpen, sub
       onClose();
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      toast.error('Erro ao salvar dados');
+      toastGate.notifyError('Erro ao salvar dados', 'COMPONENTS-STUDY-CYCLE-STUDYCYCLENOTESMODAL-02', { severity: 'medium' });
     } finally {
       setIsSaving(false);
     }

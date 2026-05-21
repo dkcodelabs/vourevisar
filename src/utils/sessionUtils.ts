@@ -269,7 +269,7 @@ export const completeStudySession = async (
       // Remover a matéria da lista do dia e do ciclo
       const updatedDisciplinasoDia = cycleData.disciplinas_do_dia.filter(id => id !== subjectId);
       const updatedCicloAtual = cycleData.ciclo_atual.filter(id => id !== subjectId);
-      let updateObj: any = {
+      const updateObj: any = {
         disciplinas_do_dia: updatedDisciplinasoDia,
         ciclo_atual: updatedCicloAtual,
         atualizado_em: new Date().toISOString()
@@ -283,7 +283,7 @@ export const completeStudySession = async (
           .from('subjects')
           .select('id, status, user_id')
           .eq('user_id', user.user.id);
-        let availableSubjects = [];
+        const availableSubjects = [];
         if (allSubjects && allSubjects.length > 0) {
           for (const subj of allSubjects) {
             const { data: topicsData } = await supabase

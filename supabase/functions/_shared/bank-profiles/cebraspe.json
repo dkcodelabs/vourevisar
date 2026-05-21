@@ -75,6 +75,14 @@
     "Tópicos normalmente aparecem como números e subnúmeros: 1, 2, 3, 1.1, 1.2 etc.",
     "Preserve a ordem em que as matérias aparecem no edital."
   ],
+  "regras_para_extrair_pesos": [
+    "A extração de pesos é uma etapa separada da extração de matérias e tópicos.",
+    "Na etapa de pesos, tabelas e quadros de prova podem ser fonte oficial para quantidade de questões, pontuação, peso ou percentual por disciplina.",
+    "Use apenas evidência explícita vinculada à disciplina, cargo, área, ênfase ou especialidade selecionada.",
+    "Se o quadro indicar apenas peso por bloco, como CONHECIMENTOS BÁSICOS ou CONHECIMENTOS ESPECÍFICOS, sem detalhar disciplinas, não distribua automaticamente esse valor entre matérias.",
+    "Se houver pontuação total da prova ou quantidade total de questões sem detalhamento por disciplina, não invente peso individual.",
+    "Quando encontrar peso individual, preserve um trecho curto do edital como evidência."
+  ],
   "quando_der_errado_ajustar_aqui": [
     {
       "problema": "A IA pegou requisitos, jornada, vagas, lotação ou tabela como matéria.",
@@ -97,5 +105,5 @@
       "instrucao": "Agrupadores como CONHECIMENTOS BÁSICOS, CONHECIMENTOS ESPECÍFICOS, BLOCO, P1/P2/P3, CARGO e ÁREA não são matérias estudáveis."
     }
   ],
-  "instrucao_para_ia": "Para Cebraspe/Cespe, leia primeiro a estrutura do edital. Identifique onde começa a seção de objetos de avaliação/conteúdo programático/conhecimentos. Identifique opções reais de escolha por cargo, área, ênfase ou especialidade. Requisitos podem ajudar a reconhecer que uma área existe, mas nunca são fonte de matéria ou tópico. Na extração final, use apenas conhecimentos comuns aplicáveis e conhecimentos específicos da opção escolhida. Se a opção tiver código como ÁREA 8, use somente o bloco específico dessa área exata e pare na próxima área, próxima ênfase, próxima especialidade ou próximo cargo. Não substitua área ausente por conteúdo de outra área. Não use requisitos, vagas, jornada, lotação, inscrição, remuneração ou tabela de provas como fonte de matéria. Não extraia peso agora; peso será tratado em etapa própria a partir de quantidade de questões ou pontuação por matéria quando houver regra confiável."
+  "instrucao_para_ia": "Para Cebraspe/Cespe, leia primeiro a estrutura do edital. Identifique onde começa a seção de objetos de avaliação/conteúdo programático/conhecimentos. Identifique opções reais de escolha por cargo, área, ênfase ou especialidade. Requisitos podem ajudar a reconhecer que uma área existe, mas nunca são fonte de matéria ou tópico. Na extração final de conteúdo, use apenas conhecimentos comuns aplicáveis e conhecimentos específicos da opção escolhida. Se a opção tiver código como ÁREA 8, use somente o bloco específico dessa área exata e pare na próxima área, próxima ênfase, próxima especialidade ou próximo cargo. Não substitua área ausente por conteúdo de outra área. Na etapa de conteúdo, não use requisitos, vagas, jornada, lotação, inscrição, remuneração ou tabela de provas como fonte de matéria. Na etapa própria de pesos, use tabela de provas, quadro de pontuação ou distribuição de questões somente quando houver quantidade de questões, pontuação, peso ou percentual explicitamente vinculado à disciplina, ao cargo, à área, à ênfase ou à especialidade selecionada; se não houver evidência, não invente peso."
 }

@@ -11,6 +11,7 @@ import { useTopicReview } from '@/hooks/useTopicReview';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from '@/lib/toast';
 import NotesModal from './NotesModal';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface Topic {
   id: string;
@@ -222,7 +223,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                                   }, 500);
                                 } catch (error) {
                                   console.error('Erro ao marcar revisão:', error);
-                                  toast.error('Erro ao marcar revisão');
+                                  toastGate.notifyError('Erro ao marcar revisão', 'COMPONENTS-REVIEWS-REVIEWSTABLE-01', { severity: 'medium' });
                                 }
                               }}
                             >
@@ -357,7 +358,7 @@ export const ReviewsTable: React.FC<ReviewsTableProps> = ({
                               }, 500);
                             } catch (error) {
                               console.error('Erro ao marcar revisão:', error);
-                              toast.error('Erro ao marcar revisão');
+                              toastGate.notifyError('Erro ao marcar revisão', 'COMPONENTS-REVIEWS-REVIEWSTABLE-02', { severity: 'medium' });
                             }
                           }}
                         >

@@ -48,7 +48,7 @@ export const CycleStatusIndicator: React.FC<CycleStatusIndicatorProps> = ({
       title={`Status: ${isStudied ? 'Estudada' : 'Não estudada'}`}
       style={{
         // Forçar cores via style para garantir que não há conflito de CSS
-        backgroundColor: Boolean(isStudied) ? '#10b981' : '#f97316' // Verde=estudada, Laranja=não estudada
+        backgroundColor: isStudied ? '#10b981' : '#f97316' // Verde=estudada, Laranja=não estudada
       }}
     />
   );

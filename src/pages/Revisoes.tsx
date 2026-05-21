@@ -108,7 +108,7 @@ export const Revisoes = () => {
 
         const userSubjectIds = subjectsData.map(s => s.id);
 
-        // @ts-ignore
+        // @ts-expect-error Tipagem global intencional para compatibilidade
         const response = await (supabase as any)
           .from('topic_review_history')
           .select(`

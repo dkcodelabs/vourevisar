@@ -21,6 +21,15 @@ import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import type { UserEdital } from '@/pages/Editais';
+import {
+    formatExamWeightInputValue,
+    getExamWeightTotals,
+    getSubjectExamWeightLabel,
+    getSubjectExamWeightLine,
+    getSubjectExamWeightReviewMessage,
+    hasSubjectExamWeight,
+    parseOptionalExamWeightNumber
+} from '@/utils/examWeight';
 
 interface AiSubject {
     title: string;
@@ -41,28 +50,6 @@ interface EditalSubjectsModalProps {
 
 const editaisTable = () => supabase.from('user_editais');
 const tmpId = () => `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-const parseOptionalNumberInput = (value: string) => {
-    if (!value.trim()) return null;
-    const parsed = Number(value.replace(',', '.'));
-    return Number.isFinite(parsed) ? parsed : null;
-};
-
-const hasSubjectWeight = (subject: Subject) =>
-    subject.exam_weight_questions !== null && subject.exam_weight_questions !== undefined ||
-    subject.exam_weight_points !== null && subject.exam_weight_points !== undefined ||
-    subject.exam_weight_percentage !== null && subject.exam_weight_percentage !== undefined;
-
-const getSubjectWeightLabel = (subject: Subject) => {
-    const parts = [];
-    if (subject.exam_weight_questions !== null && subject.exam_weight_questions !== undefined) {
-        parts.push(`${subject.exam_weight_questions} questões`);
-    }
-    if (subject.exam_weight_points !== null && subject.exam_weight_points !== undefined) {
-        parts.push(`${subject.exam_weight_points} pts`);
-    }
-    return parts.length ? parts.join(' / ') : 'Peso';
-};
 
 const getProgress = (subject: Subject) => {
     if (!subject.topics?.length) return 0;
@@ -492,6 +479,11 @@ export const EditalSubjectsModal = ({
         );
     }, [localSubjects, searchQuery]);
 
+    const examWeightTotals = useMemo(
+        () => getExamWeightTotals(localSubjects),
+        [localSubjects]
+    );
+
     const totalTopics = localSubjects.reduce((sum, s) => sum + s.topics.length, 0);
     const completedTopics = localSubjects.reduce((sum, s) => sum + s.topics.filter(t => t.completed).length, 0);
 
@@ -777,7 +769,7 @@ export const EditalSubjectsModal = ({
         field: 'exam_weight_questions' | 'exam_weight_points' | 'exam_weight_percentage',
         value: string
     ) => {
-        const parsed = parseOptionalNumberInput(value);
+        const parsed = parseOptionalExamWeightNumber(value);
         setLocalSubjects(prev => prev.map(subject => {
             if (subject.id !== subjectId) return subject;
             const nextSubject = {
@@ -799,7 +791,7 @@ export const EditalSubjectsModal = ({
 
         setSyncStatus('saving');
         try {
-            const hasWeight = hasSubjectWeight(subject);
+            const hasWeight = hasSubjectExamWeight(subject);
             const { error } = await supabase
                 .from('subjects')
                 .update({
@@ -1319,9 +1311,9 @@ export const EditalSubjectsModal = ({
                                                         <span className="text-[10px] text-content-muted font-semibold tabular-nums ml-2">
                                                             {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                                         </span>
-                                                        {hasSubjectWeight(subject) && (
+                                                        {hasSubjectExamWeight(subject) && (
                                                             <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-1.5 py-0.5">
-                                                                {getSubjectWeightLabel(subject)}
+                                                                {getSubjectExamWeightLabel(subject)}
                                                             </span>
                                                         )}
                                                     </div>
@@ -1438,8 +1430,9 @@ export const EditalSubjectsModal = ({
                                                                 <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-white/5">
                                                                     <div>
                                                                         <p className="text-[9px] font-black uppercase tracking-[0.16em] text-content-muted">Peso da prova</p>
-                                                                        <p className="text-[10px] text-content-muted">Preencha só se constar no edital.</p>
+                                                                        <p className="text-[10px] text-content-muted">Pontos representam o total da matéria. Confira no edital.</p>
                                                                     </div>
+                                                                    <span className="hidden h-7 w-px bg-white/10 sm:block" aria-hidden="true" />
                                                                     <span className="text-[8px] font-black uppercase tracking-[0.14em] text-content-muted border border-white/10 rounded-md px-1.5 py-0.5">
                                                                         Opcional
                                                                     </span>
@@ -1448,9 +1441,10 @@ export const EditalSubjectsModal = ({
                                                                     <label className="space-y-1">
                                                                         <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Questões</span>
                                                                         <input
-                                                                            type="number"
+                                                                            type="text"
+                                                                            inputMode="numeric"
                                                                             min="0"
-                                                                            value={subject.exam_weight_questions ?? ''}
+                                                                            value={formatExamWeightInputValue(subject.exam_weight_questions)}
                                                                             onChange={e => updateSubjectWeightLocal(subject.id, 'exam_weight_questions', e.target.value)}
                                                                             onBlur={() => handleSaveSubjectWeight(subject.id)}
                                                                             onKeyDown={e => { if (e.key === 'Enter') handleSaveSubjectWeight(subject.id); }}
@@ -1462,10 +1456,11 @@ export const EditalSubjectsModal = ({
                                                                     <label className="space-y-1">
                                                                         <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Pontos</span>
                                                                         <input
-                                                                            type="number"
+                                                                            type="text"
+                                                                            inputMode="decimal"
                                                                             min="0"
                                                                             step="0.01"
-                                                                            value={subject.exam_weight_points ?? ''}
+                                                                            value={formatExamWeightInputValue(subject.exam_weight_points)}
                                                                             onChange={e => updateSubjectWeightLocal(subject.id, 'exam_weight_points', e.target.value)}
                                                                             onBlur={() => handleSaveSubjectWeight(subject.id)}
                                                                             onKeyDown={e => { if (e.key === 'Enter') handleSaveSubjectWeight(subject.id); }}
@@ -1481,6 +1476,14 @@ export const EditalSubjectsModal = ({
                                                                                 : `Evidência: ${subject.exam_weight_raw}`}
                                                                         </p>
                                                                     )}
+                                                                    {getSubjectExamWeightLine(subject, examWeightTotals) && (
+                                                                        <p className="sm:col-span-2 text-[10px] font-semibold text-emerald-300 leading-relaxed">
+                                                                            {getSubjectExamWeightLine(subject, examWeightTotals)}
+                                                                        </p>
+                                                                    )}
+                                                                    <p className="sm:col-span-2 text-[10px] text-amber-300/90 leading-relaxed">
+                                                                        {getSubjectExamWeightReviewMessage(subject)}
+                                                                    </p>
                                                                 </div>
                                                             </div>
                                                         </div>

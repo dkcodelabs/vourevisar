@@ -7,6 +7,7 @@ import { TopicNotes } from '@/types';
 import { toast } from '@/lib/toast';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
+import { toastGate } from '@/lib/errors/toastGate';
 
 /**
  * SECURITY NOTE: Rich Text Editor Safety
@@ -172,7 +173,7 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
       toast.success('Anotações salvas com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar anotações:', error);
-      toast.error('Erro ao salvar anotações');
+      toastGate.notifyError('Erro ao salvar anotações', 'COMPONENTS-RICHTEXTNOTESEDITOR-01', { severity: 'medium' });
     } finally {
       setIsSaving(false);
     }

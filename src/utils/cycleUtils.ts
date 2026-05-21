@@ -60,7 +60,7 @@ export const generateNextDay = async (
   }
 
   // CORREÇÃO PRINCIPAL: Seleção sequencial a partir do índice atual
-  let nextBatchIds = [];
+  const nextBatchIds = [];
   const startIndex = userCycle.indice_atual || 0;
   let currentIndex = startIndex;
   let subjectsFound = 0;
@@ -128,7 +128,7 @@ export const generateNextDay = async (
     newIndex
   });
 
-  let updateData: any = {
+  const updateData: any = {
     disciplinas_do_dia: nextBatchIds,
     indice_atual: newIndex,
     atualizado_em: new Date().toISOString()

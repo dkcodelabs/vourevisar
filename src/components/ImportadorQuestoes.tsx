@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-toastify';
 import { Loader2, Upload, FileText, CheckCircle, Save } from 'lucide-react';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface Question {
     numero: string | number;
@@ -19,7 +20,7 @@ export function ImportadorQuestoes() {
 
     const processPDF = async () => {
         if (!file) {
-            toast.error('Por favor, selecione um arquivo PDF.');
+            toastGate.notifyError('Por favor, selecione um arquivo PDF.', 'COMPONENTS-IMPORTADORQUESTOES-01', { severity: 'medium' });
             return;
         }
 
@@ -103,7 +104,7 @@ Ignore cabeçalhos e rodapés irrelevantes.
 
         } catch (error: any) {
             console.error('Erro geral:', error);
-            toast.error(`Erro ao processar: ${error.message}`);
+            toastGate.notifyError(`Erro ao processar: ${error.message}`, 'COMPONENTS-IMPORTADORQUESTOES-02', { severity: 'medium' });
         } finally {
             setIsProcessing(false);
             setProgress('');

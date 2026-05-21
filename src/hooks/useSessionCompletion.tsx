@@ -5,6 +5,7 @@ import { toast } from '@/lib/toast';
 import { UserCycle } from '@/types';
 import { loadUserCycle } from '@/utils/cycleUtils';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
+import { toastGate } from '@/lib/errors/toastGate';
 
 export const useSessionCompletion = () => {
   const { user } = useAuth();
@@ -35,7 +36,7 @@ export const useSessionCompletion = () => {
       const subject = subjects.find(s => s.id === subjectId);
       if (!subject) {
         console.error('❌ Matéria não encontrada:', subjectId);
-        toast.error('Matéria não encontrada');
+        toastGate.notifyError('Matéria não encontrada', 'HOOKS-USESESSIONCOMPLETION-01', { severity: 'medium' });
         return;
       }
 
@@ -374,7 +375,7 @@ export const useSessionCompletion = () => {
       toast.success('Sessão concluída com sucesso!');
     } catch (error) {
       console.error('❌ Erro ao concluir sessão:', error);
-      toast.error('Erro ao concluir sessão');
+      toastGate.notifyError('Erro ao concluir sessão', 'HOOKS-USESESSIONCOMPLETION-02', { severity: 'medium' });
     }
   };
 

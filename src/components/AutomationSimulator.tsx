@@ -1,3 +1,4 @@
+import { toastGate } from '@/lib/errors/toastGate';
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -95,7 +96,7 @@ export function AutomationSimulator({
             updateQuota()
 
             if ('error' in result) {
-                toast.error(result.error)
+                toastGate.notifyError(result.error, 'COMPONENTS-AUTOMATIONSIMULATOR-01', { severity: 'medium' })
                 // Se der erro/rejeição, mas tiver dados do tópico, usa eles
                 if (result.rejected || result.topicoOriginal) {
                     const rejectedLog: ProcessedTopic = {
@@ -156,7 +157,7 @@ export function AutomationSimulator({
             console.error('❌ Erro ao processar:', error)
             updateQuota()
             const msg = error instanceof Error ? error.message : String(error)
-            toast.error(msg)
+            toastGate.notifyError(msg, 'COMPONENTS-AUTOMATIONSIMULATOR-02', { severity: 'medium' })
             setLastResult({
                 id: crypto.randomUUID(),
                 timestamp: new Date(),

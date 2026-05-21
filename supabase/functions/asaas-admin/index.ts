@@ -21,11 +21,11 @@ serve(async (req: Request) => {
       throw new Error('Não autorizado (Missing Token)');
     }
 
-    // @ts-expect-error
+    // @ts-expect-error Deno runtime provides env in Edge Functions.
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    // @ts-expect-error
+    // @ts-expect-error Deno runtime provides env in Edge Functions.
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    // @ts-expect-error
+    // @ts-expect-error Deno runtime provides env in Edge Functions.
     const asaasApiKey = Deno.env.get('ASAAS_API_KEY');
     const asaasUrl = 'https://sandbox.asaas.com/api/v3';
 

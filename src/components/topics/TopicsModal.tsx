@@ -11,6 +11,7 @@ import { toast } from '@/lib/toast';
 import { getTopicStatusInfo } from '@/utils/topicStatus';
 
 import { useOptimisticTopics } from '@/hooks/useOptimisticTopics';
+import { toastGate } from '@/lib/errors/toastGate';
 
 interface TopicsModalProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ const TopicsModal: React.FC<TopicsModalProps> = ({ isOpen, onClose, subject, onU
 
   const handleSaveEdit = async () => {
     if (!editingName.trim()) {
-      toast.error('Digite o nome do tópico');
+      toastGate.notifyError('Digite o nome do tópico', 'COMPONENTS-TOPICS-TOPICSMODAL-01', { severity: 'medium' });
       return;
     }
 

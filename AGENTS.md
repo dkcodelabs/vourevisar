@@ -68,6 +68,7 @@ Este arquivo é a fonte principal de instruções para agentes neste projeto. Se
 - Siga os componentes e padrões existentes de shadcn/ui, Radix e Tailwind.
 - Use componentes reutilizáveis quando já existirem, especialmente em modais, tabelas, formulários e estados vazios.
 - Priorize fluxo de estudo: menos ruído visual, hierarquia clara, estados de loading/erro vazios bem tratados.
+- Toda alteração, criação ou refatoração de interface deve ser pensada e implementada para desktop, tablet e mobile. Responsividade real é requisito do sistema inteiro, inclusive páginas administrativas.
 - Garanta responsividade real em desktop e mobile. Texto não deve sobrepor, cortar de forma feia ou quebrar controles.
 - Para mudanças visuais relevantes, rode o app localmente e valide no navegador.
 

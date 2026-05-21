@@ -60,14 +60,16 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
 
         return subject.topics.filter(topic => {
             switch (tab) {
-                case 'hoje':
+                case 'hoje': {
                     if (!topic.nextReview) return false;
                     const reviewDate = startOfDay(new Date(topic.nextReview));
                     return reviewDate <= today;
-                case 'futuras':
+                }
+                case 'futuras': {
                     if (!topic.nextReview) return false;
                     const futureReviewDate = startOfDay(new Date(topic.nextReview));
                     return futureReviewDate > today;
+                }
                 case 'concluido':
                     // Tópicos concluídos podem não ter nextReview
                     return topic.reviewStage === 'Concluído' || topic.completed === true;
