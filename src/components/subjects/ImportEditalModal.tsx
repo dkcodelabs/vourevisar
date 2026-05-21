@@ -161,7 +161,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [showIaDataEditor, setShowIaDataEditor] = useState(false);
     const [weightExtractionStatus, setWeightExtractionStatus] = useState<WeightExtractionStatus>('idle');
     const [weightBlockInfo, setWeightBlockInfo] = useState<ExtractedBlockWeight[]>([]);
+    const [closeAttentionPulse, setCloseAttentionPulse] = useState(false);
     const iaFlowCancelledRef = useRef(false);
+    const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
     // Legacy complement mode states (kept for compatibility)
     const [isComplementMode, setIsComplementMode] = useState(false);
@@ -498,6 +500,19 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         onClose();
     };
 
+    const handleOutsideModalClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setCloseAttentionPulse(true);
+        window.setTimeout(() => setCloseAttentionPulse(false), 900);
+    };
+
+    const handleAttachPdfClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+        pdfInputRef.current?.click();
+    };
+
     const resetPendingState = () => {
         setPendingExtraction(null);
         setAiResult([]);
@@ -694,7 +709,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     if (topics.length > 0) {
                         harvested.push({ 
                             id: `harvest-${harvested.length}-${Date.now()}`,
-                            title, 
+                            title: cleanSubjectTitle(title),
                             topics, 
                             selected: true,
                             expanded: harvested.length === 0
@@ -742,7 +757,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             const result = rawSubjects.map((s: any, idx: number): AiSubject => ({
                 id: `ia-${idx}-${Date.now()}`,
-                title: s.t || s.title || s.disciplina || "Sem Título",
+                title: cleanSubjectTitle(s.t || s.title || s.disciplina),
                 knowledgeType: s.tipo || s.type || null,
                 expanded: idx === 0,
                 topics: (s.p || s.topics || s.topicos || []).map((t: any, tIdx: number): AiTopic => {
@@ -955,6 +970,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         if (edital.banca) setIaBanca(edital.banca);
     };
 
+    const cleanSubjectTitle = (value: unknown) => {
+        const title = String(value || '').replace(/\s+/g, ' ').trim();
+        return title.replace(/\s*[:;.-]\s*$/g, '').trim() || 'Sem Título';
+    };
+
     const mapExtractionToAiSubjects = (extraction: any): AiSubject[] => {
         const rawSubjects = Array.isArray(extraction?.subjects)
             ? extraction.subjects
@@ -975,7 +995,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             const rawTopics = Array.isArray(s.topics) ? s.topics : Array.isArray(s.topicos) ? s.topicos : [];
             return {
                 id: `ia-${idx}-${Date.now()}`,
-                title: s.title || s.name || s.disciplina || 'Sem Título',
+                title: cleanSubjectTitle(s.title || s.name || s.disciplina),
                 knowledgeType: normalizeKnowledgeType(s.type || s.tipo),
                 selected: true,
                 expanded: idx === 0,
@@ -1012,7 +1032,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
         return {
             id: `ia-incremental-${idx}-${Date.now()}`,
-            title: String(subjectResult?.disciplina || subjectResult?.title || fallback.titulo || 'Sem Título').trim(),
+            title: cleanSubjectTitle(subjectResult?.disciplina || subjectResult?.title || fallback.titulo),
             knowledgeType: subjectResult?.tipo || fallback.tipo_conhecimento || null,
             selected: true,
             expanded: idx === 0,
@@ -1713,7 +1733,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     Descartar
                                 </button>
                             )}
-                            <button onClick={handleCloseModal} className="w-8 h-8 flex items-center justify-center rounded-lg bg-secondary dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-900 dark:hover:text-zinc-100">
+                            <button
+                                type="button"
+                                onClick={handleCloseModal}
+                                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                                    closeAttentionPulse
+                                        ? 'animate-pulse bg-red-500/20 text-red-400 ring-2 ring-red-500/60'
+                                        : 'bg-secondary dark:bg-white/5 text-content-muted hover:bg-black/10 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-100'
+                                }`}
+                                aria-label="Fechar modal"
+                            >
                                 <X size={16} />
                             </button>
                         </div>
@@ -2181,15 +2210,20 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                     </label>
                                                     
                                                     {!isComplementMode && (
-                                                        <div className="relative overflow-hidden group/upload">
+                                                        <div className="relative group/upload">
                                                             <input 
+                                                                ref={pdfInputRef}
                                                                 type="file" 
                                                                 accept="application/pdf"
                                                                 onChange={handleFileChange}
-                                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                                                className="hidden"
                                                                 title="Fazer upload de PDF" 
                                                             />
-                                                            <button type="button" className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider">
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleAttachPdfClick}
+                                                                className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider"
+                                                            >
                                                                 <FileText size={12} />
                                                                 {pdfFile ? 'Trocar PDF' : 'Anexar PDF (até 5MB)'}
                                                             </button>
@@ -3073,12 +3107,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={handleCloseModal}
+                onClick={handleOutsideModalClick}
+                onMouseDown={(event) => event.stopPropagation()}
                 className="absolute inset-0 bg-background/78 backdrop-blur-md"
             />
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
+                onClick={(event) => event.stopPropagation()}
                 className={`relative w-full ${getModalWidthClass()} max-h-[90vh] bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col`}
             >
                 {modalInnerContent}

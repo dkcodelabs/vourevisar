@@ -1,0 +1,178 @@
+{
+  "banca": "FGV",
+  "aliases": [
+    "FGV",
+    "Fundacao Getulio Vargas",
+    "Fundacao Getulio Vargas (FGV)",
+    "Fundação Getulio Vargas",
+    "Fundação Getulio Vargas (FGV)",
+    "Fundação Getúlio Vargas",
+    "Fundação Getúlio Vargas (FGV)"
+  ],
+  "objetivo": "Orientar a IA a entender a estrutura típica de editais FGV antes de extrair cargos, matérias e tópicos. Este arquivo deve ser ajustado quando uma extração errar por causa de uma variação real da banca, sem alterar perfis de outras bancas.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "CONTEÚDO PROGRAMÁTICO",
+      "CONTEUDO PROGRAMATICO",
+      "ANEXO - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO I - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO II - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO I – CONTEÚDO PROGRAMÁTICO",
+      "ANEXO I – CONTEÚDO PROGRAMÁTICO CARGO:",
+      "CONHECIMENTOS",
+      "DOS CONTEÚDOS PROGRAMÁTICOS"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS GERAIS",
+      "MÓDULO DE CONHECIMENTOS BÁSICOS",
+      "MODULO DE CONHECIMENTOS BASICOS",
+      "MÓDULO DE CONHECIMENTOS GERAIS",
+      "MODULO DE CONHECIMENTOS GERAIS",
+      "PARA TODOS OS CARGOS",
+      "COMUM A TODOS OS CARGOS",
+      "TODOS OS CARGOS DE NÍVEL SUPERIOR",
+      "TODOS OS CARGOS DE NIVEL SUPERIOR"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS",
+      "MÓDULO DE CONHECIMENTOS ESPECÍFICOS",
+      "MODULO DE CONHECIMENTOS ESPECIFICOS",
+      "CONHECIMENTOS ESPECÍFICOS POR CARGO",
+      "CONHECIMENTOS ESPECIFICOS POR CARGO",
+      "CONHECIMENTOS ESPECÍFICOS (TODOS OS CARGOS DE NÍVEL SUPERIOR)",
+      "CONHECIMENTOS ESPECIFICOS (TODOS OS CARGOS DE NIVEL SUPERIOR)"
+    ],
+    "marcadores_de_opcao": [
+      "CARGO",
+      "CARGOS",
+      "ÁREA",
+      "AREA",
+      "ESPECIALIDADE",
+      "SEGMENTO",
+      "PERFIL",
+      "FORMAÇÃO",
+      "FORMACAO"
+    ],
+    "marcadores_de_agrupamento": [
+      "MÓDULO",
+      "MODULO",
+      "MÓDULO I",
+      "MÓDULO II",
+      "MÓDULO III",
+      "MODULO I",
+      "MODULO II",
+      "MODULO III",
+      "PROVA OBJETIVA",
+      "PROVA DISCURSIVA",
+      "TIPO DE PROVA",
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS ESPECÍFICOS"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "DAS INSCRIÇÕES",
+      "DAS INSCRICOES",
+      "DOS REQUISITOS",
+      "DOS CARGOS",
+      "DAS VAGAS",
+      "DA REMUNERAÇÃO",
+      "DA REMUNERACAO",
+      "DA JORNADA DE TRABALHO",
+      "DAS PROVAS",
+      "DAS PROVAS OBJETIVAS",
+      "DA PROVA OBJETIVA",
+      "DA PROVA OBJETIVA – 1ª ETAPA",
+      "DA PROVA OBJETIVA - 1ª ETAPA",
+      "DO QUADRO DE PROVAS",
+      "DOS CRITÉRIOS DE AVALIAÇÃO",
+      "DOS CRITERIOS DE AVALIACAO",
+      "DA CLASSIFICAÇÃO",
+      "DA CLASSIFICACAO",
+      "DO CRONOGRAMA"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "Primeiro identifique as opções reais de escolha do aluno: cargo, cargo + área, cargo + especialidade, cargo + segmento, cargo + perfil ou cargo + formação quando isso alterar conteúdo, prova, vagas ou classificação.",
+    "Em editais FGV, cargos e especialidades podem aparecer em tabelas de vagas/requisitos, em subtitulos numerados dentro de DAS PROVAS, como 10.8.1 Analista Administrativo, e também como títulos dentro do conteúdo programático. Use essas ocorrências para reconhecer que a opção existe, mas confirme o conteúdo na seção de conhecimentos ou conteúdo programático.",
+    "Quando a seção DOS CARGOS trouxer um cargo principal com especialidades em tabela, como PERITO OFICIAL CRIMINAL / ESPECIALIDADES, trate cada especialidade como opção separada se ela representar escolha do candidato ou tiver conteúdo/prova própria.",
+    "Quando uma seção de prova agrupar vários cargos ou especialidades em um mesmo subtítulo, como CARGOS DE PERITO OFICIAL CRIMINAL: PERITO CRIMINAL/ESPECIALIDADES, PERITO MÉDICO LEGISTA/ESPECIALIDADES E PERITO ODONTOLEGISTA, use esse agrupamento apenas como pista. A opção final deve continuar sendo o cargo/especialidade real escolhido pelo aluno.",
+    "Se houver apenas um cargo sem área, especialidade ou perfil, retorne o nome real do cargo conforme o edital. Nunca use Cargo unico como nome.",
+    "Não transforme módulo, tipo de prova, prova objetiva, prova discursiva, conhecimentos básicos, conhecimentos gerais ou conhecimentos específicos em opção do aluno.",
+    "Subitens numerados de prova com nome de cargo, como 10.8.1 Analista Administrativo ou 10.8.2 Analista Contábil-Econômico, podem indicar opções reais de cargo. As disciplinas listadas nas tabelas desses subitens servem para peso/questões e para confirmar a existência de matérias, mas não substituem o anexo de conteúdo programático.",
+    "Subitens numerados de prova também podem aparecer como 9.7.1. CARGO: DE OFICIAL INVESTIGADOR. Nesses casos, normalize o nome removendo conectores administrativos quando necessário, por exemplo DE OFICIAL INVESTIGADOR deve corresponder ao cargo OFICIAL INVESTIGADOR.",
+    "Se uma tabela tiver colunas como Cargo, Especialidade, Área, Segmento ou Perfil, trate cada combinação real como opção separada apenas quando ela representar escolha do candidato.",
+    "Não use requisito, formação mínima, salário, jornada, lotação ou quantidade de vagas como subtítulo de matéria ou tópico.",
+    "Quando a opção tiver cargo pai e especialidade, preserve ambos no label_exibicao para o aluno escolher sem ambiguidade."
+  ],
+  "regras_para_extrair_conteudo": [
+    "Matérias e tópicos só podem ser extraídos a partir da seção CONTEÚDO PROGRAMÁTICO, CONHECIMENTOS ou anexo equivalente.",
+    "Ao extrair uma opção escolhida, inclua conhecimentos básicos/gerais comuns aplicáveis e os conhecimentos específicos vinculados exatamente ao cargo, área, especialidade, segmento, perfil ou formação selecionados.",
+    "Quando o anexo trouxer CONHECIMENTOS GERAIS (todos os cargos de nível superior), aplique esse bloco a todos os cargos de nível superior.",
+    "Quando o anexo trouxer CONHECIMENTOS ESPECÍFICOS seguido de um título de cargo, como ANALISTA ADMINISTRATIVO, extraia apenas as disciplinas até o próximo título de cargo, próxima seção ou fim do bloco.",
+    "Quando o título do anexo já trouxer a opção, como ANEXO I – CONTEÚDO PROGRAMÁTICO CARGO: DELEGADO DE POLÍCIA, trate todo o conteúdo seguinte como aplicável a esse cargo até o próximo anexo, próxima opção explícita ou próxima seção administrativa.",
+    "Quando o anexo trouxer uma linha isolada CARGO: Oficial Investigador, trate os blocos seguintes como conteúdo desse cargo até a próxima linha CARGO:, próxima opção explícita, próximo anexo ou seção administrativa.",
+    "Em FGV, Módulo I, Módulo II e Módulo III são agrupadores de prova/conhecimento. Use-os apenas para classificar o tipo do bloco, como Conhecimentos Gerais ou Conhecimentos Específicos, mas nunca como disciplina.",
+    "Classifique uma disciplina como Conhecimentos Básicos ou Conhecimentos Gerais somente quando houver um heading/bloco explícito com esse nome antes dela. Não classifique como básico apenas por ser a primeira disciplina ou por conter palavras como regionais.",
+    "Quando o anexo é específico de um cargo, como ANEXO I – CONTEÚDO PROGRAMÁTICO CARGO: DELEGADO DE POLÍCIA ou CARGO: Oficial Investigador, e não houver bloco explícito de Conhecimentos Básicos/Gerais antes das disciplinas, classifique as disciplinas como Conhecimentos Específicos.",
+    "Se o conteúdo programático separar por cargo, especialidade, área, segmento ou perfil, entre somente no bloco da opção selecionada e pare no próximo marcador de mesmo nível.",
+    "Se o edital listar uma matéria dentro de uma tabela de provas, use essa tabela apenas para peso ou quantidade de questões na etapa própria de pesos. Não crie tópicos a partir da tabela de provas.",
+    "CONHECIMENTOS BÁSICOS, CONHECIMENTOS GERAIS, CONHECIMENTOS ESPECÍFICOS, MÓDULO, PROVA OBJETIVA e PROVA DISCURSIVA são escopos ou agrupadores; não devem virar matéria.",
+    "Uma matéria pode aparecer em caixa alta seguida de dois-pontos, em título isolado antes de itens, ou como nome de disciplina seguido de hifen e lista de conteúdos, como Língua Portuguesa - 1 Compreensão e interpretação de textos. Use o padrão do anexo de conteúdo programático, não o quadro de prova.",
+    "Disciplinas FGV podem aparecer com dois-pontos ou sem dois-pontos antes da numeração, por exemplo LEGISLAÇÃO E CONHECIMENTOS REGIONAIS: ou DIREITO CONSTITUCIONAL. Em ambos os casos, a disciplina é o título e os itens numerados seguintes são tópicos.",
+    "Em anexos FGV, uma disciplina pode aparecer em caixa alta seguida imediatamente de item numerado na mesma linha ou parágrafo, como LÍNGUA PORTUGUESA: 1. Interpretação e Compreensão de texto. Separe a disciplina dos tópicos e não junte o nome da disciplina ao primeiro tópico.",
+    "Tópicos podem aparecer numerados, separados por ponto e vírgula ou em frases longas. Preserve a numeração original quando existir e mantenha listas normativas no mesmo tópico quando o edital as apresentar como uma unidade.",
+    "Se o bloco específico exato da opção selecionada não for encontrado, retorne apenas conteúdos comuns aplicáveis e avise; não substitua por conteúdo de especialidade parecida.",
+    "Preserve a ordem original das matérias e dos tópicos conforme o edital."
+  ],
+  "regras_para_extrair_pesos": [
+    "A extração de pesos é separada da extração de matérias e tópicos.",
+    "Na etapa de pesos, quadros de prova, tabelas de disciplinas, número de questões, pontuação máxima, peso ou valor por questão são fontes válidas.",
+    "Quadros em DAS PROVAS com subtitulos por cargo, como 10.8.1 Analista Administrativo, e colunas DISCIPLINAS, QUESTÕES, Nº DE QUESTÕES ou PONTUAÇÃO MÁXIMA devem ser usados para pesos apenas da opção selecionada.",
+    "Se o quadro de prova tiver Módulo I - Conhecimentos Gerais, Módulo II - Conhecimentos Específicos ou Módulo III - Conhecimentos Específicos Avançados, esses nomes são blocos. Extraia peso por disciplina quando a tabela detalhar disciplinas, e retorne block_only quando ela trouxer apenas disciplina genérica como Conhecimentos Específico por Perfil sem detalhamento.",
+    "Use apenas evidência explícita vinculada à disciplina, ao bloco ou à opção selecionada.",
+    "Se a tabela indicar apenas quantidade de questões ou pontos por módulo/bloco, retorne peso por bloco e não distribua automaticamente entre matérias.",
+    "Se a tabela detalhar disciplinas com quantidade de questões, pontos, peso ou percentual por disciplina, use esses valores apenas nas disciplinas correspondentes.",
+    "Não use ordem de aparição, número de tópicos ou importância presumida para inferir peso."
+  ],
+  "quando_der_errado_ajustar_aqui": [
+    {
+      "problema": "A IA confundiu tabela de prova com conteúdo programático.",
+      "instrucao": "Quadros de prova servem para identificar cargo, peso, número de questões ou pontuação. Matérias e tópicos devem sair do conteúdo programático/conhecimentos/anexo equivalente."
+    },
+    {
+      "problema": "A IA ignorou Conhecimentos Gerais comuns ou misturou Conhecimentos Específicos de outro cargo.",
+      "instrucao": "Conhecimentos Gerais marcados para todos os cargos de nível superior entram para o cargo selecionado. Conhecimentos Específicos devem ser limitados ao título do cargo escolhido e parar no próximo cargo."
+    },
+    {
+      "problema": "A IA não reconheceu disciplina porque ela veio com hífen ou sem dois-pontos.",
+      "instrucao": "Em anexos FGV, nomes como Língua Portuguesa - 1 ... e DIREITO CONSTITUCIONAL seguido de itens numerados são disciplinas válidas."
+    },
+    {
+      "problema": "A IA transformou Módulo I, Módulo II ou Módulo III em matéria.",
+      "instrucao": "Módulos são agrupadores. A matéria é a disciplina listada dentro do módulo, como Língua Portuguesa, Direito Penal ou Raciocínio Lógico Matemático, Estatístico e Contábil."
+    },
+    {
+      "problema": "A IA não vinculou o anexo ao cargo porque o cargo aparece como CARGO: Oficial Investigador.",
+      "instrucao": "Linhas CARGO: dentro do anexo delimitam o conteúdo daquele cargo até o próximo CARGO:, próximo anexo ou seção administrativa."
+    },
+    {
+      "problema": "A IA marcou a primeira matéria de um anexo específico de cargo como Conhecimentos Básicos sem heading explícito.",
+      "instrucao": "Não inferir básico pela posição da disciplina. Em anexo específico de cargo, sem heading de Conhecimentos Básicos/Gerais, classifique como Conhecimentos Específicos."
+    },
+    {
+      "problema": "A IA misturou conteúdo de outra especialidade, área, segmento ou perfil.",
+      "instrucao": "A extração da opção deve parar no próximo marcador de mesmo nível e não pode usar conteúdo específico de opção parecida."
+    },
+    {
+      "problema": "A IA transformou módulo ou tipo de prova em matéria.",
+      "instrucao": "Módulo, prova objetiva, prova discursiva, conhecimentos básicos e conhecimentos específicos são agrupadores, não matérias estudáveis."
+    },
+    {
+      "problema": "A IA criou opção a partir de requisito, jornada, salário ou lotação.",
+      "instrucao": "Esses dados são administrativos. Use-os no máximo como evidência auxiliar da existência de um cargo, nunca como opção ou conteúdo."
+    }
+  ],
+  "instrucao_para_ia": "Para FGV, leia primeiro a estrutura do edital e localize a seção CONTEÚDO PROGRAMÁTICO, CONHECIMENTOS ou anexo equivalente. Identifique opções reais de escolha por cargo, área, especialidade, segmento, perfil ou formação quando isso alterar conteúdo, prova, vagas ou classificação. Tabelas de vagas, requisitos e quadros em DAS PROVAS, inclusive subtítulos como 10.8.1 Analista Administrativo ou 9.7.1. CARGO: DE OFICIAL INVESTIGADOR, podem ajudar a reconhecer opções e pesos, mas matérias e tópicos só devem sair do conteúdo programático/conhecimentos. Na extração final, inclua conhecimentos básicos/gerais comuns aplicáveis apenas quando houver heading explícito, inclusive blocos marcados como todos os cargos de nível superior, e conhecimentos específicos da opção selecionada. Se o anexo trouxer CONHECIMENTOS ESPECÍFICOS seguido de cargo, use somente o bloco do cargo exato e pare no próximo cargo. Se o próprio título do anexo trouxer CARGO: DELEGADO DE POLÍCIA ou se o anexo trouxer uma linha CARGO: Oficial Investigador, trate o conteúdo seguinte como desse cargo até o próximo anexo, próxima linha CARGO:, próxima opção explícita ou seção administrativa; se não houver heading explícito de Conhecimentos Básicos/Gerais, classifique as disciplinas como Conhecimentos Específicos. Reconheça disciplinas com dois-pontos, sem dois-pontos ou com hífen antes dos tópicos numerados, inclusive quando o nome da disciplina em caixa alta aparece na mesma linha do item 1. Não transforme módulo, Módulo I, Módulo II, Módulo III, prova objetiva, prova discursiva, conhecimentos básicos, conhecimentos gerais ou conhecimentos específicos em matéria. Na etapa própria de pesos, use quadros de prova e tabelas de pontuação apenas quando houver quantidade de questões, pontuação, peso ou percentual explicitamente vinculado à disciplina, ao bloco ou à opção selecionada; se não houver evidência, não invente peso."
+}

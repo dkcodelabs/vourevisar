@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import cebraspeProfile from "../_shared/bank-profiles/cebraspe.json" assert { type: "json" };
+import fgvProfile from "../_shared/bank-profiles/fgv.json" assert { type: "json" };
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,7 +16,7 @@ type BankProfile = {
   [key: string]: unknown;
 };
 
-const BANK_PROFILES: BankProfile[] = [cebraspeProfile as BankProfile];
+const BANK_PROFILES: BankProfile[] = [cebraspeProfile as BankProfile, fgvProfile as BankProfile];
 const VALID_EXTRACT_MODES = ["analyze", "extractForCargo", "mapContentStructure", "extractSubject", "extractWeights"] as const;
 
 const DEFAULT_ANALYSIS_PROMPT = `Voce e um extrator de dados automatizado especializado em editais de concursos publicos. Sua tarefa e ler o documento fornecido e identificar a banca organizadora e os cargos ofertados.
