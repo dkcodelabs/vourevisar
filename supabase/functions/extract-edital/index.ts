@@ -1,7 +1,9 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
-import cebraspeProfile from "../_shared/bank-profiles/cebraspe.json" assert { type: "json" };
-import fgvProfile from "../_shared/bank-profiles/fgv.json" assert { type: "json" };
+import cebraspeProfile from "../_shared/bank-profiles/cebraspe.json" with { type: "json" };
+import cesgranrioProfile from "../_shared/bank-profiles/cesgranrio.json" with { type: "json" };
+import fccProfile from "../_shared/bank-profiles/fcc.json" with { type: "json" };
+import fgvProfile from "../_shared/bank-profiles/fgv.json" with { type: "json" };
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +18,12 @@ type BankProfile = {
   [key: string]: unknown;
 };
 
-const BANK_PROFILES: BankProfile[] = [cebraspeProfile as BankProfile, fgvProfile as BankProfile];
+const BANK_PROFILES: BankProfile[] = [
+  cebraspeProfile as BankProfile,
+  cesgranrioProfile as BankProfile,
+  fccProfile as BankProfile,
+  fgvProfile as BankProfile,
+];
 const VALID_EXTRACT_MODES = ["analyze", "extractForCargo", "mapContentStructure", "extractSubject", "extractWeights"] as const;
 
 const DEFAULT_ANALYSIS_PROMPT = `Voce e um extrator de dados automatizado especializado em editais de concursos publicos. Sua tarefa e ler o documento fornecido e identificar a banca organizadora e os cargos ofertados.
@@ -186,8 +193,11 @@ Regras obrigatorias:
 - Use secoes como "Das Provas", "Prova Objetiva", "Quadro de Provas", "Conteudos e Pontuacao", "Distribuicao das Questoes" ou equivalentes.
 - Nesta etapa, tabelas de prova, quadros de pontuacao e distribuicao de questoes sao fontes validas. Nao confunda esta regra com a etapa de extracao de conteudo programatico, onde tabelas de prova nao viram materia.
 - Preencha peso por disciplina apenas quando houver evidencia explicita ligada a essa disciplina.
+- Para preencher subjects, o rawText precisa citar explicitamente o nome da disciplina. Se a evidencia citar apenas um bloco, como Conhecimentos Gerais ou Conhecimentos Especificos, retorne essa informacao em blockWeights e nao em subjects.
 - Se o edital trouxer apenas peso por bloco/area (ex.: "Conhecimentos Basicos - 40 questoes") sem detalhar por disciplina, retorne status "block_only" e nao distribua esse peso entre disciplinas.
+- Se houver uma mistura, por exemplo Conhecimentos Basicos detalhado por disciplinas e Conhecimentos Especificos informado apenas como bloco, preencha subjects para as disciplinas detalhadas e tambem preencha blockWeights para o bloco sem detalhamento. Nesse caso o status pode ser "found", mas o bloco sem detalhamento ainda deve aparecer em blockWeights.
 - Se uma tabela detalhar disciplinas dentro de um bloco e indicar quantidade de questoes, pontos, peso ou percentual por disciplina, use esses valores para as disciplinas correspondentes.
+- Se uma tabela detalhar disciplinas dentro de um bloco e a coluna Peso aparecer uma unica vez para o bloco inteiro, aplique esse peso somente as disciplinas daquele bloco. Exemplo: se Lingua Portuguesa tem 10 questoes dentro de Conhecimentos Gerais com Peso 1, retorne questions = 10 e points = 10. Se Tecnologia da Informacao tem 55 questoes dentro de Conhecimentos Especificos com Peso 2, retorne questions = 55 e points = 110.
 - Se houver apenas pontuacao geral da prova sem quebra por disciplina, retorne status "not_found".
 - Nao use quantidade de topicos, criterios de desempate, importancia percebida, ordem de aparicao ou conhecimento comum para inferir peso.
 - Nao assuma que questao vale 1 ponto se o edital nao disser isso explicitamente.
@@ -220,6 +230,82 @@ Formato JSON esperado:
   "message": "Resumo curto ou null"
 }`;
 
+class GeminiApiError extends Error {
+  status?: number;
+  apiStatus?: string;
+  code: string;
+  retryAfterSeconds?: number;
+  publicMessage: string;
+
+  constructor(message: string, options: {
+    status?: number;
+    apiStatus?: string;
+    code?: string;
+    retryAfterSeconds?: number;
+    publicMessage?: string;
+  } = {}) {
+    super(message);
+    this.name = "GeminiApiError";
+    this.status = options.status;
+    this.apiStatus = options.apiStatus;
+    this.code = options.code || "GEMINI_API_ERROR";
+    this.retryAfterSeconds = options.retryAfterSeconds;
+    this.publicMessage = options.publicMessage || "A IA ficou temporariamente indisponivel. Tente novamente em alguns minutos.";
+  }
+}
+
+function parseGeminiErrorPayload(errorText: string) {
+  try {
+    return JSON.parse(errorText);
+  } catch {
+    return null;
+  }
+}
+
+function parseRetryAfterSeconds(headers: Headers, errorText: string) {
+  const retryAfterHeader = headers.get("retry-after");
+  if (retryAfterHeader) {
+    const parsed = Number(retryAfterHeader);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.ceil(parsed);
+  }
+
+  const retryInMatch = errorText.match(/retry in\s+([\d.]+)s/i);
+  if (retryInMatch?.[1]) {
+    const parsed = Number(retryInMatch[1]);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.ceil(parsed);
+  }
+
+  return undefined;
+}
+
+function buildGeminiApiError(status: number, headers: Headers, errorText: string) {
+  const parsed = parseGeminiErrorPayload(errorText);
+  const apiStatus = parsed?.error?.status ? String(parsed.error.status) : undefined;
+  const apiMessage = parsed?.error?.message ? String(parsed.error.message) : errorText;
+  const retryAfterSeconds = parseRetryAfterSeconds(headers, errorText);
+  const isRateLimit = status === 429 || apiStatus === "RESOURCE_EXHAUSTED";
+
+  return new GeminiApiError(`Gemini API erro ${status}: ${apiMessage.substring(0, 300)}`, {
+    status,
+    apiStatus,
+    code: isRateLimit ? "AI_RATE_LIMITED" : `GEMINI_${status}`,
+    retryAfterSeconds,
+    publicMessage: isRateLimit
+      ? "A IA atingiu o limite temporario de uso. Aguarde alguns minutos e tente novamente."
+      : "A IA ficou temporariamente indisponivel. Tente novamente em alguns minutos.",
+  });
+}
+
+function isGeminiRateLimitError(error: any) {
+  const message = String(error?.message || error || "");
+  return (
+    error?.status === 429 ||
+    error?.apiStatus === "RESOURCE_EXHAUSTED" ||
+    message.includes("Gemini API erro 429") ||
+    message.includes("RESOURCE_EXHAUSTED")
+  );
+}
+
 async function callGemini(apiKey: string, modelName: string, payload: any, timeoutMs = 90000): Promise<{ text: string; finishReason: string; usage: any }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -237,11 +323,23 @@ async function callGemini(apiKey: string, modelName: string, payload: any, timeo
 
     if (!res.ok) {
       const errorText = await res.text();
-      throw new Error(`Gemini API erro ${res.status}: ${errorText.substring(0, 500)}`);
+      throw buildGeminiApiError(res.status, res.headers, errorText);
     }
 
     const result = await res.json();
-    if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
+    if (result.error) {
+      const apiStatus = result.error.status ? String(result.error.status) : undefined;
+      const status = typeof result.error.code === "number" ? result.error.code : undefined;
+      const isRateLimit = status === 429 || apiStatus === "RESOURCE_EXHAUSTED";
+      throw new GeminiApiError(result.error.message || JSON.stringify(result.error), {
+        status,
+        apiStatus,
+        code: isRateLimit ? "AI_RATE_LIMITED" : "GEMINI_API_ERROR",
+        publicMessage: isRateLimit
+          ? "A IA atingiu o limite temporario de uso. Aguarde alguns minutos e tente novamente."
+          : "A IA ficou temporariamente indisponivel. Tente novamente em alguns minutos.",
+      });
+    }
 
     const finishReason = result.candidates?.[0]?.finishReason || "UNKNOWN";
     const usage = result.usageMetadata;
@@ -272,13 +370,11 @@ function sleep(ms: number) {
 function isRetryableGeminiError(error: any) {
   const message = String(error?.message || error || "");
   return (
-    message.includes("Gemini API erro 429") ||
     message.includes("Gemini API erro 500") ||
     message.includes("Gemini API erro 502") ||
     message.includes("Gemini API erro 503") ||
     message.includes("Gemini API erro 504") ||
     message.includes("UNAVAILABLE") ||
-    message.includes("RESOURCE_EXHAUSTED") ||
     message.includes("high demand") ||
     message.includes("Timeout:")
   );
@@ -505,7 +601,22 @@ async function callGeminiWithFallbacks(
         return { ...result, modelName };
       } catch (error: any) {
         lastError = error;
-        if (!isRetryableGeminiError(error)) {
+        const isModelNotFoundError = String(error?.message || "").includes("erro 404") || 
+                                     String(error?.message || "").includes("not found") || 
+                                     String(error?.message || "").includes("no longer available");
+
+        if (isGeminiRateLimitError(error)) {
+          console.warn("[extract-edital] Gemini rate limit reached; stopping retries", {
+            modelName,
+            attempt,
+            status: error?.status,
+            apiStatus: error?.apiStatus,
+            retryAfterSeconds: error?.retryAfterSeconds,
+          });
+          throw error;
+        }
+        
+        if (!isRetryableGeminiError(error) && !isModelNotFoundError) {
           throw error;
         }
 
@@ -843,6 +954,30 @@ function mergeNumberedTopicContinuations<T extends { name: string; position: num
   return merged.map((topic, index) => ({ ...topic, position: index }));
 }
 
+function cleanOptionHeadingSubjectTitle(title: string, selectedCargo: string) {
+  const normalizedTitle = title.replace(/\s+/g, " ").trim();
+  const normalizedSelectedCargo = selectedCargo.replace(/\s+/g, " ").trim();
+  const looksLikeOptionHeading =
+    /^[A-Z]\d{2}\s*[-–—]/.test(normalizedTitle) ||
+    (!!normalizedSelectedCargo && normalizeSearchText(normalizedTitle) === normalizeSearchText(normalizedSelectedCargo));
+
+  if (!looksLikeOptionHeading) return normalizedTitle;
+
+  const specialtyMatch = normalizedTitle.match(/\bEspecialidade\s+(.+)$/i);
+  if (specialtyMatch?.[1]) return specialtyMatch[1].replace(/[.;:]+$/g, "").trim();
+
+  const knowledgeAreaMatch = normalizedTitle.match(/\bÁrea\s+de\s+Conhecimento\s*[-–—:]?\s*(.+)$/i);
+  if (knowledgeAreaMatch?.[1]) return knowledgeAreaMatch[1].replace(/[.;:]+$/g, "").trim();
+
+  const areaMatch = normalizedTitle.match(/\bÁrea\s+(?:TI\s*[-–—:]?\s*)?(.+)$/i);
+  if (areaMatch?.[1]) {
+    const cleaned = areaMatch[1].replace(/[.;:]+$/g, "").trim();
+    if (cleaned && !normalizeSearchText(cleaned).includes("apoio especializado")) return cleaned;
+  }
+
+  return normalizedTitle;
+}
+
 function normalizeExtraction(raw: any, selectedCargo: string) {
   const edital = raw?.edital || {};
   const subjects = Array.isArray(raw?.subjects)
@@ -863,13 +998,17 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
     subjects: subjects
       .map((subject: any) => {
         const weight = subject?.weight || {};
+        const title = cleanOptionHeadingSubjectTitle(
+          String(subject?.title || subject?.name || subject?.disciplina || "").trim(),
+          selectedCargo,
+        );
         const topics = Array.isArray(subject?.topics)
           ? subject.topics
           : Array.isArray(subject?.topicos)
             ? subject.topicos
             : [];
         return {
-          title: String(subject?.title || subject?.name || subject?.disciplina || "").trim(),
+          title,
           type: subject?.type || subject?.tipo ? String(subject.type || subject.tipo).trim() : null,
           weight: {
             points: normalizeNumber(weight.points),
@@ -900,6 +1039,178 @@ function normalizeWeightStatus(value: unknown) {
     return normalized;
   }
   return "not_found";
+}
+
+function normalizeWeightEvidenceText(value: unknown) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasSubjectTitleInWeightEvidence(subjectTitle: string, rawText: string) {
+  const normalizedTitle = normalizeWeightEvidenceText(subjectTitle);
+  const normalizedEvidence = normalizeWeightEvidenceText(rawText);
+  if (!normalizedTitle || !normalizedEvidence) return false;
+  if (normalizedEvidence.includes(normalizedTitle)) return true;
+
+  const significantTitleTerms = normalizedTitle
+    .split(" ")
+    .filter((term) => term.length >= 4 && !["nocoes", "gerais", "basicos", "basicas", "especificos", "especificas"].includes(term));
+
+  return significantTitleTerms.length > 0 && significantTitleTerms.every((term) => normalizedEvidence.includes(term));
+}
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeWeightBlockKind(value: unknown) {
+  const normalized = normalizeWeightEvidenceText(value);
+  if (normalized.includes("basico")) return "basico";
+  if (normalized.includes("especifico")) return "especifico";
+  if (normalized.includes("geral")) return "geral";
+  return null;
+}
+
+function hasWeightNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function parseExplicitDisciplineWeightSnippet(snippet: string) {
+  const questions = normalizeNumber(snippet.match(/(\d{1,3})\s+(?:[a-z]+\s+)?questoes?\b/i)?.[1]);
+  const subtotalPoints = normalizeNumber(snippet.match(/subtotalizando\s+(\d{1,3}(?:[,.]\d+)?)/i)?.[1]);
+  const valuePerQuestion = normalizeNumber(snippet.match(/valor\s+de\s+(\d{1,3}(?:[,.]\d+)?)\s+(?:[a-z]+\s+)?pontos?\b/i)?.[1]);
+  const points = subtotalPoints !== null
+    ? subtotalPoints
+    : questions !== null && valuePerQuestion !== null
+      ? roundWeight(questions * valuePerQuestion)
+      : null;
+
+  return { questions, points };
+}
+
+function recoverCesgranrioDisciplineWeights(sourceText: string | undefined, allowedSubjects: any[]) {
+  if (!sourceText || !/cesgranrio/i.test(sourceText)) return [];
+
+  const normalizedText = normalizeWeightEvidenceText(sourceText);
+  if (!normalizedText) return [];
+
+  return allowedSubjects
+    .map((subject: any) => ({
+      id: String(subject?.id || "").trim(),
+      title: String(subject?.title || subject?.name || subject?.subjectName || "").trim(),
+    }))
+    .filter((subject) => subject.id && subject.title)
+    .map((subject) => {
+      const normalizedTitle = normalizeWeightEvidenceText(subject.title);
+      if (!normalizedTitle) return null;
+
+      const titlePattern = new RegExp(`\\b${escapeRegex(normalizedTitle)}\\b`, "gi");
+      const matches = Array.from(normalizedText.matchAll(titlePattern));
+      for (const match of matches) {
+        const index = match.index ?? -1;
+        if (index < 0) continue;
+
+        const snippet = normalizedText.slice(index, index + 360);
+        if (!/\bquestoes?\b/i.test(snippet)) continue;
+
+        const { questions, points } = parseExplicitDisciplineWeightSnippet(snippet);
+        if (questions === null && points === null) continue;
+
+        return {
+          subjectId: subject.id,
+          subjectName: subject.title,
+          questions,
+          points,
+          percentage: null,
+          rawText: snippet.length <= 500 ? snippet : snippet.slice(0, 497) + "...",
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+}
+
+function recoverCesgranrioBlockWeights(sourceText: string | undefined) {
+  if (!sourceText || !/cesgranrio/i.test(sourceText)) return [];
+
+  const normalizedText = normalizeWeightEvidenceText(sourceText);
+  if (!normalizedText) return [];
+
+  return [
+    { kind: "basico", blockName: "Conhecimentos Básicos" },
+    { kind: "especifico", blockName: "Conhecimentos Específicos" },
+    { kind: "geral", blockName: "Conhecimentos Gerais" },
+  ].map(({ kind, blockName }) => {
+    const questionPatterns = [
+      new RegExp(`(\\d{1,3})\\s+(?:[a-z]+\\s+)?questoes\\s+de\\s+conhecimentos\\s+${kind === "basico" ? "basicos" : kind === "especifico" ? "especificos" : "gerais"}`, "i"),
+      new RegExp(`conhecimentos\\s+${kind === "basico" ? "basicos" : kind === "especifico" ? "especificos" : "gerais"}[^.]{0,160}?(\\d{1,3})\\s+(?:[a-z]+\\s+)?questoes`, "i"),
+    ];
+    const pointPatterns = [
+      new RegExp(`conhecimentos\\s+${kind === "basico" ? "basicos" : kind === "especifico" ? "especificos" : "gerais"}[^.]{0,160}?valor\\s+total\\s+de\\s+(\\d{1,3}(?:[,.]\\d+)?)`, "i"),
+      new RegExp(`conhecimentos\\s+${kind === "basico" ? "basicos" : kind === "especifico" ? "especificos" : "gerais"}[^.]{0,220}?subtotalizando\\s+(\\d{1,3}(?:[,.]\\d+)?)`, "i"),
+    ];
+
+    const questions = questionPatterns
+      .map((pattern) => normalizeNumber(normalizedText.match(pattern)?.[1]))
+      .find((value) => value !== null) ?? null;
+    const points = pointPatterns
+      .map((pattern) => normalizeNumber(normalizedText.match(pattern)?.[1]))
+      .find((value) => value !== null) ?? null;
+
+    if (questions === null && points === null) return null;
+
+    return {
+      blockName,
+      questions,
+      points,
+      percentage: null,
+      rawText: `${blockName}: ${[
+        questions !== null ? `${questions} questoes` : null,
+        points !== null ? `${points} pontos` : null,
+      ].filter(Boolean).join(" - ")}`,
+    };
+  }).filter(Boolean);
+}
+
+function promoteSingleSubjectBlockWeights(subjects: any[], blockWeights: any[], allowedSubjects: any[]) {
+  const subjectIdsWithWeight = new Set(subjects.map((subject: any) => subject.subjectId));
+  const allowedByBlockKind = allowedSubjects.reduce<Record<string, Array<{ id: string; title: string }>>>((acc, subject: any) => {
+    const kind = normalizeWeightBlockKind(subject?.knowledgeType || subject?.type);
+    const id = String(subject?.id || "").trim();
+    const title = String(subject?.title || subject?.name || subject?.subjectName || "").trim();
+    if (!kind || !id || !title) return acc;
+    acc[kind] = [...(acc[kind] || []), { id, title }];
+    return acc;
+  }, {});
+
+  const promoted = blockWeights
+    .map((block: any) => {
+      const kind = normalizeWeightBlockKind(block.blockName);
+      if (!kind) return null;
+      const subjectsInBlock = allowedByBlockKind[kind] || [];
+      if (subjectsInBlock.length !== 1) return null;
+      const [subject] = subjectsInBlock;
+      if (subjectIdsWithWeight.has(subject.id)) return null;
+      if (!hasWeightNumber(block.questions) && !hasWeightNumber(block.points) && !hasWeightNumber(block.percentage)) return null;
+
+      return {
+        subjectId: subject.id,
+        subjectName: subject.title,
+        questions: hasWeightNumber(block.questions) ? block.questions : null,
+        points: hasWeightNumber(block.points) ? block.points : null,
+        percentage: hasWeightNumber(block.percentage) ? block.percentage : null,
+        rawText: block.rawText || `${block.blockName}: peso do bloco aplicado porque ha uma unica disciplina extraida neste bloco.`,
+      };
+    })
+    .filter(Boolean);
+
+  return [...subjects, ...promoted];
 }
 
 function normalizeWeightExtraction(raw: any, allowedSubjects: any[], sourceText?: string) {
@@ -933,10 +1244,11 @@ function normalizeWeightExtraction(raw: any, allowedSubjects: any[], sourceText?
     .filter((subject: any) =>
       subject &&
       subject.rawText &&
+      hasSubjectTitleInWeightEvidence(subject.subjectName, subject.rawText) &&
       (subject.questions !== null || subject.points !== null || subject.percentage !== null),
     );
 
-  const blockWeights = Array.isArray(raw?.blockWeights)
+  const rawBlockWeights = Array.isArray(raw?.blockWeights)
     ? raw.blockWeights.map((block: any) => ({
         blockName: block?.blockName ? String(block.blockName).trim() : null,
         questions: normalizeNumber(block?.questions),
@@ -945,11 +1257,26 @@ function normalizeWeightExtraction(raw: any, allowedSubjects: any[], sourceText?
         rawText: block?.rawText ? String(block.rawText).replace(/\s+/g, " ").trim() : null,
       })).filter((block: any) => block.blockName && block.rawText)
     : [];
+  const recoveredBlockWeights = recoverCesgranrioBlockWeights(sourceText);
+  const blockKeys = new Set(rawBlockWeights.map((block: any) => normalizeWeightBlockKind(block.blockName)));
+  const blockWeights = [
+    ...rawBlockWeights,
+    ...recoveredBlockWeights.filter((block: any) => !blockKeys.has(normalizeWeightBlockKind(block.blockName))),
+  ];
+
+  const subjectIdsWithWeight = new Set(subjects.map((subject: any) => subject.subjectId));
+  const recoveredSubjects = recoverCesgranrioDisciplineWeights(sourceText, allowedSubjects)
+    .filter((subject: any) => !subjectIdsWithWeight.has(subject.subjectId));
+  const subjectsWithRecovered = promoteSingleSubjectBlockWeights(
+    [...subjects, ...recoveredSubjects],
+    blockWeights,
+    allowedSubjects,
+  );
 
   const pointsPerQuestion = extractExplicitPointsPerQuestion(sourceText);
   const subjectsWithCalculatedPoints = pointsPerQuestion === null
-    ? subjects
-    : subjects.map((subject: any) => {
+    ? subjectsWithRecovered
+    : subjectsWithRecovered.map((subject: any) => {
         if (subject.points !== null || subject.questions === null) return subject;
 
         return {
@@ -1015,13 +1342,14 @@ function normalizeContentStructure(raw: any, selectedCargo: string) {
     cargo_alvo: String(raw?.cargo_alvo || raw?.selectedCargo || selectedCargo || "").trim(),
     materias: materias
       .map((subject: any, index: number) => {
-        const title = String(subject?.titulo || subject?.title || subject?.disciplina || subject?.name || "").trim();
+        const originalTitle = String(subject?.titulo || subject?.title || subject?.disciplina || subject?.name || "").trim();
+        const title = cleanOptionHeadingSubjectTitle(originalTitle, selectedCargo);
         return {
           chave: normalizeSubjectKey(subject?.chave || subject?.key, title || `materia_${index + 1}`),
           titulo: title,
           tipo_conhecimento: normalizeKnowledgeType(subject?.tipo_conhecimento || subject?.tipo || subject?.type),
           ordem: normalizeNumber(subject?.ordem ?? subject?.order) ?? index + 1,
-          startHeading: subject?.startHeading ? String(subject.startHeading).trim() : title,
+          startHeading: subject?.startHeading ? String(subject.startHeading).trim() : originalTitle || title,
           endHeading: subject?.endHeading ? String(subject.endHeading).trim() : null,
           startAnchor: subject?.startAnchor ? String(subject.startAnchor).trim() : null,
           endAnchor: subject?.endAnchor ? String(subject.endAnchor).trim() : null,
@@ -1323,9 +1651,17 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error: any) {
     console.error("[extract-edital] error:", error?.message || error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    const status = error?.status === 429 ? 429 : error?.message === "Unauthorized" ? 401 : 400;
+    const publicMessage = error?.publicMessage || error?.message || "Erro ao processar edital.";
+    return new Response(JSON.stringify({
+      success: false,
+      error: publicMessage,
+      message: publicMessage,
+      code: error?.code || "EXTRACT_EDITAL_ERROR",
+      retryAfterSeconds: error?.retryAfterSeconds ?? null,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
+      status,
     });
   }
 });

@@ -149,7 +149,7 @@ function scorePdfText(fullText: string, pageCount: number): PdfTextMetrics {
   };
 }
 
-export async function extractPdfText(file: File): Promise<PdfTextExtractionResult> {
+export async function extractPdfText(file: Blob): Promise<PdfTextExtractionResult> {
   const data = new Uint8Array(await file.arrayBuffer());
   const documentTask = pdfjs.getDocument({ data });
   const document = await documentTask.promise;

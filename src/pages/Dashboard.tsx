@@ -34,6 +34,7 @@ import { useMergeData } from '@/hooks/useMergeData';
 import { useMentorInsights } from '@/hooks/useMentorInsights';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
+import { PremiumStateCard } from '@/components/ui/PremiumStateCard';
 
 const Dashboard = () => {
     const { subjects, isDataLoaded, isLoading, error, studyProgress } = useApp();
@@ -249,57 +250,18 @@ const Dashboard = () => {
 
     if (error) {
         return (
-            <div className="container mx-auto px-4 py-8 sm:p-6">
-                <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-primary/25 bg-card shadow-2xl shadow-black/30">
-                    <div className="grid grid-cols-1 md:grid-cols-[0.95fr_1.05fr]">
-                        <div className="relative min-h-[220px] overflow-hidden bg-primary/5 md:min-h-[320px]">
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,hsl(var(--primary)/0.22),transparent_42%),radial-gradient(circle_at_80%_75%,rgba(251,191,36,0.14),transparent_36%)]" />
-                            <img
-                                src="/images/offline-study-state.png"
-                                alt="Mesa de estudos com notebook indicando conexão indisponível"
-                                className="relative h-full w-full object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-card" />
-                        </div>
-
-                        <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
-                            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/25 bg-primary/10 text-primary">
-                                <WifiOff size={22} />
-                            </div>
-                            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-                                Conexão interrompida
-                            </p>
-                            <h2 className="font-['Manrope'] text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-                                Seus estudos estão salvos. Só não consegui buscar os dados agora.
-                            </h2>
-                            <p className="mt-3 max-w-xl text-sm leading-relaxed text-content-muted">
-                                Parece que a internet caiu ou ficou instável por alguns segundos. Confira sua conexão e tente novamente para recarregar o painel.
-                            </p>
-
-                            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                                <Button
-                                    onClick={() => window.location.reload()}
-                                    className="h-11 rounded-xl px-5 font-bold text-primary-foreground shadow-lg shadow-primary/20"
-                                >
-                                    <RefreshCw size={16} />
-                                    Tentar novamente
-                                </Button>
-                                <span className="text-xs text-content-muted">
-                                    Se voltar sozinho, é só continuar de onde parou.
-                                </span>
-                            </div>
-
-                            <div className="mt-6 rounded-2xl border border-border bg-background/45 px-4 py-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-muted">
-                                    Detalhe técnico
-                                </p>
-                                <p className="mt-1 line-clamp-2 text-xs text-content-muted">
-                                    {error}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="container mx-auto flex min-h-[70vh] items-center justify-center px-4 py-8 sm:p-6">
+                <PremiumStateCard
+                    icon={WifiOff}
+                    label="Conexão interrompida"
+                    title="Seus estudos estão salvos. Só não consegui buscar os dados agora."
+                    description="Parece que a internet caiu ou ficou instável por alguns segundos. Confira sua conexão e tente novamente para recarregar o painel."
+                    actionLabel="Tentar novamente"
+                    actionIcon={RefreshCw}
+                    onAction={() => window.location.reload()}
+                    helperText="Se voltar sozinho, é só continuar de onde parou."
+                    technicalDetail={error}
+                />
             </div>
         );
     }

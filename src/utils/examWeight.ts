@@ -132,6 +132,7 @@ export const getSubjectExamWeightPercentage = (
 export const getSubjectExamWeightLine = (
   subject: SubjectExamWeight,
   totals?: ExamWeightTotals,
+  options: { derivePercentageFromQuestions?: boolean; derivePercentageFromPoints?: boolean } = {},
 ) => {
   if (!hasSubjectExamWeight(subject)) return null;
 
@@ -139,7 +140,14 @@ export const getSubjectExamWeightLine = (
     ...subject,
     exam_weight_percentage: null,
   });
-  const percentage = getSubjectExamWeightPercentage(subject, totals);
+  const shouldDeriveFromQuestions = options.derivePercentageFromQuestions ?? true;
+  const shouldDeriveFromPoints = options.derivePercentageFromPoints ?? true;
+  const hasExplicitPercentage = hasNumber(subject.exam_weight_percentage);
+  const canDerivePercentage =
+    hasExplicitPercentage ||
+    (hasNumber(subject.exam_weight_points) && shouldDeriveFromPoints) ||
+    (hasNumber(subject.exam_weight_questions) && shouldDeriveFromQuestions);
+  const percentage = canDerivePercentage ? getSubjectExamWeightPercentage(subject, totals) : null;
 
   if (!hasNumber(percentage)) {
     return baseLabel;

@@ -35,6 +35,43 @@ describe('examWeight', () => {
     expect(label).toBe('6 questões · 0,75 ponto total · 7,5% da prova');
   });
 
+  it('can avoid derived percentage when only question count is available', () => {
+    const totals = getExamWeightTotals([
+      { exam_weight_questions: 10 },
+      { exam_weight_questions: 150 },
+    ]);
+
+    const label = getSubjectExamWeightLine({
+      exam_weight_questions: 10,
+    }, totals, { derivePercentageFromQuestions: false });
+
+    expect(label).toBe('10 questões');
+  });
+
+  it('can avoid derived percentage when points are calculated but percentage was not explicit', () => {
+    const totals = getExamWeightTotals([
+      { exam_weight_questions: 10, exam_weight_points: 10 },
+      { exam_weight_questions: 55, exam_weight_points: 110 },
+    ]);
+
+    const label = getSubjectExamWeightLine({
+      exam_weight_questions: 10,
+      exam_weight_points: 10,
+    }, totals, { derivePercentageFromQuestions: false, derivePercentageFromPoints: false });
+
+    expect(label).toBe('10 questões · 10 pontos totais');
+  });
+
+  it('keeps explicit percentage even when derived percentages are disabled', () => {
+    const label = getSubjectExamWeightLine({
+      exam_weight_questions: 10,
+      exam_weight_points: 10,
+      exam_weight_percentage: 12.5,
+    }, undefined, { derivePercentageFromQuestions: false, derivePercentageFromPoints: false });
+
+    expect(label).toBe('10 questões · 10 pontos totais · 12,5% da prova');
+  });
+
   it('prefers total points for effective ordering weight', () => {
     const effective = getEffectiveSubjectExamWeight({
       exam_weight_questions: 6,

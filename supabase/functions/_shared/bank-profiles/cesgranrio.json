@@ -1,0 +1,224 @@
+{
+  "banca": "Cesgranrio",
+  "aliases": [
+    "Cesgranrio",
+    "Fundacao Cesgranrio",
+    "Fundacao Cesgranrio (Cesgranrio)",
+    "Fundação Cesgranrio",
+    "Fundação Cesgranrio (Cesgranrio)"
+  ],
+  "objetivo": "Orientar a IA a entender a estrutura típica de editais Cesgranrio antes de extrair cargos, matérias e tópicos. Este arquivo deve ser ajustado quando uma extração errar por causa de uma variação real da banca, sem alterar perfis de outras bancas.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "CONTEÚDOS PROGRAMÁTICOS",
+      "CONTEUDOS PROGRAMATICOS",
+      "CONTEÚDO PROGRAMÁTICO",
+      "CONTEUDO PROGRAMATICO",
+      "ANEXO - CONTEÚDOS PROGRAMÁTICOS",
+      "ANEXO I - CONTEÚDOS PROGRAMÁTICOS",
+      "ANEXO II - CONTEÚDOS PROGRAMÁTICOS",
+      "ANEXO III - CONTEÚDOS PROGRAMÁTICOS",
+      "ANEXO IV - CONTEÚDOS PROGRAMÁTICOS",
+      "ANEXO IV- CONTEÚDOS PROGRAMÁTICOS",
+      "ANEXO IV-CONTEÚDOS PROGRAMÁTICOS",
+      "CONTEÚDOS PROGRAMÁTICOS - NÍVEL MÉDIO",
+      "CONTEUDOS PROGRAMATICOS - NIVEL MEDIO",
+      "CONTEÚDOS PROGRAMÁTICOS - NÍVEL SUPERIOR",
+      "CONTEUDOS PROGRAMATICOS - NIVEL SUPERIOR",
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS COMUNS",
+      "PARA TODOS OS CARGOS",
+      "COMUM A TODOS OS CARGOS",
+      "PARA TODOS OS CARGOS/ÊNFASES",
+      "PARA TODOS OS CARGOS/ENFASES",
+      "PARA TODAS AS ÊNFASES",
+      "PARA TODAS AS ENFASES"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS",
+      "CONHECIMENTOS ESPECÍFICOS POR CARGO",
+      "CONHECIMENTOS ESPECIFICOS POR CARGO",
+      "CONHECIMENTOS ESPECÍFICOS POR ÊNFASE",
+      "CONHECIMENTOS ESPECIFICOS POR ENFASE"
+    ],
+    "marcadores_de_opcao": [
+      "CARGO",
+      "CARGOS",
+      "ÊNFASE",
+      "ENFASE",
+      "NÍVEL MÉDIO",
+      "NIVEL MEDIO",
+      "NÍVEL SUPERIOR",
+      "NIVEL SUPERIOR",
+      "NÍVEL FUNDAMENTAL",
+      "NIVEL FUNDAMENTAL",
+      "ÁREA",
+      "AREA",
+      "ESPECIALIDADE",
+      "FORMAÇÃO",
+      "FORMACAO",
+      "PÓLO",
+      "POLO",
+      "MICRORREGIÃO",
+      "MICRORREGIAO",
+      "MACRORREGIÃO",
+      "MACRORREGIAO"
+    ],
+    "marcadores_de_agrupamento": [
+      "BLOCO",
+      "BLOCO I",
+      "BLOCO II",
+      "BLOCO III",
+      "PROVA OBJETIVA",
+      "PROVAS OBJETIVAS",
+      "PROVA DISCURSIVA",
+      "REDAÇÃO",
+      "REDACAO",
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS",
+      "NÍVEL MÉDIO",
+      "NIVEL MEDIO",
+      "NÍVEL SUPERIOR",
+      "NIVEL SUPERIOR"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "DAS INSCRIÇÕES",
+      "DAS INSCRICOES",
+      "DOS CARGOS",
+      "QUADRO DE CARGOS, VAGAS E CADASTRO DE RESERVA",
+      "QUADRO DE CARGOS, POLO DE TRABALHO, LOCALIDADES",
+      "QUADRO DE CARGOS, REQUISITOS, EXEMPLOS DE ATRIBUIÇÕES, REMUNERAÇÃO E TABELAS DE REQUISITOS",
+      "QUADRO DE CARGOS, REQUISITOS, EXEMPLOS DE ATRIBUICOES, REMUNERACAO E TABELAS DE REQUISITOS",
+      "DOS REQUISITOS",
+      "DOS REQUISITOS E ATRIBUIÇÕES",
+      "DOS REQUISITOS E ATRIBUICOES",
+      "TABELAS DE REQUISITOS",
+      "EXEMPLOS DE ATRIBUIÇÕES",
+      "EXEMPLOS DE ATRIBUICOES",
+      "DESCRITIVO DO CARGO",
+      "DAS ATRIBUIÇÕES",
+      "DAS ATRIBUICOES",
+      "FINALIDADE DA ÊNFASE",
+      "FINALIDADE DA ENFASE",
+      "ESCOLARIDADE EXIGIDA",
+      "DAS VAGAS",
+      "DOS POLOS",
+      "DOS POLOS DE TRABALHO",
+      "QUADRO DE ÊNFASES, POLO DE TRABALHO, VAGAS E CADASTRO DE RESERVA",
+      "QUADRO DE ENFASES, POLO DE TRABALHO, VAGAS E CADASTRO DE RESERVA",
+      "DA REMUNERAÇÃO",
+      "DA REMUNERACAO",
+      "DA JORNADA DE TRABALHO",
+      "DAS PROVAS",
+      "DAS PROVAS OBJETIVAS",
+      "DA PROVA OBJETIVA",
+      "DO QUADRO DE PROVAS",
+      "DOS CRITÉRIOS DE AVALIAÇÃO",
+      "DOS CRITERIOS DE AVALIACAO",
+      "DA CLASSIFICAÇÃO",
+      "DA CLASSIFICACAO",
+      "DO CRONOGRAMA"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "Primeiro identifique as opções reais de escolha do aluno: cargo, cargo + ênfase, cargo + área, cargo + especialidade ou cargo + formação quando isso alterar conteúdo, prova, vagas ou classificação.",
+    "Em editais Cesgranrio, cargo e ênfase podem aparecer juntos em tabelas oficiais de vagas/requisitos e depois reaparecer nos anexos de conteúdos programáticos. Use tabelas administrativas apenas para reconhecer opções; confirme matérias na seção de conteúdos/conhecimentos.",
+    "Quando uma tabela trouxer Cargo e Ênfase, trate cada combinação real como opção separada se ela representar escolha do candidato ou tiver conteúdo/prova própria.",
+    "Quando o edital listar ÊNFASE 1, ÊNFASE 2 etc. em quadro de vagas, preserve a ênfase no label_exibicao junto com o cargo pai quando isso for a opção real do candidato.",
+    "Ao comparar cargo selecionado com headings do edital, normalize o nome removendo siglas administrativas entre parênteses e códigos, por exemplo CONDUTOR MECÂNICO (CDM/MEC) deve corresponder a CONDUTOR MECÂNICO.",
+    "Polo, microrregião, macrorregião, localidade, cadastro de reserva, requisito, salário, jornada, atribuição e quantidade de vagas são dados administrativos. Só trate como parte da opção se o edital disser explicitamente que alteram conteúdo, prova ou classificação.",
+    "Se houver apenas um cargo sem área, ênfase, especialidade ou formação, retorne o nome real do cargo conforme o edital. Nunca use Cargo unico como nome.",
+    "Não transforme nível de escolaridade, bloco, tipo de prova, prova objetiva, prova discursiva, redação, conhecimentos básicos, conhecimentos gerais ou conhecimentos específicos em opção do aluno.",
+    "Se o edital usar códigos ou numeração para cargos/ênfases, preserve-os no label_exibicao apenas quando ajudarem a evitar ambiguidade, mas não transforme o código isolado em matéria ou opção."
+  ],
+  "regras_para_extrair_conteudo": [
+    "Matérias e tópicos só podem ser extraídos a partir da seção CONTEÚDOS PROGRAMÁTICOS, CONTEÚDO PROGRAMÁTICO, CONHECIMENTOS ou anexo equivalente.",
+    "Ao extrair uma opção escolhida, inclua conhecimentos básicos/gerais/comuns aplicáveis e os conhecimentos específicos vinculados exatamente ao cargo, área, ênfase, especialidade ou formação selecionados.",
+    "Quando o conteúdo programático separar por cargo, área, ênfase, especialidade ou formação, entre somente no bloco da opção selecionada e pare no próximo marcador de mesmo nível.",
+    "Headings como NÍVEL MÉDIO: ..., NÍVEL SUPERIOR: ..., CARGO: ..., CARGOS: ... e ÊNFASE 1: ... delimitam escopo da opção ou grupo de opções. Eles não são matéria; use-os para decidir se o bloco seguinte se aplica à opção selecionada.",
+    "Quando CONHECIMENTOS BÁSICOS trouxer linhas CARGOS: com vários cargos separados por barra, trate cada linha CARGOS: como um subescopo independente. Para a opção selecionada, acumule todas as disciplinas de todos os subescopos CARGOS: em que o cargo selecionado aparecer; não pare na primeira ocorrência do cargo.",
+    "Cada subescopo CARGOS: vale somente até o próximo CARGOS:, próximo CARGO:, CONHECIMENTOS ESPECÍFICOS, novo nível, novo anexo ou fim do bloco. Ao encontrar o próximo CARGOS:, feche apenas o subescopo anterior e avalie de novo se o cargo selecionado aparece no novo subescopo.",
+    "Se o cargo selecionado aparecer em mais de uma linha CARGOS: dentro de Conhecimentos Básicos, inclua as matérias de todas essas linhas. Exemplo: CONDUTOR MECÂNICO aparece no subescopo de LÍNGUA PORTUGUESA e aparece novamente no subescopo de INGLÊS TÉCNICO MARÍTIMO; portanto as duas matérias devem ser extraídas.",
+    "Quando o conteúdo estiver sob um heading NÍVEL MÉDIO ou NÍVEL SUPERIOR que lista cargos, aplique o bloco somente aos cargos daquele heading. O nível de escolaridade é escopo, não disciplina.",
+    "Quando um bloco disser que é comum a todos os cargos, a todas as ênfases ou a um conjunto explícito de cargos/ênfases, aplique-o apenas às opções indicadas no próprio edital.",
+    "Quando o anexo trouxer CONHECIMENTOS ESPECÍFICOS seguido de cargo ou ênfase, extraia somente o bloco correspondente à opção escolhida até o próximo cargo, próxima ênfase, próximo bloco, próximo anexo ou seção administrativa.",
+    "Quando CONHECIMENTOS ESPECÍFICOS trouxer ÊNFASE 1: ADMINISTRAÇÃO, ÊNFASE 2: ADVOCACIA ou padrão equivalente, a ênfase delimita a opção selecionada. Não crie matéria chamada Ênfase 1 ou Administração apenas por causa desse heading; as matérias são os títulos internos do bloco.",
+    "BLOCO I, BLOCO II, BLOCO III e equivalentes são agrupadores de prova/conhecimento. Use-os apenas para classificar escopo quando necessário, mas nunca como disciplina.",
+    "CONHECIMENTOS BÁSICOS, CONHECIMENTOS GERAIS, CONHECIMENTOS ESPECÍFICOS, PROVA OBJETIVA, PROVA DISCURSIVA e REDAÇÃO são escopos ou tipos de prova; não devem virar matéria.",
+    "Em Cesgranrio, disciplinas podem aparecer em caixa alta, com dois-pontos, com hífen antes da lista de itens, ou como linha de disciplina seguida por itens numerados. O título é a disciplina e os itens seguintes são tópicos.",
+    "Disciplinas também podem aparecer inline em negrito/caixa alta dentro do parágrafo, seguidas de dois-pontos, como ADMINISTRAÇÃO FINANCEIRA E ORÇAMENTÁRIA:, CONTRATAÇÃO: ou LEGISLAÇÃO MARÍTIMA E AMBIENTAL:. Separe cada título desses como disciplina quando ele introduzir uma lista própria de conteúdos.",
+    "Em alguns cargos marítimos, disciplinas aparecem em caixa alta seguidas de travessão ou hífen, como COMBUSTÍVEIS E LUBRIFICANTES – Combustível: ou EQUIPAMENTOS E MÁQUINAS DE SISTEMAS AUXILIARES – Tubos, redes e acessórios. Nesses casos, a disciplina é o título em caixa alta antes do travessão/hífen; o texto depois dele é conteúdo da disciplina.",
+    "Quando Conhecimentos Específicos não trouxer disciplinas formais e listar apenas itens numerados em negrito, como 1 História da Arte, 2 História da Gravura ou 3 Técnicas de gravura, use como disciplina um nome curto baseado no cargo/ênfase selecionado e preserve esses itens numerados como tópicos ou subtópicos, em vez de criar matéria Conhecimentos Específicos.",
+    "Tópicos podem aparecer numerados, separados por ponto e vírgula ou em frases longas. Preserve a numeração original quando existir e mantenha listas normativas no mesmo tópico quando o edital as apresentar como uma unidade.",
+    "Se o edital listar disciplinas em uma tabela de provas, use essa tabela apenas para peso, quantidade de questões ou pontuação na etapa própria de pesos. Não crie tópicos a partir da tabela de provas.",
+    "Não extraia matérias a partir de requisitos, atribuições, finalidade da ênfase, escolaridade exigida, remuneração, jornada, vagas, polos, localidades, inscrições, cronograma ou critérios de avaliação.",
+    "Se o bloco específico exato da opção selecionada não for encontrado, retorne apenas conteúdos comuns aplicáveis e avise; não substitua por conteúdo de cargo, área ou ênfase parecida.",
+    "Preserve a ordem original das matérias e dos tópicos conforme o edital."
+  ],
+  "regras_para_extrair_pesos": [
+    "A extração de pesos é separada da extração de matérias e tópicos.",
+    "Na etapa de pesos, quadros de prova, tabelas de disciplinas, número de questões, pontuação, peso, valor por questão ou percentual são fontes válidas.",
+    "Em editais Cesgranrio, a distribuição de questões também pode aparecer em texto corrido na seção DA ETAPA DE QUALIFICAÇÃO TÉCNICA ou DAS PROVAS, com frases como Para os cargos de ..., Conhecimentos Básicos com 10 questões, Conhecimentos Específicos com 30 questões, Língua Portuguesa (10 questões) e cada uma valendo 1 ponto. Use esse texto como fonte válida de pesos quando estiver explicitamente vinculado ao cargo selecionado.",
+    "Use apenas evidência explícita vinculada à disciplina, ao bloco ou à opção selecionada.",
+    "Se o quadro de prova detalhar disciplinas com quantidade de questões, pontos, peso ou percentual por disciplina, use esses valores apenas nas disciplinas correspondentes.",
+    "Se a tabela indicar apenas quantidade de questões, pontos ou peso por bloco, como Conhecimentos Básicos ou Conhecimentos Específicos, retorne peso por bloco e não distribua automaticamente entre matérias internas.",
+    "Se a tabela trouxer uma coluna de peso aplicada ao bloco inteiro e também detalhar as disciplinas dentro desse bloco, aplique o peso somente às disciplinas daquele bloco quando a evidência citar a disciplina ou estiver claramente na mesma linha/escopo da disciplina.",
+    "Prova discursiva, redação, duração e caráter podem ser registrados apenas como evidência de prova quando necessário, mas não viram matéria objetiva nem peso de disciplina se não houver vínculo explícito.",
+    "Não use ordem de aparição, número de tópicos ou importância presumida para inferir peso."
+  ],
+  "quando_der_errado_ajustar_aqui": [
+    {
+      "problema": "A IA pegou requisitos, atribuições, vagas, polos ou localidade como matéria.",
+      "instrucao": "Esses dados são administrativos. Matérias e tópicos só saem de conteúdos programáticos/conhecimentos/anexo equivalente."
+    },
+    {
+      "problema": "A IA aplicou Língua Portuguesa ou Língua Inglesa de um bloco CARGOS: para cargo não listado naquele escopo.",
+      "instrucao": "Linhas CARGOS: dentro de Conhecimentos Básicos delimitam o grupo de cargos aplicável até o próximo marcador de escopo. Inclua a disciplina somente se o cargo selecionado estiver listado naquele subescopo."
+    },
+    {
+      "problema": "A IA deixou de extrair uma matéria básica porque o cargo já tinha aparecido em uma linha CARGOS: anterior.",
+      "instrucao": "CARGOS: em Conhecimentos Básicos é acumulativo por subescopo. Se o mesmo cargo aparecer em mais de uma linha CARGOS:, extraia as matérias de todas as linhas aplicáveis, não apenas a primeira."
+    },
+    {
+      "problema": "A IA confundiu tabela de prova com conteúdo programático.",
+      "instrucao": "Tabela de prova serve para peso, número de questões, pontuação, duração e caráter. Não crie tópicos a partir dela."
+    },
+    {
+      "problema": "A IA misturou conhecimentos específicos de outra ênfase, área ou cargo.",
+      "instrucao": "A extração da opção deve parar no próximo marcador de mesmo nível e não pode usar conteúdo específico de opção parecida."
+    },
+    {
+      "problema": "A IA transformou bloco ou tipo de prova em matéria.",
+      "instrucao": "Bloco, prova objetiva, prova discursiva, redação, conhecimentos básicos e conhecimentos específicos são agrupadores ou tipos de prova, não matérias estudáveis."
+    },
+    {
+      "problema": "A IA transformou NÍVEL MÉDIO, NÍVEL SUPERIOR, CARGO, CARGOS ou ÊNFASE em matéria.",
+      "instrucao": "Esses headings delimitam escopo de aplicação. A matéria deve ser o título interno como Língua Portuguesa, Administração Financeira e Orçamentária ou Arquitetura Naval."
+    },
+    {
+      "problema": "A IA não aplicou conhecimentos básicos comuns à opção selecionada.",
+      "instrucao": "Blocos comuns entram quando o edital indicar explicitamente que se aplicam a todos os cargos, todas as ênfases ou ao conjunto que contém a opção selecionada."
+    },
+    {
+      "problema": "A IA distribuiu peso de um bloco entre disciplinas sem evidência.",
+      "instrucao": "Se o edital só informa peso por bloco, retorne block_only. Só preencha peso de disciplina quando houver evidência explícita vinculada à disciplina."
+    },
+    {
+      "problema": "A IA não encontrou pesos porque a distribuição de questões estava em texto corrido e não em tabela.",
+      "instrucao": "Na etapa de pesos, aceite texto da seção de provas/qualificação técnica quando ele vincular cargo, bloco ou disciplina a quantidade de questões, pontos ou valor por questão."
+    }
+  ],
+  "instrucao_para_ia": "Para Cesgranrio/Fundação Cesgranrio, leia primeiro a estrutura do edital e localize CONTEÚDOS PROGRAMÁTICOS, CONTEÚDO PROGRAMÁTICO, CONHECIMENTOS ou anexo equivalente. Identifique opções reais de escolha por cargo, ênfase, área, especialidade ou formação quando isso alterar conteúdo, prova, vagas ou classificação. Ao comparar cargo selecionado com headings, normalize removendo siglas entre parênteses e códigos; por exemplo CONDUTOR MECÂNICO (CDM/MEC) corresponde a CONDUTOR MECÂNICO. Tabelas de cargos, requisitos, vagas, polos, finalidade da ênfase, escolaridade e quadros de provas podem ajudar a reconhecer opções e pesos, mas matérias e tópicos só devem sair do conteúdo programático/conhecimentos. Na extração final, inclua conhecimentos básicos/gerais/comuns aplicáveis apenas quando o edital indicar esse escopo. Linhas NÍVEL MÉDIO, NÍVEL SUPERIOR, CARGO, CARGOS e ÊNFASE delimitam escopo, não matéria. Em CONHECIMENTOS BÁSICOS, cada linha CARGOS: com lista separada por barra abre um subescopo independente; para o cargo selecionado, acumule as disciplinas de todas as linhas CARGOS: em que esse cargo aparece, até o próximo marcador de escopo. Não pare na primeira ocorrência do cargo: se CONDUTOR MECÂNICO aparece no subescopo de LÍNGUA PORTUGUESA e depois no subescopo de INGLÊS TÉCNICO MARÍTIMO, extraia as duas matérias. Em CONHECIMENTOS ESPECÍFICOS, use somente o bloco exato da opção selecionada e pare no próximo cargo, próxima ênfase, próximo bloco, próximo anexo ou seção administrativa. Não transforme Bloco I, Bloco II, Bloco III, prova objetiva, prova discursiva, redação, conhecimentos básicos, conhecimentos gerais, conhecimentos específicos, nível, cargo ou ênfase em matéria. Reconheça disciplinas em caixa alta, com dois-pontos, com hífen ou como linha seguida de itens numerados; reconheça também disciplinas inline seguidas de dois-pontos, como ADMINISTRAÇÃO FINANCEIRA E ORÇAMENTÁRIA:, CONTRATAÇÃO: ou LEGISLAÇÃO MARÍTIMA E AMBIENTAL:, e disciplinas em caixa alta seguidas de travessão/hífen, como COMBUSTÍVEIS E LUBRIFICANTES – Combustível:. Se o específico não tiver disciplinas formais e trouxer apenas itens numerados em negrito, use um nome curto baseado no cargo/ênfase selecionado como disciplina e preserve os itens numerados como tópicos. Na etapa própria de pesos, use quadros de prova, tabelas de pontuação e texto corrido da seção de provas/qualificação técnica apenas quando houver quantidade de questões, pontuação, peso ou percentual explicitamente vinculado à disciplina, ao bloco ou à opção selecionada; se a evidência for apenas por bloco, retorne peso por bloco e não distribua automaticamente entre disciplinas."
+}

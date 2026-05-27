@@ -1,0 +1,148 @@
+{
+  "banca": "FCC",
+  "aliases": [
+    "FCC",
+    "Fundacao Carlos Chagas",
+    "Fundacao Carlos Chagas (FCC)",
+    "Fundação Carlos Chagas",
+    "Fundação Carlos Chagas (FCC)"
+  ],
+  "objetivo": "Orientar a IA a entender a estrutura típica de editais FCC antes de extrair cargos, matérias e tópicos. Este arquivo deve ser ajustado quando uma extração errar por causa de uma variação real da banca, sem alterar perfis de outras bancas.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "CONTEÚDO PROGRAMÁTICO",
+      "CONTEUDO PROGRAMATICO",
+      "CONHECIMENTOS GERAIS PARA OS CARGOS",
+      "CONHECIMENTOS GERAIS PARA O CARGO",
+      "CONHECIMENTOS ESPECÍFICOS PARA OS CARGOS",
+      "CONHECIMENTOS ESPECIFICOS PARA OS CARGOS",
+      "CONHECIMENTOS ESPECÍFICOS PARA O CARGO",
+      "CONHECIMENTOS ESPECIFICOS PARA O CARGO"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS GERAIS PARA OS CARGOS",
+      "CONHECIMENTOS GERAIS PARA O CARGO",
+      "CONHECIMENTOS BÁSICOS PARA OS CARGOS",
+      "CONHECIMENTOS BASICOS PARA OS CARGOS",
+      "CONHECIMENTOS BÁSICOS PARA O CARGO",
+      "CONHECIMENTOS BASICOS PARA O CARGO"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS PARA OS CARGOS",
+      "CONHECIMENTOS ESPECIFICOS PARA OS CARGOS",
+      "CONHECIMENTOS ESPECÍFICOS PARA O CARGO",
+      "CONHECIMENTOS ESPECIFICOS PARA O CARGO"
+    ],
+    "marcadores_de_opcao": [
+      "CÓDIGO DE OPÇÃO",
+      "CODIGO DE OPCAO",
+      "CÓDIGO",
+      "CODIGO",
+      "CARGO",
+      "CARGOS",
+      "ÁREA",
+      "AREA",
+      "ESPECIALIDADE",
+      "ESCOLARIDADE/PRÉ-REQUISITOS",
+      "ESCOLARIDADE/PRE-REQUISITOS"
+    ],
+    "marcadores_de_agrupamento": [
+      "ENSINO MÉDIO COMPLETO",
+      "ENSINO MEDIO COMPLETO",
+      "ENSINO SUPERIOR COMPLETO",
+      "PROVAS OBJETIVAS",
+      "PROVA OBJETIVA",
+      "PROVA DISCURSIVA",
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "DOS CARGOS",
+      "CARGOS",
+      "DAS INSCRIÇÕES",
+      "DAS INSCRICOES",
+      "DOS REQUISITOS",
+      "DAS VAGAS",
+      "DA REMUNERAÇÃO",
+      "DA REMUNERACAO",
+      "DA JORNADA DE TRABALHO",
+      "DAS PROVAS",
+      "DA PROVA OBJETIVA",
+      "DAS PROVAS OBJETIVAS",
+      "DA PROVA DISCURSIVA",
+      "DOS CRITÉRIOS DE AVALIAÇÃO",
+      "DOS CRITERIOS DE AVALIACAO",
+      "DA CLASSIFICAÇÃO",
+      "DA CLASSIFICACAO",
+      "DO CRONOGRAMA"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "Primeiro identifique as opções reais de escolha do aluno nas tabelas oficiais de cargos, normalmente em seção CARGOS, DOS CARGOS ou quadro equivalente.",
+    "Em editais FCC, a coluna Código de Opção, como A01, B02 ou C03, é um identificador oficial da opção. Use esse código para vincular cargo, tabela de provas e blocos de conteúdo, mas nunca transforme o código isolado em matéria, área ou cargo.",
+    "Quando a tabela tiver colunas Código de Opção e Cargo, cada linha com código e cargo representa uma opção separada se for escolha do candidato.",
+    "Se houver apenas um cargo sem área, especialidade ou código alternativo, retorne o nome real do cargo conforme o edital. Nunca use Cargo unico como nome.",
+    "Ensino Médio Completo, Ensino Superior Completo, remuneração, valor da inscrição, escolaridade, pré-requisitos, vagas e reservas de vagas são agrupadores ou dados administrativos. Não use esses textos como opção do aluno.",
+    "Quando o cargo tiver código de opção, preserve o código no label_exibicao junto ao cargo para evitar ambiguidade, por exemplo A01 - Assistente Legislativo de Contabilidade.",
+    "Use a tabela de provas para confirmar o vínculo entre código de opção e cargo, mas não crie opções novas a partir de tipos de prova, duração, caráter, peso ou número de questões.",
+    "Não transforme Provas Objetivas, Prova Discursiva, Estudo de Caso, Conhecimentos Gerais ou Conhecimentos Específicos em opção do aluno."
+  ],
+  "regras_para_extrair_conteudo": [
+    "Matérias e tópicos só podem ser extraídos a partir dos blocos de conteúdo programático/conhecimentos, especialmente headings como CONHECIMENTOS GERAIS PARA OS CARGOS A01 ... e CONHECIMENTOS ESPECÍFICOS PARA O CARGO A01 ...",
+    "Ao extrair uma opção escolhida, use o código de opção e o nome do cargo para incluir blocos comuns aplicáveis e blocos específicos vinculados exatamente a esse código/cargo.",
+    "Se um bloco disser CONHECIMENTOS GERAIS PARA OS CARGOS A01 ... E B02 ..., aplique esse bloco apenas aos cargos/códigos listados no heading.",
+    "Se um bloco disser CONHECIMENTOS ESPECÍFICOS PARA O CARGO A01 ..., extraia apenas para o código/cargo indicado e pare no próximo heading de conhecimentos, próximo cargo/código, próximo anexo ou seção administrativa.",
+    "Se o heading listar mais de um código ou cargo, como A01 e B02, trate-o como bloco comum para aquelas opções, não como uma disciplina.",
+    "Quando o conteúdo específico trouxer um heading com código de opção e nome completo do cargo, como D04 - Analista Judiciário - Área Apoio Especializado - Especialidade Engenharia Civil, esse heading delimita a opção selecionada e não é disciplina. Não crie matéria com o código/cargo completo.",
+    "Se abaixo do heading da opção houver títulos reais de disciplina, use esses títulos. Se não houver título de disciplina e o edital listar tópicos diretamente sob a especialidade, use como disciplina um nome curto baseado na especialidade ou área, por exemplo Engenharia Civil, Tecnologia da Informação ou Serviço Social.",
+    "CONHECIMENTOS GERAIS, CONHECIMENTOS BÁSICOS, CONHECIMENTOS ESPECÍFICOS, PROVAS OBJETIVAS, PROVA DISCURSIVA e ESTUDO DE CASO são escopos ou tipos de prova; não devem virar matéria.",
+    "Em FCC, disciplinas normalmente aparecem em título curto seguido de dois-pontos, como Língua Portuguesa:, Matemática e Raciocínio Lógico: ou Noções de Direito Administrativo:. O título é a disciplina e o texto seguinte contém os tópicos.",
+    "Uma disciplina pode continuar na página seguinte antes do próximo título de disciplina. Preserve a continuidade até encontrar novo título de disciplina ou novo heading de conhecimentos.",
+    "Tópicos FCC podem aparecer em parágrafos longos separados por ponto, ponto e vírgula ou listas de normas. Preserve listas normativas e nomes de leis no mesmo tópico quando o edital apresentar como unidade.",
+    "Não extraia matérias a partir da tabela de cargos, escolaridade/pré-requisitos, remuneração, vagas ou tabela de provas. Essas seções servem para identificar opções e pesos, não conteúdo programático.",
+    "Preserve a ordem original das disciplinas e dos tópicos conforme o edital."
+  ],
+  "regras_para_extrair_pesos": [
+    "A extração de pesos é separada da extração de matérias e tópicos.",
+    "Na etapa de pesos, tabelas em DAS PROVAS com colunas Código de Opção, Cargos, Provas, Nº de Questões, Peso, Duração da prova e Caráter são fontes válidas.",
+    "Use o código de opção e o cargo selecionados para escolher apenas a linha ou bloco correspondente na tabela de provas.",
+    "Se a tabela detalhar Conhecimentos Gerais e Conhecimentos Específicos com número de questões e peso, retorne peso por bloco. Não distribua automaticamente esse peso entre disciplinas internas se a tabela não detalhar por disciplina.",
+    "Se a tabela detalhar disciplinas específicas com quantidade de questões, pontuação, peso ou percentual, use esses valores apenas nas disciplinas correspondentes.",
+    "Prova Discursiva, Estudo de Caso, duração e caráter podem ser registrados apenas como evidência de prova quando necessário, mas não viram matéria estudável nem peso de disciplina objetiva.",
+    "Não use ordem de aparição, número de tópicos ou importância presumida para inferir peso."
+  ],
+  "quando_der_errado_ajustar_aqui": [
+    {
+      "problema": "A IA transformou o Código de Opção em cargo, área ou matéria.",
+      "instrucao": "Código de Opção é identificador de vínculo entre cargo, prova e conteúdo. O label pode incluir o código, mas a opção real é o cargo/código escolhido pelo candidato."
+    },
+    {
+      "problema": "A IA pegou remuneração, escolaridade, pré-requisitos ou vagas como conteúdo.",
+      "instrucao": "Esses dados são administrativos. Matérias e tópicos só saem dos blocos de conhecimentos/conteúdo programático."
+    },
+    {
+      "problema": "A IA confundiu tabela de provas com conteúdo programático.",
+      "instrucao": "Tabela de provas serve para pesos, número de questões, duração e caráter. Não crie tópicos a partir dela."
+    },
+    {
+      "problema": "A IA não aplicou Conhecimentos Gerais a todos os cargos indicados no heading.",
+      "instrucao": "Quando o heading listar códigos/cargos, como A01 e B02, o bloco comum deve ser aplicado apenas às opções explicitamente listadas."
+    },
+    {
+      "problema": "A IA misturou Conhecimentos Específicos de outro cargo.",
+      "instrucao": "Blocos específicos devem ser limitados ao código/cargo indicado e parar no próximo heading de conhecimentos ou próxima opção explícita."
+    },
+    {
+      "problema": "A IA transformou Conhecimentos Gerais, Conhecimentos Específicos, Provas Objetivas ou Estudo de Caso em matéria.",
+      "instrucao": "Esses itens são escopos ou tipos de prova. A matéria é o título interno, como Língua Portuguesa ou Noções de Direito Administrativo."
+    },
+    {
+      "problema": "A IA criou uma matéria com o código e nome completo do cargo, como D04 - Analista Judiciário - Área Apoio Especializado - Especialidade Engenharia Civil.",
+      "instrucao": "Código e cargo completo delimitam a opção selecionada. Se houver tópicos diretamente sob esse heading, use a especialidade/área como disciplina curta, por exemplo Engenharia Civil, e não o label inteiro da opção."
+    }
+  ],
+  "instrucao_para_ia": "Para FCC/Fundação Carlos Chagas, leia primeiro a estrutura do edital. Identifique as opções reais na tabela de CARGOS/DOS CARGOS, normalmente por Código de Opção e Cargo. O Código de Opção, como A01, B02 ou C03, é chave oficial para vincular cargo, provas e conteúdo; preserve-o no label quando ajudar o aluno, mas não o transforme em matéria ou área. Ignore escolaridade, pré-requisitos, remuneração, valor de inscrição, vagas e reservas como fonte de conteúdo. Na extração final, use apenas blocos de conteúdo/conhecimentos: headings como CONHECIMENTOS GERAIS PARA OS CARGOS A01 ... E B02 ... indicam bloco comum somente para os códigos/cargos listados, e headings como CONHECIMENTOS ESPECÍFICOS PARA O CARGO A01 ... indicam bloco específico daquele código/cargo até o próximo heading, próxima opção, próximo anexo ou seção administrativa. Reconheça disciplinas como títulos seguidos de dois-pontos, por exemplo Língua Portuguesa:, Matemática e Raciocínio Lógico: e Noções de Direito Administrativo:. Não transforme Conhecimentos Gerais, Conhecimentos Básicos, Conhecimentos Específicos, Provas Objetivas, Prova Discursiva, Estudo de Caso, código de opção ou nome completo do cargo em matéria. Se o conteúdo específico vier diretamente sob um heading de opção como D04 - Analista Judiciário - Área Apoio Especializado - Especialidade Engenharia Civil e não houver título de disciplina abaixo, use a especialidade/área como disciplina curta, por exemplo Engenharia Civil, em vez do label completo da opção. Na etapa própria de pesos, use tabelas em DAS PROVAS por Código de Opção/Cargo apenas quando houver número de questões, peso, pontuação ou percentual explícito; se a tabela trouxer apenas Conhecimentos Gerais e Conhecimentos Específicos, retorne peso por bloco e não distribua automaticamente entre disciplinas internas."
+}

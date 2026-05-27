@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,12 @@ export const PremiumStateCard = ({
   technicalDetail,
   className
 }: PremiumStateCardProps) => {
+  const [imageStatus, setImageStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+
+  useEffect(() => {
+    setImageStatus('loading');
+  }, [imageSrc]);
+
   return (
     <div
       className={cn(
@@ -41,11 +48,28 @@ export const PremiumStateCard = ({
       <div className="grid grid-cols-1 md:grid-cols-[0.92fr_1.08fr]">
         <div className="relative min-h-[220px] overflow-hidden bg-primary/5 md:min-h-[340px]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,hsl(var(--primary)/0.22),transparent_42%),radial-gradient(circle_at_80%_75%,rgba(251,191,36,0.14),transparent_36%)]" />
-          <img
-            src={imageSrc}
-            alt={imageAlt}
-            className="relative h-full w-full object-cover"
-          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(135deg,hsl(var(--primary)/0.18),transparent_45%),radial-gradient(circle_at_42%_38%,hsl(var(--primary)/0.22),transparent_26%)]"
+          >
+            <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-primary/20 bg-primary/10 text-primary shadow-2xl shadow-primary/20">
+              <Icon size={48} strokeWidth={1.5} />
+            </div>
+          </div>
+          {imageStatus !== 'error' && (
+            <img
+              src={imageSrc}
+              alt={imageAlt}
+              loading="eager"
+              decoding="async"
+              onLoad={() => setImageStatus('loaded')}
+              onError={() => setImageStatus('error')}
+              className={cn(
+                'relative h-full w-full object-cover transition-opacity duration-300',
+                imageStatus === 'loaded' ? 'opacity-100' : 'opacity-0'
+              )}
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-card" />
         </div>
 
