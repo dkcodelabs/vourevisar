@@ -129,6 +129,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
   // Escutar mudanças na tabela user_subscriptions
   useEffect(() => {
     let isMounted = true
+    let channel: ReturnType<typeof supabase.channel> | null = null
     
     const setupListener = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -137,8 +138,8 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
 
       // Log removido para otimização
 
-      const subscription = supabase
-        .channel('subscription_changes')
+      channel = supabase
+        .channel(`subscription_changes:${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -152,14 +153,16 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
           }
         )
         .subscribe()
-
-      return () => {
-        isMounted = false
-        supabase.removeChannel(subscription)
-      }
     }
     
     setupListener()
+
+    return () => {
+      isMounted = false
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+    }
   }, [forceRefresh])
 
   return {

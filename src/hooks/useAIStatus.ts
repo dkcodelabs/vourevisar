@@ -172,7 +172,8 @@ export async function getAIErrorLogs(limit = 20): Promise<AIErrorLog[]> {
 }
 
 // Hook para usar na UI
-export function useAIStatus() {
+export function useAIStatus(options: { enabled?: boolean } = {}) {
+  const enabled = options.enabled ?? true;
   const [aiStatus, setAIStatus] = useState<AIStatus>({
     status: 'unknown',
     lastCheck: null,
@@ -182,6 +183,8 @@ export function useAIStatus() {
   const [isChecking, setIsChecking] = useState(false);
 
   const checkAIStatus = useCallback(async (isManual = false) => {
+    if (!enabled) return aiStatus;
+
     setIsChecking(true);
     try {
       const status = await checkAIStatusDirect(!isManual);
@@ -195,9 +198,11 @@ export function useAIStatus() {
     } finally {
       setIsChecking(false);
     }
-  }, []);
+  }, [aiStatus, enabled]);
 
   const loadStatusFromDB = useCallback(async () => {
+    if (!enabled) return;
+
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase as any)
@@ -217,19 +222,23 @@ export function useAIStatus() {
     } catch (err) {
       console.warn('Erro ao carregar status do banco:', err);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
+
     loadStatusFromDB();
-  }, [loadStatusFromDB]);
+  }, [enabled, loadStatusFromDB]);
 
   useEffect(() => {
+    if (!enabled) return;
+
     const interval = setInterval(() => {
       checkAIStatus();
     }, CHECK_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [checkAIStatus]);
+  }, [enabled, checkAIStatus]);
 
   return {
     aiStatus,

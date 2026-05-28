@@ -24,13 +24,13 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onPlanSelect, pl
   // Fallback values if plans haven't loaded yet
   const monthly = plans?.monthly || {
     name: 'Mensal', value: 9.90, description: '',
-    features: ['Acesso Total', 'Sem Fidelidade', 'Suporte VIP', '7 Dias Grátis'],
+    features: ['Acesso completo ao app', '5 extrações com IA por mês', 'Catálogo e criação manual sem limite', 'Suporte prioritário'],
     badge: null
   };
   const annual = plans?.annual || {
     name: 'Anual', value: 99.90, description: '',
-    features: ['Tudo do Mensal', '2 Meses Grátis', 'Estatísticas Beta', 'Suporte 24h', '7 Dias Grátis'],
-    badge: 'O Mais Vendido'
+    features: ['Tudo do plano mensal', '10 extrações com IA por mês', '2 meses de economia', 'Prioridade em melhorias e suporte'],
+    badge: 'Melhor custo-benefício'
   };
 
   if (loading) {

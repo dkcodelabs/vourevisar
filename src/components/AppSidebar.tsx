@@ -1,16 +1,20 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, Users, Settings, Clock,
   Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
   ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Monitor, FileSearch,
-  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Layers, Bot, NotebookTabs, AlertTriangle
+  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Layers, Bot, NotebookTabs, AlertTriangle, Crown
 } from "lucide-react";
 
 import { AnimatedLogo } from './AnimatedLogo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAIStatus } from '@/hooks/useAIStatus';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { useSubscriptionInfo } from '@/hooks/useSubscriptionInfo';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -102,6 +106,161 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
   return { mainItems, adminItems };
 };
 
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return '—';
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateString));
+};
+
+const getSubscriptionView = (
+  subscriptionInfo: ReturnType<typeof useSubscriptionInfo>['subscriptionInfo'],
+  isAdmin: boolean,
+  isOwner: boolean,
+) => {
+  if (isOwner || isAdmin) {
+    return {
+      badge: isOwner ? 'OWNER' : 'ADMIN',
+      title: isOwner ? 'Proprietário' : 'Administrador',
+      status: isOwner ? 'Acesso total' : 'Acesso interno',
+      tone: isOwner ? 'text-amber-400' : 'text-sky-400',
+      cta: 'Planos',
+      summary: 'Acesso total',
+      compact: true,
+    };
+  }
+
+  if (!subscriptionInfo || !subscriptionInfo.is_active) {
+    return {
+      badge: 'FREE',
+      title: 'Plano Free',
+      status: 'Sem acesso ativo',
+      tone: 'text-slate-400',
+      cta: 'Assinar agora',
+      summary: 'Escolha um plano para liberar o app.',
+      compact: false,
+    };
+  }
+
+  if (subscriptionInfo.status === 'trial') {
+    const days = Math.max(subscriptionInfo.days_remaining ?? 0, 0);
+    return {
+      badge: `TRIAL (${days}D)`,
+      title: 'Teste gratuito',
+      status: 'Teste gratuito',
+      tone: days <= 3 ? 'text-amber-400' : 'text-cyan-400',
+      cta: 'Assinar agora',
+      summary: `Termina em ${formatDate(subscriptionInfo.trial_ends_at)}`,
+      remaining: days === 1 ? '1 dia restante' : `${days} dias restantes`,
+      compact: false,
+    };
+  }
+
+  const isAnnual = subscriptionInfo.plan === 'annual';
+  return {
+    badge: isAnnual ? 'ANUAL' : 'MENSAL',
+    title: isAnnual ? 'Plano Anual' : 'Plano Mensal',
+    status: 'Ativo',
+    tone: 'text-emerald-400',
+    cta: isAnnual ? 'Gerenciar' : 'Ver anual',
+    summary: isAnnual ? 'Mais créditos e melhor custo.' : 'Considere o anual para mais créditos.',
+    compact: true,
+  };
+};
+
+const SidebarAccountPanel = ({
+  isCollapsed,
+  isMobile,
+  isAdmin,
+  isOwner,
+}: {
+  isCollapsed: boolean;
+  isMobile: boolean;
+  isAdmin: boolean;
+  isOwner: boolean;
+}) => {
+  const { user } = useAuth();
+  const { profile } = useUserProfile();
+  const { subscriptionInfo, loading } = useSubscriptionInfo();
+  const showIconOnly = isCollapsed && !isMobile;
+
+  if (!user) return null;
+
+  const firstName = (profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário')
+    .split(' ')[0]
+    .toUpperCase();
+  const view = getSubscriptionView(subscriptionInfo, isAdmin, isOwner);
+
+  if (showIconOnly) {
+    return (
+      <div className="px-3 pb-4">
+        <SidebarTooltip label={`${view.title} - ${view.cta}`} enabled>
+          <Link
+            to="/planos"
+            className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-black/5 text-sidebar-muted transition-all hover:border-primary/40 hover:bg-primary/10 hover:text-primary dark:bg-white/5"
+          >
+            <CreditCard size={18} />
+          </Link>
+        </SidebarTooltip>
+      </div>
+    );
+  }
+
+  return (
+    <div className="shrink-0 border-t border-border/70 p-3">
+      <Link
+        to="/planos"
+        className="mb-2 flex items-center gap-3 rounded-2xl px-1 py-1 transition-opacity hover:opacity-90"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-extrabold tracking-wide text-sidebar-foreground">
+            {firstName}
+          </p>
+          <p className={`truncate text-[10px] font-black uppercase tracking-wider ${view.tone}`}>
+            {loading ? 'CARREGANDO' : view.badge}
+          </p>
+        </div>
+        <UserAvatar
+          src={profile?.avatar_url}
+          name={profile?.name || user.email}
+          className="h-11 w-11 rounded-xl border border-white/10"
+          fallbackClassName="rounded-xl bg-amber-500/10 text-amber-300"
+        />
+      </Link>
+
+      <Link
+        to="/planos"
+        className="group block rounded-2xl border border-border bg-black/[0.03] p-3 transition-all hover:border-primary/40 hover:bg-primary/[0.06] dark:bg-white/[0.03]"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-400">
+            {isOwner || isAdmin ? <Crown size={15} /> : <CreditCard size={15} />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-sidebar-muted">
+              Assinatura
+            </p>
+            <p className="truncate text-[13px] font-black leading-tight text-sidebar-foreground">
+              {view.title}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-sidebar-muted">
+            {view.compact ? view.summary : view.remaining}
+          </p>
+          <span className={`shrink-0 text-[11px] font-black ${view.tone}`}>
+            {view.status}
+          </span>
+        </div>
+
+        <div className="mt-3 rounded-full bg-sidebar-foreground px-3 py-2 text-center text-[11px] font-bold text-sidebar transition-all group-hover:bg-primary group-hover:text-primary-foreground">
+          {view.cta}
+        </div>
+      </Link>
+    </div>
+  );
+};
+
 export function AppSidebar() {
 
   const { isAdmin, isOwner, loading } = useUserRole();
@@ -125,7 +284,7 @@ export function AppSidebar() {
     return location.pathname.startsWith(item.to);
   };
 
-  const { aiStatus } = useAIStatus();
+  const { aiStatus } = useAIStatus({ enabled: isAdmin });
 
   const renderNavItems = (items: NavItem[]) => (
     items.map((item) => {
@@ -200,7 +359,7 @@ export function AppSidebar() {
           </ul>
         </nav>
 
-        {(isAdmin || loading) && (
+        {isAdmin && (
           <div className="pt-2">
             {(!isCollapsed || isMobile) && (
               <div className="px-3 mb-2 flex items-center gap-2">
@@ -212,27 +371,19 @@ export function AppSidebar() {
             )}
             <nav className="space-y-1">
               <ul className="flex w-full min-w-0 flex-col gap-1">
-                {loading ? (
-                  // Admin Skeleton Loader
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <li key={`admin-skeleton-${i}`} className="w-full">
-                      <div className={`flex items-center gap-2 px-3 py-2.5 ${isCollapsed && !isMobile ? 'justify-center' : ''}`}>
-                        <div className={`bg-primary/10 animate-pulse rounded-lg shrink-0 ${isCollapsed && !isMobile ? 'w-5 h-5' : 'w-[18px] h-[18px]'}`} />
-                        {!isCollapsed || isMobile ? (
-                          <div className="h-3 w-2/3 bg-primary/5 animate-pulse rounded-md" />
-                        ) : null}
-                      </div>
-                    </li>
-                  ))
-                ) : (
-                  renderNavItems(adminItems)
-                )}
+                {renderNavItems(adminItems)}
               </ul>
             </nav>
           </div>
         )}
       </div>
 
+      <SidebarAccountPanel
+        isCollapsed={isCollapsed}
+        isMobile={isMobile}
+        isAdmin={isAdmin}
+        isOwner={isOwner}
+      />
 
     </motion.aside>
   );

@@ -1548,15 +1548,18 @@ serve(async (req) => {
         try {
           const { data: subData, error: subError } = await supabaseClient
             .from("user_subscriptions")
-            .select("plan, status")
+            .select("plan, status, subscription_ends_at, trial_ends_at")
             .eq("user_id", user.id)
             .maybeSingle();
 
           const sub = subData as any;
-          const isPaidActive = sub && ["monthly", "annual"].includes(sub.plan) && sub.status === "active";
+          const subscriptionEnd = sub?.subscription_ends_at ? new Date(sub.subscription_ends_at) : null;
+          const isPaidActive = sub && ["monthly", "annual"].includes(sub.plan) && sub.status === "active" && (!subscriptionEnd || subscriptionEnd > new Date());
+          const trialEnd = sub?.trial_ends_at ? new Date(sub.trial_ends_at) : null;
+          const isTrialActive = sub?.plan === "free_trial" && sub?.status === "trial" && trialEnd && trialEnd > new Date();
 
           if (isPaidActive) {
-            userLimit = 5;
+            userLimit = sub.plan === "annual" ? 10 : 5;
             const firstDayOfMonth = new Date();
             firstDayOfMonth.setDate(1);
             firstDayOfMonth.setHours(0, 0, 0, 0);
@@ -1573,8 +1576,20 @@ serve(async (req) => {
             if (!countError && count !== null) {
               userUsage = count;
             }
-          } else {
+          } else if (isTrialActive) {
             userLimit = 1;
+            const { count, error: countError } = await supabaseClient
+              .from("user_editais")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", user.id)
+              .eq("is_imported", true)
+              .is("source_id", null);
+
+            if (!countError && count !== null) {
+              userUsage = count;
+            }
+          } else {
+            userLimit = 0;
             const { count, error: countError } = await supabaseClient
               .from("user_editais")
               .select("*", { count: "exact", head: true })
@@ -1606,11 +1621,22 @@ serve(async (req) => {
 
 
       // 1. Rate Limit check
+      // Incremental extraction uses multiple internal calls for a single user action.
+      // Keep limits per mode so large editais don't exhaust the top-level quota mid-flow.
+      const rateLimitByMode: Record<string, number> = {
+        analyze: 10,
+        mapContentStructure: 12,
+        extractSubject: 80,
+        extractWeights: 20,
+        extractForCargo: 10,
+      };
+      const rateLimitEndpoint = `extract-edital:${mode}`;
+      const maxPerHour = rateLimitByMode[mode] ?? 10;
       const { data: rateLimitOk, error: rateLimitError } = await supabaseClient
         .rpc("check_rate_limit", {
           p_user_id: user.id,
-          p_endpoint: "extract-edital",
-          p_max_per_hour: 5
+          p_endpoint: rateLimitEndpoint,
+          p_max_per_hour: maxPerHour
         });
 
       if (rateLimitError) {
@@ -1620,8 +1646,8 @@ serve(async (req) => {
       if (rateLimitOk === false) {
         return new Response(JSON.stringify({
           success: false,
-          error: "Limite de tentativas de IA excedido. Voce pode realizar no maximo 5 tentativas de extração por hora. Tente novamente mais tarde.",
-          message: "Limite de tentativas de IA excedido. Voce pode realizar no maximo 5 tentativas de extração por hora. Tente novamente mais tarde.",
+          error: `Limite temporario de IA excedido para esta etapa. Voce pode realizar no maximo ${maxPerHour} chamadas de ${mode} por hora. Tente novamente mais tarde.`,
+          message: `Limite temporario de IA excedido para esta etapa. Voce pode realizar no maximo ${maxPerHour} chamadas de ${mode} por hora. Tente novamente mais tarde.`,
           code: "AI_RATE_LIMITED"
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1632,7 +1658,7 @@ serve(async (req) => {
       // 2. Log API usage BEFORE calling Gemini
       const { error: logUsageError } = await supabaseClient.rpc("log_api_usage", {
         p_user_id: user.id,
-        p_endpoint: "extract-edital"
+        p_endpoint: rateLimitEndpoint
       });
 
       if (logUsageError) {

@@ -12,6 +12,7 @@ import { TimerProvider } from "@/contexts/TimerContext";
 import { AppLayout } from "@/components/AppLayout";
 import { StudentHubProvider } from "@/contexts/StudentHubContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { RequireActiveSubscription } from "@/components/RequireActiveSubscription";
 import { AdminRoute } from "@/components/AdminRoute";
 import LandingPage from "@/pages/LandingPage";
 import Dashboard from "@/pages/Dashboard";
@@ -91,17 +92,17 @@ const App = () => {
                       <Route path="/auth/callback" element={<AuthCallback />} />
                       <Route path="/*" element={<ProtectedRoute />}>
                         <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
-                          <Route path="dashboard" element={<Dashboard />} />
-                          <Route path="meus-editais" element={<Editais />} />
-                          <Route path="estatisticas" element={<Statistics />} />
+                          <Route path="dashboard" element={<RequireActiveSubscription><Dashboard /></RequireActiveSubscription>} />
+                          <Route path="meus-editais" element={<RequireActiveSubscription><Editais /></RequireActiveSubscription>} />
+                          <Route path="estatisticas" element={<RequireActiveSubscription><Statistics /></RequireActiveSubscription>} />
                           <Route path="materias" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="materias/:subjectId" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="topicos" element={<Navigate to="/ciclo-estudos" replace />} />
                           <Route path="subjects" element={<Navigate to="/ciclo-estudos" replace />} />
-                          <Route path="revisoes" element={<Revisoes />} />
-                          <Route path="ciclo-estudos" element={<Subjects />} />
-                          <Route path="cadernos" element={<Cadernos />} />
+                          <Route path="revisoes" element={<RequireActiveSubscription><Revisoes /></RequireActiveSubscription>} />
+                          <Route path="ciclo-estudos" element={<RequireActiveSubscription><Subjects /></RequireActiveSubscription>} />
+                          <Route path="cadernos" element={<RequireActiveSubscription><Cadernos /></RequireActiveSubscription>} />
 
                           {/* Admin Routes - Protected */}
                           <Route element={<AdminRoute />}>
@@ -119,13 +120,13 @@ const App = () => {
                         </Route>
 
                           {/* Statistics Routes */}
-                          <Route path="estatisticas/tendencia" element={<TrendAnalysis />} />
+                          <Route path="estatisticas/tendencia" element={<RequireActiveSubscription><TrendAnalysis /></RequireActiveSubscription>} />
 
                           <Route path="test-roles" element={<SimpleRoleTest />} />
                           <Route path="planos" element={<Planos />} />
                           <Route path="perfil" element={<Profile />} />
                           <Route path="configuracoes" element={<Settings />} />
-                          <Route path="reveal-cards" element={<RevealCardDemo />} />
+                          <Route path="reveal-cards" element={<RequireActiveSubscription><RevealCardDemo /></RequireActiveSubscription>} />
 
                         </Route>
                       </Route>

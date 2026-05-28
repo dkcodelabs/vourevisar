@@ -25,6 +25,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const isInvalidRefreshTokenError = (error: unknown) => {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes('Invalid Refresh Token') || error.message.includes('Refresh Token Not Found');
+};
+
+const clearSupabaseAuthStorage = () => {
+  if (typeof window === 'undefined') return;
+
+  Object.keys(window.localStorage)
+    .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+    .forEach((key) => window.localStorage.removeItem(key));
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -166,6 +179,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             console.warn("[AuthContext] Latência ou Abort detectado no boot. Aguardando listener...");
             return;
           }
+
+          if (isInvalidRefreshTokenError(error)) {
+            clearSupabaseAuthStorage();
+            await supabase.auth.signOut({ scope: 'local' });
+            setUser(null);
+            setProfile(null);
+            lastLoginSignature.current = null;
+            return;
+          }
+
           throw error;
         }
 
@@ -187,6 +210,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error: unknown) {
         if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
           console.warn("[AuthContext] Chamada de sessão abortada (comum em remounts ou rede instável)");
+        } else if (isInvalidRefreshTokenError(error)) {
+          clearSupabaseAuthStorage();
+          await supabase.auth.signOut({ scope: 'local' });
+          setUser(null);
+          setProfile(null);
+          lastLoginSignature.current = null;
         } else {
           console.error("[AuthContext] Erro ao verificar sessão:", error);
         }

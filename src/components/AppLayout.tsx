@@ -12,8 +12,6 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { StudentHubPanel } from "./student-hub/StudentHubPanel";
 import { useStudentHubBadge } from "@/hooks/useStudentHubBadge";
-import { useSimpleSubscription } from "@/hooks/useSimpleSubscription";
-import { useUserProfile } from "@/hooks/useUserProfile";
 import { FocusTimer } from "./FocusTimer";
 import { UserProfileNav } from "./UserProfileNav";
 
@@ -162,8 +160,6 @@ export const AppLayout = () => {
 
   // USAR NOVO HOOK UNIFICADO
   const { totalUnreadCount } = useStudentHubBadge();
-  const { displayBadge } = useSimpleSubscription();
-  const { profile } = useUserProfile();
 
   // Mobile sidebar state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = React.useState(false);

@@ -45,7 +45,7 @@ export function useSimpleSubscription() {
         .from('user_subscriptions')
         .select('*')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
       // Verificar se o usuário possui a role de admin ou owner ou se é email protegido
       const { data: rolesData } = await supabase
@@ -73,7 +73,7 @@ export function useSimpleSubscription() {
       if (error || !data) {
         setSubscription({
           plan: 'free_trial',
-          status: 'trial',
+          status: 'expired',
           isActive: false,
           displayBadge: 'Free',
           badgeColor: 'gray'
@@ -112,8 +112,8 @@ export function useSimpleSubscription() {
           const endDate = new Date(data.trial_ends_at)
           isActive = endDate > now
           const days = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-          displayBadge = isActive ? `Free (${days}d)` : 'Expirado'
-          badgeColor = isActive ? 'yellow' : 'red'
+          displayBadge = isActive ? `Trial (${days}d)` : 'Free'
+          badgeColor = isActive ? 'yellow' : 'gray'
         }
       }
 

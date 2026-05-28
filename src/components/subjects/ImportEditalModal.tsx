@@ -174,8 +174,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     interface UserAiLimits {
         plan: string;
         status: string;
+        effective_plan?: string;
+        effective_status?: string;
         limit: number;
         usage: number;
+        total_usage?: number;
+        remaining?: number | null;
+        usage_period?: 'monthly' | 'lifetime' | string;
         has_bypass: boolean;
         can_import: boolean;
     }
@@ -206,6 +211,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const getModalWidthClass = () => {
         if (activeTab === 'ia') {
             if (iaStage === 'analyzing' || iaStage === 'extracting') return 'max-w-[720px]';
+            if (aiLimits && !aiLimits.can_import && !aiLimits.has_bypass && iaStage === 'input') return 'max-w-[720px]';
             if (iaStage === 'selectCargo') return 'max-w-[960px]';
             if (iaStage === 'review') return 'max-w-[960px]';
             return 'max-w-[1040px]';
@@ -328,6 +334,35 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         if (!user) return;
         setLoadingAiLimits(true);
         try {
+            const { data: rpcLimits, error: rpcError } = await supabase
+                .rpc('get_user_ai_limits' as any, { p_user_id: user.id } as any);
+
+            if (!rpcError && rpcLimits) {
+                const parsed = rpcLimits as unknown as UserAiLimits;
+                let totalUsage: number | undefined;
+
+                if (parsed.has_bypass) {
+                    const { count: totalCount } = await supabase
+                        .from('user_editais')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('user_id', user.id)
+                        .eq('is_imported', true)
+                        .is('source_id', null);
+                    totalUsage = totalCount || 0;
+                }
+
+                setAiLimits({
+                    ...parsed,
+                    total_usage: totalUsage,
+                    remaining: parsed.limit === -1 ? null : Math.max((parsed.remaining ?? parsed.limit - parsed.usage), 0),
+                });
+                return;
+            }
+
+            if (rpcError) {
+                console.warn('[ImportEditalModal] Falha ao buscar limites via RPC, usando fallback local:', rpcError.message);
+            }
+
             // Verificar antes se é admin/owner no cliente para evitar chamada desnecessária que dá 404 no console
             const isOwnerOrAdminEmail = user.email === 'vourevisar@gmail.com' || user.email === 'darciliok@gmail.com';
             
@@ -346,7 +381,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             }
 
             if (isOwnerOrAdmin) {
-                let query = supabase
+                const query = supabase
                     .from('user_editais')
                     .select('id', { count: 'exact', head: true })
                     .eq('user_id', user.id)
@@ -361,6 +396,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     status: 'active',
                     limit: -1,
                     usage: usage,
+                    total_usage: usage,
                     has_bypass: true,
                     can_import: true
                 });
@@ -378,13 +414,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             const { data: subData } = await supabase
                 .from('user_subscriptions' as any)
-                .select('plan, status')
+                .select('plan, status, subscription_ends_at, trial_ends_at')
                 .eq('user_id', user.id)
                 .maybeSingle();
             
             const sub = subData as any;
-            const isPaidActive = sub && ['monthly', 'annual'].includes(sub.plan) && sub.status === 'active';
-            const limit = isPaidActive ? 5 : 1;
+            const subEnd = sub?.subscription_ends_at ? new Date(sub.subscription_ends_at) : null;
+            const trialEnd = sub?.trial_ends_at ? new Date(sub.trial_ends_at) : null;
+            const isPaidActive = sub && ['monthly', 'annual'].includes(sub.plan) && sub.status === 'active' && (!subEnd || subEnd > new Date());
+            const isTrialActive = sub?.plan === 'free_trial' && sub?.status === 'trial' && trialEnd && trialEnd > new Date();
+            const limit = isPaidActive ? (sub.plan === 'annual' ? 10 : 5) : isTrialActive ? 1 : 0;
             
             if (isPaidActive && !isOwnerOrAdmin) {
                 const firstDayOfMonth = new Date();
@@ -402,15 +441,18 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     status: 'active',
                     limit: -1,
                     usage: usage,
+                    total_usage: usage,
                     has_bypass: true,
                     can_import: true
                 });
             } else {
                 setAiLimits({
                     plan: isPaidActive ? sub.plan : 'free_trial',
-                    status: isPaidActive ? sub.status : 'trial',
+                    status: isPaidActive ? sub.status : isTrialActive ? 'trial' : 'expired',
                     limit: limit,
                     usage: usage,
+                    remaining: Math.max(limit - usage, 0),
+                    usage_period: isPaidActive ? 'monthly' : 'lifetime',
                     has_bypass: false,
                     can_import: usage < limit
                 });
@@ -994,6 +1036,18 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         return 'Não consegui concluir a extração agora. Tente novamente ou revise os dados do edital antes de extrair.';
     };
 
+    const isAiRateLimitMessage = (message: string) => {
+        const normalized = message.toLowerCase();
+        return (
+            normalized.includes('ai_rate_limited') ||
+            normalized.includes('429') ||
+            normalized.includes('limite de tentativas') ||
+            normalized.includes('rate-limit') ||
+            normalized.includes('rate limit') ||
+            normalized.includes('rate limited')
+        );
+    };
+
     const buildDocumentPayload = async () => {
         const payload: DocumentPayload = { sourceType: 'text' };
 
@@ -1491,7 +1545,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         const extractedSubjects: AiSubject[] = [];
         let consecutiveFailures = 0;
 
-        const CONCURRENCY = 5;
+        const CONCURRENCY = 2;
         let completedSlices = 0;
 
         for (let i = 0; i < usableSlices.length; i += CONCURRENCY) {
@@ -1515,6 +1569,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         sourceExcerpt: slice.sourceExcerpt
                     }
                 });
+
+                if (subjectResult.error) {
+                    const errBody = await getFunctionErrorMessage(subjectResult.error, subjectResult.response);
+                    if (isAiRateLimitMessage(errBody)) {
+                        throw new Error(errBody);
+                    }
+                }
 
                 return { index, slice, subjectTitle, subjectResult };
             });
@@ -1771,6 +1832,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     return;
                 }
             } catch (incrementalError: any) {
+                if (isAiRateLimitMessage(incrementalError?.message || String(incrementalError))) {
+                    throw incrementalError;
+                }
                 console.warn('[extract-edital incremental] Fallback para extração antiga:', incrementalError?.message || incrementalError);
                 setProcessingMsg('Usando extração compatível...');
             }
@@ -2032,6 +2096,25 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     if (!isOpen && !inlineMode) return null;
 
+    const getAiUsageSummary = () => {
+        if (activeTab !== 'ia') return null;
+        if (loadingAiLimits) return 'IA: verificando uso';
+        if (!aiLimits) return 'IA: uso indisponível';
+
+        if (aiLimits.has_bypass) {
+            const totalText = typeof aiLimits.total_usage === 'number'
+                ? ` · ${aiLimits.total_usage} total`
+                : '';
+            return `IA: ilimitado · ${aiLimits.usage} mês${totalText}`;
+        }
+
+        const remaining = aiLimits.remaining ?? Math.max(aiLimits.limit - aiLimits.usage, 0);
+        if (!aiLimits.can_import) return `IA: limite atingido · ${aiLimits.usage}/${aiLimits.limit}`;
+        return `IA: ${remaining} restante${remaining === 1 ? '' : 's'} · ${aiLimits.usage}/${aiLimits.limit}`;
+    };
+
+    const aiUsageSummary = getAiUsageSummary();
+
     const modalInnerContent = (
         <>
             {inlineMode ? (
@@ -2077,6 +2160,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     </div>
                     {!inlineMode && (
                         <div className="flex items-center gap-2">
+                            {aiUsageSummary && (
+                                <div className="hidden sm:flex h-8 items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 px-3 text-[10px] font-black uppercase tracking-[0.08em] text-primary">
+                                    {loadingAiLimits ? (
+                                        <Loader2 size={12} className="animate-spin" />
+                                    ) : (
+                                        <Sparkles size={12} />
+                                    )}
+                                    <span>{aiUsageSummary}</span>
+                                </div>
+                            )}
                             {activeTab === 'ia' && iaStage === 'review' && pendingExtraction && (
                                 <button
                                     type="button"
@@ -2104,7 +2197,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 </div>
             )}
 
-            <div className={`overflow-y-auto no-scrollbar flex-1 ${inlineMode ? 'pb-10 pt-0' : 'pt-2 px-5 pb-5'}`}>
+            <div className={`${inlineMode ? 'overflow-visible flex-none pb-10 pt-0' : 'overflow-y-auto no-scrollbar flex-1 pt-2 px-5 pb-5'}`}>
 
                     {activeTab === 'ready' ? (
                         <div className="space-y-4">
@@ -2453,6 +2546,38 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         </div>
                     ) : activeTab === 'ia' ? (
                         <div className="space-y-6">
+                            {pendingExtraction && iaStage === 'review' && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="sticky top-0 z-20 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-3 backdrop-blur-md"
+                                >
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/15">
+                                                <FileText size={16} className="text-amber-300" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-amber-200">
+                                                    Extração pendente salva
+                                                </p>
+                                                <p className="truncate text-[10px] font-medium text-amber-100/75">
+                                                    {formatLongDetectedText(pendingExtraction.editalName)} · Atualizado {new Date(pendingExtraction.updatedAt).toLocaleString('pt-BR')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={discardPendingExtractionData}
+                                            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-amber-500/15 px-3 text-[10px] font-bold text-amber-200 transition-all hover:bg-amber-500/20"
+                                        >
+                                            <Trash2 size={12} />
+                                            Descartar
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            )}
+
                             {pendingExtraction && pendingExtraction.source === 'db' && !['analyzing', 'extracting', 'review'].includes(iaStage) && (
                                 <motion.div
                                     initial={{ opacity: 0, y: -8 }}
@@ -2494,68 +2619,97 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         
                                         {/* BLOQUEIO DE LIMITE DE CRÉDITOS */}
                                         {aiLimits && !aiLimits.can_import && !aiLimits.has_bypass ? (
-                                            <div className="bg-card dark:bg-zinc-900/30 border border-border dark:border-white/5 rounded-3xl p-6 sm:p-8 text-center max-w-2xl mx-auto my-4 shadow-xl">
-                                                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 relative">
-                                                    <Sparkles size={28} className="text-primary animate-pulse" />
+                                            <div className="mx-auto my-4 w-full max-w-[620px] rounded-2xl border border-border bg-card p-5 text-center shadow-xl dark:border-white/5 dark:bg-zinc-900/30 sm:p-6">
+                                                <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                                                    <Sparkles size={24} className="text-primary" />
                                                     <div className="absolute -bottom-1 -right-1 bg-red-500 text-white rounded-full p-1 border-2 border-card">
                                                         <X size={10} strokeWidth={3} />
                                                     </div>
                                                 </div>
 
-                                                <h3 className="text-xl sm:text-2xl font-black text-foreground mb-3 tracking-tight">
+                                                <h3 className="mb-2 text-lg font-black tracking-tight text-foreground sm:text-xl">
                                                     Limite de Importações por IA Atingido
                                                 </h3>
 
-                                                <p className="text-sm text-content-muted font-medium leading-relaxed max-w-md mx-auto mb-8">
-                                                    {aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' ? (
+                                                <p className="mx-auto mb-5 max-w-md text-sm font-medium leading-relaxed text-content-muted">
+                                                    {aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' || aiLimits.status === 'free' ? (
                                                         <span>
-                                                            Como você está na versão gratuita de testes, você tem direito a <strong>1 importação completa por IA</strong> para experimentar. Para importar novos editais com inteligência artificial ilimitada, assine um plano.
+                                                            Seu acesso gratuito inclui <strong>1 importação completa por IA</strong> para experimentar. Você já usou <strong>{aiLimits.usage}</strong> de <strong>{aiLimits.limit}</strong>. Para importar novos editais com IA, assine um plano.
                                                         </span>
                                                     ) : (
                                                         <span>
-                                                            Você atingiu o limite mensal de <strong>{aiLimits.limit} importações com IA</strong> do seu plano. Como estudante, sugerimos focar em 1 ou 2 editais de cada vez, mas se precisar mesclar conteúdos, use o catálogo oficial ou crie manualmente de forma 100% gratuita.
+                                                            Você atingiu o limite mensal de <strong>{aiLimits.limit} importações com IA</strong> do seu plano. O catálogo oficial e a criação manual continuam disponíveis sem limite.
                                                         </span>
                                                     )}
                                                 </p>
 
                                                 {/* Alternativas */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg mx-auto">
+                                                <div className="mx-auto grid w-full max-w-[560px] grid-cols-1 gap-3 sm:grid-cols-3">
                                                     <button
                                                         onClick={() => {
-                                                            if (aiLimits.plan === 'free_trial' || aiLimits.status === 'trial') {
+                                                            if (aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' || aiLimits.status === 'free') {
                                                                 onClose();
                                                                 navigate('/planos');
                                                             } else {
                                                                 toast.info("Entre em contato com o suporte para expandir seus créditos.");
                                                             }
                                                         }}
-                                                        className="px-4 py-3 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all text-xs uppercase tracking-wider shadow-lg shadow-primary/20 flex flex-col items-center justify-center gap-1.5"
+                                                        className="group relative flex min-h-[116px] flex-col items-start justify-between overflow-hidden rounded-2xl border border-primary/25 bg-primary/10 p-4 text-left transition-all hover:border-primary/45 hover:bg-primary/15"
                                                     >
-                                                        <span>{aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' ? 'Ver Assinaturas' : 'Falar com Suporte'}</span>
-                                                        <span className="text-[8px] font-medium opacity-80 uppercase tracking-normal">Próximo Passo</span>
+                                                        <div className="absolute -right-5 -top-5 h-20 w-20 rounded-full bg-primary/10 transition-all group-hover:bg-primary/15" />
+                                                        <div className="z-10 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                                                            <Sparkles size={18} />
+                                                        </div>
+                                                        <div className="z-10">
+                                                            <p className="text-[11px] font-black uppercase tracking-wider text-foreground">
+                                                                {aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' || aiLimits.status === 'free' ? 'Assinar' : 'Suporte'}
+                                                            </p>
+                                                            <p className="mt-1 text-[10px] font-medium leading-snug text-content-muted">
+                                                                {aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' || aiLimits.status === 'free' ? 'Ver planos e liberar IA' : 'Pedir mais créditos'}
+                                                            </p>
+                                                        </div>
                                                     </button>
 
                                                     <button
                                                         onClick={() => setActiveTab('ready')}
-                                                        className="px-4 py-3 bg-secondary dark:bg-white/5 hover:bg-secondary/80 dark:hover:bg-white/10 text-foreground border border-border font-bold rounded-xl transition-all text-xs uppercase tracking-wider flex flex-col items-center justify-center gap-1.5"
+                                                        className="group relative flex min-h-[116px] flex-col items-start justify-between overflow-hidden rounded-2xl border border-border bg-secondary/40 p-4 text-left transition-all hover:border-sky-500/40 hover:bg-sky-500/10 dark:bg-white/[0.03]"
                                                     >
-                                                        <span>Ver Catálogo</span>
-                                                        <span className="text-[8px] text-content-muted font-bold uppercase tracking-normal">100% Gratuito</span>
+                                                        <div className="absolute -right-5 -top-5 h-20 w-20 rounded-full bg-sky-500/5 transition-all group-hover:bg-sky-500/10" />
+                                                        <div className="z-10 flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400">
+                                                            <Database size={18} />
+                                                        </div>
+                                                        <div className="z-10">
+                                                            <p className="text-[11px] font-black uppercase tracking-wider text-foreground">Catálogo</p>
+                                                            <p className="mt-1 text-[10px] font-medium leading-snug text-content-muted">Usar edital pronto</p>
+                                                        </div>
                                                     </button>
 
                                                     <button
                                                         onClick={() => setActiveTab('manual')}
-                                                        className="px-4 py-3 bg-secondary dark:bg-white/5 hover:bg-secondary/80 dark:hover:bg-white/10 text-foreground border border-border font-bold rounded-xl transition-all text-xs uppercase tracking-wider flex flex-col items-center justify-center gap-1.5"
+                                                        className="group relative flex min-h-[116px] flex-col items-start justify-between overflow-hidden rounded-2xl border border-border bg-secondary/40 p-4 text-left transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10 dark:bg-white/[0.03]"
                                                     >
-                                                        <span>Criar Manual</span>
-                                                        <span className="text-[8px] text-content-muted font-bold uppercase tracking-normal">Sem Limites</span>
+                                                        <div className="absolute -right-5 -top-5 h-20 w-20 rounded-full bg-emerald-500/5 transition-all group-hover:bg-emerald-500/10" />
+                                                        <div className="z-10 flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+                                                            <Plus size={18} />
+                                                        </div>
+                                                        <div className="z-10">
+                                                            <p className="text-[11px] font-black uppercase tracking-wider text-foreground">Manual</p>
+                                                            <p className="mt-1 text-[10px] font-medium leading-snug text-content-muted">Criar do zero</p>
+                                                        </div>
                                                     </button>
                                                 </div>
                                             </div>
                                         ) : (
                                             <>
                                                 {/* COTA ATIVA / CRÉDITOS RESTANTES */}
-                                                {aiLimits && !aiLimits.has_bypass && (
+                                                {loadingAiLimits && (
+                                                    <div className="border border-border rounded-2xl px-5 py-4 flex items-center gap-3 text-content-muted">
+                                                        <Loader2 size={16} className="animate-spin" />
+                                                        <span className="text-xs font-bold">Verificando uso de IA...</span>
+                                                    </div>
+                                                )}
+
+                                                {aiLimits && (
                                                     <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
@@ -2566,14 +2720,40 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                                     Importador Inteligente de Editais com IA
                                                                 </p>
                                                                 <p className="text-[10px] text-content-muted font-medium">
-                                                                    Você possui <strong className="text-primary">{aiLimits.limit - aiLimits.usage}</strong> de <strong>{aiLimits.limit}</strong> créditos de IA restantes {aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' ? 'de teste' : 'no mês'}.
+                                                                    {aiLimits.has_bypass ? (
+                                                                        <>
+                                                                            Acesso administrativo ilimitado. Você importou <strong>{aiLimits.usage}</strong> edital{aiLimits.usage === 1 ? '' : 's'} com IA neste mês{typeof aiLimits.total_usage === 'number' ? <> · <strong>{aiLimits.total_usage}</strong> no total</> : null}.
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            Você usou <strong>{aiLimits.usage}</strong> de <strong>{aiLimits.limit}</strong> extrações com IA. Restam <strong className="text-primary">{aiLimits.remaining ?? Math.max(aiLimits.limit - aiLimits.usage, 0)}</strong> {aiLimits.usage_period === 'monthly' ? 'neste mês' : 'no seu acesso gratuito'}.
+                                                                        </>
+                                                                    )}
                                                                 </p>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-[10px] text-content-muted font-medium">
-                                                                Precisa de mais? Catálogo e Manual são ilimitados.
+                                                                {aiLimits.has_bypass ? 'Admin não consome limite comercial.' : 'Precisa de mais? Catálogo e Manual são ilimitados.'}
                                                             </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {!loadingAiLimits && !aiLimits && (
+                                                    <div className="rounded-2xl border border-border bg-secondary/30 px-5 py-4 text-content-muted dark:bg-white/[0.03]">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                                                <Sparkles size={16} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-bold text-foreground">
+                                                                    Uso de IA
+                                                                </p>
+                                                                <p className="text-[10px] font-medium">
+                                                                    Não consegui carregar seu uso agora. A extração ainda pode ser iniciada, e o limite será validado pelo servidor.
+                                                                </p>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
@@ -3320,7 +3500,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             {/* ── Fixed Footer for Import ── */}
             {activeTab === 'ia' && iaStage === 'review' && (
-                <div className="flex shrink-0 flex-col gap-3 rounded-b-[32px] border-t border-border bg-card px-6 py-2.5 dark:border-white/5 dark:bg-zinc-900 sm:flex-row sm:items-center sm:justify-between">
+                <div className={`z-30 flex shrink-0 flex-col gap-3 border-t border-border bg-card/95 px-6 py-2.5 backdrop-blur dark:border-white/5 dark:bg-zinc-900/95 sm:flex-row sm:items-center sm:justify-between ${
+                    inlineMode
+                        ? 'sticky bottom-0 mt-6 rounded-2xl shadow-2xl shadow-black/20'
+                        : 'rounded-b-[32px]'
+                }`}>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-content-muted">
                         <span>
                             <strong className="font-black text-content-main">{aiResult.filter(s => s.selected).length}</strong> de {aiResult.length} matérias

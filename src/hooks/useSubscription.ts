@@ -60,7 +60,7 @@ export function useSubscription(): UseSubscriptionReturn {
         .from('user_subscriptions')
         .select('*')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
       // Verificar se o usuário possui a role de admin ou owner ou se é email protegido
       const { data: rolesData } = await supabase
@@ -118,10 +118,15 @@ export function useSubscription(): UseSubscriptionReturn {
         const subEnd = new Date(subscriptionData.subscription_ends_at)
         isActive = subEnd > now
         daysRemaining = Math.max(0, Math.ceil((subEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+      } else if (subscriptionData.status === 'active' && !subscriptionData.subscription_ends_at) {
+        isActive = true
+        daysRemaining = 99999
       }
 
       const processedSubscription = {
         ...subscriptionData,
+        plan: isActive ? subscriptionData.plan : 'free_trial',
+        status: isActive ? subscriptionData.status : 'expired',
         is_active: isActive,
         days_remaining: daysRemaining
       }
@@ -201,12 +206,14 @@ export function useSubscription(): UseSubscriptionReturn {
 
   // Computed values
   const isActive = subscription?.is_active ?? false
-  const isTrial = subscription?.status === 'trial'
-  const isPaid = subscription?.status === 'active' && subscription?.plan !== 'free_trial'
-  const isExpired = subscription?.status === 'expired'
+  const isTrial = isActive && subscription?.status === 'trial'
+  const isPaid = isActive && subscription?.status === 'active' && subscription?.plan !== 'free_trial'
+  const isExpired = !isActive
   const daysRemaining = subscription?.days_remaining ?? 0
 
-  const planName = subscription?.plan === 'free_trial' 
+  const planName = !isActive && !isTrial
+    ? 'Free'
+    : subscription?.plan === 'free_trial'
     ? 'Teste Grátis'
     : subscription?.plan === 'monthly'
     ? 'Plano Mensal'
