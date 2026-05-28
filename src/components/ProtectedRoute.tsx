@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from './ui/LoadingSpinner';
+import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 
 export const ProtectedRoute = () => {
   const { user, loading } = useAuth();
@@ -15,6 +16,10 @@ export const ProtectedRoute = () => {
   // If no user authenticated, redirect to login preserving the intended path
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (isEmailConfirmationPending(user)) {
+    return <Navigate to="/confirm-email" replace />;
   }
 
   // If user is authenticated, render protected content

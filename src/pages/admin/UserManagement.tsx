@@ -19,7 +19,7 @@
 import React, { useState, useMemo } from 'react';
 import {
     Search, Filter, MoreVertical,
-    Eye, Edit, Power, RefreshCw, Trash2, Mail, Calendar, Shield, Zap, Archive, Undo2, UserX
+    Eye, Edit, Power, RefreshCw, Trash2, Mail, Calendar, Shield, Zap, Archive, Undo2, UserX, Loader2
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -63,6 +63,146 @@ import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { UserAvatar } from '@/components/ui/UserAvatar';
+
+const UserAiUsageBadge = ({ userId }: { userId: string }) => {
+    const [limits, setLimits] = React.useState<{ limit: number; usage: number; plan: string; status: string; has_bypass: boolean } | null>(null);
+    const [loading, setLoading] = React.useState(false);
+
+    const loadLimits = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            // Usa apenas a lógica de fallback (RPC 'get_user_ai_limits' removido para evitar erros 404 no console)
+            const { data: rolesData } = await supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', userId);
+
+            const isOwnerOrAdmin = (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin'));
+
+            const { data: subData } = await supabase
+                .from('user_subscriptions' as any)
+                .select('plan, status')
+                .eq('user_id', userId)
+                .maybeSingle();
+            
+            const sub = subData as any;
+            const isPaidActive = sub && ['monthly', 'annual'].includes(sub.plan) && sub.status === 'active';
+            const limit = isPaidActive ? 5 : 1;
+            
+            let query = supabase
+                .from('user_editais')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', userId)
+                .eq('is_imported', true)
+                .is('source_id', null);
+            
+            if (isPaidActive && !isOwnerOrAdmin) {
+                const firstDayOfMonth = new Date();
+                firstDayOfMonth.setDate(1);
+                firstDayOfMonth.setHours(0, 0, 0, 0);
+                query = query.gte('created_at', firstDayOfMonth.toISOString());
+            }
+            
+            const { count, error: countError } = await query;
+            const usage = countError ? 0 : (count || 0);
+
+            if (isOwnerOrAdmin) {
+                setLimits({
+                    limit: -1,
+                    usage,
+                    plan: 'admin',
+                    status: 'active',
+                    has_bypass: true
+                });
+            } else {
+                setLimits({
+                    limit,
+                    usage,
+                    plan: isPaidActive ? sub.plan : 'free_trial',
+                    status: isPaidActive ? sub.status : 'trial',
+                    has_bypass: false
+                });
+            }
+        } catch (err) {
+            console.error("Erro ao carregar limites IA do usuário:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [userId]);
+
+    React.useEffect(() => {
+        loadLimits();
+    }, [loadLimits]);
+
+    const handleResetQuota = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const confirm = window.confirm(`Deseja zerar a cota de IA deste usuário liberando novas importações com IA para o mês corrente? (Isso não apagará nenhum edital ou progresso do estudante).`);
+        if (!confirm) return;
+
+        try {
+            const firstDayOfMonth = new Date();
+            firstDayOfMonth.setDate(1);
+            firstDayOfMonth.setHours(0, 0, 0, 0);
+            
+            const { error } = await supabase
+                .from('user_editais')
+                .update({ source_id: 'bypass-admin-grant' } as any)
+                .eq('user_id', userId)
+                .eq('is_imported', true)
+                .is('source_id', null)
+                .gte('created_at', firstDayOfMonth.toISOString());
+
+            if (error) throw error;
+            toast.success("Cota de IA liberada com sucesso!");
+            loadLimits();
+        } catch (err) {
+            console.error(err);
+            toastGate.notifyError("Erro ao liberar cota.", "ADMIN-AI-LIMIT-RESET");
+        }
+    };
+
+    if (loading) {
+        return <Loader2 className="w-4 h-4 animate-spin text-slate-400" />;
+    }
+
+    if (!limits) return <span className="text-xs text-slate-400">-</span>;
+
+    if (limits.has_bypass) {
+        return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800" title="Acesso ilimitado à IA">
+                Ilimitado
+            </span>
+        );
+    }
+
+    const isExceeded = limits.usage >= limits.limit;
+
+    return (
+        <div className="flex items-center gap-2">
+            <span 
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                    isExceeded 
+                        ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-800' 
+                        : limits.plan !== 'free_trial' 
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-800' 
+                            : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-800'
+                }`}
+                title={`Plano: ${limits.plan} | Consumido: ${limits.usage}/${limits.limit}`}
+            >
+                {limits.usage} / {limits.limit}
+            </span>
+            {isExceeded && (
+                <button
+                    onClick={handleResetQuota}
+                    className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded transition-all"
+                    title="Zerar cota e liberar créditos IA de cortesia"
+                >
+                    <Zap size={11} />
+                </button>
+            )}
+        </div>
+    );
+};
 
 const UserManagement = () => {
     const { users: dbUsers, loading, error, refetch } = useAdminUsers();
@@ -406,6 +546,7 @@ const UserManagement = () => {
                                     </th>
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Usuário</th>
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Acesso</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Matrizes IA</th>
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Último acesso</th>
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Data de adição</th>
                                     <th className="px-6 py-4 w-[50px]"></th>
@@ -466,6 +607,9 @@ const UserManagement = () => {
                                                     </div>
                                                 )}
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <UserAiUsageBadge userId={user.id} />
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap tabular-nums">
                                             <Tooltip>

@@ -47,6 +47,27 @@ export function useSimpleSubscription() {
         .eq('user_id', user.id)
         .single()
 
+      // Verificar se o usuário possui a role de admin ou owner ou se é email protegido
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+
+      const isOwnerOrAdmin = user.email === 'vourevisar@gmail.com' || 
+                             user.email === 'darciliok@gmail.com' || 
+                             (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin'));
+
+      if (isOwnerOrAdmin) {
+        setSubscription({
+          plan: 'annual',
+          status: 'active',
+          isActive: true,
+          displayBadge: 'Acesso Vitalício',
+          badgeColor: 'purple'
+        })
+        return
+      }
+
       // Log removido para otimização
 
       if (error || !data) {

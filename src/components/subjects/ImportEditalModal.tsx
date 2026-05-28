@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, FileText, Sparkles, Loader2, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info, Eye, ArrowLeft, BookOpen, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { Subject } from '@/types';
 import { UserEdital } from '@/pages/Editais';
 import { toast } from '@/lib/toast';
@@ -124,6 +125,7 @@ interface ImportEditalModalProps {
 
 export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEditais = [], initialTab = 'ready', manualModeChildren, inlineMode = false }: ImportEditalModalProps) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'ready' | 'ia' | 'manual'>(initialTab);
     const [showSuggestSlide, setShowSuggestSlide] = useState(false);
     const [suggestConcurso, setSuggestConcurso] = useState('');
@@ -167,6 +169,18 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [closeAttentionPulse, setCloseAttentionPulse] = useState(false);
     const iaFlowCancelledRef = useRef(false);
     const pdfInputRef = useRef<HTMLInputElement | null>(null);
+
+    // IA Limits & Quota States
+    interface UserAiLimits {
+        plan: string;
+        status: string;
+        limit: number;
+        usage: number;
+        has_bypass: boolean;
+        can_import: boolean;
+    }
+    const [aiLimits, setAiLimits] = useState<UserAiLimits | null>(null);
+    const [loadingAiLimits, setLoadingAiLimits] = useState(false);
 
     // Legacy complement mode states (kept for compatibility)
     const [isComplementMode, setIsComplementMode] = useState(false);
@@ -310,6 +324,104 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         });
     };
 
+    const fetchAiLimits = async () => {
+        if (!user) return;
+        setLoadingAiLimits(true);
+        try {
+            // Verificar antes se é admin/owner no cliente para evitar chamada desnecessária que dá 404 no console
+            const isOwnerOrAdminEmail = user.email === 'vourevisar@gmail.com' || user.email === 'darciliok@gmail.com';
+            
+            let isOwnerOrAdmin = isOwnerOrAdminEmail;
+            let rolesData = null;
+            
+            if (!isOwnerOrAdmin) {
+                const { data } = await supabase
+                    .from('user_roles')
+                    .select('role')
+                    .eq('user_id', user.id);
+                rolesData = data;
+                if (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin')) {
+                    isOwnerOrAdmin = true;
+                }
+            }
+
+            if (isOwnerOrAdmin) {
+                let query = supabase
+                    .from('user_editais')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .eq('is_imported', true)
+                    .is('source_id', null);
+
+                const { count } = await query;
+                const usage = count || 0;
+
+                setAiLimits({
+                    plan: 'admin',
+                    status: 'active',
+                    limit: -1,
+                    usage: usage,
+                    has_bypass: true,
+                    can_import: true
+                });
+                setLoadingAiLimits(false);
+                return;
+            }
+
+            // Usa apenas a lógica de fallback (RPC 'get_user_ai_limits' removido para evitar erros 404 no console)
+            let query = supabase
+                .from('user_editais')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('is_imported', true)
+                .is('source_id', null);
+
+            const { data: subData } = await supabase
+                .from('user_subscriptions' as any)
+                .select('plan, status')
+                .eq('user_id', user.id)
+                .maybeSingle();
+            
+            const sub = subData as any;
+            const isPaidActive = sub && ['monthly', 'annual'].includes(sub.plan) && sub.status === 'active';
+            const limit = isPaidActive ? 5 : 1;
+            
+            if (isPaidActive && !isOwnerOrAdmin) {
+                const firstDayOfMonth = new Date();
+                firstDayOfMonth.setDate(1);
+                firstDayOfMonth.setHours(0, 0, 0, 0);
+                query = query.gte('created_at', firstDayOfMonth.toISOString());
+            }
+            
+            const { count, error: countError } = await query;
+            const usage = countError ? 0 : (count || 0);
+
+            if (isOwnerOrAdmin) {
+                setAiLimits({
+                    plan: 'admin',
+                    status: 'active',
+                    limit: -1,
+                    usage: usage,
+                    has_bypass: true,
+                    can_import: true
+                });
+            } else {
+                setAiLimits({
+                    plan: isPaidActive ? sub.plan : 'free_trial',
+                    status: isPaidActive ? sub.status : 'trial',
+                    limit: limit,
+                    usage: usage,
+                    has_bypass: false,
+                    can_import: usage < limit
+                });
+            }
+        } catch (err) {
+            console.error("Falha ao buscar limites da IA:", err);
+        } finally {
+            setLoadingAiLimits(false);
+        }
+    };
+
     const loadPendingExtraction = async () => {
         if (!user) return;
         setLoadingPending(true);
@@ -392,6 +504,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     useEffect(() => {
         if (isOpen && activeTab === 'ia') {
+            fetchAiLimits();
             loadPendingExtraction();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -851,6 +964,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     const getFriendlyAiExtractionError = (message: string) => {
         const normalized = message.toLowerCase();
+
+        // 1. Tratar cota comercial do estudante excedida
+        if (message.includes('AI_LIMIT_EXCEEDED') || normalized.includes('esgotou seu limite') || normalized.includes('cota comercial')) {
+            return message.replace('AI_LIMIT_EXCEEDED:', '').trim();
+        }
+
+        // 2. Tratar disjuntor global diário (circuit breaker)
+        if (message.includes('AI_CIRCUIT_BREAKER_TRIGGERED') || normalized.includes('manutencao devido a alta demanda global')) {
+            return 'O extrator por IA está temporariamente em manutenção devido à altíssima demanda hoje. Por favor, utilize a criação manual ou nosso catálogo oficial (100% gratuitos).';
+        }
 
         if (
             normalized.includes('429') ||
@@ -1368,39 +1491,59 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         const extractedSubjects: AiSubject[] = [];
         let consecutiveFailures = 0;
 
-        for (let index = 0; index < usableSlices.length; index += 1) {
+        const CONCURRENCY = 5;
+        let completedSlices = 0;
+
+        for (let i = 0; i < usableSlices.length; i += CONCURRENCY) {
             if (iaFlowCancelledRef.current) return null;
 
-            const slice = usableSlices[index];
-            const subjectTitle = slice.subject.titulo;
-            setProcessingMsg(`Extraindo ${subjectTitle}...`);
-            setIaProgress(Math.min(92, 18 + Math.round((index / Math.max(usableSlices.length, 1)) * 70)));
+            const chunk = usableSlices.slice(i, i + CONCURRENCY);
+            
+            if (chunk[0]) {
+                setProcessingMsg(`Extraindo em lote: ${chunk[0].subject.titulo}...`);
+            }
 
-            const subjectResult = await supabase.functions.invoke('extract-edital', {
-                body: {
-                    mode: 'extractSubject',
-                    subjectTitle,
-                    knowledgeType: slice.subject.tipo_conhecimento,
-                    sourceExcerpt: slice.sourceExcerpt
-                }
+            const chunkPromises = chunk.map(async (slice, chunkIndex) => {
+                const index = i + chunkIndex;
+                const subjectTitle = slice.subject.titulo;
+
+                const subjectResult = await supabase.functions.invoke('extract-edital', {
+                    body: {
+                        mode: 'extractSubject',
+                        subjectTitle,
+                        knowledgeType: slice.subject.tipo_conhecimento,
+                        sourceExcerpt: slice.sourceExcerpt
+                    }
+                });
+
+                return { index, slice, subjectTitle, subjectResult };
             });
 
-            if (subjectResult.error) {
-                consecutiveFailures += 1;
-                const errBody = await getFunctionErrorMessage(subjectResult.error, subjectResult.response);
-                console.warn('[extract-edital incremental] Falha ao extrair matéria:', subjectTitle, errBody);
-            } else {
-                const mapped = mapIncrementalSubjectToAiSubject(subjectResult.data?.subject, slice.subject, index);
-                if (mapped) {
-                    extractedSubjects.push(mapped);
-                    consecutiveFailures = 0;
-                } else {
+            const chunkResults = await Promise.all(chunkPromises);
+
+            for (const { slice, subjectTitle, subjectResult, index } of chunkResults) {
+                if (iaFlowCancelledRef.current) return null;
+                
+                completedSlices += 1;
+                setIaProgress(Math.min(92, 18 + Math.round((completedSlices / Math.max(usableSlices.length, 1)) * 70)));
+
+                if (subjectResult.error) {
                     consecutiveFailures += 1;
-                    console.warn('[extract-edital incremental] Matéria sem tópicos:', subjectTitle);
+                    console.warn('[extract-edital incremental] Falha ao extrair matéria:', subjectTitle);
+                } else {
+                    const mapped = mapIncrementalSubjectToAiSubject(subjectResult.data?.subject, slice.subject, index);
+                    if (mapped) {
+                        extractedSubjects.push(mapped);
+                        consecutiveFailures = 0;
+                    } else {
+                        consecutiveFailures += 1;
+                        console.warn('[extract-edital incremental] Matéria sem tópicos:', subjectTitle);
+                    }
                 }
             }
 
-            if (consecutiveFailures >= 3) {
+            // Aumentamos a tolerância para 5 por causa do processamento em lote
+            if (consecutiveFailures >= 5) {
                 throw new Error('Muitas falhas consecutivas na extração incremental.');
             }
         }
@@ -1499,6 +1642,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         } catch (error: any) {
             console.error('Erro na IA:', error);
             const msg = error.message || 'Erro desconhecido';
+
+            // Se for cota comercial excedida, atualiza limites locais instantaneamente
+            if (msg.includes('AI_LIMIT_EXCEEDED') || msg.toLowerCase().includes('esgotou seu limite') || msg.toLowerCase().includes('cota comercial')) {
+                fetchAiLimits();
+            }
+
             const friendlyMessage = getFriendlyAiExtractionError(msg);
             setIaErrorMessage(friendlyMessage);
             errorService.report(error, {
@@ -2339,10 +2488,97 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     <Loader2 size={16} className="animate-spin text-content-muted" />
                                     <span className="text-[10px] text-content-muted font-medium">Carregando extração pendente...</span>
                                 </div>
-                            ) : iaStage === 'input' && !pendingExtraction ? (
+                                                        ) : iaStage === 'input' && !pendingExtraction ? (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full">
                                     <div className="flex flex-col gap-4 max-w-5xl mx-auto w-full">
-                                        {iaErrorMessage && (
+                                        
+                                        {/* BLOQUEIO DE LIMITE DE CRÉDITOS */}
+                                        {aiLimits && !aiLimits.can_import && !aiLimits.has_bypass ? (
+                                            <div className="bg-card dark:bg-zinc-900/30 border border-border dark:border-white/5 rounded-3xl p-6 sm:p-8 text-center max-w-2xl mx-auto my-4 shadow-xl">
+                                                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 relative">
+                                                    <Sparkles size={28} className="text-primary animate-pulse" />
+                                                    <div className="absolute -bottom-1 -right-1 bg-red-500 text-white rounded-full p-1 border-2 border-card">
+                                                        <X size={10} strokeWidth={3} />
+                                                    </div>
+                                                </div>
+
+                                                <h3 className="text-xl sm:text-2xl font-black text-foreground mb-3 tracking-tight">
+                                                    Limite de Importações por IA Atingido
+                                                </h3>
+
+                                                <p className="text-sm text-content-muted font-medium leading-relaxed max-w-md mx-auto mb-8">
+                                                    {aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' ? (
+                                                        <span>
+                                                            Como você está na versão gratuita de testes, você tem direito a <strong>1 importação completa por IA</strong> para experimentar. Para importar novos editais com inteligência artificial ilimitada, assine um plano.
+                                                        </span>
+                                                    ) : (
+                                                        <span>
+                                                            Você atingiu o limite mensal de <strong>{aiLimits.limit} importações com IA</strong> do seu plano. Como estudante, sugerimos focar em 1 ou 2 editais de cada vez, mas se precisar mesclar conteúdos, use o catálogo oficial ou crie manualmente de forma 100% gratuita.
+                                                        </span>
+                                                    )}
+                                                </p>
+
+                                                {/* Alternativas */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg mx-auto">
+                                                    <button
+                                                        onClick={() => {
+                                                            if (aiLimits.plan === 'free_trial' || aiLimits.status === 'trial') {
+                                                                onClose();
+                                                                navigate('/planos');
+                                                            } else {
+                                                                toast.info("Entre em contato com o suporte para expandir seus créditos.");
+                                                            }
+                                                        }}
+                                                        className="px-4 py-3 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all text-xs uppercase tracking-wider shadow-lg shadow-primary/20 flex flex-col items-center justify-center gap-1.5"
+                                                    >
+                                                        <span>{aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' ? 'Ver Assinaturas' : 'Falar com Suporte'}</span>
+                                                        <span className="text-[8px] font-medium opacity-80 uppercase tracking-normal">Próximo Passo</span>
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => setActiveTab('ready')}
+                                                        className="px-4 py-3 bg-secondary dark:bg-white/5 hover:bg-secondary/80 dark:hover:bg-white/10 text-foreground border border-border font-bold rounded-xl transition-all text-xs uppercase tracking-wider flex flex-col items-center justify-center gap-1.5"
+                                                    >
+                                                        <span>Ver Catálogo</span>
+                                                        <span className="text-[8px] text-content-muted font-bold uppercase tracking-normal">100% Gratuito</span>
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => setActiveTab('manual')}
+                                                        className="px-4 py-3 bg-secondary dark:bg-white/5 hover:bg-secondary/80 dark:hover:bg-white/10 text-foreground border border-border font-bold rounded-xl transition-all text-xs uppercase tracking-wider flex flex-col items-center justify-center gap-1.5"
+                                                    >
+                                                        <span>Criar Manual</span>
+                                                        <span className="text-[8px] text-content-muted font-bold uppercase tracking-normal">Sem Limites</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {/* COTA ATIVA / CRÉDITOS RESTANTES */}
+                                                {aiLimits && !aiLimits.has_bypass && (
+                                                    <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
+                                                                <Sparkles size={16} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-bold text-foreground">
+                                                                    Importador Inteligente de Editais com IA
+                                                                </p>
+                                                                <p className="text-[10px] text-content-muted font-medium">
+                                                                    Você possui <strong className="text-primary">{aiLimits.limit - aiLimits.usage}</strong> de <strong>{aiLimits.limit}</strong> créditos de IA restantes {aiLimits.plan === 'free_trial' || aiLimits.status === 'trial' ? 'de teste' : 'no mês'}.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[10px] text-content-muted font-medium">
+                                                                Precisa de mais? Catálogo e Manual são ilimitados.
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {iaErrorMessage && (
                                             <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
                                                 <p className="text-xs font-bold text-red-300">
                                                     Não consegui concluir a análise do edital agora.
@@ -2494,6 +2730,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                 </button>
                                             </div>
                                         </div>
+                                    </>
+                                )}
                                     </div>
                                 </motion.div>
                             ) : null}

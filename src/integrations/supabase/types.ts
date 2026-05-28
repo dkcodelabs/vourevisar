@@ -2514,6 +2514,7 @@ export type Database = {
       check_email_exists: {
         Args: { email_to_check: string }
         Returns: {
+          email_confirmed: boolean
           email_exists: boolean
           provider_type: string
         }[]

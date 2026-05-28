@@ -6,6 +6,7 @@ import { toast } from '@/lib/toast';
 import { useAuthOperations } from '@/hooks/useAuthOperations';
 import { useUserLogger } from '@/hooks/useUserLogger';
 import { Database } from '@/integrations/supabase/types';
+import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -13,7 +14,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string, phone?: string) => Promise<{ success: boolean; user?: User; error?: string }>;
+  signUp: (email: string, password: string, name: string, phone?: string) => Promise<{ success: boolean; user?: User; error?: string; confirmationPending?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<{ success: boolean; error?: string }>;
@@ -104,6 +105,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       async (event, session) => {
         if (!isMounted) return;
 
+        if (session?.user && isEmailConfirmationPending(session.user)) {
+          localStorage.setItem('pendingConfirmationEmail', session.user.email || '');
+          await supabase.auth.signOut();
+          setUser(null);
+          setProfile(null);
+          lastLoginSignature.current = null;
+          if (isMounted) {
+            setLoading(false);
+          }
+          return;
+        }
+
         // Log LOGIN_SUCCESS explicitly when SIGNED_IN event happens
         if (event === 'SIGNED_IN' && session?.user) {
           const signature = session.access_token?.slice(-16);
@@ -156,7 +169,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           throw error;
         }
 
-        if (session?.user && isMounted) {
+        if (session?.user && isEmailConfirmationPending(session.user) && isMounted) {
+          localStorage.setItem('pendingConfirmationEmail', session.user.email || '');
+          await supabase.auth.signOut();
+          setUser(null);
+          setProfile(null);
+          lastLoginSignature.current = null;
+        } else if (session?.user && isMounted) {
           setUser(session.user);
           if (session.access_token) {
             lastLoginSignature.current = session.access_token.slice(-16);
@@ -191,7 +210,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
 
       const result = await authOps.signUp(email, password, name, phone);
-      return { success: true, user: result?.user };
+      return { success: true, user: result?.user || undefined, confirmationPending: result?.confirmationPending };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       return { success: false, error: errorMessage };

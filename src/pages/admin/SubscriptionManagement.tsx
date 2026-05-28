@@ -374,7 +374,12 @@ const SubscriptionManagement = () => {
                                             <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider opacity-60">({user.role})</span>
                                         </div>
                                         <div className="text-sm font-medium text-muted-foreground">{user.email}</div>
-                                        {user.subscription_ends_at && (
+                                        {user.role === 'owner' || user.role === 'admin' ? (
+                                            <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1 font-semibold">
+                                                <Crown className="w-3 h-3 text-emerald-500" />
+                                                Acesso Vitalício (Sem Expiração)
+                                            </div>
+                                        ) : user.subscription_ends_at && (
                                             <div className="text-xs text-muted-foreground/60 mt-1 flex items-center gap-1 font-medium">
                                                 <Calendar className="w-3 h-3" />
                                                 Vence em: {new Date(user.subscription_ends_at).toLocaleDateString('pt-BR')}

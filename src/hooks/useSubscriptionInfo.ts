@@ -51,6 +51,33 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
       const { data, error: rpcError } = await supabase
         .rpc('get_subscription_info', { check_user_id: user.id })
 
+      // Verificar se o usuário possui a role de admin ou owner ou se é email protegido
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+
+      const isOwnerOrAdmin = user.email === 'vourevisar@gmail.com' || 
+                             user.email === 'darciliok@gmail.com' || 
+                             (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin'));
+
+      if (isOwnerOrAdmin) {
+        setSubscriptionInfo({
+          user_id: user.id,
+          plan: 'annual',
+          status: 'active',
+          is_active: true,
+          days_remaining: 99999,
+          trial_started_at: null,
+          trial_ends_at: null,
+          subscription_started_at: new Date().toISOString(),
+          subscription_ends_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        return
+      }
+
       if (rpcError) {
         console.error('RPC Error:', rpcError)
         throw rpcError

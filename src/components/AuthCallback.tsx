@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from './ui/LoadingSpinner';
+import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 
 export function AuthCallback() {
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,13 @@ export function AuthCallback() {
         // Verificar se já há uma sessão ativa
         const { data: { session: existingSession } } = await supabase.auth.getSession();
 
+        if (existingSession?.user && isEmailConfirmationPending(existingSession.user)) {
+          localStorage.setItem('pendingConfirmationEmail', existingSession.user.email || '');
+          await supabase.auth.signOut();
+          setRedirectPath('/confirm-email');
+          return;
+        }
+
         if (existingSession) {
           setRedirectPath('/dashboard');
           return;
@@ -63,6 +71,13 @@ export function AuthCallback() {
             await new Promise(resolve => setTimeout(resolve, 500));
 
             const { data: { session: newSession } } = await supabase.auth.getSession();
+
+            if (newSession?.user && isEmailConfirmationPending(newSession.user)) {
+              localStorage.setItem('pendingConfirmationEmail', newSession.user.email || '');
+              await supabase.auth.signOut();
+              setRedirectPath('/confirm-email');
+              return;
+            }
 
             if (newSession) {
               setRedirectPath('/dashboard');

@@ -8,6 +8,7 @@ import { Mail, CheckCircle, RefreshCw, ArrowLeft } from 'lucide-react'; // Keep 
 import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton } from '@/components/ui';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 
 const ConfirmEmail = () => {
   const navigate = useNavigate();
@@ -29,9 +30,29 @@ const ConfirmEmail = () => {
       }
     }
 
+    const checkExistingSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.user) return;
+
+      if (isEmailConfirmationPending(session.user)) {
+        await supabase.auth.signOut();
+        return;
+      }
+
+      setIsConfirmed(true);
+      localStorage.removeItem('pendingConfirmationEmail');
+      toast.success('Email confirmado com sucesso!');
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 2000);
+    };
+
+    checkExistingSession();
+
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
+      if (event === 'SIGNED_IN' && session?.user && !isEmailConfirmationPending(session.user)) {
         setIsConfirmed(true);
         localStorage.removeItem('pendingConfirmationEmail');
         toast.success('Email confirmado com sucesso!');
@@ -61,7 +82,7 @@ const ConfirmEmail = () => {
         type: 'signup',
         email,
         options: {
-          emailRedirectTo: `${window.location.origin} /auth/callback`
+          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       });
 

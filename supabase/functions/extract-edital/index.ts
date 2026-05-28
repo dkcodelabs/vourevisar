@@ -136,10 +136,7 @@ Formato JSON esperado:
       "endHeading": "DIREITO ADMINISTRATIVO:",
       "startAnchor": "DIREITO CONSTITUCIONAL: 1 Constitucionalismo",
       "endAnchor": "DIREITO ADMINISTRATIVO: 1 Estado, governo",
-      "firstTopicAnchor": "1 Constitucionalismo",
-      "lastTopicAnchor": null,
-      "confidence": "high",
-      "evidencia_localizacao": "Encontrado no bloco de conhecimentos especificos"
+      "firstTopicAnchor": "1 Constitucionalismo"
     }
   ],
   "avisos": []
@@ -606,14 +603,17 @@ async function callGeminiWithFallbacks(
                                      String(error?.message || "").includes("no longer available");
 
         if (isGeminiRateLimitError(error)) {
-          console.warn("[extract-edital] Gemini rate limit reached; stopping retries", {
+          console.warn("[extract-edital] Gemini rate limit reached; waiting before retry", {
             modelName,
             attempt,
             status: error?.status,
             apiStatus: error?.apiStatus,
             retryAfterSeconds: error?.retryAfterSeconds,
           });
-          throw error;
+          // Wait longer on rate limit (use retryAfterSeconds or fallback to 10s)
+          const waitTime = error?.retryAfterSeconds ? error.retryAfterSeconds * 1000 : 10000;
+          await sleep(waitTime);
+          continue; // Allow it to retry or fallback to next model
         }
         
         if (!isRetryableGeminiError(error) && !isModelNotFoundError) {
@@ -638,6 +638,8 @@ async function callGeminiWithFallbacks(
 
 async function uploadPdfBytesToGemini(apiKey: string, fileBytes: Uint8Array, fileName: string): Promise<string> {
   if (fileBytes.length < 100) throw new Error(`PDF muito pequeno (${fileBytes.length} bytes).`);
+  if (fileBytes.length > 5 * 1024 * 1024) throw new Error("O arquivo PDF excede o limite de 5MB.");
+
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -1422,25 +1424,74 @@ function buildContents(instruction: string, inputText?: string, fileUri?: string
   return [{ role: "user", parts }];
 }
 
+function calculateCostEstimate(modelName: string, promptTokens: number, completionTokens: number): number {
+  const model = String(modelName || "").toLowerCase();
+  
+  if (model.includes("pro")) {
+    const promptPrice = promptTokens > 128000 ? 0.00000250 : 0.00000125;
+    const completionPrice = completionTokens > 128000 ? 0.00001000 : 0.00000500;
+    return (promptTokens * promptPrice) + (completionTokens * completionPrice);
+  }
+  
+  if (model.includes("lite") || model.includes("flash-lite")) {
+    const promptPrice = 0.0000000375;
+    const completionPrice = 0.00000015;
+    return (promptTokens * promptPrice) + (completionTokens * completionPrice);
+  }
+  
+  const promptPrice = promptTokens > 128000 ? 0.00000015 : 0.000000075;
+  const completionPrice = completionTokens > 128000 ? 0.00000060 : 0.00000030;
+  return (promptTokens * promptPrice) + (completionTokens * completionPrice);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  let supabaseClient;
+  let user;
+  let reqData;
+  let mode: ExtractMode = "analyze";
+  let modelNameUsed = "gemini-2.5-flash";
+
+  const logAiUsage = async (status: "success" | "failed", modelUsed: string, pTokens: number, cTokens: number) => {
+    if (!supabaseClient || !user) return;
+    try {
+      const cost = calculateCostEstimate(modelUsed, pTokens, cTokens);
+      await supabaseClient.from("ai_usage_logs").insert({
+        user_id: user.id,
+        model_name: modelUsed,
+        mode: mode,
+        prompt_tokens: pTokens,
+        candidates_tokens: cTokens,
+        cost_estimate: cost,
+        status: status,
+      });
+    } catch (err) {
+      console.error("[extract-edital] Failed to log AI usage to database:", err);
+    }
+  };
+
   try {
-    const supabaseClient = createClient(
+    supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     const authHeader = req.headers.get("Authorization");
-    const { data: { user } } = await supabaseClient.auth.getUser(authHeader?.replace("Bearer ", "") ?? "");
-    if (!user) throw new Error("Unauthorized");
+    const { data: { user: authUser } } = await supabaseClient.auth.getUser(authHeader?.replace("Bearer ", "") ?? "");
+    if (!authUser) throw new Error("Unauthorized");
+    user = authUser;
 
-    const reqData = await req.json();
-    const mode: ExtractMode = reqData.mode || (reqData.position ? "extractForCargo" : "analyze");
+    reqData = await req.json();
+    mode = reqData.mode || (reqData.position ? "extractForCargo" : "analyze");
     const { inputText, pdfUrl, pdfPath, pdfFileUri, selectedCargo, selectedCargoId, analysis, sourceExcerpt, validationText } = reqData;
 
     if (!VALID_EXTRACT_MODES.includes(mode)) {
       throw new Error(`Modo de extracao invalido: ${mode}`);
+    }
+
+    if (inputText && inputText.length > 1500000) {
+      throw new Error("O texto do edital excede o limite de 1.500.000 caracteres.");
     }
 
     if (mode === "mapContentStructure" && !String(inputText || "").trim()) {
@@ -1470,8 +1521,167 @@ serve(async (req) => {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) throw new Error("GEMINI_API_KEY nao configurada nos secrets da Edge Function.");
 
+    // Check bypass for user (admin/owner)
+    const { data: userRole } = await supabaseClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const hasBypass = userRole?.role === "admin" || userRole?.role === "owner";
+
+    if (!hasBypass) {
+      // 0. Commercial AI Limit Check
+      let canImport = true;
+      let userLimit = 1;
+      let userUsage = 0;
+
+      const { data: limitsData, error: limitsError } = await supabaseClient
+        .rpc("get_user_ai_limits", { p_user_id: user.id });
+
+      if (!limitsError && limitsData) {
+        const parsed = limitsData as any;
+        canImport = parsed.can_import !== false;
+        userLimit = parsed.limit;
+        userUsage = parsed.usage;
+      } else {
+        console.warn("[extract-edital] RPC get_user_ai_limits failed, attempting direct query fallback:", limitsError?.message);
+        try {
+          const { data: subData, error: subError } = await supabaseClient
+            .from("user_subscriptions")
+            .select("plan, status")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          const sub = subData as any;
+          const isPaidActive = sub && ["monthly", "annual"].includes(sub.plan) && sub.status === "active";
+
+          if (isPaidActive) {
+            userLimit = 5;
+            const firstDayOfMonth = new Date();
+            firstDayOfMonth.setDate(1);
+            firstDayOfMonth.setHours(0, 0, 0, 0);
+            const firstDayStr = firstDayOfMonth.toISOString();
+
+            const { count, error: countError } = await supabaseClient
+              .from("user_editais")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", user.id)
+              .eq("is_imported", true)
+              .is("source_id", null)
+              .gte("created_at", firstDayStr);
+
+            if (!countError && count !== null) {
+              userUsage = count;
+            }
+          } else {
+            userLimit = 1;
+            const { count, error: countError } = await supabaseClient
+              .from("user_editais")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", user.id)
+              .eq("is_imported", true)
+              .is("source_id", null);
+
+            if (!countError && count !== null) {
+              userUsage = count;
+            }
+          }
+          canImport = userUsage < userLimit;
+        } catch (fallbackErr) {
+          console.error("[extract-edital] Commercial limit fallback queries failed:", fallbackErr);
+        }
+      }
+
+      if (!canImport) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Você esgotou seu limite de importações de editais com IA (${userUsage}/${userLimit}). Seu plano permite no máximo ${userLimit} importações de editais com IA. Para continuar importando novos editais com IA, faça o upgrade ou utilize nosso catálogo gratuito e modo manual de criação.`,
+          message: `Você esgotou seu limite de importações de editais com IA (${userUsage}/${userLimit}). Seu plano permite no máximo ${userLimit} importações de editais com IA. Para continuar importando novos editais com IA, faça o upgrade ou utilize nosso catálogo gratuito e modo manual de criação.`,
+          code: "AI_LIMIT_EXCEEDED"
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 403
+        });
+      }
+
+
+      // 1. Rate Limit check
+      const { data: rateLimitOk, error: rateLimitError } = await supabaseClient
+        .rpc("check_rate_limit", {
+          p_user_id: user.id,
+          p_endpoint: "extract-edital",
+          p_max_per_hour: 5
+        });
+
+      if (rateLimitError) {
+        console.error("[extract-edital] Rate limit check error:", rateLimitError);
+      }
+
+      if (rateLimitOk === false) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Limite de tentativas de IA excedido. Voce pode realizar no maximo 5 tentativas de extração por hora. Tente novamente mais tarde.",
+          message: "Limite de tentativas de IA excedido. Voce pode realizar no maximo 5 tentativas de extração por hora. Tente novamente mais tarde.",
+          code: "AI_RATE_LIMITED"
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429
+        });
+      }
+
+      // 2. Log API usage BEFORE calling Gemini
+      const { error: logUsageError } = await supabaseClient.rpc("log_api_usage", {
+        p_user_id: user.id,
+        p_endpoint: "extract-edital"
+      });
+
+      if (logUsageError) {
+        console.error("[extract-edital] log_api_usage error:", logUsageError);
+      }
+
+      // 3. Circuit Breaker validation
+      const dailyLimitUsd = typeof config.daily_budget_usd === "number" ? config.daily_budget_usd : 5.0;
+      let isCircuitBreakerOk = true;
+
+      const { data: circuitBreakerOk, error: circuitBreakerError } = await supabaseClient
+        .rpc("check_ai_circuit_breaker", {
+          p_daily_limit_usd: dailyLimitUsd
+        });
+
+      if (circuitBreakerError) {
+        console.warn("[extract-edital] RPC check_ai_circuit_breaker failed, attempting direct query fallback:", circuitBreakerError.message);
+        try {
+          const todayStr = new Date().toISOString().split("T")[0] + "T00:00:00.000Z";
+          const { data: sumData, error: sumError } = await supabaseClient
+            .from("ai_usage_logs")
+            .select("cost_estimate")
+            .gte("created_at", todayStr);
+          if (!sumError && sumData) {
+            const totalCost = sumData.reduce((acc: number, log: any) => acc + Number(log.cost_estimate || 0), 0);
+            isCircuitBreakerOk = totalCost < dailyLimitUsd;
+          }
+        } catch (fallbackErr) {
+          console.error("[extract-edital] Circuit breaker fallback query failed:", fallbackErr);
+        }
+      } else {
+        isCircuitBreakerOk = circuitBreakerOk !== false;
+      }
+
+      if (!isCircuitBreakerOk) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "O extrator por IA esta temporariamente em manutencao devido a alta demanda global. Por favor, utilize a criacao manual ou nosso catalogo oficial.",
+          message: "O extrator por IA esta temporariamente em manutencao devido a alta demanda global. Por favor, utilize a criacao manual ou nosso catalogo oficial.",
+          code: "AI_CIRCUIT_BREAKER_TRIGGERED"
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429
+        });
+      }
+    }
+
     let fileUri: string | null = null;
-    const shouldUsePdfFile = mode !== "mapContentStructure" && mode !== "extractSubject";
+    const shouldUsePdfFile = mode === "analyze" || mode === "extractForCargo";
     if (shouldUsePdfFile && pdfFileUri) {
       fileUri = String(pdfFileUri);
     } else if (shouldUsePdfFile && pdfPath) {
@@ -1529,7 +1739,7 @@ serve(async (req) => {
         .replace(/{{selectedCargo}}/g, selectedCargo || reqData.position || "")
         .replace(/{{selectedCargoName}}/g, selectedCargoParts.name || selectedCargo || reqData.position || "")
         .replace(/{{selectedCargoArea}}/g, selectedCargoParts.area || "null")}
-
+ 
 ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     }
     const prompt = withBankProfileInstruction(basePrompt, mode, inputText, profileAnalysisContext);
@@ -1544,7 +1754,7 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
       : baseContextInstruction;
 
     const payloadInputText = mode === "extractSubject" ? String(sourceExcerpt || "") : inputText;
-    const payloadFileUri = mode === "mapContentStructure" || mode === "extractSubject" ? null : fileUri;
+    const payloadFileUri = shouldUsePdfFile ? fileUri : null;
 
     const buildPayload = (modelName: string) => ({
       contents: buildContents(contextInstruction, payloadInputText, payloadFileUri),
@@ -1561,6 +1771,12 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     console.log("[extract-edital] Calling Gemini", { mode, modelCandidates, hasPdf: !!payloadFileUri, hasText: !!payloadInputText });
     const timeoutMs = mode === "extractForCargo" ? 85000 : mode === "extractSubject" ? 45000 : mode === "extractWeights" ? 25000 : 70000;
     const { text, finishReason, usage, modelName } = await callGeminiWithFallbacks(apiKey, modelCandidates, buildPayload, timeoutMs, 2);
+    modelNameUsed = modelName;
+
+    // Log success in telemetria
+    const pTokens = usage?.promptTokenCount || 0;
+    const cTokens = usage?.candidatesTokenCount || 0;
+    await logAiUsage("success", modelNameUsed, pTokens, cTokens);
 
     if (finishReason === "MAX_TOKENS") {
       throw new Error("A resposta da IA foi cortada por limite de tokens. Tente enviar apenas a parte do conteudo programatico ou reduzir o edital.");
@@ -1651,6 +1867,10 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error: any) {
     console.error("[extract-edital] error:", error?.message || error);
+    // Log failure in telemetria (if client and user are initialized)
+    if (supabaseClient && user) {
+      await logAiUsage("failed", modelNameUsed, 0, 0);
+    }
     const status = error?.status === 429 ? 429 : error?.message === "Unauthorized" ? 401 : 400;
     const publicMessage = error?.publicMessage || error?.message || "Erro ao processar edital.";
     return new Response(JSON.stringify({

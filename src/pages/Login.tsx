@@ -4,6 +4,7 @@ import { useUserLogger } from '@/hooks/useUserLogger';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
+import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail,
@@ -46,6 +47,14 @@ const Login = () => {
   useEffect(() => {
     const checkUserAndRedirect = async () => {
       if (user) {
+        if (isEmailConfirmationPending(user)) {
+          localStorage.setItem('pendingConfirmationEmail', user.email || '');
+          await supabase.auth.signOut();
+          toastManager.error('Email não confirmado. Verifique sua caixa de entrada.');
+          navigate('/confirm-email', { replace: true });
+          return;
+        }
+
         // Security Check: Active Status before redirecting
         const { data: profile } = await supabase
           .from('profiles')

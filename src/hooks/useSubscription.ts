@@ -62,9 +62,29 @@ export function useSubscription(): UseSubscriptionReturn {
         .eq('user_id', user.id)
         .single()
 
-      if (directError && directError.code !== 'PGRST116') { // PGRST116 = no rows found
-        console.error('Direct subscription error:', directError)
-        throw directError
+      // Verificar se o usuário possui a role de admin ou owner ou se é email protegido
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+
+      const isOwnerOrAdmin = user.email === 'vourevisar@gmail.com' || 
+                             user.email === 'darciliok@gmail.com' || 
+                             (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin'));
+
+      if (isOwnerOrAdmin) {
+        setSubscription({
+          user_id: user.id,
+          plan: 'annual',
+          status: 'active',
+          is_active: true,
+          days_remaining: 99999,
+          trial_ends_at: null,
+          subscription_ends_at: null,
+          created_at: subscriptionData?.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        return
       }
 
       // Log removido para otimização

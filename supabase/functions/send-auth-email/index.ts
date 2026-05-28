@@ -28,6 +28,7 @@ interface EmailData {
 interface WebhookPayload {
   user: {
     email: string
+    new_email?: string
     user_metadata?: {
       name?: string
     }
@@ -44,14 +45,16 @@ function normalizeHookSecret(secret: string): string {
     throw new Error('SEND_EMAIL_HOOK_SECRET is not configured')
   }
 
+  const secretValue = secret.includes(',') ? secret.split(',').pop() ?? secret : secret
+
   // If it's already in whsec_ format, extract the base64 part
-  if (secret.startsWith('whsec_')) {
-    return secret
+  if (secretValue.startsWith('whsec_')) {
+    return secretValue
   }
 
   // If it's a raw base64 string, add the whsec_ prefix
   // The standardwebhooks library expects this prefix
-  return `whsec_${secret}`
+  return `whsec_${secretValue}`
 }
 
 Deno.serve(async (req) => {
@@ -103,42 +106,31 @@ Deno.serve(async (req) => {
 
     console.log('✅ Webhook signature verified')
     console.log('Email type:', webhookData.email_data.email_action_type)
-    console.log('User email:', webhookData.user.email)
   } catch (error: any) {
     console.error('❌ Webhook signature verification failed:', error.message)
 
-    // Log more details for debugging
-    console.log('Debug info - Raw secret length:', rawSecret.length)
-    console.log('Debug info - Webhook headers present:', {
+    console.log('Webhook headers present:', {
       'webhook-id': !!headers['webhook-id'],
       'webhook-signature': !!headers['webhook-signature'],
       'webhook-timestamp': !!headers['webhook-timestamp'],
     })
 
-    // If signature verification fails, try parsing payload directly for development
-    // This is a fallback - in production, signature should always be verified
-    try {
-      console.log('⚠️ Attempting to parse payload directly (fallback mode)...')
-      webhookData = JSON.parse(payload) as WebhookPayload
-      console.log('✅ Payload parsed successfully (WARNING: signature not verified)')
-    } catch (parseError) {
-      return new Response(
-        JSON.stringify({
-          error: {
-            http_code: 401,
-            message: 'Invalid webhook signature or payload',
-          },
-        }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        }
-      )
-    }
+    return new Response(
+      JSON.stringify({
+        error: {
+          http_code: 401,
+          message: 'Invalid webhook signature',
+        },
+      }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      }
+    )
   }
 
   const { user, email_data } = webhookData
-  const { token, token_hash, redirect_to, email_action_type, site_url } = email_data
+  const { token, token_hash, token_hash_new, redirect_to, email_action_type, site_url } = email_data
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
   const userName = user.user_metadata?.name || 'Usuário'
 
@@ -193,6 +185,67 @@ Deno.serve(async (req) => {
 
       case 'email_change':
         subject = 'Confirme a mudança de email - vouRevisar'
+
+        if (token_hash_new && user.new_email) {
+          const currentEmailHtml = await renderAsync(
+            React.createElement(EmailChangeEmail, {
+              supabase_url: supabaseUrl,
+              token_hash: token_hash_new,
+              redirect_to: redirect_to || `${site_url}/perfil`,
+              logo_url: logoUrl,
+              user_name: userName,
+            })
+          )
+
+          const newEmailHtml = await renderAsync(
+            React.createElement(EmailChangeEmail, {
+              supabase_url: supabaseUrl,
+              token_hash,
+              redirect_to: redirect_to || `${site_url}/perfil`,
+              logo_url: logoUrl,
+              user_name: userName,
+            })
+          )
+
+          const [currentEmailResult, newEmailResult] = await Promise.all([
+            resend.emails.send({
+              from: 'vouRevisar <noreply@vourevisar.com.br>',
+              to: [user.email],
+              subject,
+              html: currentEmailHtml,
+            }),
+            resend.emails.send({
+              from: 'vouRevisar <noreply@vourevisar.com.br>',
+              to: [user.new_email],
+              subject,
+              html: newEmailHtml,
+            }),
+          ])
+
+          if (currentEmailResult.error) {
+            console.error('❌ Resend API error sending email change to current address:', currentEmailResult.error)
+            throw currentEmailResult.error
+          }
+
+          if (newEmailResult.error) {
+            console.error('❌ Resend API error sending email change to new address:', newEmailResult.error)
+            throw newEmailResult.error
+          }
+
+          console.log('✅ Secure email change emails sent successfully')
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message_ids: [currentEmailResult.data?.id, newEmailResult.data?.id].filter(Boolean),
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders },
+            }
+          )
+        }
+
         html = await renderAsync(
           React.createElement(EmailChangeEmail, {
             supabase_url: supabaseUrl,
@@ -212,7 +265,7 @@ Deno.serve(async (req) => {
         )
     }
 
-    console.log(`📤 Sending ${email_action_type} email to ${user.email}`)
+    console.log(`📤 Sending ${email_action_type} email`)
 
     const { data, error } = await resend.emails.send({
       from: 'vouRevisar <noreply@vourevisar.com.br>',

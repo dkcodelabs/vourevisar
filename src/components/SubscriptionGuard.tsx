@@ -4,6 +4,7 @@
 import React from 'react'
 import { useSubscription } from '@/hooks/useSubscription'
 import { AlertTriangle, Crown, Clock, CreditCard } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 interface SubscriptionGuardProps {
   children: React.ReactNode
@@ -59,11 +60,12 @@ export function PaidOnlyGuard({
 // =====================================================
 export function TrialExpiringWarning() {
   const { isTrial, daysRemaining, isActive } = useSubscription()
+  const navigate = useNavigate()
 
   if (!isTrial || !isActive || daysRemaining > 3) return null
 
   return (
-    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4 font-sans">
       <div className="flex items-center">
         <Clock className="w-5 h-5 text-orange-600 mr-3" />
         <div className="flex-1">
@@ -74,7 +76,10 @@ export function TrialExpiringWarning() {
             Assine um plano para continuar usando todas as funcionalidades.
           </p>
         </div>
-        <button className="ml-4 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+        <button 
+          onClick={() => navigate('/planos')}
+          className="ml-4 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-xs font-semibold"
+        >
           Assinar Agora
         </button>
       </div>
@@ -86,6 +91,7 @@ export function TrialExpiringWarning() {
 // COMPONENTE DE STATUS DA ASSINATURA
 // =====================================================
 export function SubscriptionStatus() {
+  const navigate = useNavigate()
   const { 
     subscription, 
     loading, 
@@ -99,7 +105,7 @@ export function SubscriptionStatus() {
 
   if (loading) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 font-sans">
         <div className="animate-pulse flex items-center">
           <div className="w-5 h-5 bg-gray-300 rounded mr-3"></div>
           <div className="h-4 bg-gray-300 rounded w-32"></div>
@@ -110,7 +116,7 @@ export function SubscriptionStatus() {
 
   if (!subscription) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 font-sans">
         <div className="flex items-center">
           <AlertTriangle className="w-5 h-5 text-red-600 mr-3" />
           <span className="text-red-700">Erro ao carregar assinatura</span>
@@ -136,7 +142,7 @@ export function SubscriptionStatus() {
   const color = getStatusColor()
 
   return (
-    <div className={`bg-${color}-50 border border-${color}-200 rounded-lg p-4`}>
+    <div className={`bg-${color}-50 border border-${color}-200 rounded-lg p-4 font-sans`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <div className={`text-${color}-600 mr-3`}>
@@ -148,7 +154,7 @@ export function SubscriptionStatus() {
             </h3>
             <p className={`text-sm text-${color}-700`}>
               {isActive 
-                ? `${daysRemaining} dias restantes`
+                ? (daysRemaining > 50000 ? 'Acesso ilimitado (Administrador)' : `${daysRemaining} dias restantes`)
                 : 'Assinatura expirada'
               }
             </p>
@@ -156,7 +162,10 @@ export function SubscriptionStatus() {
         </div>
         
         {(isTrial || isExpired) && (
-          <button className={`px-4 py-2 bg-${color}-600 text-white rounded-lg hover:bg-${color}-700 transition-colors`}>
+          <button 
+            onClick={() => navigate('/planos')}
+            className={`px-4 py-2 bg-${color}-600 hover:bg-${color}-700 text-white rounded-lg transition-colors text-xs font-semibold`}
+          >
             {isTrial ? 'Assinar' : 'Renovar'}
           </button>
         )}
@@ -169,8 +178,9 @@ export function SubscriptionStatus() {
 // MENSAGENS DE BLOQUEIO
 // =====================================================
 function PaidOnlyMessage() {
+  const navigate = useNavigate()
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center font-sans">
       <Crown className="w-12 h-12 text-blue-600 mx-auto mb-4" />
       <h3 className="text-lg font-semibold text-blue-900 mb-2">
         Conteúdo Premium
@@ -178,7 +188,10 @@ function PaidOnlyMessage() {
       <p className="text-blue-700 mb-4">
         Esta funcionalidade está disponível apenas para assinantes pagos.
       </p>
-      <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+      <button 
+        onClick={() => navigate('/planos')}
+        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold shadow-md shadow-blue-500/20"
+      >
         Assinar Plano Premium
       </button>
     </div>
@@ -186,8 +199,9 @@ function PaidOnlyMessage() {
 }
 
 function ExpiredMessage() {
+  const navigate = useNavigate()
   return (
-    <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+    <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center font-sans">
       <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
       <h3 className="text-lg font-semibold text-red-900 mb-2">
         Assinatura Expirada
@@ -195,7 +209,10 @@ function ExpiredMessage() {
       <p className="text-red-700 mb-4">
         Sua assinatura expirou. Renove para continuar usando o sistema.
       </p>
-      <button className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+      <button 
+        onClick={() => navigate('/planos')}
+        className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-semibold shadow-md shadow-red-500/20"
+      >
         Renovar Assinatura
       </button>
     </div>
