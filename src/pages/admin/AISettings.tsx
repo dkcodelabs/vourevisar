@@ -86,6 +86,13 @@ PROCESSE TODO O TEXTO ABAIXO SEM INTERRUPÇÕES, DO INÍCIO AO FIM:
 [COLE O TEXTO DO EDITAL AQUI]`
 };
 
+function mergeAIConfig(value: unknown): typeof DEFAULT_CONFIG {
+  return {
+    ...DEFAULT_CONFIG,
+    ...(value && typeof value === 'object' ? value as Partial<typeof DEFAULT_CONFIG> : {}),
+  };
+}
+
 export default function AISettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -109,31 +116,11 @@ export default function AISettings() {
 
         if (error) throw error;
 
-        let finalConfig = DEFAULT_CONFIG;
-        if (data && data.value) {
-          finalConfig = data.value as typeof DEFAULT_CONFIG;
-        }
-
-        const draft = localStorage.getItem('ai_settings_draft');
-        if (draft) {
-          try {
-            const parsedDraft = JSON.parse(draft);
-            const isInvalidDraft = parsedDraft.model === 'gemini-2.5-flash' || parsedDraft.model === 'gemini-1.5-flash-latest' || parsedDraft.model === 'gemini-1.5-flash';
-            
-            if (!isInvalidDraft && JSON.stringify(parsedDraft) !== JSON.stringify(finalConfig)) {
-              finalConfig = parsedDraft;
-              setHasUnsavedChanges(true);
-              toast.info('Rascunho recuperado!');
-            } else if (isInvalidDraft) {
-              localStorage.removeItem('ai_settings_draft');
-              console.log(`Draft inválido (${parsedDraft.model}) removido.`);
-            }
-          } catch (e) {
-            localStorage.removeItem('ai_settings_draft');
-          }
-        }
+        const finalConfig = data?.value ? mergeAIConfig(data.value) : DEFAULT_CONFIG;
 
         setConfig(finalConfig);
+        setHasUnsavedChanges(false);
+        localStorage.removeItem('ai_settings_draft');
       } catch (error: unknown) {
         console.error('Error fetching AI settings:', error);
         if (error instanceof Error) {
@@ -147,12 +134,6 @@ export default function AISettings() {
     fetchSettings();
   }, []);
 
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('ai_settings_draft', JSON.stringify(config));
-    }
-  }, [config, isLoading]);
-
   const handleReset = () => {
     if (confirm('Tem certeza que deseja restaurar as configurações padrão? Isso substituirá suas alterações atuais.')) {
       setConfig(DEFAULT_CONFIG);
@@ -161,7 +142,8 @@ export default function AISettings() {
     }
   };
 
-  const handleSave = async () => {    setIsSaving(true);
+  const handleSave = async () => {
+    setIsSaving(true);
     try {
       const { error } = await supabase
         .from('system_settings')
@@ -201,16 +183,11 @@ export default function AISettings() {
       className="space-y-8 pb-20"
     >
       <div className="max-w-5xl">
-        <header className="mb-10">
-          <h1 className="text-3xl font-black tracking-tight text-foreground/90 uppercase mb-2">
-            Gestão de IA
-          </h1>
-          <p className="text-muted-foreground text-sm font-medium opacity-70">
-            Configure o comportamento dos motores de IA para extração e unificação de editais.
-          </p>
-        </header>
-
         <div className="flex items-center justify-end gap-3 mb-8">
+          <span className="mr-auto rounded-xl border border-border bg-secondary/40 px-3 py-2 text-xs font-bold text-muted-foreground">
+            Modelo configurado: <span className="text-primary">{config.model || 'não definido'}</span>
+          </span>
+
           {hasUnsavedChanges && (
             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-500 rounded-xl text-[10px] font-black uppercase border border-amber-500/20">
               <AlertCircle size={14} /> Alterações Pendentes

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import {
   User, Mail, Calendar, Phone, Lock, Shield, CreditCard,
   GraduationCap, Target, Clock, BookOpen, Camera, Loader2,
-  CheckCircle2, ShieldCheck, Pencil
+  CheckCircle2, ShieldCheck, Pencil, ExternalLink
 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { toast } from '@/lib/toast';
@@ -150,7 +150,8 @@ const Profile = () => {
   const [isEditingAcademic, setIsEditingAcademic] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isGoogleUser = user?.app_metadata?.provider === 'google';
+  const authProviders = user?.identities?.map((identity) => identity.provider) || [];
+  const isGoogleUser = user?.app_metadata?.provider === 'google' || authProviders.includes('google');
 
   // ─── Forms ──────────────────────────────────────────────
   const profileForm = useForm({
@@ -233,10 +234,14 @@ const Profile = () => {
     }
     try {
       setIsSaving(true);
-      await resetPassword(values.email);
+      const result = await resetPassword(values.email);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao enviar email de redefinição.');
+      }
+
       setIsResetDialogOpen(false);
       resetForm.reset();
-      toast.success('Email enviado! Verifique sua caixa de entrada.');
     } catch (error: unknown) {
       errorService.report(error as Error, { module: 'profile', action: 'reset-password', userMessage: 'Erro ao enviar email de redefinição.' });
     } finally {
@@ -449,7 +454,18 @@ const Profile = () => {
                     <span className="text-sm text-muted-foreground">Senha</span>
                   </div>
                   {isGoogleUser ? (
-                    <span className="text-xs text-muted-foreground">Via Google</span>
+                    <div className="flex flex-col items-end gap-1 text-right">
+                      <span className="text-xs font-medium text-muted-foreground">Gerenciada pelo Google</span>
+                      <a
+                        href="https://myaccount.google.com/security"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        Alterar no Google
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
                   ) : (
                     <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
                       <DialogTrigger asChild>

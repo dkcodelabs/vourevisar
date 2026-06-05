@@ -34,7 +34,7 @@ serve(async (req) => {
       .maybeSingle()
     
     const globalConfig = dbSettings?.value || {}
-    const defaultModel = globalConfig.model || "gemini-2.0-flash"
+    const defaultModel = globalConfig.model || "gemini-2.5-flash"
     const defaultGenConfig = {
       temperature: globalConfig.temperature ?? 0.1,
       topK: globalConfig.top_k,
@@ -148,7 +148,17 @@ serve(async (req) => {
         `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`
       )
       const data = await response.json()
-      return new Response(JSON.stringify({ success: !!data.models, data, model: defaultModel }), {
+      if (!response.ok || data.error) {
+        throw new Error(data.error?.message || 'Falha ao consultar modelos Gemini')
+      }
+
+      const availableModels = Array.isArray(data.models) ? data.models : []
+      const normalizedDefault = defaultModel.replace(/^models\//, '')
+      const modelIsListed = availableModels.some((model: { name?: string }) =>
+        String(model.name || '').replace(/^models\//, '') === normalizedDefault
+      )
+
+      return new Response(JSON.stringify({ success: true, data, model: defaultModel, modelIsListed }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }

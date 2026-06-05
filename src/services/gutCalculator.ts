@@ -114,6 +114,11 @@ const STORAGE_KEY_COTA = 'gut_api_quota'
 const CACHE_TTL_DAYS = 30
 
 import { supabase } from '@/integrations/supabase/client'
+import {
+    applyTopicIncidenceCatalogMatch,
+    findTopicIncidenceCatalogMatch,
+    saveTopicIncidenceCatalogResult,
+} from '@/services/topicIncidenceCatalogService'
 
 // --- SUPABASE CLIENT (SINGLETON ADAPTER) ---
 // Mantido para compatibilidade, mas agora retorna a instância única
@@ -693,6 +698,32 @@ export async function processNextPendingTopic(
         const subjectName = topicData.subjects?.name || 'Geral'
         console.log(`📝 Tópico real selecionado: "${topicData.name}" (${subjectName})`)
 
+        const catalogMatch = await findTopicIncidenceCatalogMatch({
+            topicName: topicData.name,
+            subjectName,
+        })
+
+        if (catalogMatch) {
+            await applyTopicIncidenceCatalogMatch(topicData.id, catalogMatch)
+            console.log(`♻️ Volume reaproveitado do catálogo para "${topicData.name}": ${catalogMatch.total_volume}`)
+
+            return {
+                success: true,
+                id: topicData.id,
+                materia: subjectName,
+                topico_original: topicData.name,
+                total_volume: catalogMatch.total_volume,
+                maior_sub_topico: catalogMatch.winner_query || 'Catálogo',
+                status: 'success',
+                reasoning: 'Volume reaproveitado do catálogo',
+                effective_context: catalogMatch.search_context || 'Catálogo',
+                last_used_query: catalogMatch.winner_query || null,
+                audit_log: catalogMatch.audit_log || {},
+                api_cost: 0,
+                from_catalog: true
+            }
+        }
+
         // 🎯 VERIFICAR SE JÁ FOI PROCESSADO RECENTEMENTE
         if (topicData.last_trend_check_at) {
             const lastCheck = new Date(topicData.last_trend_check_at)
@@ -812,6 +843,23 @@ export async function processNextPendingTopic(
             attempts: []
         }
 
+        const catalogId = await saveTopicIncidenceCatalogResult({
+            userId: user.id,
+            topicName: topicData.name,
+            subjectName,
+            totalVolume: result.volume_maximo,
+            importanceScore: result.nota_importancia,
+            searchContext: result.effective_context,
+            winnerQuery: auditLog.winner_query,
+            auditLog,
+            metadata: {
+                sub_topics: result.sub_topicos_ia,
+                term_winner: result.termo_maior_risco,
+                banks: result.bancas_analisadas,
+                filter_time: result.filtro_tempo,
+            },
+        })
+
         const { error: updateError } = await supabase
             .from('topics')
             .update({
@@ -822,7 +870,16 @@ export async function processNextPendingTopic(
                 is_skipped: isSkipped,
                 last_search_context: result.effective_context,
                 last_used_query: auditLog.winner_query,
-                last_audit_log: auditLog
+                last_audit_log: auditLog,
+                incidence_catalog_id: catalogId,
+                incidence_source: 'ai',
+                incidence_applied_at: new Date().toISOString(),
+                incidence_context: {
+                    catalog_id: catalogId,
+                    search_context: result.effective_context,
+                    winner_query: auditLog.winner_query,
+                    source: 'ai',
+                }
             } as any)
             .eq('id', topicData.id)
 

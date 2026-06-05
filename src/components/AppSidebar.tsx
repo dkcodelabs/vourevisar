@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Calendar, Users, Settings, Clock,
+  LayoutDashboard, Calendar, Users, Clock,
   Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
   ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Monitor, FileSearch,
-  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Layers, Bot, NotebookTabs, AlertTriangle, Crown
+  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Layers, Bot, NotebookTabs, AlertTriangle, Crown, LogOut, User
 } from "lucide-react";
 
 import { AnimatedLogo } from './AnimatedLogo';
@@ -177,10 +177,26 @@ const SidebarAccountPanel = ({
   isAdmin: boolean;
   isOwner: boolean;
 }) => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { profile } = useUserProfile();
   const { subscriptionInfo, loading } = useSubscriptionInfo();
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = React.useState(false);
+  const [isSigningOut, setIsSigningOut] = React.useState(false);
+  const accountMenuRef = React.useRef<HTMLDivElement>(null);
   const showIconOnly = isCollapsed && !isMobile;
+
+  React.useEffect(() => {
+    if (!isAccountMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isAccountMenuOpen]);
 
   if (!user) return null;
 
@@ -188,16 +204,31 @@ const SidebarAccountPanel = ({
     .split(' ')[0]
     .toUpperCase();
   const view = getSubscriptionView(subscriptionInfo, isAdmin, isOwner);
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    setIsAccountMenuOpen(false);
+
+    try {
+      await signOut();
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   if (showIconOnly) {
     return (
       <div className="px-3 pb-4">
-        <SidebarTooltip label={`${view.title} - ${view.cta}`} enabled>
+        <SidebarTooltip label="Meu Perfil" enabled>
           <Link
-            to="/planos"
+            to="/conta?tab=perfil"
             className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-black/5 text-sidebar-muted transition-all hover:border-primary/40 hover:bg-primary/10 hover:text-primary dark:bg-white/5"
           >
-            <CreditCard size={18} />
+            <UserAvatar
+              src={profile?.avatar_url}
+              name={profile?.name || user.email}
+              className="h-10 w-10 rounded-xl border border-white/10"
+              fallbackClassName="rounded-xl bg-amber-500/10 text-amber-300"
+            />
           </Link>
         </SidebarTooltip>
       </div>
@@ -205,10 +236,44 @@ const SidebarAccountPanel = ({
   }
 
   return (
-    <div className="shrink-0 border-t border-border/70 p-3">
-      <Link
-        to="/planos"
-        className="mb-2 flex items-center gap-3 rounded-2xl px-1 py-1 transition-opacity hover:opacity-90"
+    <div className="relative shrink-0 border-t border-border/70 p-3" ref={accountMenuRef}>
+      <AnimatePresence>
+        {isAccountMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className="absolute bottom-full left-3 right-3 mb-2 overflow-hidden rounded-2xl border border-border bg-sidebar shadow-2xl dark:border-white/10"
+          >
+            <div className="p-2">
+              <Link
+                to="/conta?tab=perfil"
+                onClick={() => setIsAccountMenuOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-bold text-sidebar-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+              >
+                <User size={16} />
+                Conta
+              </Link>
+              <div className="my-1 h-px bg-border/80" />
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-bold text-orange-500 transition-colors hover:bg-orange-500/10 disabled:cursor-wait disabled:opacity-70"
+              >
+                <LogOut size={16} />
+                {isSigningOut ? 'Saindo...' : 'Sair'}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button
+        type="button"
+        onClick={() => setIsAccountMenuOpen((open) => !open)}
+        className="mb-2 flex w-full items-center gap-3 rounded-2xl px-1 py-1 text-left transition-opacity hover:opacity-90"
       >
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-extrabold tracking-wide text-sidebar-foreground">
@@ -224,7 +289,7 @@ const SidebarAccountPanel = ({
           className="h-11 w-11 rounded-xl border border-white/10"
           fallbackClassName="rounded-xl bg-amber-500/10 text-amber-300"
         />
-      </Link>
+      </button>
 
       <Link
         to="/planos"
@@ -286,15 +351,37 @@ export function AppSidebar() {
 
   const { aiStatus } = useAIStatus({ enabled: isAdmin });
 
+  const getAIStatusVisual = () => {
+    if (aiStatus.status === 'active') {
+      return {
+        iconClass: 'text-green-500',
+        dotClass: 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]',
+      };
+    }
+
+    if (aiStatus.status === 'error') {
+      return {
+        iconClass: 'text-red-500',
+        dotClass: 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]',
+      };
+    }
+
+    return {
+      iconClass: 'text-sidebar-muted',
+      dotClass: 'bg-slate-400 shadow-none',
+    };
+  };
+
   const renderNavItems = (items: NavItem[]) => (
     items.map((item) => {
       const isActive = isItemActive(item);
       const showIconOnly = isCollapsed && !isMobile;
       const isAIItem = item.to === "/admin/ai-settings";
+      const aiVisual = getAIStatusVisual();
       
       let aiStatusColor = "";
       if (isAIItem) {
-        aiStatusColor = aiStatus.status === 'active' ? 'text-green-500' : 'text-red-500';
+        aiStatusColor = aiVisual.iconClass;
       }
 
       return (
@@ -311,14 +398,14 @@ export function AppSidebar() {
                     className={isActive ? 'text-primary' : (isAIItem ? aiStatusColor : '')} 
                   />
                   {isAIItem && showIconOnly && (
-                    <div className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-sidebar ${aiStatus.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <div className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-sidebar ${aiVisual.dotClass}`} />
                   )}
                 </div>
                 {!showIconOnly && (
                   <div className="flex items-center justify-between flex-1 min-w-0">
                     <span className="font-medium text-[13px] whitespace-nowrap truncate">{item.label}</span>
                     {isAIItem && (
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ml-2 ${aiStatus.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ml-2 ${aiVisual.dotClass}`} />
                     )}
                   </div>
                 )}

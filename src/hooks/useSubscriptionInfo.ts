@@ -1,7 +1,7 @@
 // =====================================================
 // HOOK PERSONALIZADO PARA INFORMAÇÕES DE ASSINATURA
 // =====================================================
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 
 interface SubscriptionInfo {
@@ -31,6 +31,11 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const channelInstanceId = useRef(
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`
+  )
 
   const fetchSubscriptionInfo = useCallback(async () => {
     try {
@@ -139,7 +144,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
       // Log removido para otimização
 
       channel = supabase
-        .channel(`subscription_changes:${user.id}`)
+        .channel(`subscription_changes:${user.id}:${channelInstanceId.current}`)
         .on(
           'postgres_changes',
           {

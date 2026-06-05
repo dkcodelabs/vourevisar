@@ -302,7 +302,7 @@ REGRAS OBRIGATÓRIAS:
       body: { 
         action: 'generateContent', 
         prompt: enhancedPrompt.replace('$SUBJECTS$', JSON.stringify(subjectList)),
-        model: 'gemini-3.1-flash-lite-preview'
+        model: 'gemini-2.5-flash'
       },
     });
 
@@ -579,7 +579,7 @@ Retorne um JSON no formato: { "groups": [ { "originalTopicsToMerge": ["ID1", "ID
       body: { 
         action: 'generateContent', 
         prompt: fullPrompt,
-        model: 'gemini-3.1-flash-lite-preview'
+        model: 'gemini-2.5-flash'
       },
     });
 
@@ -1194,4 +1194,3 @@ export async function discardPendingMergeSuggestions(userId: string): Promise<vo
     throw error;
   }
 }
-

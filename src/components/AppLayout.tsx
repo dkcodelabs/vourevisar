@@ -13,7 +13,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { StudentHubPanel } from "./student-hub/StudentHubPanel";
 import { useStudentHubBadge } from "@/hooks/useStudentHubBadge";
 import { FocusTimer } from "./FocusTimer";
-import { UserProfileNav } from "./UserProfileNav";
 
 import { AppSidebar } from "./AppSidebar";
 import { ThemeToggle } from "./ThemeToggle";
@@ -36,6 +35,7 @@ const routeTitles: Record<string, string> = {
   "/ciclo-estudos": "Ciclo de Estudos",
   "/revisoes": "Revisões",
   "/estatisticas": "Estatísticas",
+  "/conta": "Conta",
   "/perfil": "Perfil",
   "/configuracoes": "Configurações",
   "/admin/ai-settings": "Gestão de IA",
@@ -225,9 +225,6 @@ export const AppLayout = () => {
                     <NotebookPen className="text-muted-foreground" size={18} />
                   </button>
 
-                  <div className="pl-1">
-                    {user && <UserProfileNav />}
-                  </div>
                 </div>
               </div>
             </div>
@@ -283,9 +280,6 @@ export const AppLayout = () => {
                   <NotebookPen className="text-slate-500 group-hover:text-primary transition-colors" size={20} />
                 </button>
 
-                <div className="flex items-center pl-4 border-l border-black/10 dark:border-white/10">
-                  <UserProfileNav />
-                </div>
               </div>
             </div>
           </div>

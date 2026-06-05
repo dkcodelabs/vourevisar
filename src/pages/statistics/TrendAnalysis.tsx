@@ -5,7 +5,8 @@ import { errorService } from '@/lib/errors/errorService';
 import { Loader2, TrendingUp, BrainCircuit, Split, AlertOctagon, ArrowLeft } from 'lucide-react';
 import { calcularNotaImportancia } from '@/services/gutCalculator';
 import { AutomationSimulator } from '@/components/AutomationSimulator';
-import { AllTopicsTable } from '@/components/AllTopicsTable';
+import { AllTopicsTable, type TopicIncidenceFilter } from '@/components/AllTopicsTable';
+import { IncidenceOperationalSummary } from '@/components/incidence/IncidenceOperationalSummary';
 import { useNavigate } from 'react-router-dom';
 
 const TrendAnalysis = () => {
@@ -17,6 +18,7 @@ const TrendAnalysis = () => {
 
     const [loading, setLoading] = useState(false);
     const [refreshTable, setRefreshTable] = useState(0);
+    const [topicFilter, setTopicFilter] = useState<TopicIncidenceFilter>('all');
     const [resultado, setResultado] = useState<{
         volume_maximo: number
         nota_importancia: number
@@ -80,9 +82,9 @@ const TrendAnalysis = () => {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
                             <TrendingUp className="w-6 h-6 text-primary" />
-                            Calculadora de Importância em Prova
+                            Calculadora de Sinal de Cobrança
                         </h1>
-                        <p className="text-content-muted mt-1.5 text-sm">Analise a relevância de tópicos com Inteligência Artificial e dados de mercado.</p>
+                        <p className="text-content-muted mt-1.5 text-sm">Analise sinais brutos de cobrança com Inteligência Artificial e dados de busca.</p>
                     </div>
                 </div>
             </div>
@@ -230,7 +232,7 @@ const TrendAnalysis = () => {
                                 <div className="text-3xl font-black text-red-800 mt-2 tracking-tight">
                                     {resultado.volume_maximo.toLocaleString()}
                                 </div>
-                                <div className="text-xs text-red-400 font-medium mt-1">questões encontradas</div>
+                                <div className="text-xs text-red-400 font-medium mt-1">sinal bruto encontrado</div>
                             </div>
 
                             <div className="bg-slate-50 p-6 rounded-xl flex flex-col justify-center border border-slate-100">
@@ -279,12 +281,13 @@ const TrendAnalysis = () => {
                     </div>
                 )}
 
-                {/* 🤖 PAINEL DE AUTOMAÇÃO (V16.5) */}
+                <IncidenceOperationalSummary refreshTrigger={refreshTable} />
+
+                {/* Painel operacional de incidência */}
                 <div className="mt-8 pt-8 border-t border-slate-200">
                     <div className="flex items-center gap-2 mb-6">
-                        <span className="text-2xl">🤖</span>
                         <h2 className="text-xl font-bold text-slate-800">
-                            Painel de Automação (Simulador)
+                            Processamento de incidência
                         </h2>
                     </div>
 
@@ -301,7 +304,11 @@ const TrendAnalysis = () => {
                     <div className="mt-8">
                         <h3 className="text-lg font-bold text-slate-800 mb-4">Base de Tópicos Importados</h3>
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <AllTopicsTable refreshTrigger={refreshTable} />
+                            <AllTopicsTable
+                                refreshTrigger={refreshTable}
+                                filter={topicFilter}
+                                onFilterChange={setTopicFilter}
+                            />
                         </div>
                     </div>
                 </div>

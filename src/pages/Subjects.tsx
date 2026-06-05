@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Plus, Trash2, Edit, Edit2, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ListTodo } from 'lucide-react';
+import { Plus, Trash2, Edit, Edit2, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ListTodo, Target, TrendingUp, TrendingDown, Trophy } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
@@ -15,9 +15,8 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '@/components/SortableItem';
-import { Subject, Topic, Status, UserEdital } from '@/types';
+import { Subject, Topic, UserEdital } from '@/types';
 import type { UserEdital as EditalModalData } from '@/pages/Editais';
-import { getTopicStatusInfo } from '@/utils/topicStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { transformSubjectsData } from '@/contexts/utils/dataTransformers';
 import { applyUnificationMap, getUnifiedSubjectId } from '@/services/cycleMergeService';
@@ -30,7 +29,6 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
 import { EditalSubjectsModal } from '@/components/editais/EditalSubjectsModal';
 
-import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { errorService } from '@/lib/errors/errorService';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 
@@ -38,13 +36,32 @@ import { useMergeData } from '@/hooks/useMergeData';
 import { fetchTopicReviewStats } from '@/services/topicReviewService';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
-import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
 import { mergeService } from '@/services/mergeService';
+import { recordCycleStudyEvent, type CycleStudyEventType } from '@/services/cycleStudyEventsService';
 import { withTimeout } from '@/utils/withTimeout';
+import {
+  getSubjectStrategicWeight,
+  getTopicStrategicIncidence,
+} from '@/utils/studyCycleStrategic';
+import {
+  formatExamWeightInputValue,
+  getExamWeightTotals,
+  getEffectiveSubjectExamWeight,
+  getSubjectExamWeightPercentage,
+  parseOptionalExamWeightNumber,
+} from '@/utils/examWeight';
+import {
+  getStudyCycleAlerts,
+  type StudyCycleAlert,
+} from '@/utils/studyCycleAlerts';
+import { getStudyCycleMetrics } from '@/utils/studyCycleMetrics';
+import {
+  getStudyCycleEventInsights,
+  type CycleStudyEvent,
+} from '@/utils/studyCycleEventInsights';
+import { getStudyCycleQueueSuggestion } from '@/utils/studyCycleQueueSuggestion';
 
 type SubjectTab = 'all' | 'vertical';
-type SubjectVisualTag = 'Não Estudada' | 'Em Estudo' | 'Em Revisão' | 'Concluída';
-
 type CycleTopicStatusVisual = {
   label: string;
   badgeClassName: string;
@@ -52,25 +69,52 @@ type CycleTopicStatusVisual = {
   actionClassName: string;
 };
 
-const getTopicCycleTouchDate = (topic: Topic): string | Date | null | undefined =>
-  topic.last_reviewed_at ||
-  topic.lastReviewedAt ||
-  topic.first_studied_at ||
-  topic.firstStudiedAt;
+type CycleSubjectSnapshot = {
+  subject_id: string;
+  subject_name: string;
+  total_topics: number;
+  topics_started: number;
+  topics_completed: number;
+  studied_in_cycle: boolean;
+};
 
-const isTopicStudiedInCycle = (topic: Topic, cycleStart?: string | null): boolean => {
+type CycleRotationSnapshot = {
+  id: string;
+  user_id: string;
+  user_cycle_id: string;
+  cycle_number: number;
+  started_at: string | null;
+  completed_at: string;
+  subject_count: number;
+  studied_subject_count: number;
+  topics_started_count: number;
+  topics_completed_count: number;
+  studied_subject_ids: string[];
+  cycle_subject_ids: string[];
+  edital_ids: string[];
+  per_subject: CycleSubjectSnapshot[];
+  created_at: string;
+};
+
+const getTopicFirstStudyDate = (topic: Topic): string | Date | null | undefined =>
+  topic.first_studied_at || topic.firstStudiedAt;
+
+const isTopicNewlyStartedInCycle = (topic: Topic, cycleStart?: string | null): boolean => {
   if (!cycleStart) return false;
 
-  const touchedAt = getTopicCycleTouchDate(topic);
-  if (!touchedAt) return false;
+  const firstStudiedAt = getTopicFirstStudyDate(topic);
+  if (!firstStudiedAt) return false;
 
-  const touchedTime = new Date(touchedAt).getTime();
+  const firstStudiedTime = new Date(firstStudiedAt).getTime();
   const cycleStartTime = new Date(cycleStart).getTime();
 
-  return Number.isFinite(touchedTime) &&
+  return Number.isFinite(firstStudiedTime) &&
     Number.isFinite(cycleStartTime) &&
-    touchedTime >= cycleStartTime;
+    firstStudiedTime >= cycleStartTime;
 };
+
+const getTopicCompletedInCycle = (topic: Topic, cycleStart?: string | null): boolean =>
+  isTopicCompleted(topic) && isTopicNewlyStartedInCycle(topic, cycleStart);
 
 const isTopicStarted = (topic: Topic) =>
   Boolean(topic.first_studied_at) ||
@@ -99,33 +143,6 @@ const getTopicContactCount = (
   topicStats?.get(topic.id)?.reviewCount || 0
 );
 
-const getActualReviewCount = (contactCount: number) => Math.max(0, contactCount - 1);
-
-const getReviewSummaryTitle = (contactCount: number, showHardAlert: boolean) => {
-  const actualReviewCount = getActualReviewCount(contactCount);
-  const contactText = contactCount === 1 ? '1 contato registrado' : `${contactCount} contatos registrados`;
-  const reviewText = actualReviewCount === 1 ? '1 revisão realizada' : `${actualReviewCount} revisões realizadas`;
-  return `${contactText}. ${reviewText}.${showHardAlert ? ' Muitas revisões com dificuldade alta.' : ''}`;
-};
-
-const shouldShowHardReviewAlert = (contactCount: number, hardCount: number) =>
-  contactCount >= 2 && hardCount > 0 && (hardCount >= 2 || hardCount / contactCount >= 0.4);
-
-const calculateSubjectStatus = (subject: Subject): Status => {
-  if (subject.topics.length === 0) return 'Nova';
-  if (subject.topics.every(isTopicCompleted)) return 'Concluída';
-  if (subject.topics.some(isTopicStarted)) return 'Em Estudo';
-  return 'Nova';
-};
-
-const getSubjectVisualTag = (subject: Subject): SubjectVisualTag => {
-  if (subject.topics.length === 0) return 'Não Estudada';
-  if (subject.topics.every(isTopicCompleted)) return 'Concluída';
-  if (subject.topics.every(isTopicStarted)) return 'Em Revisão';
-  if (subject.topics.some(isTopicStarted)) return 'Em Estudo';
-  return 'Não Estudada';
-};
-
 const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
   if (topic.is_active === false) {
     return {
@@ -145,29 +162,9 @@ const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
     };
   }
 
-  const statusInfo = getTopicStatusInfo(topic);
-
-  if (statusInfo.type === 'atrasado') {
+  if (isTopicStarted(topic)) {
     return {
-      label: statusInfo.label,
-      badgeClassName: statusInfo.colorClass.replace(/\s*border-\S+/g, ''),
-      indicatorClassName: 'bg-red-500',
-      actionClassName: 'border-transparent bg-transparent text-red-500 hover:border-red-500/20 hover:bg-red-500/10',
-    };
-  }
-
-  if (statusInfo.type === 'hoje') {
-    return {
-      label: statusInfo.label,
-      badgeClassName: statusInfo.colorClass.replace(/\s*border-\S+/g, ''),
-      indicatorClassName: 'bg-orange-500',
-      actionClassName: 'border-transparent bg-transparent text-orange-500 hover:border-orange-500/20 hover:bg-orange-500/10',
-    };
-  }
-
-  if (statusInfo.type === 'futuro') {
-    return {
-      label: statusInfo.label,
+      label: 'Em estudo',
       badgeClassName: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
       indicatorClassName: 'bg-blue-500',
       actionClassName: 'border-transparent bg-transparent text-blue-500 hover:border-blue-500/20 hover:bg-blue-500/10',
@@ -181,6 +178,26 @@ const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
     actionClassName: 'border-transparent bg-transparent text-slate-500 hover:border-slate-500/20 hover:bg-slate-500/10',
   };
 };
+
+const getStrategicTopicIncidence = (topic: Topic) =>
+  getTopicStrategicIncidence({ totalVolume: topic.total_volume ?? null });
+
+const getStrategicTopicIncidenceTitle = (topic: Topic) => {
+  const incidence = getStrategicTopicIncidence(topic);
+  return incidence.showToStudent && topic.total_volume
+    ? `Cobrança alta detectada por sinal bruto.`
+    : 'Sem destaque de cobrança para exibir.';
+};
+
+const getStrategicTopicIncidenceDisplay = (topic: Topic) => {
+  const incidence = getStrategicTopicIncidence(topic);
+  return incidence.showToStudent
+    ? incidence.label
+    : null;
+};
+
+const getSubjectPendingTopicsCount = (subject: Subject) =>
+  subject.topics.filter(topic => topic.is_active !== false && !isTopicStarted(topic)).length;
 
 
 const Subjects = () => {
@@ -199,6 +216,16 @@ const Subjects = () => {
   const ITEMS_PER_PAGE = 25;
   const [selectedTopicForNotes, setSelectedTopicForNotes] = useState<{id: string, name: string, subjectName: string} | null>(null);
   const [isStartingNextCycle, setIsStartingNextCycle] = useState(false);
+  const [editingWeightSubjectId, setEditingWeightSubjectId] = useState<string | null>(null);
+  const [weightDraft, setWeightDraft] = useState({
+    questions: '',
+    points: '',
+    percentage: '',
+  });
+  const [isSavingWeight, setIsSavingWeight] = useState(false);
+  const [cycleSnapshots, setCycleSnapshots] = useState<CycleRotationSnapshot[]>([]);
+  const [reviewsDoneTodayCount, setReviewsDoneTodayCount] = useState(0);
+  const [cycleStudyEvents, setCycleStudyEvents] = useState<CycleStudyEvent[]>([]);
 
   // States for Merge Reversion
   const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
@@ -462,7 +489,7 @@ const Subjects = () => {
     }
   }, [user, loadSubjects, refresh]);
 
-  // Fetch topic stats separately after subjects load to colorize review affordances.
+  // Mantem a deteccao de topicos ja iniciados quando o progresso vem do historico.
   useEffect(() => {
     const allTopicIds = subjects.flatMap(s => s.topics.map(t => t.id));
     if (allTopicIds.length === 0) {
@@ -911,6 +938,11 @@ const Subjects = () => {
     return new Set(studiedIds.map((id: string) => getUnifiedSubjectId(id, dynamicUnificationMap)));
   }, [userCycle?.materias_estudadas_ciclo, dynamicUnificationMap]);
 
+  useEffect(() => {
+    if (studiedCycleIdSet.size === 0) return;
+    setExpandedSubjectIds(prev => prev.filter(id => !studiedCycleIdSet.has(id)));
+  }, [studiedCycleIdSet]);
+
   // Sincronização redundante de localSubjects removida para evitar flicker.
   // localSubjects agora é gerenciado diretamente no loadSubjects.
 
@@ -923,6 +955,101 @@ const Subjects = () => {
       }
     }
   }, [subjects, topicsModal.isOpen, topicsModal.subject?.id]);
+
+  const loadCycleSnapshots = useCallback(async () => {
+    if (!user || !userCycle?.id) {
+      setCycleSnapshots([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await (supabase as any)
+        .from('cycle_rotation_snapshots')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('user_cycle_id', userCycle.id)
+        .order('cycle_number', { ascending: false })
+        .limit(6);
+
+      if (error) throw error;
+      setCycleSnapshots((data || []) as CycleRotationSnapshot[]);
+    } catch (error) {
+      console.warn('Histórico de ciclos indisponível:', error);
+      setCycleSnapshots([]);
+    }
+  }, [user, userCycle?.id]);
+
+  useEffect(() => {
+    loadCycleSnapshots();
+  }, [loadCycleSnapshots]);
+
+  const loadCycleStudyEvents = useCallback(async () => {
+    if (!user || !userCycle?.id) {
+      setCycleStudyEvents([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await (supabase as any)
+        .from('cycle_study_events')
+        .select('id,event_type,subject_id,topic_id,subject_position,created_at')
+        .eq('user_id', user.id)
+        .eq('user_cycle_id', userCycle.id)
+        .order('created_at', { ascending: false })
+        .limit(80);
+
+      if (error) throw error;
+      setCycleStudyEvents((data || []) as CycleStudyEvent[]);
+    } catch (error) {
+      console.warn('Eventos do ciclo indisponíveis:', error);
+      setCycleStudyEvents([]);
+    }
+  }, [user, userCycle?.id]);
+
+  useEffect(() => {
+    loadCycleStudyEvents();
+  }, [loadCycleStudyEvents]);
+
+  useEffect(() => {
+    const loadReviewsDoneToday = async () => {
+      const topicIds = expandedSubjectList.flatMap(item =>
+        item.subject.topics.map(topic => topic.id)
+      );
+
+      if (topicIds.length === 0) {
+        setReviewsDoneTodayCount(0);
+        return;
+      }
+
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+
+      try {
+        const { data, error } = await supabase
+          .from('topic_review_history')
+          .select('review_stage')
+          .in('topic_id', topicIds)
+          .gte('reviewed_at', start.toISOString())
+          .lt('reviewed_at', end.toISOString());
+
+        if (error) throw error;
+
+        const reviewsOnly = (data || []).filter(row => {
+          const stage = String(row.review_stage || '').toLowerCase();
+          return stage !== 'first_contact' && stage !== 'primeiro contato';
+        });
+
+        setReviewsDoneTodayCount(reviewsOnly.length);
+      } catch (error) {
+        console.warn('Revisões de hoje indisponíveis:', error);
+        setReviewsDoneTodayCount(0);
+      }
+    };
+
+    loadReviewsDoneToday();
+  }, [expandedSubjectList]);
 
   // Focar o input quando necessário
   useLayoutEffect(() => {
@@ -1175,6 +1302,81 @@ const Subjects = () => {
     }
   };
 
+  const handleStartWeightEdit = (subject: Subject) => {
+    setEditingWeightSubjectId(subject.id);
+    setWeightDraft({
+      questions: formatExamWeightInputValue(subject.exam_weight_questions),
+      points: formatExamWeightInputValue(subject.exam_weight_points),
+      percentage: formatExamWeightInputValue(subject.exam_weight_percentage),
+    });
+  };
+
+  const handleCancelWeightEdit = () => {
+    setEditingWeightSubjectId(null);
+    setWeightDraft({ questions: '', points: '', percentage: '' });
+  };
+
+  const handleSaveSubjectWeightInline = async (subjectId: string) => {
+    if (!user) return;
+
+    const examWeightQuestions = parseOptionalExamWeightNumber(weightDraft.questions);
+    const examWeightPoints = parseOptionalExamWeightNumber(weightDraft.points);
+    const examWeightPercentage = parseOptionalExamWeightNumber(weightDraft.percentage);
+    const hasWeight = examWeightQuestions !== null || examWeightPoints !== null || examWeightPercentage !== null;
+
+    setIsSavingWeight(true);
+    try {
+      const { error } = await supabase
+        .from('subjects')
+        .update({
+          exam_weight_questions: examWeightQuestions,
+          exam_weight_points: examWeightPoints,
+          exam_weight_percentage: examWeightPercentage,
+          exam_weight_raw: hasWeight ? 'Informado manualmente pelo aluno na página de ciclo' : null,
+        } as any)
+        .eq('id', subjectId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setSubjects(prev => prev.map(subject =>
+        subject.id === subjectId
+          ? {
+              ...subject,
+              exam_weight_questions: examWeightQuestions,
+              exam_weight_points: examWeightPoints,
+              exam_weight_percentage: examWeightPercentage,
+              exam_weight_raw: hasWeight ? 'Informado manualmente pelo aluno na página de ciclo' : null,
+            }
+          : subject
+      ));
+      setLocalSubjects(prev => prev.map(subject =>
+        subject.id === subjectId
+          ? {
+              ...subject,
+              exam_weight_questions: examWeightQuestions,
+              exam_weight_points: examWeightPoints,
+              exam_weight_percentage: examWeightPercentage,
+              exam_weight_raw: hasWeight ? 'Informado manualmente pelo aluno na página de ciclo' : null,
+            }
+          : subject
+      ));
+      handleCancelWeightEdit();
+      toast.success(hasWeight ? 'Peso da matéria salvo.' : 'Peso da matéria removido.');
+    } catch (error) {
+      await errorService.report(error, {
+        module: 'Subjects',
+        action: 'handleSaveSubjectWeightInline',
+        userMessage: 'Erro ao salvar peso da matéria.',
+        severity: 'medium',
+        scope: 'core',
+        userId: user.id,
+      });
+    } finally {
+      setIsSavingWeight(false);
+    }
+  };
+
   const handleStartTopicEdit = (topic: Topic) => {
     setEditingTopicId(topic.id);
     setEditingTopicName(topic.name);
@@ -1214,6 +1416,83 @@ const Subjects = () => {
     // Mantém o estado aberto/fechado da fila durante a ordenação.
   };
 
+  const getCycleEventContext = useCallback((subjectId?: string | null) => {
+    const cycleOrderSnapshot = (userCycle?.ciclo_atual || []).map((id: string) =>
+      getUnifiedSubjectId(id, dynamicUnificationMap)
+    );
+    const normalizedSubjectId = subjectId
+      ? getUnifiedSubjectId(subjectId, dynamicUnificationMap)
+      : null;
+    const subjectPosition = normalizedSubjectId
+      ? cycleOrderSnapshot.indexOf(normalizedSubjectId) + 1
+      : null;
+
+    return {
+      cycleNumber: (userCycle?.ciclos_realizados || 0) + 1,
+      cycleOrderSnapshot,
+      subjectPosition: subjectPosition && subjectPosition > 0 ? subjectPosition : null,
+    };
+  }, [dynamicUnificationMap, userCycle?.ciclo_atual, userCycle?.ciclos_realizados]);
+
+  const recordCycleEvent = useCallback(async (
+    eventType: CycleStudyEventType,
+    options: {
+      subjectId?: string | null;
+      topicId?: string | null;
+      editalId?: string | null;
+      metadata?: Record<string, unknown>;
+      cycleOrderSnapshot?: string[];
+      subjectPosition?: number | null;
+    } = {}
+  ) => {
+    if (!user || !userCycle) return false;
+
+    const context = getCycleEventContext(options.subjectId);
+    const recorded = await recordCycleStudyEvent({
+      userId: user.id,
+      userCycleId: userCycle.id,
+      cycleNumber: context.cycleNumber,
+      eventType,
+      subjectId: options.subjectId || null,
+      topicId: options.topicId || null,
+      editalId: options.editalId || null,
+      subjectPosition: options.subjectPosition ?? context.subjectPosition,
+      cycleOrderSnapshot: options.cycleOrderSnapshot || context.cycleOrderSnapshot,
+      metadata: options.metadata,
+    });
+
+    if (recorded) {
+      await loadCycleStudyEvents();
+    }
+
+    return recorded;
+  }, [getCycleEventContext, loadCycleStudyEvents, user, userCycle]);
+
+  const recordConfirmedTopicCycleEvent = useCallback(async (
+    difficulty?: number | null,
+    duration?: number,
+  ) => {
+    if (!difficultyModalData.topicId || !difficultyModalData.subjectId) return;
+
+    const subject = localSubjects.find(item => item.id === difficultyModalData.subjectId);
+    const eventType: CycleStudyEventType =
+      difficultyModalData.reviewCount <= 1 ? 'topic_started' : 'topic_reviewed';
+
+    await recordCycleEvent(eventType, {
+      subjectId: difficultyModalData.subjectId,
+      topicId: difficultyModalData.topicId,
+      editalId: subject?.edital_id || null,
+      metadata: {
+        topicName: difficultyModalData.topicName,
+        subjectName: difficultyModalData.subjectName,
+        reviewCount: difficultyModalData.reviewCount,
+        reviewStage: difficultyModalData.reviewStage,
+        difficulty: difficulty ?? null,
+        duration: duration ?? difficultyModalData.duration ?? null,
+      },
+    });
+  }, [difficultyModalData, localSubjects, recordCycleEvent]);
+
   const executeMarcarMateriaComoEstudada = useCallback(async (materiaId: string) => {
     if (!user || !userCycle) return;
 
@@ -1247,6 +1526,13 @@ const Subjects = () => {
       if (error) throw error;
 
       const subjectName = getUnifiedSubjectName(materiaId, localSubjects.find(subject => subject.id === materiaId)?.name || 'Matéria');
+      await recordCycleEvent('subject_marked_studied', {
+        subjectId: materiaId,
+        editalId: localSubjects.find(subject => subject.id === materiaId)?.edital_id || null,
+        metadata: {
+          subjectName,
+        },
+      });
       toast.success(`${subjectName} marcada como estudada neste ciclo.`);
 
       window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { source: 'Subjects', action: 'markSubjectStudied' } }));
@@ -1265,7 +1551,7 @@ const Subjects = () => {
         }
       );
     }
-  }, [dynamicUnificationMap, getUnifiedSubjectName, localSubjects, user, userCycle]);
+  }, [dynamicUnificationMap, getUnifiedSubjectName, localSubjects, recordCycleEvent, user, userCycle]);
 
   const handleMarcarMateriaComoEstudada = useCallback((materiaId: string) => {
     if (!userCycle) return;
@@ -1318,6 +1604,13 @@ const Subjects = () => {
       if (error) throw error;
 
       const subjectName = getUnifiedSubjectName(materiaId, localSubjects.find(subject => subject.id === materiaId)?.name || 'Matéria');
+      await recordCycleEvent('subject_returned_to_queue', {
+        subjectId: materiaId,
+        editalId: localSubjects.find(subject => subject.id === materiaId)?.edital_id || null,
+        metadata: {
+          subjectName,
+        },
+      });
       toast.success(`${subjectName} voltou para a fila do ciclo.`);
       window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { source: 'Subjects', action: 'returnSubjectToQueue' } }));
     } catch (error) {
@@ -1335,12 +1628,59 @@ const Subjects = () => {
         }
       );
     }
-  }, [dynamicUnificationMap, getUnifiedSubjectName, localSubjects, user, userCycle]);
+  }, [dynamicUnificationMap, getUnifiedSubjectName, localSubjects, recordCycleEvent, user, userCycle]);
+
+  const buildCurrentCycleSnapshot = useCallback(() => {
+    if (!user || !userCycle) return null;
+
+    const cycleStart = userCycle.data_inicio_ciclo || null;
+    const studiedIds = new Set((userCycle.materias_estudadas_ciclo || []).map((id: string) =>
+      getUnifiedSubjectId(id, dynamicUnificationMap)
+    ));
+    const cycleSubjects = expandedSubjectList.map(item => item.subject);
+    const perSubject: CycleSubjectSnapshot[] = cycleSubjects.map(subject => {
+      const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
+      const topicsStarted = activeTopics.filter(topic => isTopicNewlyStartedInCycle(topic, cycleStart)).length;
+      const topicsCompleted = activeTopics.filter(topic => getTopicCompletedInCycle(topic, cycleStart)).length;
+
+      return {
+        subject_id: subject.id,
+        subject_name: getUnifiedSubjectName(subject.id, subject.name),
+        total_topics: activeTopics.length,
+        topics_started: topicsStarted,
+        topics_completed: topicsCompleted,
+        studied_in_cycle: studiedIds.has(subject.id),
+      };
+    });
+
+    const editalIds = Array.from(new Set(
+      cycleSubjects
+        .map(subject => subject.edital_id)
+        .filter((id): id is string => Boolean(id))
+    ));
+
+    return {
+      user_id: user.id,
+      user_cycle_id: userCycle.id,
+      cycle_number: (userCycle.ciclos_realizados || 0) + 1,
+      started_at: cycleStart,
+      completed_at: new Date().toISOString(),
+      subject_count: cycleSubjects.length,
+      studied_subject_count: perSubject.filter(subject => subject.studied_in_cycle).length,
+      topics_started_count: perSubject.reduce((sum, subject) => sum + subject.topics_started, 0),
+      topics_completed_count: perSubject.reduce((sum, subject) => sum + subject.topics_completed, 0),
+      studied_subject_ids: Array.from(studiedIds),
+      cycle_subject_ids: cycleSubjects.map(subject => subject.id),
+      edital_ids: editalIds,
+      per_subject: perSubject,
+    };
+  }, [dynamicUnificationMap, expandedSubjectList, getUnifiedSubjectName, user, userCycle]);
 
   const handleIniciarProximoCiclo = useCallback(async () => {
     if (!user || !userCycle) return;
 
     const previousUserCycle = userCycle;
+    const cycleSnapshot = buildCurrentCycleSnapshot();
     const nextCycle = {
       ...userCycle,
       materias_estudadas_ciclo: [],
@@ -1351,10 +1691,16 @@ const Subjects = () => {
     };
 
     setIsStartingNextCycle(true);
-    setUserCycle(nextCycle);
-    localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(nextCycle));
 
     try {
+      if (cycleSnapshot) {
+        const { error: snapshotError } = await (supabase as any)
+          .from('cycle_rotation_snapshots')
+          .upsert(cycleSnapshot, { onConflict: 'user_cycle_id,cycle_number' });
+
+        if (snapshotError) throw snapshotError;
+      }
+
       const { error } = await supabase
         .from('user_cycles')
         .update({
@@ -1369,6 +1715,9 @@ const Subjects = () => {
 
       if (error) throw error;
 
+      setUserCycle(nextCycle);
+      localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(nextCycle));
+      await loadCycleSnapshots();
       toast.success(`Ciclo ${nextCycle.ciclos_realizados} iniciado.`);
       window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { source: 'Subjects', action: 'startNextCycle' } }));
     } catch (error) {
@@ -1379,7 +1728,7 @@ const Subjects = () => {
         {
           module: 'Subjects',
           action: 'handleIniciarProximoCiclo',
-          userMessage: 'Erro ao iniciar o próximo ciclo.',
+          userMessage: 'Erro ao salvar o resumo do ciclo e iniciar o próximo.',
           severity: 'high',
           scope: 'core',
           userId: user.id,
@@ -1388,7 +1737,7 @@ const Subjects = () => {
     } finally {
       setIsStartingNextCycle(false);
     }
-  }, [user, userCycle]);
+  }, [buildCurrentCycleSnapshot, loadCycleSnapshots, user, userCycle]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -1441,6 +1790,17 @@ const Subjects = () => {
 
       if (error) throw error;
 
+      await recordCycleEvent('cycle_reordered', {
+        cycleOrderSnapshot: newCicloAtual,
+        metadata: {
+          previousOrder: previousUserCycle?.ciclo_atual || [],
+          newOrder: newCicloAtual,
+          movedSubjectId: String(active.id),
+          fromPosition: oldIndex + 1,
+          toPosition: newIndex + 1,
+        },
+      });
+
       toast.success("Ordem do ciclo atualizada!");
 
       // Opcional: Recarregar para garantir sincronia (pode ser removido se o optimistic for suficiente)
@@ -1478,6 +1838,55 @@ const Subjects = () => {
     }
   };
 
+  const handleApplySuggestedQueueOrder = async (suggestedOrder: string[]) => {
+    if (!user || !userCycle || suggestedOrder.length === 0) return;
+
+    const previousUserCycle = userCycle;
+    const nextUserCycle = {
+      ...userCycle,
+      ciclo_atual: suggestedOrder,
+      atualizado_em: new Date().toISOString(),
+    };
+
+    setUserCycle(nextUserCycle);
+    localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(nextUserCycle));
+
+    try {
+      const { error } = await supabase
+        .from('user_cycles')
+        .update({
+          ciclo_atual: suggestedOrder,
+          atualizado_em: nextUserCycle.atualizado_em,
+        })
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      await recordCycleEvent('cycle_reordered', {
+        cycleOrderSnapshot: suggestedOrder,
+        metadata: {
+          source: 'strategic_suggestion',
+          previousOrder: previousUserCycle.ciclo_atual || [],
+          newOrder: suggestedOrder,
+        },
+      });
+
+      toast.success('Sugestão aplicada. A fila do ciclo foi reorganizada.');
+    } catch (error) {
+      setUserCycle(previousUserCycle);
+      localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(previousUserCycle));
+      await errorService.report(error, {
+        module: 'Subjects',
+        action: 'handleApplySuggestedQueueOrder',
+        userMessage: 'Erro ao aplicar sugestão de fila.',
+        severity: 'medium',
+        scope: 'core',
+        userId: user.id,
+      });
+    }
+  };
+
   const handleViewTopics = (subject: Subject) => {
     navigate('/ciclo-estudos');
   };
@@ -1491,7 +1900,9 @@ const Subjects = () => {
   };
 
   const toggleAllCycleSubjects = () => {
-    const cycleSubjectIds = filteredList.map(item => item.id);
+    const cycleSubjectIds = filteredList
+      .filter(item => !studiedCycleIdSet.has(item.subject.id))
+      .map(item => item.id);
     const allCycleSubjectsExpanded = cycleSubjectIds.length > 0 &&
       cycleSubjectIds.every(id => expandedSubjectIds.includes(id));
 
@@ -1625,11 +2036,11 @@ const Subjects = () => {
   const hasActiveCycle = Boolean(userCycle?.ciclo_atual?.length);
   const hasCycleSubjects = expandedSubjectList.length > 0;
   const showCycleWorkspace = hasActiveCycle && hasCycleSubjects;
-  const cycleVisualStats = useMemo(() => {
-    const cycleSubjects = expandedSubjectList.map(item => item.subject);
-    const totalSubjects = cycleSubjects.length;
-    const studiedSubjects = cycleSubjects.filter(subject => studiedCycleIdSet.has(subject.id)).length;
-    const remainingSubjects = Math.max(totalSubjects - studiedSubjects, 0);
+	  const cycleVisualStats = useMemo(() => {
+	    const cycleSubjects = expandedSubjectList.map(item => item.subject);
+	    const totalSubjects = cycleSubjects.length;
+	    const studiedSubjects = cycleSubjects.filter(subject => studiedCycleIdSet.has(subject.id)).length;
+	    const remainingSubjects = Math.max(totalSubjects - studiedSubjects, 0);
     const progressPercentage = totalSubjects > 0 ? Math.round((studiedSubjects / totalSubjects) * 100) : 0;
     const parsedCycleStartMs = userCycle?.data_inicio_ciclo ? new Date(userCycle.data_inicio_ciclo).getTime() : NaN;
     const cycleStartMs = Number.isFinite(parsedCycleStartMs) ? parsedCycleStartMs : Date.now();
@@ -1647,16 +2058,315 @@ const Subjects = () => {
       progressPercentage,
       elapsedDays,
       subjectsPerDay,
-      daysToFinish,
-    };
-  }, [expandedSubjectList, studiedCycleIdSet, userCycle?.data_inicio_ciclo]);
+	      daysToFinish,
+	    };
+	  }, [expandedSubjectList, studiedCycleIdSet, userCycle?.data_inicio_ciclo]);
 
-  if (isLoading || isOriginsLoading || loading) {
+	  const strategicPanelStats = useMemo(() => {
+	    const cycleSubjects = expandedSubjectList.map(item => item.subject);
+	    const cycleStart = userCycle?.data_inicio_ciclo || null;
+	    const totalSubjects = cycleSubjects.length;
+	    const totalTopics = cycleSubjects.reduce(
+	      (sum, subject) => sum + subject.topics.filter(topic => topic.is_active !== false).length,
+	      0,
+	    );
+	    const startedTopics = cycleSubjects.reduce(
+	      (sum, subject) => sum + subject.topics.filter(topic => topic.is_active !== false && isTopicStarted(topic)).length,
+	      0,
+	    );
+	    const completedTopics = cycleSubjects.reduce(
+	      (sum, subject) => sum + subject.topics.filter(topic => topic.is_active !== false && isTopicCompleted(topic)).length,
+	      0,
+	    );
+	    const coveragePercentage = totalTopics > 0 ? Math.round((startedTopics / totalTopics) * 100) : 0;
+	    const completedSubjects = cycleSubjects.filter(subject => {
+	      const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
+	      return activeTopics.length > 0 && activeTopics.every(isTopicCompleted);
+	    }).length;
+	    const inProgressSubjects = cycleSubjects.filter(subject =>
+	      subject.topics.some(topic => topic.is_active !== false && isTopicStarted(topic) && !isTopicCompleted(topic))
+	    ).length;
+	    const topicsStartedThisCycle = cycleSubjects.reduce(
+	      (sum, subject) => sum + subject.topics.filter(topic =>
+	        topic.is_active !== false && isTopicNewlyStartedInCycle(topic, cycleStart)
+	      ).length,
+	      0,
+	    );
+	    const perSubjectStartedThisCycle = cycleSubjects.map(subject => {
+	      const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
+	      return {
+	        subjectName: getUnifiedSubjectName(subject.id, subject.name),
+	        topicsStarted: activeTopics.filter(topic => isTopicNewlyStartedInCycle(topic, cycleStart)).length,
+	        totalTopics: activeTopics.length,
+	      };
+	    });
+	    const subjectWithMostTopicsStartedThisCycle = perSubjectStartedThisCycle.reduce<{
+	      subjectName: string;
+	      topicsStarted: number;
+	      totalTopics: number;
+	    } | null>((best, subject) => {
+	      if (subject.topicsStarted <= 0) return best;
+	      if (!best || subject.topicsStarted > best.topicsStarted) return subject;
+	      return best;
+	    }, null);
+	    const examWeightTotals = getExamWeightTotals(cycleSubjects);
+	    const highestIncidenceTopic = cycleSubjects.flatMap(subject =>
+	      subject.topics
+	        .filter(topic => topic.is_active !== false && typeof topic.total_volume === 'number' && topic.total_volume > 0)
+	        .map(topic => ({
+	          topicName: topic.name,
+	          subjectName: getUnifiedSubjectName(subject.id, subject.name),
+	          volume: topic.total_volume || 0,
+	        }))
+	    ).reduce<{
+	      topicName: string;
+	      subjectName: string;
+	      volume: number;
+	    } | null>((best, topic) => {
+	      if (!best || topic.volume > best.volume) return topic;
+	      return best;
+	    }, null);
+	    const analyzedTopicVolumes = cycleSubjects.flatMap(subject =>
+	      subject.topics
+	        .filter(topic => topic.is_active !== false && typeof topic.total_volume === 'number' && topic.total_volume > 0)
+	        .map(topic => ({
+	          topicName: topic.name,
+	          subjectName: getUnifiedSubjectName(subject.id, subject.name),
+	          volume: topic.total_volume || 0,
+	        }))
+	    );
+	    const lowestIncidenceTopic = analyzedTopicVolumes.reduce<{
+	      topicName: string;
+	      subjectName: string;
+	      volume: number;
+	    } | null>((best, topic) => {
+	      if (!best || topic.volume < best.volume) return topic;
+	      return best;
+	    }, null);
+	    const highestIncidenceSubject = cycleSubjects.map(subject => {
+	      const analyzedTopics = subject.topics.filter(topic =>
+	        topic.is_active !== false && typeof topic.total_volume === 'number' && topic.total_volume > 0
+	      );
+	      const totalVolume = analyzedTopics.reduce((sum, topic) => sum + (topic.total_volume || 0), 0);
+
+	      return {
+	        subjectName: getUnifiedSubjectName(subject.id, subject.name),
+	        totalVolume,
+	        analyzedTopicsCount: analyzedTopics.length,
+	      };
+	    }).filter(item => item.totalVolume > 0)
+	      .reduce<{
+	        subjectName: string;
+	        totalVolume: number;
+	        analyzedTopicsCount: number;
+	      } | null>((best, subject) => {
+	        if (!best || subject.totalVolume > best.totalVolume) return subject;
+	        return best;
+	      }, null);
+	    const highestPendingWeightSubject = cycleSubjects
+	      .filter(subject => getSubjectPendingTopicsCount(subject) > 0)
+	      .map(subject => ({
+	        subject,
+	        effectiveWeight: getEffectiveSubjectExamWeight(subject),
+	        percentage: getSubjectExamWeightPercentage(subject, examWeightTotals),
+	      }))
+	      .filter(item => item.effectiveWeight.source !== 'none')
+	      .reduce<{
+	        subject: Subject;
+	        effectiveWeight: ReturnType<typeof getEffectiveSubjectExamWeight>;
+	        percentage: number | null;
+	      } | null>((best, item) => {
+	        if (!best || item.effectiveWeight.value > best.effectiveWeight.value) return item;
+	        return best;
+	      }, null);
+	    return {
+	      totalSubjects,
+	      totalTopics,
+	      startedTopics,
+	      completedTopics,
+	      coveragePercentage,
+	      completedSubjects,
+	      inProgressSubjects,
+	      topicsStartedThisCycle,
+	      subjectWithMostTopicsStartedThisCycle,
+	      highestIncidenceTopic,
+	      lowestIncidenceTopic,
+	      highestIncidenceSubject,
+	      highestPendingWeightSubject,
+	    };
+	  }, [expandedSubjectList, getUnifiedSubjectName, userCycle?.data_inicio_ciclo]);
+
+	  const strategicAlerts = useMemo(() => {
+	    const cycleSubjects = expandedSubjectList.map(item => ({
+	      ...item.subject,
+	      name: getUnifiedSubjectName(item.subject.id, item.subject.name),
+	    }));
+
+	    return getStudyCycleAlerts({
+	      subjects: cycleSubjects,
+	      editais: editaisNoCiclo.map(edital => ({
+	        id: edital.id,
+	        name: edital.organ || edital.name || 'Edital',
+	        exam_date: edital.exam_date || edital.examDate || null,
+	        subject_ids: edital.subject_ids || edital.subjectIds || [],
+	      })),
+	      hasCycleHistory: cycleSnapshots.length > 0,
+	      maxAlerts: 3,
+	    });
+	  }, [cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, getUnifiedSubjectName]);
+
+	  const cycleMetrics = useMemo(() => {
+	    return getStudyCycleMetrics({
+	      subjects: expandedSubjectList.map(item => item.subject),
+	      editais: editaisNoCiclo.map(edital => ({
+	        exam_date: edital.exam_date || edital.examDate || null,
+	      })),
+	      cycleStart: userCycle?.data_inicio_ciclo || null,
+	      reviewsDoneToday: reviewsDoneTodayCount,
+	      hasCycleHistory: cycleSnapshots.length > 0,
+	    });
+	  }, [cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, reviewsDoneTodayCount, userCycle?.data_inicio_ciclo]);
+
+  const cycleEventInsights = useMemo(() => {
+    const currentOrder = (userCycle?.ciclo_atual || []).map((id: string) =>
+      getUnifiedSubjectId(id, dynamicUnificationMap)
+    );
+
+    return getStudyCycleEventInsights({
+      subjects: expandedSubjectList.map(item => ({
+        ...item.subject,
+        name: getUnifiedSubjectName(item.subject.id, item.subject.name),
+      })),
+      events: cycleStudyEvents,
+      currentOrder,
+      overdueReviews: cycleMetrics.overdueReviews,
+      minEvents: 5,
+      maxInsights: 3,
+    });
+  }, [cycleMetrics.overdueReviews, cycleStudyEvents, dynamicUnificationMap, expandedSubjectList, getUnifiedSubjectName, userCycle?.ciclo_atual]);
+
+  const queueSuggestion = useMemo(() => {
+    const currentOrder = (userCycle?.ciclo_atual || []).map((id: string) =>
+      getUnifiedSubjectId(id, dynamicUnificationMap)
+    );
+
+    return getStudyCycleQueueSuggestion({
+      subjects: expandedSubjectList.map(item => ({
+        ...item.subject,
+        name: getUnifiedSubjectName(item.subject.id, item.subject.name),
+      })),
+      events: cycleStudyEvents,
+      currentOrder,
+      minEvents: 6,
+    });
+  }, [cycleStudyEvents, dynamicUnificationMap, expandedSubjectList, getUnifiedSubjectName, userCycle?.ciclo_atual]);
+
+	  if (isLoading || isOriginsLoading || loading) {
     return <LoadingSpinner size="large" showText fullPage />;
   }
 
   const handleLoadMore = () => {
     setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+  };
+
+  const renderSubjectWeightControl = (subject: Subject) => {
+    const strategicWeight = getSubjectStrategicWeight(subject);
+    const isEditingWeight = editingWeightSubjectId === subject.id;
+
+    if (isEditingWeight) {
+      return (
+        <div
+          className="flex flex-wrap items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 py-1"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <input
+            value={weightDraft.questions}
+            onChange={(event) => setWeightDraft(prev => ({ ...prev, questions: event.target.value }))}
+            placeholder="Questões"
+            inputMode="decimal"
+            className="h-7 w-16 rounded-md border border-border/60 bg-background px-2 text-[10px] font-bold text-foreground outline-none focus:border-primary"
+          />
+          <input
+            value={weightDraft.points}
+            onChange={(event) => setWeightDraft(prev => ({ ...prev, points: event.target.value }))}
+            placeholder="Pontos"
+            inputMode="decimal"
+            className="h-7 w-16 rounded-md border border-border/60 bg-background px-2 text-[10px] font-bold text-foreground outline-none focus:border-primary"
+          />
+          <input
+            value={weightDraft.percentage}
+            onChange={(event) => setWeightDraft(prev => ({ ...prev, percentage: event.target.value }))}
+            placeholder="%"
+            inputMode="decimal"
+            className="h-7 w-12 rounded-md border border-border/60 bg-background px-2 text-[10px] font-bold text-foreground outline-none focus:border-primary"
+          />
+          <button
+            type="button"
+            onClick={() => handleSaveSubjectWeightInline(subject.id)}
+            disabled={isSavingWeight}
+            className="h-7 w-7 rounded-md bg-primary text-primary-foreground disabled:opacity-60 inline-flex items-center justify-center"
+            title="Salvar peso"
+            aria-label="Salvar peso da matéria"
+          >
+            {isSavingWeight ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+          </button>
+          <button
+            type="button"
+            onClick={handleCancelWeightEdit}
+            disabled={isSavingWeight}
+            className="h-7 w-7 rounded-md border border-border/60 text-content-muted hover:text-foreground disabled:opacity-60 inline-flex items-center justify-center"
+            title="Cancelar"
+            aria-label="Cancelar edição de peso"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          handleStartWeightEdit(subject);
+        }}
+        className={`font-bold px-1.5 py-0.5 rounded-md border transition-colors ${
+          strategicWeight.hasWeight
+            ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20 hover:bg-sky-500/15'
+            : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20 hover:bg-amber-500/15'
+        }`}
+        title={strategicWeight.hasWeight ? `${strategicWeight.label}. Clique para editar.` : 'Clique para informar o peso desta matéria.'}
+        aria-label={strategicWeight.hasWeight ? 'Editar peso da matéria' : 'Informar peso da matéria'}
+      >
+        {strategicWeight.hasWeight ? strategicWeight.label : 'Sem peso'}
+      </button>
+    );
+  };
+
+  const handleStrategicAlertAction = (alert: StudyCycleAlert) => {
+    if (alert.actionType === 'fill_weight' && alert.subjectId) {
+      const subject = expandedSubjectList.find(item => item.subject.id === alert.subjectId)?.subject;
+      if (subject) {
+        handleStartWeightEdit(subject);
+        setExpandedSubjectIds(prev => Array.from(new Set([...prev, alert.subjectId!])));
+      }
+      return;
+    }
+
+    if (alert.actionType === 'start_topic' && alert.topicId) {
+      openReviewModal(alert.topicId);
+      return;
+    }
+
+    if ((alert.actionType === 'start_topic' || alert.actionType === 'review_cycle') && alert.subjectId) {
+      setExpandedSubjectIds(prev => Array.from(new Set([...prev, alert.subjectId!])));
+      requestAnimationFrame(() => {
+        document
+          .querySelector(`[data-subject-id="${alert.subjectId}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
   };
 
   const getVerticalTopicStatus = (topic: Topic) => {
@@ -1682,16 +2392,17 @@ const Subjects = () => {
           <p className="text-sm font-semibold">Nenhum tópico encontrado{newSubjectName.trim() ? ` para "${newSubjectName}"` : ''}.</p>
         </div>
       ) : (
-        verticalSubjectList.map(({ subject, topics }) => (
-          <div key={subject.id} className="border-b border-border/40 dark:border-white/5 last:border-b-0">
-            <div className="sticky top-0 z-10 bg-background flex items-center gap-3 px-4 py-2 border-b border-primary/10">
-              <span className="text-xs font-black uppercase tracking-widest text-primary/80">
-                {getUnifiedSubjectName(subject.id, subject.name)}
-              </span>
-              <span className="text-[10px] text-content-muted font-semibold tabular-nums">
-                {topics.length} tópico{topics.length !== 1 ? 's' : ''}
-              </span>
-            </div>
+	        verticalSubjectList.map(({ subject, topics }) => (
+	          <div key={subject.id} className="border-b border-border/40 dark:border-white/5 last:border-b-0">
+	            <div className="sticky top-0 z-10 bg-background flex flex-wrap items-center gap-2 px-4 py-2 border-b border-primary/10">
+	              <span className="text-xs font-black uppercase tracking-widest text-primary/80">
+	                {getUnifiedSubjectName(subject.id, subject.name)}
+	              </span>
+	              <span className="text-[10px] text-content-muted font-semibold tabular-nums">
+	                {topics.length} tópico{topics.length !== 1 ? 's' : ''}
+	              </span>
+	              {renderSubjectWeightControl(subject)}
+	            </div>
 
             {topics
               .slice()
@@ -1704,56 +2415,55 @@ const Subjects = () => {
               })
               .map((topic) => {
                 const contactCount = getTopicContactCount(topic, topicStats);
-                const actualReviewCount = getActualReviewCount(contactCount);
-                const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
-                const showHardAlert = shouldShowHardReviewAlert(contactCount, hardCount);
-                const status = getVerticalTopicStatus(topic);
-                const statusVisual = getCycleTopicStatusVisual(topic);
-                const hasStarted = contactCount > 0 || isTopicStarted(topic);
-                const studiedInCurrentCycle = isTopicStudiedInCycle(topic, userCycle?.data_inicio_ciclo);
-                const hasNotes = Boolean(
+	                const status = getVerticalTopicStatus(topic);
+	                const statusVisual = getCycleTopicStatusVisual(topic);
+	                const hasStarted = contactCount > 0 || isTopicStarted(topic);
+	                const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
+	                const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
+	                const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
+	                const hasNotes = Boolean(
                   (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() &&
                   (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
                 );
 
                 return (
-                  <div
-                    key={topic.id}
-                    className="relative flex items-center gap-3 px-4 py-2.5 pl-5 border-b border-border/40 dark:border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group"
-                  >
+	                  <div
+	                    key={topic.id}
+	                    className="relative flex flex-col lg:flex-row lg:items-center gap-3 px-4 py-2.5 pl-5 border-b border-border/40 dark:border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group"
+	                  >
                     <div
                       className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${statusVisual.indicatorClassName}`}
                       aria-hidden="true"
                     />
-                    <div className="flex-1 min-w-0">
-                      <span className={`text-sm break-words leading-snug ${isTopicCompleted(topic) ? 'text-content-muted line-through decoration-content-muted/40' : topic.is_active === false ? 'text-content-muted opacity-50' : 'text-foreground'}`}>
-                        {topic.name} {topic.is_active === false && <span className="text-[9px] ml-1 uppercase opacity-60">(inativo)</span>}
-                      </span>
+	                    <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
+	                      <span className={`text-sm break-words leading-snug ${isTopicCompleted(topic) ? 'text-content-muted line-through decoration-content-muted/40' : topic.is_active === false ? 'text-content-muted opacity-50' : 'text-foreground'}`}>
+	                        {topic.name} {topic.is_active === false && <span className="text-[9px] ml-1 uppercase opacity-60">(inativo)</span>}
+	                      </span>
+	                      {incidenceDisplay && (
+	                        <span
+	                          className="px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20"
+	                          title={incidenceTitle}
+	                        >
+	                          {incidenceDisplay}
+	                        </span>
+	                      )}
                       {studiedInCurrentCycle && !isTopicCompleted(topic) && (
                         <CheckCircle2
                           size={14}
                           className="ml-2 inline-block align-[-2px] text-slate-400 dark:text-slate-500"
                           role="img"
-                          aria-label={`Estudado no ciclo: ${topic.name}`}
+                          aria-label={`Tópico novo neste ciclo: ${topic.name}`}
                         >
-                          <title>Estudado no ciclo</title>
+                          <title>Tópico novo neste ciclo</title>
                         </CheckCircle2>
                       )}
                     </div>
 
-                    <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${status.className}`}>
-                      {status.label}
-                    </span>
+	                    <span className={`flex-shrink-0 self-end lg:self-center px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${status.className}`}>
+	                      {status.label}
+	                    </span>
 
-	                    <div
-	                      className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-semibold tabular-nums ${showHardAlert ? 'text-orange-400' : 'text-content-muted'}`}
-	                      title={getReviewSummaryTitle(contactCount, showHardAlert)}
-	                    >
-	                      <RotateCcw size={11} className={showHardAlert ? 'text-orange-400' : 'text-content-muted'} />
-	                      <span>{actualReviewCount}</span>
-	                    </div>
-
-                    <div className="flex-shrink-0 flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+	                    <div className="flex-shrink-0 self-end lg:self-center flex flex-wrap items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleOpenVerticalTopicNotes(subject.id, topic.id)}
                         className={`p-1 rounded transition-colors ${hasNotes ? 'text-primary/60 hover:text-primary' : 'text-gray-400 hover:text-primary/70'}`}
@@ -1763,25 +2473,32 @@ const Subjects = () => {
                         <FileText size={15} />
                       </button>
 
-                      {hasStarted ? (
-                        <button
-                          onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center transition-all border ${statusVisual.actionClassName}`}
-                          title="Ir para revisões"
-                          aria-label={`Ir para revisões do tópico ${topic.name}`}
-                        >
-                          <ArrowRight size={12} />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => openReviewModal(topic.id)}
-                          className={`w-6 h-6 rounded-full border transition-all flex items-center justify-center ${statusVisual.actionClassName}`}
-                          title="Iniciar estudo do tópico"
-                          aria-label={`Iniciar estudo do tópico ${topic.name}`}
-                        >
-                          <Play size={10} className="ml-[1px]" />
-                        </button>
-                      )}
+	                      {isTopicCompleted(topic) ? (
+	                        <span className="h-8 px-3 rounded-lg flex items-center justify-center gap-1.5 border border-emerald-500/15 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold whitespace-nowrap">
+	                          <Check size={12} />
+	                          Concluído
+	                        </span>
+	                      ) : hasStarted ? (
+	                        <button
+	                          onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
+	                          className={`h-8 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all border text-[11px] font-bold whitespace-nowrap ${statusVisual.actionClassName}`}
+	                          title="Continuar estudo do tópico"
+	                          aria-label={`Continuar estudo do tópico ${topic.name}`}
+	                        >
+	                          <BookOpen size={12} />
+	                          Continuar
+	                        </button>
+	                      ) : (
+	                        <button
+	                          onClick={() => openReviewModal(topic.id)}
+	                          className={`h-8 px-3 rounded-lg border transition-all flex items-center justify-center gap-1.5 text-[11px] font-bold whitespace-nowrap ${statusVisual.actionClassName}`}
+	                          title="Iniciar estudo do tópico"
+	                          aria-label={`Iniciar estudo do tópico ${topic.name}`}
+	                        >
+	                          <Play size={10} className="ml-[1px]" />
+	                          Iniciar estudo
+	                        </button>
+	                      )}
                     </div>
                   </div>
                 );
@@ -1792,21 +2509,464 @@ const Subjects = () => {
     </div>
   );
 
-  const renderCycleVisualPanel = () => {
-    const rhythmWidth = Math.min(cycleVisualStats.subjectsPerDay * 30, 100);
-    const currentCycleNumber = (userCycle?.ciclos_realizados || 0) + 1;
-    const activeCycleEditais = editaisNoCiclo.filter(e =>
-      e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
+  const renderEmptyCycleState = () => (
+    <div className="flex min-h-[520px] w-full items-center justify-center text-center">
+      <div className="flex max-w-md flex-col items-center">
+        <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-blue-500/10 dark:from-primary/20 dark:to-blue-500/20 rounded-full flex items-center justify-center mb-6 shadow-inner">
+          <span className="text-4xl text-primary">📚</span>
+        </div>
+        <h3 className="text-xl font-bold text-foreground mb-3">
+          {hasActiveCycle ? 'Nenhuma matéria ativa no ciclo' : 'Seu ciclo ainda não está montado'}
+        </h3>
+        <p className="text-content-muted mx-auto mb-8 leading-relaxed">
+          {hasActiveCycle
+            ? 'As matérias do ciclo foram ocultadas ou removidas do edital. Reative as matérias em Meus Editais para continuar estudando.'
+            : 'Escolha um edital e ative as matérias que farão parte da fila. A página só vira mapa de estudo quando existe uma fila real.'}
+        </p>
+        <button
+          onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
+          className="px-6 py-3 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+        >
+          Ir para Meus Editais
+        </button>
+      </div>
+    </div>
+  );
+
+	  const StrategicEditalPanel = () => {
+	    const highestPendingWeight = strategicPanelStats.highestPendingWeightSubject;
+	    const highestIncidence = strategicPanelStats.highestIncidenceTopic;
+	    const lowestIncidence = strategicPanelStats.lowestIncidenceTopic;
+	    const highestIncidenceSubject = strategicPanelStats.highestIncidenceSubject;
+	    const currentCycleNumber = (userCycle?.ciclos_realizados || 0) + 1;
+	    const activeCycleEditais = editaisNoCiclo.filter(e =>
+	      e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
+	    );
+	    const editalCycleLabel = activeCycleEditais.length > 0
+	      ? activeCycleEditais
+	        .map(edital => {
+	          const editalName = (edital.organ || edital.name || 'Edital').trim();
+	          const position = edital.position?.trim();
+	          return position ? `${editalName} • ${position}` : editalName;
+	        })
+	        .join(' | ')
+	      : 'Edital carregado';
+	    const formatDerivedWeightPercentage = (value?: number | null) =>
+	      typeof value === 'number' && Number.isFinite(value)
+	        ? `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% do edital`
+	        : null;
+	    const insightItems = [
+	      highestIncidenceSubject
+	        ? {
+	            label: 'Matéria mais cobrada',
+	            value: `${highestIncidenceSubject.subjectName} (${highestIncidenceSubject.totalVolume.toLocaleString('pt-BR')})`,
+	            icon: Trophy,
+	            className: 'border-sky-500/20 bg-sky-500/10 text-sky-300',
+	          }
+	        : null,
+	      highestIncidence
+	        ? {
+	            label: 'Tópico mais cobrado',
+	            value: `${highestIncidence.topicName} em ${highestIncidence.subjectName} (${highestIncidence.volume.toLocaleString('pt-BR')})`,
+	            icon: TrendingUp,
+	            className: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300',
+	          }
+	        : null,
+	      lowestIncidence && highestIncidence && lowestIncidence.topicName !== highestIncidence.topicName
+	        ? {
+	            label: 'Tópico menos cobrado',
+	            value: `${lowestIncidence.topicName} em ${lowestIncidence.subjectName} (${lowestIncidence.volume.toLocaleString('pt-BR')})`,
+	            icon: TrendingDown,
+	            className: 'border-slate-500/20 bg-slate-500/10 text-slate-300',
+	          }
+	        : null,
+	      highestPendingWeight
+	        ? {
+	            label: 'Maior peso pendente',
+	            value: `${getUnifiedSubjectName(highestPendingWeight.subject.id, highestPendingWeight.subject.name)} (${formatDerivedWeightPercentage(highestPendingWeight.percentage) || `${highestPendingWeight.effectiveWeight.value} ${highestPendingWeight.effectiveWeight.label}`})`,
+	            icon: Target,
+	            className: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
+	          }
+	        : null,
+	    ].filter(Boolean) as Array<{ label: string; value: string; icon: typeof Target; className: string }>;
+	    const forecastText = cycleVisualStats.remainingSubjects === 0
+	      ? 'Este ciclo já está completo.'
+	      : cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0
+	        ? `Mantendo o ritmo atual, você fecha a fila em aproximadamente ${cycleVisualStats.daysToFinish} dias.`
+	        : null;
+	    const lastClosedCycle = cycleSnapshots[0] || null;
+	    const subjectDelta = lastClosedCycle
+	      ? cycleVisualStats.studiedSubjects - lastClosedCycle.studied_subject_count
+	      : null;
+	    const topicDelta = lastClosedCycle
+	      ? strategicPanelStats.topicsStartedThisCycle - lastClosedCycle.topics_started_count
+	      : null;
+	    const formatDelta = (value: number | null, singular: string, pluralText: string) => {
+	      if (value === null) return null;
+	      if (value === 0) return `igual ao ciclo ${lastClosedCycle?.cycle_number}`;
+	      const abs = Math.abs(value);
+	      return `${value > 0 ? '+' : '-'}${abs} ${abs === 1 ? singular : pluralText} vs ciclo ${lastClosedCycle?.cycle_number}`;
+	    };
+	    const alertStyles: Record<StudyCycleAlert['severity'], { card: string; icon: string; label: string }> = {
+	      critical: {
+	        card: 'border-rose-500/25 bg-rose-500/10 text-rose-300',
+	        icon: 'bg-rose-500/15 text-rose-300',
+	        label: 'Crítico',
+	      },
+	      warning: {
+	        card: 'border-amber-500/25 bg-amber-500/10 text-amber-300',
+	        icon: 'bg-amber-500/15 text-amber-300',
+	        label: 'Atenção',
+	      },
+	      info: {
+	        card: 'border-sky-500/20 bg-sky-500/10 text-sky-300',
+	        icon: 'bg-sky-500/15 text-sky-300',
+	        label: 'Sinal',
+	      },
+	    };
+
+	    return (
+	      <aside className="hidden md:block min-w-0">
+	        <div className="sticky top-4">
+	          <div className="mb-3 flex items-center gap-2 px-1">
+	            <Shield size={14} className="text-primary shrink-0" />
+            <h3 className="text-[15px] font-bold text-primary">
+	              Painel estratégico do edital
+	            </h3>
+	          </div>
+
+	          <div className="space-y-3">
+	            <div className="overflow-hidden rounded-xl border border-primary/15 bg-gradient-to-br from-primary/10 via-card to-card p-4">
+	              <div className="flex items-start justify-between gap-4">
+	                <div className="min-w-0">
+	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-primary">
+	                    Ciclo {currentCycleNumber}
+	                  </h4>
+	                  <p className="mt-1 truncate text-[11px] font-semibold text-content-muted" title={editalCycleLabel}>
+	                    {editalCycleLabel}
+	                  </p>
+	                </div>
+	                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-primary/25 bg-background/60">
+	                  <span className="text-lg font-black text-foreground tabular-nums">{strategicPanelStats.coveragePercentage}%</span>
+	                </div>
+	              </div>
+	              <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-muted/30">
+	                <div
+	                  className="h-full rounded-full bg-primary transition-all duration-500"
+	                  style={{ width: `${strategicPanelStats.coveragePercentage}%` }}
+	                />
+	              </div>
+	              <div className="mt-4 space-y-2">
+	                <div className="rounded-lg border border-white/10 bg-background/35 px-3 py-2">
+	                  <div className="flex items-center justify-between gap-3">
+	                    <p className="text-[10px] font-black uppercase text-content-muted">Matérias marcadas neste ciclo</p>
+	                    <p className="text-base font-black text-foreground tabular-nums">{cycleVisualStats.studiedSubjects}</p>
+	                  </div>
+	                  {formatDelta(subjectDelta, 'matéria', 'matérias') && (
+	                    <p className="mt-1 text-[10px] font-semibold text-content-muted">
+	                      {formatDelta(subjectDelta, 'matéria', 'matérias')}
+	                    </p>
+	                  )}
+	                </div>
+	                <div className="rounded-lg border border-white/10 bg-background/35 px-3 py-2">
+	                  <div className="flex items-center justify-between gap-3">
+	                    <p className="text-[10px] font-black uppercase text-content-muted">Tópicos novos no ciclo</p>
+	                    <p className="text-base font-black text-foreground tabular-nums">{strategicPanelStats.topicsStartedThisCycle}</p>
+	                  </div>
+	                  {formatDelta(topicDelta, 'tópico', 'tópicos') && (
+	                    <p className="mt-1 text-[10px] font-semibold text-content-muted">
+	                      {formatDelta(topicDelta, 'tópico', 'tópicos')}
+	                    </p>
+	                  )}
+	                </div>
+	                {strategicPanelStats.subjectWithMostTopicsStartedThisCycle ? (
+	                  <div className="rounded-lg border border-white/10 bg-background/35 px-3 py-2">
+	                    <p className="text-[10px] font-black uppercase text-content-muted">Maior abertura no ciclo</p>
+	                    <p className="mt-1 truncate text-xs font-black text-foreground" title={strategicPanelStats.subjectWithMostTopicsStartedThisCycle.subjectName}>
+	                      {strategicPanelStats.subjectWithMostTopicsStartedThisCycle.subjectName}
+	                    </p>
+	                    <p className="mt-1 text-[10px] text-content-muted">
+	                      {strategicPanelStats.subjectWithMostTopicsStartedThisCycle.topicsStarted}/{strategicPanelStats.subjectWithMostTopicsStartedThisCycle.totalTopics} tópicos novos
+	                    </p>
+	                  </div>
+	                ) : (
+	                  <div className="rounded-lg border border-dashed border-white/10 bg-background/20 px-3 py-2">
+	                    <p className="text-[10px] font-black uppercase text-content-muted">Maior abertura no ciclo</p>
+	                    <p className="mt-1 text-xs text-content-muted">Ainda sem tópicos novos neste ciclo.</p>
+	                  </div>
+	                )}
+	                {!lastClosedCycle && (
+	                  <p className="text-[11px] text-content-muted leading-relaxed">
+	                    Ao iniciar o próximo ciclo, este resumo será salvo para comparar sua evolução.
+	                  </p>
+	                )}
+	              </div>
+	            </div>
+
+	            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.07] p-4">
+	              <div className="mb-3 flex items-center justify-between gap-3">
+	                <h4 className="text-[11px] font-black uppercase tracking-widest text-emerald-300">
+	                  Plano de hoje
+	                </h4>
+	                <Clock size={15} className="text-emerald-300" />
+	              </div>
+	              <div className="grid grid-cols-2 gap-2">
+	                <div className="rounded-lg border border-emerald-500/15 bg-background/35 px-3 py-2">
+	                  <p className="text-[10px] font-black uppercase text-content-muted">Tópicos novos</p>
+	                  <p className="mt-1 text-lg font-black text-foreground tabular-nums">
+	                    {cycleMetrics.dailyNewTopicsGoal}
+	                  </p>
+	                  <p className="mt-1 text-[10px] text-content-muted">
+	                    {cycleMetrics.newTopicDeficitToday > 0
+	                      ? `faltam ${cycleMetrics.newTopicDeficitToday} hoje`
+	                      : cycleMetrics.dailyNewTopicsGoal > 0
+	                        ? 'meta cumprida hoje'
+	                        : 'sem prova datada'}
+	                  </p>
+	                </div>
+	                <div className="rounded-lg border border-emerald-500/15 bg-background/35 px-3 py-2">
+	                  <p className="text-[10px] font-black uppercase text-content-muted">Revisões hoje</p>
+	                  <p className="mt-1 text-lg font-black text-foreground tabular-nums">
+	                    {cycleMetrics.dailyReviewGoal}
+	                  </p>
+	                  <p className="mt-1 text-[10px] text-content-muted">
+	                    {cycleMetrics.reviewDeficitToday > 0
+	                      ? `${cycleMetrics.overdueReviews} atrasada${cycleMetrics.overdueReviews === 1 ? '' : 's'}`
+	                      : cycleMetrics.dailyReviewGoal > 0
+	                        ? 'revisões em dia'
+	                        : 'sem revisão vencida'}
+	                  </p>
+	                </div>
+	              </div>
+	              <div className="mt-2 rounded-lg border border-emerald-500/15 bg-background/30 px-3 py-2">
+	                <div className="flex items-center justify-between gap-3">
+	                  <p className="text-[10px] font-black uppercase text-content-muted">Faltam iniciar</p>
+	                  <p className="text-sm font-black text-foreground tabular-nums">{cycleMetrics.unstartedTopics}</p>
+	                </div>
+	                <p className="mt-1 text-[10px] leading-relaxed text-content-muted">
+	                  {cycleMetrics.daysUntilExam !== null
+	                    ? `Para ver tudo antes da prova, a meta usa ${cycleMetrics.daysUntilExam} dia${cycleMetrics.daysUntilExam === 1 ? '' : 's'} restantes.`
+	                    : cycleMetrics.estimatedDaysToFirstContact !== null
+	                      ? `No ritmo atual, o primeiro contato fecha em cerca de ${cycleMetrics.estimatedDaysToFirstContact} dia${cycleMetrics.estimatedDaysToFirstContact === 1 ? '' : 's'}.`
+	                      : 'Inicie tópicos para o sistema estimar o fechamento do primeiro contato.'}
+	                </p>
+	              </div>
+	            </div>
+
+	            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-4">
+	              <div className="mb-3 flex items-center justify-between gap-3">
+	                <h4 className="text-[11px] font-black uppercase tracking-widest text-cyan-300">
+	                  Sinais de cobrança
+	                </h4>
+	                <Target size={15} className="text-cyan-300" />
+	              </div>
+	              {highestIncidence ? (
+	                <div className="space-y-3">
+	                  <div className="rounded-xl border border-cyan-500/25 bg-background/50 p-3">
+	                    <div className="mb-2 flex items-center gap-2">
+	                      <div className="grid h-7 w-7 place-items-center rounded-lg bg-cyan-500/15 text-cyan-300">
+	                        <TrendingUp size={15} />
+	                      </div>
+	                      <p className="text-[10px] font-black uppercase tracking-wider text-cyan-300">Maior sinal</p>
+	                    </div>
+	                    <p className="text-sm font-black leading-snug text-foreground">{highestIncidence.topicName}</p>
+	                    <p className="mt-1 text-[11px] text-content-muted">
+	                      {highestIncidence.subjectName} · sinal {highestIncidence.volume.toLocaleString('pt-BR')}
+	                    </p>
+	                  </div>
+	                  {lowestIncidence && lowestIncidence.topicName !== highestIncidence.topicName && (
+	                    <div className="flex items-start gap-2 rounded-lg border border-cyan-500/15 bg-background/30 px-3 py-2">
+	                      <TrendingDown size={14} className="mt-0.5 shrink-0 text-content-muted" />
+	                      <div className="min-w-0">
+	                        <p className="text-[10px] font-black uppercase text-content-muted">Menor sinal</p>
+	                        <p className="truncate text-xs font-bold text-foreground" title={lowestIncidence.topicName}>{lowestIncidence.topicName}</p>
+	                      </div>
+	                    </div>
+	                  )}
+	                </div>
+	              ) : (
+	                <div className="rounded-xl border border-cyan-500/20 bg-background/40 p-3">
+	                  <div className="mb-2 flex items-center gap-2 text-cyan-300">
+	                    <ScanText size={15} />
+	                    <span className="text-[10px] font-black uppercase tracking-wider">Aguardando IA</span>
+	                  </div>
+	                  <p className="text-xs text-content-muted leading-relaxed">
+	                    Quando a IA registrar sinais de cobrança nos tópicos, este mapa mostra os pontos mais fortes do edital.
+	                  </p>
+	                </div>
+	              )}
+	            </div>
+
+	            {strategicAlerts.length > 0 && (
+	              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
+	                <div className="mb-3 flex items-center justify-between gap-3">
+	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-amber-300">
+	                    Atenção estratégica
+	                  </h4>
+	                  <AlertCircle size={15} className="text-amber-300" />
+	                </div>
+	                <div className="space-y-2">
+	                  {strategicAlerts.map(alert => {
+	                    const style = alertStyles[alert.severity];
+	                    return (
+	                      <div key={alert.id} className={`rounded-xl border p-3 ${style.card}`}>
+	                        <div className="mb-2 flex items-start gap-2">
+	                          <div className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg ${style.icon}`}>
+	                            <AlertCircle size={14} />
+	                          </div>
+	                          <div className="min-w-0 flex-1">
+	                            <div className="flex flex-wrap items-center gap-2">
+	                              <span className="text-[9px] font-black uppercase tracking-wider opacity-80">{style.label}</span>
+	                              <p className="text-[11px] font-black uppercase tracking-wider text-foreground">{alert.title}</p>
+	                            </div>
+	                            <p className="mt-1 text-xs font-semibold leading-relaxed text-foreground">{alert.message}</p>
+	                            <p className="mt-1 text-[10px] leading-relaxed text-content-muted">{alert.evidence}</p>
+	                          </div>
+	                        </div>
+	                        {alert.actionLabel && alert.actionType !== 'none' && (
+	                          <button
+	                            type="button"
+	                            onClick={() => handleStrategicAlertAction(alert)}
+	                            className="mt-1 h-7 rounded-lg border border-white/10 bg-background/45 px-2.5 text-[10px] font-black uppercase tracking-wider text-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+	                          >
+	                            {alert.actionLabel}
+	                          </button>
+	                        )}
+	                      </div>
+	                    );
+	                  })}
+	                </div>
+	              </div>
+	            )}
+
+	            {queueSuggestion && (
+	              <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.07] p-4">
+	                <div className="mb-3 flex items-center justify-between gap-3">
+	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-fuchsia-300">
+	                    Ajuste sugerido da fila
+	                  </h4>
+	                  <ListTodo size={15} className="text-fuchsia-300" />
+	                </div>
+	                <div className="rounded-xl border border-fuchsia-500/20 bg-background/40 p-3">
+	                  <div className="mb-2 flex items-center gap-2">
+	                    <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-fuchsia-500/15 text-fuchsia-300">
+	                      <MoveUp size={14} />
+	                    </div>
+	                    <p className="text-[10px] font-black uppercase tracking-wider text-fuchsia-300">
+	                      {queueSuggestion.title}
+	                    </p>
+	                  </div>
+	                  <p className="text-xs font-semibold leading-relaxed text-foreground">{queueSuggestion.message}</p>
+	                  <p className="mt-1 text-[10px] leading-relaxed text-content-muted">{queueSuggestion.evidence}</p>
+	                  {queueSuggestion.limitations.length > 0 && (
+	                    <div className="mt-2 space-y-1">
+	                      {queueSuggestion.limitations.map(limit => (
+	                        <p key={limit} className="text-[10px] leading-relaxed text-content-muted">
+	                          {limit}
+	                        </p>
+	                      ))}
+	                    </div>
+	                  )}
+	                  <button
+	                    type="button"
+	                    onClick={() => handleApplySuggestedQueueOrder(queueSuggestion.suggestedOrder)}
+	                    className="mt-3 h-8 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/10 px-3 text-[10px] font-black uppercase tracking-wider text-fuchsia-200 transition-colors hover:border-fuchsia-400/50 hover:bg-fuchsia-500/20"
+	                  >
+	                    Aplicar sugestão
+	                  </button>
+	                </div>
+	              </div>
+	            )}
+
+	            {cycleEventInsights.length > 0 && (
+	              <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.07] p-4">
+	                <div className="mb-3 flex items-center justify-between gap-3">
+	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-violet-300">
+	                    Padrões observados
+	                  </h4>
+	                  <BarChart2 size={15} className="text-violet-300" />
+	                </div>
+	                <div className="space-y-2">
+	                  {cycleEventInsights.map(insight => (
+	                    <div
+	                      key={insight.id}
+	                      className={`rounded-xl border p-3 ${
+	                        insight.severity === 'warning'
+	                          ? 'border-violet-500/25 bg-background/45'
+	                          : 'border-violet-500/15 bg-background/30'
+	                      }`}
+	                    >
+	                      <div className="mb-1 flex items-center gap-2">
+	                        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-violet-500/15 text-violet-300">
+	                          <BarChart2 size={14} />
+	                        </div>
+	                        <p className="text-[10px] font-black uppercase tracking-wider text-violet-300">
+	                          {insight.title}
+	                        </p>
+	                      </div>
+	                      <p className="text-xs font-semibold leading-relaxed text-foreground">{insight.message}</p>
+	                      <p className="mt-1 text-[10px] leading-relaxed text-content-muted">{insight.evidence}</p>
+	                    </div>
+	                  ))}
+	                </div>
+	              </div>
+	            )}
+
+	            <div className="rounded-xl border border-gray-200/70 dark:border-white/[0.06] bg-white dark:bg-card p-4">
+	              <div className="mb-3 flex items-center justify-between gap-3">
+	                <h4 className="text-[11px] font-black uppercase tracking-widest text-content-muted">
+	                  Insights
+	                </h4>
+	                <Sparkles size={14} className="text-primary" />
+	              </div>
+	              {insightItems.length > 0 ? (
+	                <div className="grid grid-cols-1 gap-2">
+	                  {insightItems.slice(0, 4).map(item => {
+	                    const Icon = item.icon;
+	                    return (
+	                      <div key={item.label} className={`rounded-xl border p-3 ${item.className}`}>
+	                        <div className="mb-2 flex items-center gap-2">
+	                          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-background/40">
+	                            <Icon size={14} />
+	                          </div>
+	                          <p className="text-[10px] font-black uppercase tracking-wider">{item.label}</p>
+	                        </div>
+	                        <p className="text-xs font-semibold leading-relaxed text-foreground">{item.value}</p>
+	                      </div>
+	                    );
+	                  })}
+	                </div>
+	              ) : (
+	                <div className="rounded-xl border border-dashed border-primary/20 bg-primary/5 p-3">
+	                  <div className="mb-2 flex items-center gap-2 text-primary">
+	                    <Sparkles size={14} />
+	                    <span className="text-[10px] font-black uppercase tracking-wider">Sem sinal confiável ainda</span>
+	                  </div>
+	                  <p className="text-xs text-content-muted leading-relaxed">
+	                    Os insights aparecem quando houver peso preenchido, tópicos novos no ciclo ou sinal de cobrança analisado.
+	                  </p>
+	                </div>
+	              )}
+	            </div>
+
+	            {forecastText && (
+	              <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+	                <h4 className="text-[11px] font-black uppercase tracking-widest text-primary mb-2">
+	                  Previsão calculada
+	                </h4>
+	                <p className="text-xs text-content-muted leading-relaxed">
+	                  {forecastText}
+	                </p>
+	              </div>
+	            )}
+	          </div>
+	        </div>
+	      </aside>
     );
-    const editalCycleLabel = activeCycleEditais.length > 0
-      ? activeCycleEditais
-        .map(edital => {
-          const editalName = (edital.organ || edital.name || 'Edital').trim();
-          const position = edital.position?.trim();
-          return position ? `${editalName} • ${position}` : editalName;
-        })
-        .join(' | ')
-      : 'Edital carregado';
+  };
+
+  const renderCycleDetailsSheet = () => {
+    const rhythmWidth = Math.min(100, Math.max(0, Math.round(cycleVisualStats.subjectsPerDay * 25)));
     const formatSubjectsPerDay = (value: number) => {
       if (value <= 0) return 'Sem ritmo ainda';
       if (value < 1) {
@@ -1819,179 +2979,99 @@ const Subjects = () => {
     };
 
     return (
-      <section className="w-full" aria-label="Estatísticas do ciclo">
-        <Sheet>
-          <div className="w-full rounded-2xl border border-border bg-card dark:bg-zinc-900 shadow-sm px-4 py-4 flex flex-col xl:flex-row xl:items-center gap-4">
-            <div className="flex items-start gap-3 min-w-0 flex-1">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
-                <RotateCcw size={18} className="text-primary" />
-              </div>
-              <div className="min-w-0 space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-black uppercase tracking-[0.18em] text-primary/80">
-                    Ciclo atual
-                  </span>
-                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-primary">
-                    Ciclo {currentCycleNumber}
-                  </span>
+      <Sheet>
+        <SheetTrigger asChild>
+          <button
+            type="button"
+            className="h-7 rounded-lg border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-black uppercase tracking-wider text-primary transition-colors hover:bg-primary/20 inline-flex items-center gap-1.5"
+          >
+            <Settings size={12} />
+            Detalhes
+          </button>
+        </SheetTrigger>
+
+        <SheetContent side="right" className="w-full sm:max-w-xl bg-background dark:bg-zinc-950 border-border overflow-y-auto">
+          <SheetHeader className="pr-8">
+            <SheetTitle className="text-xl font-black tracking-tight">
+              Detalhes do Ciclo
+            </SheetTitle>
+            <SheetDescription>
+              Ritmo e controle do ciclo atual.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-4">
+            <div className="rounded-2xl border border-border bg-card dark:bg-zinc-900 p-5">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <Clock size={16} className="text-blue-500" />
                 </div>
-                <p className="text-[11px] font-bold text-foreground truncate" title={editalCycleLabel}>
-                  Edital: {editalCycleLabel}
-                </p>
+                <h4 className="text-xs font-black uppercase tracking-widest text-content-main">
+                  Inteligência de Ritmo
+                </h4>
               </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-2 xl:flex xl:items-center xl:gap-2 min-w-0">
-              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5 min-w-0 xl:min-w-[112px]">
-                <p className="text-[9px] font-black uppercase text-content-muted truncate">Estudadas</p>
-                <p className="text-lg font-black text-foreground leading-tight">{cycleVisualStats.studiedSubjects}</p>
-              </div>
-              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5 min-w-0 xl:min-w-[112px]">
-                <p className="text-[9px] font-black uppercase text-content-muted truncate">Restantes</p>
-                <p className="text-lg font-black text-foreground leading-tight">{cycleVisualStats.remainingSubjects}</p>
-              </div>
-              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5 min-w-0 xl:min-w-[112px]">
-                <p className="text-[9px] font-black uppercase text-content-muted truncate">Total</p>
-                <p className="text-lg font-black text-foreground leading-tight">{cycleVisualStats.totalSubjects}</p>
-              </div>
-            </div>
-
-            <SheetTrigger asChild>
-              <button className="h-11 px-5 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-xs font-black uppercase tracking-wider transition-colors shrink-0">
-                Detalhes
-              </button>
-            </SheetTrigger>
-          </div>
-
-          <SheetContent side="right" className="w-full sm:max-w-xl bg-background dark:bg-zinc-950 border-border overflow-y-auto">
-            <SheetHeader className="pr-8">
-              <SheetTitle className="text-xl font-black tracking-tight">
-                Detalhes do Ciclo
-              </SheetTitle>
-              <SheetDescription>
-                Ritmo do ciclo atual.
-              </SheetDescription>
-            </SheetHeader>
-
-            <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-border bg-card dark:bg-zinc-900 p-5">
-                <div className="flex items-center gap-2 mb-5">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                    <Clock size={16} className="text-blue-500" />
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-content-muted">
+                      Ritmo atual
+                    </span>
+                    <span className="text-xs font-black text-foreground tabular-nums">
+                      {formatSubjectsPerDay(cycleVisualStats.subjectsPerDay)}
+                    </span>
                   </div>
-                  <h4 className="text-xs font-black uppercase tracking-widest text-content-main">
-                    Inteligência de Ritmo
+                  <div className="h-1.5 w-full bg-muted/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-500"
+                      style={{ width: `${rhythmWidth}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-border/50">
+                  <p className="text-xs text-content-muted leading-relaxed">
+                    {cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0 ? (
+                      <>
+                        Faltam aprox. <strong className="text-foreground">{cycleVisualStats.daysToFinish} dias</strong> para bater este ciclo no ritmo atual.
+                      </>
+                    ) : cycleVisualStats.remainingSubjects === 0 ? (
+                      'Este ciclo já está completo.'
+                    ) : (
+                      'Marque matérias como estudadas para gerar uma estimativa de conclusão.'
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-red-400 mb-2">
+                    Zona de controle
                   </h4>
+                  <p className="text-sm font-bold text-foreground">
+                    Reiniciar ciclo de estudos
+                  </p>
+                  <p className="text-xs text-content-muted mt-1 leading-relaxed">
+                    Zera o giro atual e limpa as matérias marcadas como estudadas, sem apagar matérias ou tópicos.
+                  </p>
                 </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between gap-3 mb-1.5">
-                      <span className="text-[11px] font-black uppercase tracking-wider text-content-muted">
-                        Ritmo atual
-                      </span>
-                      <span className="text-xs font-black text-foreground tabular-nums">
-                        {formatSubjectsPerDay(cycleVisualStats.subjectsPerDay)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full bg-muted/20 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500 transition-all duration-500"
-                        style={{ width: `${rhythmWidth}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-border/50">
-                    <p className="text-xs text-content-muted leading-relaxed">
-                      {cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0 ? (
-                        <>
-                          Faltam aprox. <strong className="text-foreground">{cycleVisualStats.daysToFinish} dias</strong> para você bater este ciclo no ritmo atual.
-                        </>
-                      ) : cycleVisualStats.remainingSubjects === 0 ? (
-                        'Este ciclo já está completo.'
-                      ) : (
-                        'Marque matérias como estudadas para gerar uma estimativa de conclusão.'
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-red-400 mb-2">
-                      Zona de controle
-                    </h4>
-                    <p className="text-sm font-bold text-foreground">
-                      Reiniciar ciclo de estudos
-                    </p>
-                    <p className="text-xs text-content-muted mt-1 leading-relaxed">
-                      Zera o giro atual e limpa as matérias marcadas como estudadas, sem apagar matérias ou tópicos.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setResetCycleConfirmOpen(true)}
-                    disabled={!userCycle || isResettingCycle}
-                    className="h-9 px-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-black uppercase tracking-wider transition-colors shrink-0 inline-flex items-center gap-2"
-                  >
-                    {isResettingCycle ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                    Resetar
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setResetCycleConfirmOpen(true)}
+                  disabled={!userCycle || isResettingCycle}
+                  className="h-9 px-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-black uppercase tracking-wider transition-colors shrink-0 inline-flex items-center gap-2"
+                >
+                  {isResettingCycle ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                  Resetar
+                </button>
               </div>
             </div>
-          </SheetContent>
-        </Sheet>
-      </section>
-    );
-  };
-
-  const renderEmptyCycleState = () => (
-    <div className="flex min-h-[520px] w-full items-center justify-center text-center">
-      <div className="flex max-w-md flex-col items-center">
-        <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-blue-500/10 dark:from-primary/20 dark:to-blue-500/20 rounded-full flex items-center justify-center mb-6 shadow-inner">
-          <span className="text-4xl text-primary">📚</span>
-        </div>
-        <h3 className="text-xl font-bold text-foreground mb-3">
-          Nenhuma matéria por aqui
-        </h3>
-        <p className="text-content-muted mx-auto mb-8 leading-relaxed">
-          Comece adicionando sua primeira matéria ou importe um edital pronto para iniciar seus estudos.
-        </p>
-        <button
-          onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
-          className="px-6 py-3 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
-        >
-          Adicionar Matéria
-        </button>
-      </div>
-    </div>
-  );
-
-  const StrategicEditalPanel = () => {
-    return (
-      <aside className="hidden md:block min-w-0">
-        <div className="sticky top-4">
-          <div className="mb-3 flex items-center gap-2 px-1">
-            <Shield size={14} className="text-primary shrink-0" />
-            <h3 className="text-[15px] font-bold text-primary">
-              Painel estratégico do edital
-            </h3>
           </div>
-
-          <div className="rounded-xl border border-gray-200/70 dark:border-white/[0.06] bg-white dark:bg-card p-5">
-            <p className="text-sm font-semibold text-foreground leading-relaxed">
-              Área reservada para leitura estratégica do edital.
-            </p>
-            <p className="mt-2 text-xs text-content-muted leading-relaxed">
-              Aqui entram sinais de prioridade, riscos e decisões do ciclo. Não é uma coluna de matérias concluídas nem um dashboard técnico.
-            </p>
-          </div>
-        </div>
-      </aside>
+        </SheetContent>
+      </Sheet>
     );
   };
 
@@ -2032,7 +3112,7 @@ const Subjects = () => {
                           const hasMatchingTopic = item.subject.topics?.some(topic =>
                             normalizeText(topic.name).includes(normalizedQuery)
                           );
-                          if (matchesSubject || hasMatchingTopic) {
+                          if ((matchesSubject || hasMatchingTopic) && !studiedCycleIdSet.has(item.subject.id)) {
                             newExpanded.push(item.id);
                           }
                         });
@@ -2098,33 +3178,36 @@ const Subjects = () => {
                   ({filteredList.length})
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={toggleAllCycleSubjects}
-                className="hidden md:flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-semibold text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary dark:text-white/25 dark:hover:text-primary shrink-0"
-                title={
-                  filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
-                    ? 'Recolher todos os tópicos'
-                    : 'Expandir todos os tópicos'
-                }
-                aria-label={
-                  filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
-                    ? 'Recolher todos os tópicos das matérias'
-                    : 'Expandir todos os tópicos das matérias'
-                }
-              >
-                <ChevronDown
-                  size={12}
-                  className={`transition-transform ${
+              <div className="flex items-center gap-1.5 shrink-0">
+                {renderCycleDetailsSheet()}
+                <button
+                  type="button"
+                  onClick={toggleAllCycleSubjects}
+                  className="hidden md:flex h-7 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary dark:text-white/25 dark:hover:text-primary"
+                  title={
                     filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
-                      ? 'rotate-180'
-                      : ''
-                  }`}
-                />
-                {filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
-                  ? 'Recolher'
-                  : 'Expandir'}
-              </button>
+                      ? 'Recolher todos os tópicos'
+                      : 'Expandir todos os tópicos'
+                  }
+                  aria-label={
+                    filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
+                      ? 'Recolher todos os tópicos das matérias'
+                      : 'Expandir todos os tópicos das matérias'
+                  }
+                >
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform ${
+                      filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
+                        ? 'rotate-180'
+                        : ''
+                    }`}
+                  />
+                  {filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
+                    ? 'Recolher'
+                    : 'Expandir'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -2136,16 +3219,16 @@ const Subjects = () => {
                     <span className="text-4xl text-primary">📚</span>
                   </div>
                   <h3 className="text-xl font-bold text-foreground mb-3">
-                    Nenhuma matéria por aqui
+                    Nenhuma matéria cadastrada
                   </h3>
                   <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
-                    Comece adicionando sua primeira matéria ou importe um edital pronto para iniciar seus estudos.
+                    Importe um edital ou cadastre matérias em Meus Editais para montar uma fila de ciclo confiável.
                   </p>
                   <button
                     onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
                     className="px-6 py-3 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                   >
-                    Adicionar Matéria
+                    Ir para Meus Editais
                   </button>
                 </>
               ) : activeTab === 'all' && hasActiveCycle && isCycleFullyStudied ? (
@@ -2199,16 +3282,19 @@ const Subjects = () => {
                   <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
                     <Search size={32} className="text-slate-400" />
                   </div>
-                  <h3 className="text-lg font-bold text-foreground mb-2">Nenhuma matéria ativa</h3>
+                  <h3 className="text-lg font-bold text-foreground mb-2">
+                    {newSubjectName.trim() && !isImportEditalModalOpen ? 'Nada encontrado na fila' : 'Nenhuma matéria ativa no ciclo'}
+                  </h3>
                   <p className="text-content-muted max-w-sm mx-auto mb-6">
-                    Todas as matérias foram ocultadas ou o edital foi removido do ciclo. Ative matérias em
-                    &ldquo;Meus Editais&rdquo; ou carregue um edital no ciclo.
+                    {newSubjectName.trim() && !isImportEditalModalOpen
+                      ? 'A busca não encontrou matéria ou tópico ativo neste ciclo.'
+                      : 'Todas as matérias foram ocultadas ou o edital foi removido do ciclo. Reative matérias em Meus Editais para continuar.'}
                   </p>
                   <button
                     onClick={() => navigate('/meus-editais')}
                     className="px-5 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all"
                   >
-                    Ativar Matérias
+                    Ir para Meus Editais
                   </button>
                 </>
               )}
@@ -2246,17 +3332,22 @@ const Subjects = () => {
                   const inReviewTopicsCount = subject.topics.filter(topic =>
                     isTopicStarted(topic) && !isTopicCompleted(topic)
                   ).length;
-                  const noTopics = totalTopicsCount === 0;
-                  const startedTopicsCount = inReviewTopicsCount + completedTopicsCount;
-                  const topicStatusLabel = noTopics
-                    ? 'Sem tópicos'
-                    : startedTopicsCount === 0
-                      ? 'Nenhum iniciado'
+	                  const noTopics = totalTopicsCount === 0;
+	                  const startedTopicsCount = inReviewTopicsCount + completedTopicsCount;
+	                  const activeTopicsStartedInCurrentCycle = subject.topics.filter(topic =>
+	                    topic.is_active !== false && isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo)
+	                  ).length;
+	                  const needsCycleClosure = activeTopicsStartedInCurrentCycle > 0 && !isStudiedInCycle;
+	                  const topicStatusLabel = noTopics
+	                    ? 'Sem tópicos'
+                      : startedTopicsCount === 0
+                        ? 'Nenhum iniciado'
                       : inReviewTopicsCount === totalTopicsCount
-                        ? 'Todos em revisão'
+                        ? 'Todos iniciados'
                         : startedTopicsCount === totalTopicsCount
                           ? 'Todos iniciados'
                           : `${startedTopicsCount}/${totalTopicsCount} iniciados`;
+	                  const subjectCycleStatusLabel = isStudiedInCycle ? 'Concluída no ciclo' : topicStatusLabel;
 
                   const isEditing = editingSubjectId === subject.id;
 
@@ -2280,21 +3371,21 @@ const Subjects = () => {
                             className={`rounded-lg overflow-hidden border transition-all ${
                               expandedSubjectIds.includes(item.id)
                                 ? isStudiedInCycle
-                                  ? 'border-emerald-200/70 dark:border-emerald-500/20 shadow-sm'
+                                  ? 'border-emerald-200/60 dark:border-emerald-500/20'
                                   : 'border-gray-200 dark:border-white/[0.08] shadow-sm'
                                 : isStudiedInCycle
-                                  ? 'border-emerald-200/60 dark:border-emerald-500/15 hover:border-emerald-300 dark:hover:border-emerald-500/25'
+                                  ? 'border-emerald-200/45 dark:border-emerald-500/12 hover:border-emerald-300/70 dark:hover:border-emerald-500/25'
                                   : 'border-gray-100 dark:border-white/[0.04] hover:border-gray-200 dark:hover:border-white/[0.08]'
-                            } bg-white dark:bg-card flex-1 min-w-0`}
+                            } ${isStudiedInCycle ? 'bg-emerald-50/35 dark:bg-emerald-500/[0.035]' : 'bg-white dark:bg-card'} flex-1 min-w-0`}
                           >
                             {/* === HEADER DA MATÉRIA === */}
                             <div
                               data-subject-id={subject.id}
                               onClick={() => toggleExpand(item.id)}
-                              className={`h-[56px] pl-2 pr-4 py-0 flex items-center gap-2 group cursor-pointer relative transition-colors ${
-                                isStudiedInCycle
-                                  ? 'bg-emerald-50/80 dark:bg-emerald-500/[0.06]'
-                                  : ''
+	                              className={`min-h-[64px] pl-2 pr-4 py-2 flex items-center gap-2 group cursor-pointer relative transition-colors ${
+	                                isStudiedInCycle
+	                                  ? 'bg-emerald-50/50 dark:bg-emerald-500/[0.045]'
+	                                  : ''
                               }`}
                           >
                               {/* Content area: text + progress */}
@@ -2320,22 +3411,45 @@ const Subjects = () => {
                                   </button>
 
                                   <div className="flex flex-col min-w-0 gap-0.5 flex-1">
-                                    <h4 className="text-[13px] font-bold text-gray-700 dark:text-white/85 truncate leading-tight">
+                                    <h4 className={`text-[13px] font-bold truncate leading-tight ${
+                                      isStudiedInCycle
+                                        ? 'text-gray-500 dark:text-white/55'
+                                        : 'text-gray-700 dark:text-white/85'
+                                    }`}>
                                       {(() => { const n = getUnifiedSubjectName(subject.id, subject.name); return n.charAt(0).toUpperCase() + n.slice(1); })()}
                                     </h4>
 
-                                    <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-white/35 leading-none mt-1">
-                                      <span className="flex items-center gap-0.5">
-                                        <span className="text-[10px]">≡</span> {totalTopicsCount} Tópico{totalTopicsCount === 1 ? '' : 's'}
-                                      </span>
+	                                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400 dark:text-white/35 leading-none mt-1">
+	                                      <span className="flex items-center gap-0.5">
+	                                        <span className="text-[10px]">≡</span> {totalTopicsCount} Tópico{totalTopicsCount === 1 ? '' : 's'}
+	                                      </span>
                                       {!noTopics && (
                                         <>
                                           <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-white/20" aria-hidden="true" />
-                                          <span>{topicStatusLabel}</span>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
+	                                          <span>{subjectCycleStatusLabel}</span>
+	                                        </>
+	                                      )}
+	                                      {!isStudiedInCycle && renderSubjectWeightControl(subject)}
+	                                      {isStudiedInCycle && (
+	                                        <span
+	                                          className="inline-flex items-center gap-1 rounded-md border border-emerald-500/15 bg-emerald-500/10 px-1.5 py-0.5 font-black text-emerald-600 dark:text-emerald-400"
+	                                          title="Matéria já marcada como estudada neste ciclo. Ela continua na fila para histórico e pode voltar se necessário."
+	                                        >
+	                                          <Check size={10} strokeWidth={3} />
+	                                          Fechada
+	                                        </span>
+	                                      )}
+	                                      {needsCycleClosure && (
+	                                        <span
+	                                          className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-black text-amber-600 dark:text-amber-300"
+	                                          title={`${activeTopicsStartedInCurrentCycle} tópico${activeTopicsStartedInCurrentCycle === 1 ? '' : 's'} novo${activeTopicsStartedInCurrentCycle === 1 ? '' : 's'} neste ciclo. Marque a matéria quando encerrar o bloco.`}
+	                                        >
+	                                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
+	                                          Em andamento no ciclo
+	                                        </span>
+	                                      )}
+	                                    </div>
+	                                  </div>
 
                                   {isSubjectMerged(subject.id) && (
                                     <button
@@ -2400,9 +3514,13 @@ const Subjects = () => {
                                         e.stopPropagation();
                                         handleMarcarMateriaComoEstudada(subject.id);
                                       }}
-                                      title="Marcar como estudada"
+                                      title={needsCycleClosure ? 'Há tópicos novos neste ciclo. Marque a matéria quando encerrar este bloco.' : 'Marcar como estudada'}
                                       aria-label={`Marcar ${getUnifiedSubjectName(subject.id, subject.name)} como estudada`}
-                                      className="w-6 h-6 rounded-full border-2 border-gray-300/80 bg-white/[0.02] flex items-center justify-center shrink-0 text-gray-400/80 hover:bg-emerald-500 hover:border-emerald-300/80 hover:text-white dark:border-white/45 dark:bg-white/[0.03] dark:text-white/45 dark:hover:bg-emerald-500 dark:hover:border-emerald-300/80 dark:hover:text-white transition-all"
+                                      className={`relative w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                                        needsCycleClosure
+                                          ? 'border-amber-300/70 bg-amber-500/10 text-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.10)] before:absolute before:inset-[-5px] before:rounded-full before:border before:border-amber-400/30 before:animate-pulse hover:bg-emerald-500 hover:border-emerald-300/80 hover:text-white hover:shadow-none'
+                                          : 'border-gray-300/80 bg-white/[0.02] text-gray-400/80 hover:bg-emerald-500 hover:border-emerald-300/80 hover:text-white dark:border-white/45 dark:bg-white/[0.03] dark:text-white/45 dark:hover:bg-emerald-500 dark:hover:border-emerald-300/80 dark:hover:text-white'
+                                      }`}
                                     >
                                       <Check size={12} strokeWidth={3} />
                                     </button>
@@ -2429,70 +3547,69 @@ const Subjects = () => {
                                     const completed = isTopicCompleted(topic);
                                     const isActive = topic.is_active !== false;
 	                                    const contactCount = getTopicContactCount(topic, topicStats);
-	                                    const actualReviewCount = getActualReviewCount(contactCount);
 	                                    const hasStarted = contactCount > 0 || isTopicStarted(topic);
-	                                    const studiedInCurrentCycle = isTopicStudiedInCycle(topic, userCycle?.data_inicio_ciclo);
-	                                    const hardCount = topicStats.get(topic.id)?.hardReviewCount || 0;
-	                                    const showHardAlert = shouldShowHardReviewAlert(contactCount, hardCount);
-	                                    const hasDifficultyData = contactCount > 0 && typeof topic.difficulty_level === 'number';
+	                                    const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
                                     const statusVisual = getCycleTopicStatusVisual(topic);
                                     const statusState: 'empty' | 'dot' | 'check' =
                                       completed ? 'check' : hasStarted ? 'dot' : 'empty';
-                                    const statusLabel =
-                                      statusState === 'check' ? 'Tópico concluído' :
-                                      statusState === 'dot' ? 'Tópico em estudo' :
-                                      'Tópico não iniciado';
+	                                    const statusLabel =
+	                                      statusState === 'check' ? 'Tópico concluído' :
+	                                      statusState === 'dot' ? 'Tópico em estudo' :
+	                                      'Tópico não iniciado';
+	                                    const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
+	                                    const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
 
-                                    return (
-                                      <div
-                                        key={topic.id}
-                                        data-topic-item
-                                        className={`h-8 flex items-center justify-between pl-8 pr-4 py-0 transition-colors group/topic relative cursor-default ${
-                                          idx % 2 === 0
-                                            ? 'bg-gray-50/50 dark:bg-white/[0.02]'
-                                            : 'bg-white dark:bg-transparent'
+	                                    return (
+	                                      <div
+	                                        key={topic.id}
+	                                        data-topic-item
+	                                        className={`min-h-10 grid grid-cols-[8px_minmax(0,1fr)] sm:grid-cols-[8px_minmax(0,1fr)_auto] items-start sm:items-center gap-x-3 gap-y-2 pl-4 pr-4 py-2 transition-colors group/topic relative cursor-default ${
+	                                          idx % 2 === 0
+	                                            ? 'bg-gray-50/50 dark:bg-white/[0.02]'
+	                                            : 'bg-white dark:bg-transparent'
                                         } ${
                                           !isActive ? 'opacity-40 grayscale-[0.5]' : ''
                                         }`}
                                       >
-                                        <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
-                                          <div
-                                            className="flex-shrink-0 cursor-default select-none pointer-events-none"
-                                            role="img"
-                                            aria-label={statusLabel}
-                                            title={`${statusLabel}. Use o botão de ação à direita para estudar ou revisar.`}
-                                          >
-                                            {statusState === 'empty' && (
-                                              <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
-                                            )}
-                                            {statusState === 'dot' && (
-                                              <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
-                                            )}
-                                            {statusState === 'check' && (
-                                              <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
-                                            )}
-                                          </div>
-                                          <span
-                                            className={`text-[11px] font-medium truncate transition-opacity ${
-                                              completed ? 'text-content-muted opacity-50' : !isActive ? 'text-content-muted opacity-40' : 'text-content-main'
-                                            }`}
-                                          >
-                                            {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="text-[9px] ml-1 opacity-60">(inativo)</span>}
-                                          </span>
-                                          {studiedInCurrentCycle && !completed && (
+	                                        <div
+	                                          className="mt-0.5 sm:mt-0 flex h-full min-h-5 items-center justify-center cursor-default select-none pointer-events-none"
+	                                          role="img"
+	                                          aria-label={statusLabel}
+	                                          title={`${statusLabel}. Use o botão de ação à direita para iniciar ou continuar.`}
+	                                        >
+	                                          <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
+	                                        </div>
+
+	                                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+	                                          <span
+	                                            className={`text-[11px] font-medium break-words transition-opacity ${
+	                                              completed ? 'text-content-muted opacity-50' : !isActive ? 'text-content-muted opacity-40' : 'text-content-main'
+	                                            }`}
+	                                          >
+	                                            {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="text-[9px] ml-1 opacity-60">(inativo)</span>}
+	                                          </span>
+	                                          {incidenceDisplay && (
+	                                            <span
+	                                              className="text-[9px] font-black tracking-wide whitespace-nowrap px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20"
+	                                              title={incidenceTitle}
+	                                            >
+	                                              {incidenceDisplay}
+	                                            </span>
+	                                          )}
+	                                          {studiedInCurrentCycle && !completed && (
                                             <CheckCircle2
                                               size={12}
                                               className="flex-shrink-0 text-slate-400 dark:text-slate-500"
                                               role="img"
-                                              aria-label={`Estudado no ciclo: ${topic.name}`}
+                                              aria-label={`Tópico novo neste ciclo: ${topic.name}`}
                                             >
-                                              <title>Estudado no ciclo</title>
+                                              <title>Tópico novo neste ciclo</title>
                                             </CheckCircle2>
                                           )}
                                         </div>
 
-                                        <div className="flex items-center justify-end gap-1 relative min-w-[168px]">
-                                          <div className="flex items-center gap-1.5 transition-all duration-300 opacity-100 group-hover/topic:opacity-0 group-hover/topic:pointer-events-none group-hover/topic:translate-x-4 pr-1">
+	                                        <div className="col-start-2 sm:col-start-3 flex items-center justify-end gap-1 self-end sm:self-center">
+                                          <div className="flex items-center gap-1.5 pr-1">
                                             {(() => {
                                               if (!isActive) {
                                                 return (
@@ -2501,21 +3618,13 @@ const Subjects = () => {
                                                   </span>
                                                 );
                                               }
-                                              const statusInfo = getTopicStatusInfo(topic);
-                                              if (statusInfo.type !== 'atrasado' && statusInfo.type !== 'hoje') {
-                                                return null;
-                                              }
-                                              return (
-                                                <span className={`text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border ${statusInfo.colorClass}`}>
-                                                  {statusInfo.label}
-                                                </span>
-                                              );
+                                              return null;
                                             })()}
                                           </div>
 
                                           {isActive && (
                                             <div
-                                              className={`absolute right-8 mr-2 flex h-6 items-center gap-1.5 transition-all duration-300 opacity-0 translate-x-2 pointer-events-none group-hover/topic:translate-x-0 group-hover/topic:pointer-events-auto ${completed ? 'group-hover/topic:opacity-40' : 'group-hover/topic:opacity-100'}`}
+                                              className={`hidden md:flex h-6 items-center gap-1 transition-all duration-200 opacity-0 pointer-events-none group-hover/topic:pointer-events-auto ${completed ? 'group-hover/topic:opacity-40' : 'group-hover/topic:opacity-100'}`}
                                             >
                                               <button
                                                 type="button"
@@ -2546,59 +3655,43 @@ const Subjects = () => {
                                               >
                                                 <FileText size={12} />
                                               </button>
-                                              <div
-                                                className="h-6 min-w-6 rounded-full border border-transparent bg-transparent text-content-muted/55 transition-all flex items-center justify-center"
-	                                                title={
-	                                                  hasDifficultyData
-	                                                    ? showHardAlert
-	                                                      ? 'Muitas revisões com dificuldade alta'
-	                                                      : 'Dificuldade e revisões realizadas'
-	                                                    : 'Dificuldade ainda não informada'
-	                                                }
-                                              >
-                                                <DifficultyBarsCompact
-                                                  level={hasDifficultyData ? (topic.difficulty_level as 1 | 2 | 3) : null}
-                                                  size="sm"
-                                                  showEmpty
-                                                />
-                                              </div>
-	                                              <div
-	                                                className="h-6 min-w-6 rounded-full border border-transparent bg-transparent text-content-muted/60 transition-all flex items-center justify-center gap-1 text-[10px] font-bold tabular-nums"
-	                                                title={getReviewSummaryTitle(contactCount, showHardAlert)}
-	                                              >
-	                                                <RotateCcw size={10} className={showHardAlert ? "text-orange-400" : "text-content-muted/40"} />
-	                                                <span className={showHardAlert ? "text-orange-400" : ""}>{actualReviewCount}</span>
-	                                              </div>
                                             </div>
                                           )}
-                                          {isActive && (
-                                            <div className="flex-shrink-0">
-                                              {hasStarted ? (
-                                                <button
+	                                          {isActive && (
+	                                            <div className="flex-shrink-0">
+	                                              {completed ? (
+	                                                <span className="flex-shrink-0 h-7 px-2.5 rounded-lg flex items-center justify-center gap-1.5 border border-emerald-500/15 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black ml-0.5">
+	                                                  <Check size={11} />
+	                                                  Concluído
+	                                                </span>
+	                                              ) : hasStarted ? (
+	                                                <button
+	                                                  onClick={(e) => {
+	                                                    e.stopPropagation();
+	                                                    navigate(`/revisoes?topicId=${topic.id}`);
+	                                                  }}
+	                                                  className={`flex-shrink-0 h-7 px-2.5 rounded-lg flex items-center justify-center gap-1.5 border text-[10px] font-black transition-all ml-0.5 ${statusVisual.actionClassName}`}
+	                                                  title="Continuar estudo do tópico"
+	                                                  aria-label={`Continuar estudo do tópico ${topic.name}`}
+	                                                >
+	                                                  <BookOpen size={11} />
+	                                                  Continuar
+	                                                </button>
+	                                              ) : (
+	                                                <button
                                                   onClick={(e) => {
                                                     e.stopPropagation();
-                                                    navigate(`/revisoes?topicId=${topic.id}`);
-                                                  }}
-                                                  className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center border transition-all ml-0.5 ${statusVisual.actionClassName}`}
-                                                  title="Ir para revisões do tópico"
-                                                  aria-label={`Ir para revisões do tópico ${topic.name}`}
-                                                >
-                                                  <ArrowRight size={12} />
-                                                </button>
-                                              ) : (
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openReviewModal(topic.id);
-                                                  }}
-                                                  className={`flex-shrink-0 w-6 h-6 rounded-full border transition-all duration-300 flex items-center justify-center ml-0.5 group ${statusVisual.actionClassName}`}
-                                                  title="Iniciar estudo do tópico"
-                                                  aria-label={`Iniciar estudo do tópico ${topic.name}`}
-                                                >
-                                                  <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-                                                </button>
-                                              )}
-                                            </div>
+	                                                    openReviewModal(topic.id);
+	                                                  }}
+	                                                  className={`flex-shrink-0 h-7 px-2.5 rounded-lg border transition-all duration-300 flex items-center justify-center gap-1.5 ml-0.5 group text-[10px] font-black ${statusVisual.actionClassName}`}
+	                                                  title="Iniciar estudo do tópico"
+	                                                  aria-label={`Iniciar estudo do tópico ${topic.name}`}
+	                                                >
+	                                                  <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+	                                                  Iniciar
+	                                                </button>
+	                                              )}
+	                                            </div>
                                           )}
                                           {!isActive && (
                                             <button
@@ -2663,8 +3756,6 @@ const Subjects = () => {
 
         {/* Header Outside Card */}
         <main className="flex-1 px-4 md:px-8 pb-8 pt-0 flex flex-col gap-6">
-          {!isImportEditalModalOpen && showCycleWorkspace && renderCycleVisualPanel()}
-
           <div className="flex-1 min-w-0 w-full">
             {!isImportEditalModalOpen && (
               showCycleWorkspace ? (
@@ -2751,7 +3842,7 @@ const Subjects = () => {
                 <AlertDialogDescription className="text-content-muted">
                   Isso limpará as matérias marcadas como estudadas neste ciclo e iniciará o Ciclo {(userCycle?.ciclos_realizados || 0) + 2}.
                   <br /><br />
-                  Seu progresso nos tópicos e histórico de estudos anteriores serão mantidos.
+                  Um resumo deste ciclo será salvo para comparar sua evolução nos próximos ciclos.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -3116,6 +4207,7 @@ const Subjects = () => {
             onSubmit={async (difficulty) => {
               try {
                 await markTopicAsReviewed(difficultyModalData.topicId, difficulty);
+                await recordConfirmedTopicCycleEvent(difficulty);
                 setTimeout(() => refreshData(), 500);
               } catch (error) {
                 await errorService.report(
@@ -3135,6 +4227,7 @@ const Subjects = () => {
             onConfirmReview={async (difficulty, duration) => {
               try {
                 await markTopicAsReviewed(difficultyModalData.topicId, difficulty, duration);
+                await recordConfirmedTopicCycleEvent(difficulty, duration);
                 closeDifficultyModal();
                 setTimeout(() => refreshData(), 500);
               } catch (error) {

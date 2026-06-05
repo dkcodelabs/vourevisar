@@ -27,10 +27,10 @@ export default function ImportanciaProvaAdmin() {
                 {/* Header */}
                 <div className="px-4 md:px-8 pt-4 pb-4 bg-transparent rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
                     <h1 className="text-xl font-bold text-foreground flex items-center gap-2 mb-1">
-                        📈 Calculadora de Importância em Prova
+                        📈 Calculadora de Sinal de Cobrança
                     </h1>
                     <p className="text-xs text-muted-foreground">
-                        Analise o volume de questões de cada tópico para definir prioridades de estudo.
+                        Analise o volume bruto encontrado por tópico para apoiar prioridades de estudo.
                     </p>
                 </div>
 

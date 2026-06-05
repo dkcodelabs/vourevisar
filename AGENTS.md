@@ -18,6 +18,15 @@ Este arquivo é a fonte principal de instruções para agentes neste projeto. Se
 - O usuário principal é estudante de concurso. Priorize clareza, velocidade de fluxo, confiabilidade dos dados e baixa fricção.
 - Não transforme telas funcionais em landing pages decorativas. Interface bonita que atrapalha estudo é regressão de produto.
 
+## Planejamento vivo obrigatório
+
+- Antes de implementar ou sugerir próximo passo em uma área já planejada, consulte o plano vivo correspondente. Para a página de ciclo e inteligência estratégica, use `docs/study-cycle-strategic-page-plan.md`.
+- Tudo que ficar pendente deve ser registrado no plano como item `[ ]`, mesmo que seja melhoria, correção, validação, dúvida de produto, dívida técnica ou etapa futura.
+- Quando algo for implementado e verificado, marque o item correspondente como `[x]`. Se for parcialmente feito, mantenha `[ ]` e descreva claramente o que ainda falta.
+- Se surgir uma pendência fora do escopo do plano atual, crie uma seção de backlog no plano existente ou proponha um novo plano em `docs/`, mas não deixe a pendência apenas na conversa.
+- Ao receber um novo pedido do usuário, confira o plano antes de assumir que a tarefa faz sentido agora. Se o pedido conflitar com o plano ou resolver o problema errado, explique o conflito e proponha o recorte correto.
+- O plano não substitui leitura do código real. Ele orienta prioridade e memória do projeto; a implementação ainda deve ser validada no código, banco e UI.
+
 ## Stack e comandos
 
 - Frontend: Vite, React 18, TypeScript, React Router DOM, TanStack Query.

@@ -34,6 +34,15 @@ export interface StudyCycleTopic {
   reviewCount?: number;
   /** Quantidade de revisões com difficulty_numeric = 3 (Difícil, penalidade -40%) */
   hardReviewCount?: number;
+  /** Volume/importância calculado pelo módulo de incidência quando disponível */
+  totalVolume?: number | null;
+  /** Contexto da última análise de incidência quando disponível */
+  lastSearchContext?: string | null;
+  strategicIncidence?: {
+    level: 'analyzed' | 'not_analyzed';
+    label: string;
+    hasIncidence: boolean;
+  };
 }
 
 export enum SubjectStatus {
@@ -49,4 +58,14 @@ export interface StudyCycleSubject {
   status: SubjectStatus;
   originalId?: string; // ID original da matéria
   cyclePosition?: number; // Posição específica desta instância no ciclo
+  exam_weight_points?: number | null;
+  exam_weight_questions?: number | null;
+  exam_weight_percentage?: number | null;
+  exam_weight_raw?: string | null;
+  strategicWeight?: {
+    level: 'known' | 'none';
+    label: string;
+    hasWeight: boolean;
+  };
+  explorationPercentage?: number;
 }

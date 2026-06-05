@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
+const AI_STATUS_UPDATED_EVENT = 'ai-status-updated';
 
 interface AIStatus {
   status: 'active' | 'inactive' | 'error' | 'unknown';
@@ -17,6 +18,11 @@ interface AIErrorLog {
   error_message: string;
   context: string | null;
   created_at: string;
+}
+
+function publishAIStatus(status: AIStatus) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<AIStatus>(AI_STATUS_UPDATED_EVENT, { detail: status }));
 }
 
 // Função global para verificar status da IA (sem dependências de hook)
@@ -49,6 +55,7 @@ export async function checkAIStatusDirect(silent = true): Promise<AIStatus> {
     } catch (dbErr) {
       console.warn('[AIStatus] Erro na persistência (provavelmente coluna faltante):', dbErr);
     }
+    publishAIStatus(newStatus);
     
     return newStatus;
   } catch (error: any) {
@@ -64,6 +71,7 @@ export async function checkAIStatusDirect(silent = true): Promise<AIStatus> {
     
     await saveStatusToDB(newStatus);
     await saveErrorToDB(errorCode, errorMessage, 'checkAIStatusDirect');
+    publishAIStatus(newStatus);
     
     if (!silent) {
       toastGate.notifyError(errorMessage, errorCode, { severity: 'medium', flowKey: 'ai-status-check' });
@@ -208,7 +216,7 @@ export function useAIStatus(options: { enabled?: boolean } = {}) {
       const { data } = await (supabase as any)
         .from('ai_status')
         .select('*')
-        .limit(1)
+        .eq('id', '00000000-0000-0000-0000-000000000001')
         .maybeSingle();
       
       if (data) {
@@ -229,6 +237,18 @@ export function useAIStatus(options: { enabled?: boolean } = {}) {
 
     loadStatusFromDB();
   }, [enabled, loadStatusFromDB]);
+
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') return;
+
+    const handleStatusUpdate = (event: Event) => {
+      const status = (event as CustomEvent<AIStatus>).detail;
+      if (status) setAIStatus(status);
+    };
+
+    window.addEventListener(AI_STATUS_UPDATED_EVENT, handleStatusUpdate);
+    return () => window.removeEventListener(AI_STATUS_UPDATED_EVENT, handleStatusUpdate);
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) return;

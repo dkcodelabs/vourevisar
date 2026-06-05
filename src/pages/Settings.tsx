@@ -1,22 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  RefreshCw, Bell, Settings2, AlertTriangle,
-  Clock, Globe, Loader2, CheckCircle2, ChevronRight,
-  CreditCard, User
-} from 'lucide-react';
+import { Bell, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { GradientButton } from '@/components/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useApp } from '@/contexts/AppContext';
 import { ReviewProfile, UserSettings } from '@/types/study';
@@ -69,47 +62,10 @@ const SectionHeader = ({
   </div>
 );
 
-const DataRow = ({
-  icon: Icon,
-  label,
-  value,
-  valueColor,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: React.ReactNode;
-  valueColor?: string;
-}) => (
-  <div className="flex items-center justify-between py-2.5 border-b border-border/30 last:border-0">
-    <div className="flex items-center gap-2">
-      <Icon className="h-3.5 w-3.5 text-muted-foreground/60" />
-      <span className="text-sm text-muted-foreground">{label}</span>
-    </div>
-    <span className={`text-sm font-semibold ${valueColor || 'text-foreground'}`}>
-      {value}
-    </span>
-  </div>
-);
-
-// ─── Constantes ─────────────────────────────────────────────
-const TIMEZONES = [
-  { value: 'America/Sao_Paulo', label: 'Brasília (GMT-3)' },
-  { value: 'America/Manaus', label: 'Manaus (GMT-4)' },
-  { value: 'America/Rio_Branco', label: 'Rio Branco (GMT-5)' },
-  { value: 'America/Noronha', label: 'Fernando de Noronha (GMT-2)' },
-  { value: 'America/Belem', label: 'Belém (GMT-3)' },
-  { value: 'America/Fortaleza', label: 'Fortaleza (GMT-3)' },
-  { value: 'America/Cuiaba', label: 'Cuiabá (GMT-4)' },
-  { value: 'America/Campo_Grande', label: 'Campo Grande (GMT-4)' },
-  { value: 'America/Porto_Velho', label: 'Porto Velho (GMT-4)' },
-  { value: 'America/Boa_Vista', label: 'Boa Vista (GMT-4)' },
-];
-
 // ═══════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
 const Settings = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -126,9 +82,8 @@ const Settings = () => {
     updated_at: ''
   });
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [timezone, setTimezone] = useState('America/Sao_Paulo');
 
-  const { userCycle, isLoading: isCycleLoading, fetchUserCycle } = useCycleState();
+  const { isLoading: isCycleLoading, fetchUserCycle } = useCycleState();
   const { fetchUserSettings: fetchUserSettingsContext, refreshData } = useApp();
 
   // ─── Data loading ─────────────────────────────────────
@@ -313,7 +268,7 @@ const Settings = () => {
               <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 pl-1 font-sans">
                 Preferências Gerais
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid max-w-md grid-cols-1 gap-4">
 
 
 
@@ -364,63 +319,6 @@ const Settings = () => {
                   </div>
                 </SettingsCard>
 
-                {/* Fuso Horário */}
-                <SettingsCard delay={2}>
-                  <SectionHeader
-                    icon={Globe}
-                    iconColor="bg-emerald-500/10 text-emerald-500"
-                    label="FUSO HORÁRIO"
-                  />
-
-                  <div className="space-y-3">
-                    <Select value={timezone} onValueChange={setTimezone}>
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIMEZONES.map(tz => (
-                          <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[10px] text-muted-foreground/60">
-                      Define o horário de referência para notificações e agendamentos.
-                    </p>
-                  </div>
-                </SettingsCard>
-
-                {/* Links rápidos */}
-                <SettingsCard delay={3}>
-                  <SectionHeader
-                    icon={Settings2}
-                    iconColor="bg-slate-500/10 text-slate-500"
-                    label="ATALHOS"
-                  />
-
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => navigate('/perfil')}
-                      className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg border border-border/30 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-muted-foreground/60" />
-                        <span className="text-sm text-muted-foreground">Editar Perfil</span>
-                      </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
-                    </button>
-
-                    <button
-                      onClick={() => toast.info('Em breve: Portal de gerenciamento')}
-                      className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg border border-border/30 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="h-3.5 w-3.5 text-muted-foreground/60" />
-                        <span className="text-sm text-muted-foreground">Gerenciar Assinatura</span>
-                      </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
-                    </button>
-                  </div>
-                </SettingsCard>
               </div>
             </section>
 

@@ -4,7 +4,8 @@ import { toast } from 'react-toastify'
 import { Loader2, Search, TrendingUp, AlertTriangle, ChevronDown, CheckCircle2, Sparkles, BrainCircuit, Split, AlertOctagon } from 'lucide-react'
 import { calcularNotaImportancia } from '@/services/gutCalculator'
 import { AutomationSimulator } from './AutomationSimulator'
-import { AllTopicsTable } from './AllTopicsTable'
+import { AllTopicsTable, type TopicIncidenceFilter } from './AllTopicsTable'
+import { IncidenceOperationalSummary } from '@/components/incidence/IncidenceOperationalSummary'
 
 export function CalculadoraImportancia() {
     // const [apiKey, setApiKey] = useState('') // Removido V30
@@ -16,6 +17,8 @@ export function CalculadoraImportancia() {
 
     const [loading, setLoading] = useState(false)
     const [refreshTable, setRefreshTable] = useState(0) // ✅ Estado para forçar update da tabela
+    const [topicFilter, setTopicFilter] = useState<TopicIncidenceFilter>('all')
+    const [externalProcessResult, setExternalProcessResult] = useState<any | null>(null)
     const [resultado, setResultado] = useState<{
         volume_maximo: number
         nota_importancia: number
@@ -221,7 +224,7 @@ export function CalculadoraImportancia() {
                             <div className="text-2xl font-black text-red-800 mt-2">
                                 {resultado.volume_maximo.toLocaleString()}
                             </div>
-                            <div className="text-xs text-red-400">questões encontradas</div>
+                            <div className="text-xs text-red-400">sinal bruto encontrado</div>
                         </div>
 
                         <div className="bg-slate-50 p-4 rounded-lg flex flex-col justify-center">
@@ -273,15 +276,17 @@ export function CalculadoraImportancia() {
                 </div>
             )}
 
-            {/* 🤖 PAINEL DE AUTOMAÇÃO (V16.5) */}
+            <IncidenceOperationalSummary refreshTrigger={refreshTable} />
+
+            {/* Painel operacional de incidência */}
             <div className="mt-8 pt-8 border-t-2 border-indigo-100">
                 <div className="flex items-center gap-2 mb-4">
-                    <span className="text-2xl">🤖</span>
                     <h2 className="text-xl font-bold text-slate-800">
-                        Painel de Automação (Simulador)
+                        Processamento de incidência
                     </h2>
                 </div>
                 <AutomationSimulator
+                    externalResult={externalProcessResult}
                     onProcessComplete={(result) => {
                         console.log('✅ Processamento completo:', result)
                         setRefreshTable(prev => prev + 1) // ✅ Força reload da tabela
@@ -290,7 +295,15 @@ export function CalculadoraImportancia() {
 
                 {/* 📊 TABELA DE TODOS OS TÓPICOS */}
                 <div className="mt-8">
-                    <AllTopicsTable refreshTrigger={refreshTable} />
+                    <AllTopicsTable
+                        refreshTrigger={refreshTable}
+                        filter={topicFilter}
+                        onFilterChange={setTopicFilter}
+                        onTopicProcessed={(result) => {
+                            setExternalProcessResult(result)
+                            setRefreshTable(prev => prev + 1)
+                        }}
+                    />
                 </div>
             </div>
         </div>

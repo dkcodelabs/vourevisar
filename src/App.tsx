@@ -17,8 +17,7 @@ import { AdminRoute } from "@/components/AdminRoute";
 import LandingPage from "@/pages/LandingPage";
 import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
-import Profile from "@/pages/Profile";
-import Settings from "@/pages/Settings";
+import Account from "@/pages/Account";
 import Statistics from "@/pages/Statistics";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
@@ -124,8 +123,9 @@ const App = () => {
 
                           <Route path="test-roles" element={<SimpleRoleTest />} />
                           <Route path="planos" element={<Planos />} />
-                          <Route path="perfil" element={<Profile />} />
-                          <Route path="configuracoes" element={<Settings />} />
+                          <Route path="conta" element={<Account />} />
+                          <Route path="perfil" element={<Navigate to="/conta?tab=perfil" replace />} />
+                          <Route path="configuracoes" element={<Navigate to="/conta?tab=configuracoes" replace />} />
                           <Route path="reveal-cards" element={<RequireActiveSubscription><RevealCardDemo /></RequireActiveSubscription>} />
 
                         </Route>

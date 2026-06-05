@@ -9,6 +9,11 @@ import { SubjectStatus, ReviewInterval, Difficulty } from '@/types/study-cycle';
 import { cleanCycle } from '@/utils/cycleUtils';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
 import type { Subject, Topic, UserCycle, UserEdital } from '@/types';
+import {
+  getSubjectExplorationPercentage,
+  getSubjectStrategicWeight,
+  getTopicStrategicIncidence,
+} from '@/utils/studyCycleStrategic';
 
 import { fetchTopicReviewStats } from '@/services/topicReviewService';
 
@@ -106,7 +111,12 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
     subTopics: topic.subtopics?.map(st => ({ id: st.id, name: st.name })) || [],
     createdAt: topic.created_at,
     position: topic.position,
-    reviewCount: topic.reviewCount ?? topic.review_count ?? 0
+    reviewCount: topic.reviewCount ?? topic.review_count ?? 0,
+    totalVolume: topic.total_volume ?? null,
+    lastSearchContext: topic.last_search_context ?? null,
+    strategicIncidence: getTopicStrategicIncidence({
+      totalVolume: topic.total_volume ?? null
+    })
   };
 };
 
@@ -118,7 +128,18 @@ const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
     id: subject.id,
     name: subject.name,
     topics: mappedTopics,
-    status: isFullyCompleted ? SubjectStatus.FINISHED : mapStatusToStudyCycleStatus(subject.status)
+    status: isFullyCompleted ? SubjectStatus.FINISHED : mapStatusToStudyCycleStatus(subject.status),
+    exam_weight_points: subject.exam_weight_points ?? null,
+    exam_weight_questions: subject.exam_weight_questions ?? null,
+    exam_weight_percentage: subject.exam_weight_percentage ?? null,
+    exam_weight_raw: subject.exam_weight_raw ?? null,
+    strategicWeight: getSubjectStrategicWeight({
+      exam_weight_points: subject.exam_weight_points ?? null,
+      exam_weight_questions: subject.exam_weight_questions ?? null,
+      exam_weight_percentage: subject.exam_weight_percentage ?? null,
+      exam_weight_raw: subject.exam_weight_raw ?? null,
+    }),
+    explorationPercentage: getSubjectExplorationPercentage(mappedTopics)
   };
 };
 
@@ -185,7 +206,7 @@ export const useStudyCycleData = () => {
       const [subjectsRes, editaisRes] = await Promise.all([
         supabase
           .from('subjects')
-          .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position)`)
+          .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position, total_volume, last_search_context)`)
           .eq('user_id', user.id)
           .eq('topics.is_active', true)
           .order('priority', { ascending: true })
