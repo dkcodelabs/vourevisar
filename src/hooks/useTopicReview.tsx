@@ -10,6 +10,7 @@ import { useCycleState } from './useCycleState';
 import { calculateNextReview, formatDateForDB, describeCalculation } from '@/utils/calculateNextReview';
 import { Topic } from '@/types';
 import { registerDualProgress, findSiblingTopicIds } from '@/services/cycleMergeService';
+import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 
 export const useTopicReview = () => {
   const { user } = useAuth();
@@ -31,6 +32,8 @@ export const useTopicReview = () => {
     reviewCount: number;
     isCompleting: boolean;
     duration?: number;
+    strategicIncidenceLabel?: string | null;
+    strategicIncidenceDescription?: string | null;
   }>({
     isOpen: false,
     topicId: '',
@@ -41,7 +44,9 @@ export const useTopicReview = () => {
     reviewStage: '',
     reviewCount: 0,
     isCompleting: false,
-    duration: 0
+    duration: 0,
+    strategicIncidenceLabel: null,
+    strategicIncidenceDescription: null
   });
 
   // Nova função para abrir o modal de revisão (SEM marcar ainda)
@@ -62,6 +67,9 @@ export const useTopicReview = () => {
       if (!data) throw new Error('Tópico não encontrado');
 
       const topic = data as unknown as Topic;
+      const strategicIncidence = getTopicStrategicIncidence({
+        totalVolume: topic.total_volume ?? null,
+      });
 
       const currentReviewCount = topic.review_count || 0;
       const nextReviewCount = currentReviewCount + 1;
@@ -95,7 +103,11 @@ export const useTopicReview = () => {
         reviewStage,
         reviewCount: nextReviewCount,
         isCompleting: false, // O novo sistema é perpétuo/infinito, finalização é manual se desejado no futuro.
-        duration
+        duration,
+        strategicIncidenceLabel: strategicIncidence.showToStudent ? strategicIncidence.label : null,
+        strategicIncidenceDescription: strategicIncidence.showToStudent
+          ? 'Cobrança alta detectada no mapa do edital.'
+          : null
       });
 
     } catch (error) {
@@ -368,7 +380,9 @@ export const useTopicReview = () => {
       currentDifficulty,
       reviewStage: '',
       reviewCount: 0,
-      isCompleting: false
+      isCompleting: false,
+      strategicIncidenceLabel: null,
+      strategicIncidenceDescription: null
     });
   };
 
@@ -383,7 +397,9 @@ export const useTopicReview = () => {
       reviewStage: '',
       reviewCount: 0,
       isCompleting: false,
-      duration: 0
+      duration: 0,
+      strategicIncidenceLabel: null,
+      strategicIncidenceDescription: null
     });
   };
 

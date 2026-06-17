@@ -880,6 +880,8 @@ export const StudyCycleContent: React.FC = () => {
         reviewStage={difficultyModalData.reviewStage}
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
+        strategicIncidenceLabel={difficultyModalData.strategicIncidenceLabel}
+        strategicIncidenceDescription={difficultyModalData.strategicIncidenceDescription}
       />
 
       {/* Confirmação de Remoção de Edital */}

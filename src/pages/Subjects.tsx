@@ -173,7 +173,10 @@ const getTopicContactCount = (
   topicStats?.get(topic.id)?.reviewCount || 0
 );
 
-const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
+const getCycleTopicStatusVisual = (
+  topic: Topic,
+  hasStarted = isTopicStarted(topic)
+): CycleTopicStatusVisual => {
   if (isTopicCompleted(topic)) {
     return {
       label: 'Concluído',
@@ -186,13 +189,13 @@ const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
   if (isTopicInReviewFlow(topic)) {
     return {
       label: 'Em revisão',
-      badgeClassName: 'bg-info/10 text-info',
-      indicatorClassName: 'bg-info',
-      actionClassName: 'border-transparent bg-transparent text-info hover:border-info/20 hover:bg-info/10',
+      badgeClassName: 'bg-primary/10 text-primary',
+      indicatorClassName: 'bg-primary',
+      actionClassName: 'border-transparent bg-transparent text-primary hover:border-primary/20 hover:bg-primary/10',
     };
   }
 
-  if (isTopicStarted(topic)) {
+  if (hasStarted) {
     return {
       label: 'Iniciado',
       badgeClassName: 'bg-primary/10 text-primary',
@@ -2062,6 +2065,11 @@ const Subjects = () => {
     isImportEditalModalOpen,
   ]);
 
+  useEffect(() => {
+    if (activeTab !== 'vertical') return;
+    setExpandedSubjectIds(verticalSubjectList.map(item => item.id));
+  }, [activeTab, verticalSubjectList]);
+
   const handleOpenVerticalTopicNotes = useCallback((subjectId: string, topicId: string) => {
     const subject = verticalSubjectList.find(item => item.id === subjectId);
     const topic = subject?.topics.find(item => item.id === topicId);
@@ -2435,11 +2443,11 @@ const Subjects = () => {
     if (isEditingWeight) {
       return (
         <div
-          className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3.75rem] items-end gap-1.5 rounded-lg border border-warning/25 bg-warning/10 px-2 py-1.5"
+          className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3.25rem] items-end gap-1 rounded-lg border border-warning/25 bg-warning/10 px-1.5 py-1"
           onClick={(event) => event.stopPropagation()}
         >
           <label className="min-w-0">
-            <span className="mb-0.5 block truncate text-[9px] font-semibold uppercase leading-none text-content-muted">
+            <span className="mb-0.5 block truncate text-[8px] font-semibold uppercase leading-none text-content-muted">
               Questões
             </span>
             <input
@@ -2448,11 +2456,11 @@ const Subjects = () => {
               placeholder="0"
               inputMode="decimal"
               aria-label="Quantidade de questões da matéria"
-              className="app-field app-type-control h-7 w-full min-w-0 px-2 text-[11px] backdrop-blur placeholder:text-content-muted/60"
+              className="app-field app-type-control h-6 w-full min-w-0 px-1.5 text-[10px] backdrop-blur placeholder:text-content-muted/60"
             />
           </label>
           <label className="min-w-0">
-            <span className="mb-0.5 block truncate text-[9px] font-semibold uppercase leading-none text-content-muted">
+            <span className="mb-0.5 block truncate text-[8px] font-semibold uppercase leading-none text-content-muted">
               Pontos
             </span>
             <input
@@ -2461,7 +2469,7 @@ const Subjects = () => {
               placeholder="0"
               inputMode="decimal"
               aria-label="Quantidade de pontos da matéria"
-              className="app-field app-type-control h-7 w-full min-w-0 px-2 text-[11px] backdrop-blur placeholder:text-content-muted/60"
+              className="app-field app-type-control h-6 w-full min-w-0 px-1.5 text-[10px] backdrop-blur placeholder:text-content-muted/60"
             />
           </label>
           <div className="flex min-w-0 items-end justify-end gap-1">
@@ -2471,10 +2479,10 @@ const Subjects = () => {
                 type="button"
                 onClick={() => handleSaveSubjectWeightInline(subject.id)}
                 disabled={isSavingWeight}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:bg-control-hover disabled:text-content-muted/70"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:bg-control-hover disabled:text-content-muted/70"
                 aria-label="Salvar peso da matéria"
               >
-                {isSavingWeight ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                {isSavingWeight ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
               </button>
             )}
             {renderCycleTooltip(
@@ -2483,10 +2491,10 @@ const Subjects = () => {
                 type="button"
                 onClick={handleCancelWeightEdit}
                 disabled={isSavingWeight}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-input bg-control text-content-muted transition-colors hover:bg-control-hover hover:text-control-foreground disabled:text-content-muted/60"
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-input bg-control text-content-muted transition-colors hover:bg-control-hover hover:text-control-foreground disabled:text-content-muted/60"
                 aria-label="Cancelar edição de peso"
               >
-                <X size={12} />
+                <X size={11} />
               </button>
             )}
           </div>
@@ -2503,7 +2511,7 @@ const Subjects = () => {
             event.stopPropagation();
             handleStartWeightEdit(subject);
           }}
-          className={`inline-flex items-center gap-1 text-[10px] font-semibold leading-none transition-colors ${
+          className={`app-type-meta inline-flex items-center gap-1 transition-colors ${
             strategicWeight.hasWeight
               ? 'text-content-muted/70 hover:text-primary'
               : 'text-warning/80 hover:text-warning'
@@ -2556,23 +2564,23 @@ const Subjects = () => {
       return;
     }
 
-    if ((alert.actionType === 'start_topic' || alert.actionType === 'review_cycle') && alert.subjectId) {
+    if ((alert.actionType === 'start_subject' || alert.actionType === 'start_topic' || alert.actionType === 'review_cycle') && alert.subjectId) {
       focusSubjectFromStrategicAction(alert.subjectId);
     }
   };
 
-  const getVerticalTopicStatus = (topic: Topic) => {
+  const getVerticalTopicStatus = (topic: Topic, hasStarted = isTopicStarted(topic)) => {
     if (topic.is_active === false) {
-      const statusVisual = getCycleTopicStatusVisual(topic);
+      const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
       return { label: statusVisual.label, className: statusVisual.badgeClassName };
     }
 
     if (isTopicCompleted(topic)) {
-      const statusVisual = getCycleTopicStatusVisual(topic);
+      const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
       return { label: statusVisual.label, className: statusVisual.badgeClassName };
     }
 
-    const statusVisual = getCycleTopicStatusVisual(topic);
+    const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
     return { label: statusVisual.label, className: statusVisual.badgeClassName };
   };
 
@@ -2621,19 +2629,26 @@ const Subjects = () => {
       examDate ? `Prova ${examDate}` : null,
     ].filter(Boolean);
 
+    const summaryItems = [
+      { label: 'Iniciados', value: `${startedTopics}/${totalTopics}`, icon: ListTodo },
+      { label: 'Pendentes', value: unstartedTopics, icon: Target },
+      { label: 'Em estudo', value: inProgressTopics, icon: BookOpen },
+      { label: 'Concluídos', value: completedTopics, icon: CheckCircle2 },
+    ];
+
     return (
-      <section className="app-gradient-panel mb-4 overflow-hidden rounded-2xl p-3 sm:p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <section className="app-strategic-map-panel mb-3 overflow-hidden rounded-2xl px-3 py-3 sm:px-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-primary">
-              <FileText size={15} />
-              <h3 className="text-sm font-black tracking-tight">Mapa do edital</h3>
+              <FileText size={14} />
+              <h3 className="app-type-section-title text-primary">Mapa do edital</h3>
             </div>
-            <p className="mt-2 line-clamp-2 text-[13px] font-bold leading-snug text-title-card">
+            <p className="mt-1 line-clamp-1 app-type-card-title text-title-card">
               {editalName}
             </p>
             {metaItems.length > 0 && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-content-muted">
+              <div className="app-type-meta mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-content-muted">
                 {metaItems.map((item, index) => (
                   <span key={`${item}-${index}`} className="inline-flex min-w-0 items-center gap-1">
                     {index > 0 && <span className="h-1 w-1 rounded-full bg-content-muted/40" aria-hidden="true" />}
@@ -2643,55 +2658,82 @@ const Subjects = () => {
               </div>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-3 rounded-xl border app-hairline bg-surface/60 px-3 py-2 backdrop-blur sm:min-w-32 sm:flex-col sm:items-start sm:gap-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-content-muted">Iniciado</span>
-            <span className="text-xl font-black text-title-card tabular-nums">{coverage}%</span>
-          </div>
-        </div>
 
-        <div className="app-progress-track mt-3 h-1.5 w-full overflow-hidden rounded-full">
-          <div
-            className="app-progress-fill h-full rounded-full transition-all duration-500"
-            style={{ width: `${coverage}%` }}
-          />
-        </div>
-
-        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {[
-            { label: 'Iniciados', value: `${startedTopics}/${totalTopics}` },
-            { label: 'Não iniciados', value: unstartedTopics },
-            { label: 'Em andamento', value: inProgressTopics },
-            { label: 'Concluídos', value: completedTopics },
-          ].map(item => (
-            <div key={item.label} className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
-              <p className="text-[9px] font-black uppercase tracking-wide text-content-muted">{item.label}</p>
-                  <p className="mt-1 text-sm font-bold text-title-card tabular-nums">{item.value}</p>
+          <div className="flex min-w-0 items-center gap-3 lg:w-[18rem]">
+            <div className="shrink-0">
+              <span className="app-type-eyebrow block text-content-muted">Iniciado</span>
+              <span className="text-lg font-bold leading-none text-title-card tabular-nums">{coverage}%</span>
             </div>
-          ))}
+            <div className="app-progress-track h-1.5 min-w-0 flex-1 overflow-hidden rounded-full">
+              <div
+                className="app-progress-fill h-full rounded-full transition-all duration-500"
+                style={{ width: `${coverage}%` }}
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="mt-3 grid gap-2 text-[11px] font-semibold text-content-muted sm:grid-cols-2">
-          <div className="flex min-w-0 items-center gap-2 rounded-xl border app-hairline bg-surface/45 px-3 py-2 backdrop-blur">
-            <Gauge size={13} className="shrink-0 text-info" />
-            <span className="min-w-0">{paceText}</span>
-          </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {summaryItems.map(({ label, value, icon: Icon }) => (
+            <span
+              key={label}
+              className="app-map-chip app-type-meta inline-flex min-h-7 items-center gap-1.5 rounded-lg px-2 text-content-muted"
+            >
+              <Icon size={12} className="shrink-0 text-primary/75" />
+              <span className="font-semibold text-title-card tabular-nums">{value}</span>
+              <span>{label.toLowerCase()}</span>
+            </span>
+          ))}
+
+          <span className="app-map-chip app-type-meta inline-flex min-h-7 min-w-0 items-center gap-1.5 rounded-lg px-2 text-content-muted">
+            <Gauge size={12} className="shrink-0 text-info" />
+            <span className="min-w-0 truncate">{paceText}</span>
+          </span>
+
           <button
             type="button"
             onClick={() => navigate('/revisoes')}
-            className="flex min-w-0 items-center gap-2 rounded-xl border app-hairline bg-surface/45 px-3 py-2 text-left backdrop-blur transition-colors hover:border-primary/25 hover:bg-primary/10 hover:text-primary"
+            className="app-map-chip app-type-meta inline-flex min-h-7 min-w-0 items-center gap-1.5 rounded-lg px-2 text-left text-content-muted transition-colors hover:border-primary/25 hover:bg-primary/10 hover:text-primary"
           >
-            <BookOpen size={13} className="shrink-0" />
-            <span className="min-w-0">Revisões: {reviewSummary}</span>
+            <BookOpen size={12} className="shrink-0" />
+            <span className="min-w-0 truncate">Revisões: {reviewSummary}</span>
           </button>
         </div>
       </section>
     );
   };
 
+  const getSubjectTopicSummaryLabel = (subject: Subject, activeSubjectTopics: Topic[]) => {
+    const totalTopicsCount = activeSubjectTopics.length;
+    const completedTopicsCount = activeSubjectTopics.filter(isTopicCompleted).length;
+    const inReviewTopicsCount = activeSubjectTopics.filter(topic =>
+      isTopicStarted(topic) && !isTopicCompleted(topic)
+    ).length;
+    const startedTopicsCount = inReviewTopicsCount + completedTopicsCount;
+    const activeTopicsStartedInCurrentCycle = subject.topics.filter(topic =>
+      topic.is_active !== false && isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo)
+    ).length;
+
+    if (totalTopicsCount === 0) return '0 tópicos';
+    if (completedEditalSubjectIdSet.has(subject.id)) {
+      return `${completedTopicsCount}/${totalTopicsCount} tópicos concluídos`;
+    }
+    if (studiedCycleIdSet.has(subject.id)) {
+      return activeTopicsStartedInCurrentCycle > 0
+        ? `${activeTopicsStartedInCurrentCycle}/${totalTopicsCount} tópicos neste ciclo`
+        : 'Concluída no ciclo';
+    }
+    if (fullyStartedSubjectIdSet.has(subject.id)) {
+      return `${startedTopicsCount}/${totalTopicsCount} tópicos iniciados`;
+    }
+
+    return `${startedTopicsCount}/${totalTopicsCount} tópicos iniciados`;
+  };
+
   const renderVerticalEditalView = () => (
     <>
       {renderVerticalEditalSummary()}
-      <div className="app-surface w-full overflow-hidden rounded-2xl">
+      <div className="app-vertical-list w-full overflow-hidden rounded-2xl">
       {verticalSubjectList.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center text-content-muted">
           <FileText size={28} className="mb-3 opacity-50" />
@@ -2700,30 +2742,30 @@ const Subjects = () => {
       ) : (
 	        verticalSubjectList.map(({ subject, topics }) => {
             const isExpanded = expandedSubjectIds.includes(subject.id);
+            const subjectTopicSummaryLabel = getSubjectTopicSummaryLabel(subject, topics);
+            const isWeightLineActive = editingWeightSubjectId === subject.id || weightSavedSubjectId === subject.id;
 
             return (
 	          <div key={subject.id} className="border-b app-hairline last:border-b-0">
-	            <div className="sticky top-0 z-10 flex w-full items-start gap-2 border-b border-primary/10 bg-surface/90 px-3 py-2 backdrop-blur-md sm:px-4">
+	            <div className="app-vertical-subject-header sticky top-0 z-10 flex w-full items-start gap-2 border-b px-3 py-2 backdrop-blur-md sm:px-4">
 	              <div className="min-w-0 flex-1">
-	                <span className="block break-words text-[13px] font-black uppercase leading-snug tracking-wider text-title-section">
+	                <h4 className="app-type-card-title overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] text-title-card">
 	                  {getUnifiedSubjectName(subject.id, subject.name)}
-	                </span>
-	                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-	                  <span className="text-[10px] font-semibold tabular-nums text-content-muted">
-	                    {topics.length} tópico{topics.length !== 1 ? 's' : ''}
-	                  </span>
-	                  {renderSubjectWeightControl(subject)}
+	                </h4>
+	                <div className="app-type-meta mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-content-muted">
+	                  {isWeightLineActive ? (
+	                    renderSubjectWeightControl(subject)
+	                  ) : (
+	                    <>
+	                      <span className="flex min-w-0 items-center gap-0.5 break-words">
+	                        <ListTodo size={10} /> {subjectTopicSummaryLabel}
+	                      </span>
+	                      <span className="h-1 w-1 rounded-full bg-content-muted/30" aria-hidden="true" />
+	                      {renderSubjectWeightControl(subject)}
+	                    </>
+	                  )}
 	                </div>
 	              </div>
-                <button
-                  type="button"
-                  onClick={() => toggleExpand(subject.id)}
-                  className="ml-auto grid h-6 w-6 place-items-center rounded-lg text-content-muted transition-colors hover:bg-primary/10 hover:text-primary"
-                  aria-label={isExpanded ? 'Recolher matéria' : 'Expandir matéria'}
-                  aria-expanded={isExpanded}
-                >
-                  <ChevronDown size={13} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                </button>
 	            </div>
 
             {isExpanded && topics
@@ -2737,28 +2779,83 @@ const Subjects = () => {
               })
               .map((topic) => {
                 const contactCount = getTopicContactCount(topic, topicStats);
-	                const status = getVerticalTopicStatus(topic);
-	                const statusVisual = getCycleTopicStatusVisual(topic);
-	                const hasStarted = contactCount > 0 || isTopicStarted(topic);
-	                const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
-	                const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
-	                const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
-	                const hasNotes = Boolean(
+                const hasStarted = contactCount > 0 || isTopicStarted(topic);
+                const status = getVerticalTopicStatus(topic, hasStarted);
+                const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
+                const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
+                const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
+                const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
+                const hasNotes = Boolean(
                   (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() &&
                   (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
                 );
+                const renderVerticalTopicNotesButton = () => renderCycleTooltip(
+                  `Anotações para ${topic.name}`,
+                  <button
+                    onClick={() => handleOpenVerticalTopicNotes(subject.id, topic.id)}
+                    className={`grid h-7 w-7 place-items-center rounded-full border border-transparent bg-transparent transition-all ${
+                      hasNotes
+                        ? 'text-primary/70 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
+                        : 'text-content-muted/45 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
+                    }`}
+                    aria-label={`Anotações para ${topic.name}`}
+                  >
+                    <FileText size={12} />
+                  </button>
+                );
+                const renderVerticalTopicIncidenceBadge = () => incidenceDisplay
+                  ? renderCycleTooltip(
+                      incidenceTitle,
+                      <span className="app-type-badge max-w-[8rem] truncate rounded border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-incidence">
+                        {incidenceDisplay}
+                      </span>
+                    )
+                  : null;
+                const mobileTopicAction = isTopicCompleted(topic) ? (
+                  renderCycleTooltip(
+                    'Tópico concluído: revisões finalizadas.',
+                    <span
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-success/15 bg-success/10 text-success"
+                      aria-label={`Tópico concluído: ${topic.name}`}
+                    >
+                      <Check size={11} />
+                    </span>
+                  )
+                ) : hasStarted ? (
+                  renderCycleTooltip(
+                    'Continuar estudo do tópico',
+                    <button
+                      onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all ${statusVisual.actionClassName}`}
+                      aria-label={`Continuar estudo do tópico ${topic.name}`}
+                    >
+                      <BookOpen size={11} />
+                    </button>
+                  )
+                ) : (
+                  renderCycleTooltip(
+                    'Iniciar estudo do tópico',
+                    <button
+                      onClick={() => openReviewModal(topic.id)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all ${statusVisual.actionClassName}`}
+                      aria-label={`Iniciar estudo do tópico ${topic.name}`}
+                    >
+                      <Play size={10} className="ml-[1px]" />
+                    </button>
+                  )
+                );
 
                 return (
-	                  <div
-	                    key={topic.id}
-	                    className="group app-cycle-topic-row relative grid gap-1.5 border-b app-hairline px-3 py-2 pl-4 transition-colors last:border-b-0 sm:px-4 sm:pl-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-3 lg:py-2"
-	                  >
+                  <div
+                    key={topic.id}
+                    className="group/topic app-vertical-topic-row relative grid gap-y-1.5 border-b app-hairline px-3 py-2 pl-4 transition-colors last:border-b-0 sm:px-4 sm:pl-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-3 lg:py-2"
+                  >
                     <div
                       className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full sm:w-1 ${statusVisual.indicatorClassName}`}
                       aria-hidden="true"
                     />
 	                    <div className="min-w-0">
-	                      <span className={`block break-words text-[12px] leading-snug sm:text-[12.5px] ${isTopicCompleted(topic) ? 'text-content-muted line-through decoration-content-muted/40' : topic.is_active === false ? 'text-content-muted opacity-50' : 'text-foreground'}`}>
+	                      <span className={`app-topic-title app-type-body-small block ${isTopicCompleted(topic) ? 'text-content-muted line-through decoration-content-muted/40' : topic.is_active === false ? 'text-content-muted opacity-50' : 'text-content-main'}`}>
 	                        {topic.name}
 	                        {studiedInCurrentCycle && !isTopicCompleted(topic) && (
 	                          renderCycleTooltip(
@@ -2772,45 +2869,36 @@ const Subjects = () => {
 	                        )}
 	                        {topic.is_active === false && <span className="text-[9px] ml-1 uppercase opacity-60">(inativo)</span>}
 	                      </span>
-	                      {incidenceDisplay && (
-	                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-	                          {renderCycleTooltip(
-	                            incidenceTitle,
-	                            <span className="rounded-md border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-incidence">
-	                              {incidenceDisplay}
-	                            </span>
-	                          )}
-	                        </div>
-	                      )}
                     </div>
 
-	                    <div className="flex min-w-0 items-center justify-between gap-2 opacity-90 transition-opacity group-hover:opacity-100 lg:justify-end">
-	                      <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9.5px] font-bold whitespace-nowrap ${status.className}`}>
-	                        {status.label}
-	                      </span>
-	                      <div className="flex shrink-0 items-center gap-1">
-                      {renderCycleTooltip(
-                        `Anotações para ${topic.name}`,
-                        <button
-                          onClick={() => handleOpenVerticalTopicNotes(subject.id, topic.id)}
-                          className={`grid h-7 w-7 place-items-center rounded transition-colors ${hasNotes ? 'text-primary/60 hover:text-primary' : 'text-content-muted/60 hover:text-primary/70'}`}
-                          aria-label={`Anotações para ${topic.name}`}
-                        >
-                          <FileText size={13} />
-                        </button>
-                      )}
+                    <div className="flex min-w-0 items-center justify-end gap-1 lg:hidden">
+                      {renderVerticalTopicIncidenceBadge()}
+                      {renderVerticalTopicNotesButton()}
+                      {mobileTopicAction}
+                    </div>
+
+	                    <div className="hidden min-w-0 items-center justify-between gap-2 opacity-90 transition-opacity group-hover/topic:opacity-100 lg:flex lg:justify-end">
+	                      <span className="sr-only">{status.label}</span>
+	                      <div className="grid shrink-0 grid-cols-[minmax(0,auto)_5.75rem] items-center gap-1 sm:grid-cols-[minmax(0,auto)_6.75rem]">
+	                        <div className="flex min-w-0 items-center justify-end gap-1">
+	                          {renderVerticalTopicIncidenceBadge()}
+	                          {renderVerticalTopicNotesButton()}
+	                        </div>
 
 	                      {isTopicCompleted(topic) ? (
-	                        <span className="flex h-7 items-center justify-center gap-1.5 rounded-lg border border-success/15 bg-success/10 px-2 text-[10px] font-bold whitespace-nowrap text-success">
-	                          <Check size={11} />
-	                          Concluído
-	                        </span>
+	                        renderCycleTooltip(
+	                          'Tópico concluído: revisões finalizadas.',
+	                          <span className="app-type-action-xs flex h-6 w-[5.75rem] items-center justify-center gap-1 rounded-lg border border-success/15 bg-success/10 px-2 text-success sm:w-[6.25rem]">
+	                            <Check size={11} />
+	                            Concluído
+	                          </span>
+	                        )
 	                      ) : hasStarted ? (
 	                        renderCycleTooltip(
 	                          'Continuar estudo do tópico',
 	                          <button
 	                            onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
-	                            className={`flex h-7 items-center justify-center gap-1.5 rounded-lg border px-2 text-[10px] font-bold whitespace-nowrap transition-all ${statusVisual.actionClassName}`}
+	                            className={`app-type-action-xs flex h-7 w-[5.75rem] items-center justify-center gap-1.5 rounded-lg border px-2 transition-all sm:w-[6.75rem] ${statusVisual.actionClassName}`}
 	                            aria-label={`Continuar estudo do tópico ${topic.name}`}
 	                          >
 	                            <BookOpen size={11} />
@@ -2822,7 +2910,7 @@ const Subjects = () => {
 	                          'Iniciar estudo do tópico',
 	                          <button
 	                            onClick={() => openReviewModal(topic.id)}
-	                            className={`flex h-7 items-center justify-center gap-1.5 rounded-lg border px-2 text-[10px] font-bold whitespace-nowrap transition-all ${statusVisual.actionClassName}`}
+	                            className={`app-type-action-xs flex h-7 w-[5.75rem] items-center justify-center gap-1.5 rounded-lg border px-2 transition-all sm:w-[6.75rem] ${statusVisual.actionClassName}`}
 	                            aria-label={`Iniciar estudo do tópico ${topic.name}`}
 	                          >
 	                            <Play size={10} className="ml-[1px]" />
@@ -3550,10 +3638,13 @@ const Subjects = () => {
 	                    if (isCompletedInEdital) {
 	                      return `${completedTopicsCount}/${totalTopicsCount} tópicos concluídos`;
 	                    }
-	                    if (isManuallyStudiedInCycle || isFullyStartedInCycle) {
+	                    if (isManuallyStudiedInCycle) {
 	                      return activeTopicsStartedInCurrentCycle > 0
 	                        ? `${activeTopicsStartedInCurrentCycle}/${totalTopicsCount} tópicos neste ciclo`
 	                        : 'Concluída no ciclo';
+	                    }
+	                    if (isFullyStartedInCycle) {
+	                      return `${startedTopicsCount}/${totalTopicsCount} tópicos iniciados`;
 	                    }
 	                    return `${startedTopicsCount}/${totalTopicsCount} tópicos iniciados`;
 	                  })();
@@ -3774,7 +3865,7 @@ const Subjects = () => {
 	                                    const contactCount = getTopicContactCount(topic, topicStats);
 	                                    const hasStarted = contactCount > 0 || isTopicStarted(topic);
 	                                    const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
-                                    const statusVisual = getCycleTopicStatusVisual(topic);
+                                    const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
 	                                    const statusLabel = `Tópico ${statusVisual.label.toLowerCase()}`;
 	                                    const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
 	                                    const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
@@ -3800,7 +3891,7 @@ const Subjects = () => {
 	                                        <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2">
 	                                          <div className="flex min-w-0 items-center gap-1.5">
 	                                            <span
-	                                              className={`app-type-body-small min-w-0 max-w-full break-words transition-opacity ${
+	                                              className={`app-topic-title app-type-body-small min-w-0 max-w-full transition-opacity ${
 	                                                completed ? 'text-content-muted opacity-50' : 'text-content-main'
 	                                              }`}
 	                                            >
@@ -4493,6 +4584,8 @@ const Subjects = () => {
             reviewCount={difficultyModalData.reviewCount}
             isCompleting={difficultyModalData.isCompleting}
             duration={difficultyModalData.duration}
+            strategicIncidenceLabel={difficultyModalData.strategicIncidenceLabel}
+            strategicIncidenceDescription={difficultyModalData.strategicIncidenceDescription}
           />
 
           {/* Modal de Confirmação de Reversão de Mesclagem */}

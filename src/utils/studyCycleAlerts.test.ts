@@ -44,7 +44,7 @@ describe('studyCycleAlerts', () => {
       title: 'Matéria importante parada',
       subjectId: 'subject-1',
       actionLabel: 'Iniciar matéria',
-      actionType: 'start_topic',
+      actionType: 'start_subject',
     }));
     expect(alerts[0].topicId).toBeUndefined();
   });
@@ -57,7 +57,8 @@ describe('studyCycleAlerts', () => {
           name: 'Informática',
           topics: [
             { id: 'topic-1', name: 'Segurança da informação', completed: false, reviewCount: 0, total_volume: 35 },
-            { id: 'topic-2', name: 'Planilhas', completed: false, reviewCount: 1, total_volume: 50 },
+            { id: 'topic-2', name: 'Planilhas', completed: false, reviewCount: 1, total_volume: 1200 },
+            { id: 'topic-3', name: 'Direito constitucional', completed: false, reviewCount: 0, total_volume: 1200 },
           ],
         },
       ],
@@ -66,9 +67,9 @@ describe('studyCycleAlerts', () => {
     });
 
     expect(alerts).toContainEqual(expect.objectContaining({
-      id: 'high-volume-topic-unstarted:topic-1',
+      id: 'high-volume-topic-unstarted:topic-3',
       severity: 'warning',
-      topicId: 'topic-1',
+      topicId: 'topic-3',
     }));
   });
 
@@ -79,7 +80,7 @@ describe('studyCycleAlerts', () => {
           id: 'subject-1',
           name: 'Português',
           topics: [
-            { id: 'topic-1', name: 'Interpretação', completed: false, reviewCount: 0, total_volume: 12 },
+            { id: 'topic-1', name: 'Interpretação', completed: false, reviewCount: 0, total_volume: 1200 },
           ],
         },
       ],
@@ -93,6 +94,8 @@ describe('studyCycleAlerts', () => {
     expect(alerts).toContainEqual(expect.objectContaining({
       id: 'exam-near-open-relevant-topic:edital-1:topic-1',
       severity: 'critical',
+      message: 'Prova em 17 dias · 20/06/2026. Ainda há tópico cobrado sem primeiro contato.',
+      evidence: 'Interpretação · matéria: Português.',
     }));
   });
 

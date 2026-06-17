@@ -700,6 +700,8 @@ export const Revisoes = () => {
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
         duration={difficultyModalData.duration}
+        strategicIncidenceLabel={difficultyModalData.strategicIncidenceLabel}
+        strategicIncidenceDescription={difficultyModalData.strategicIncidenceDescription}
       />
       <SpacedRepetitionInfoModal
         isOpen={isInfoModalOpen}
