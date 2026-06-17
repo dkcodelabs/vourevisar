@@ -253,6 +253,7 @@ const Subjects = () => {
     percentage: '',
   });
   const [isSavingWeight, setIsSavingWeight] = useState(false);
+  const [weightSavedSubjectId, setWeightSavedSubjectId] = useState<string | null>(null);
   const [cycleSnapshots, setCycleSnapshots] = useState<CycleRotationSnapshot[]>([]);
   const [cycleStudyEvents, setCycleStudyEvents] = useState<CycleStudyEvent[]>([]);
   // States for Merge Reversion
@@ -265,6 +266,16 @@ const Subjects = () => {
     editalOrgan: string;
   }[]>([]);
   const [isReverting, setIsReverting] = useState(false);
+
+  useEffect(() => {
+    if (!weightSavedSubjectId) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setWeightSavedSubjectId(null);
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [weightSavedSubjectId]);
 
   const [isImportEditalModalOpen, setIsImportEditalModalOpen] = useState(false);
   const [isCreateTopicModalOpen, setIsCreateTopicModalOpen] = useState(false);
@@ -623,11 +634,13 @@ const Subjects = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const strategicPanelTitleRef = useRef<HTMLAnchorElement | null>(null);
   const strategicPanelRef = useRef<HTMLElement | null>(null);
+  const strategicDockRef = useRef<HTMLAnchorElement | null>(null);
   const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
   const [highlightedSubjectId, setHighlightedSubjectId] = useState<string | null>(null);
   const [expandedBeforeSearch, setExpandedBeforeSearch] = useState<string[]>([]);
   const [isAddingSubject, setIsAddingSubject] = useState(false);
   const [isStrategicDockVisible, setIsStrategicDockVisible] = useState(false);
+  const [strategicDockLayout, setStrategicDockLayout] = useState({ left: 16, width: 0 });
   const [isReorderingCycle, setIsReorderingCycle] = useState(false);
 
   // Estados para edição inline
@@ -1309,6 +1322,7 @@ const Subjects = () => {
   };
 
   const handleStartWeightEdit = (subject: Subject) => {
+    setWeightSavedSubjectId(null);
     setEditingWeightSubjectId(subject.id);
     setWeightDraft({
       questions: formatExamWeightInputValue(subject.exam_weight_questions),
@@ -1368,7 +1382,7 @@ const Subjects = () => {
           : subject
       ));
       handleCancelWeightEdit();
-      toast.success(hasWeight ? 'Peso da matéria salvo.' : 'Peso da matéria removido.');
+      setWeightSavedSubjectId(subjectId);
     } catch (error) {
       await errorService.report(error, {
         module: 'Subjects',
@@ -1945,19 +1959,11 @@ const Subjects = () => {
   const toggleAllCycleSubjects = () => {
     const subjectIds = activeTab === 'vertical'
       ? verticalSubjectList.map(item => item.id)
-      : filteredList
-        .filter(item => !cycleClosedSubjectIdSet.has(item.subject.id))
-        .map(item => item.id);
+      : filteredList.map(item => item.id);
     const allSubjectsExpanded = subjectIds.length > 0 &&
       subjectIds.every(id => expandedSubjectIds.includes(id));
 
-    setExpandedSubjectIds(prev => {
-      if (allSubjectsExpanded) {
-        return prev.filter(id => !subjectIds.includes(id));
-      }
-
-      return Array.from(new Set([...prev, ...subjectIds]));
-    });
+    setExpandedSubjectIds(allSubjectsExpanded ? [] : subjectIds);
   };
 
   const handleOpenTopicsModal = (subject: Subject) => {
@@ -2334,7 +2340,7 @@ const Subjects = () => {
   }, [cycleMaturity.phase, cycleStudyEvents, dynamicUnificationMap, expandedSubjectList, getUnifiedSubjectName, userCycle?.ciclo_atual]);
 
   useEffect(() => {
-    if (activeTab !== 'all') {
+    if (activeTab !== 'all' || loading || isLoading || isOriginsLoading || !showCycleWorkspace) {
       setIsStrategicDockVisible(false);
       return;
     }
@@ -2348,20 +2354,35 @@ const Subjects = () => {
       frameId = requestAnimationFrame(() => {
         const titleRect = title.getBoundingClientRect();
         const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-        setIsStrategicDockVisible(titleRect.top > viewportHeight - 52);
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+        const left = Math.max(8, Math.round(titleRect.left));
+        const right = Math.min(viewportWidth - 8, Math.round(titleRect.right));
+        const width = Math.max(0, right - left);
+        const dockTop = strategicDockRef.current?.getBoundingClientRect().top ?? viewportHeight - 52;
+
+        setStrategicDockLayout(previous =>
+          previous.left === left && previous.width === width ? previous : { left, width }
+        );
+        setIsStrategicDockVisible(width > 0 && titleRect.top > dockTop);
       });
     };
 
     updateDockVisibility();
     window.addEventListener('resize', updateDockVisibility);
+    window.addEventListener('scroll', updateDockVisibility, { passive: true });
     document.addEventListener('scroll', updateDockVisibility, true);
+    window.visualViewport?.addEventListener('resize', updateDockVisibility);
+    window.visualViewport?.addEventListener('scroll', updateDockVisibility);
 
     return () => {
       cancelAnimationFrame(frameId);
       window.removeEventListener('resize', updateDockVisibility);
+      window.removeEventListener('scroll', updateDockVisibility);
       document.removeEventListener('scroll', updateDockVisibility, true);
+      window.visualViewport?.removeEventListener('resize', updateDockVisibility);
+      window.visualViewport?.removeEventListener('scroll', updateDockVisibility);
     };
-  }, [activeTab, strategicAlerts.length, queueSuggestion]);
+  }, [activeTab, isLoading, isOriginsLoading, loading, queueSuggestion, showCycleWorkspace, strategicAlerts.length]);
 
 	  if (isLoading || isOriginsLoading || loading) {
     return <LoadingSpinner size="large" showText fullPage />;
@@ -2387,51 +2408,88 @@ const Subjects = () => {
   const renderSubjectWeightControl = (subject: Subject) => {
     const strategicWeight = getSubjectStrategicWeight(subject);
     const isEditingWeight = editingWeightSubjectId === subject.id;
+    const hasJustSavedWeight = weightSavedSubjectId === subject.id;
+
+    if (hasJustSavedWeight && !isEditingWeight) {
+      return (
+        <div
+          className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-success/20 bg-success/10 px-2.5 py-1.5 text-success"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span className="app-type-caption inline-flex min-w-0 items-center gap-1.5 font-semibold">
+            <Check size={12} strokeWidth={3} />
+            Peso atualizado
+          </span>
+          <button
+            type="button"
+            onClick={() => setWeightSavedSubjectId(null)}
+            className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-success/70 transition-colors hover:bg-success/15 hover:text-success"
+            aria-label="Fechar confirmação de peso"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      );
+    }
 
     if (isEditingWeight) {
       return (
         <div
-          className="flex flex-wrap items-center gap-1 rounded-xl border border-warning/25 bg-warning/10 px-1.5 py-1"
+          className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3.75rem] items-end gap-1.5 rounded-lg border border-warning/25 bg-warning/10 px-2 py-1.5"
           onClick={(event) => event.stopPropagation()}
         >
-          <input
-            value={weightDraft.questions}
-            onChange={(event) => setWeightDraft(prev => ({ ...prev, questions: event.target.value }))}
-            placeholder="Questões"
-            inputMode="decimal"
-            className="app-field h-7 w-16 px-2 text-[10px] font-bold backdrop-blur placeholder:text-content-muted/60"
-          />
-          <input
-            value={weightDraft.points}
-            onChange={(event) => setWeightDraft(prev => ({ ...prev, points: event.target.value }))}
-            placeholder="Pontos"
-            inputMode="decimal"
-            className="app-field h-7 w-16 px-2 text-[10px] font-bold backdrop-blur placeholder:text-content-muted/60"
-          />
-          {renderCycleTooltip(
-            'Salvar peso',
-            <button
-              type="button"
-              onClick={() => handleSaveSubjectWeightInline(subject.id)}
-              disabled={isSavingWeight}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:bg-control-hover disabled:text-content-muted/70"
-              aria-label="Salvar peso da matéria"
-            >
-              {isSavingWeight ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-            </button>
-          )}
-          {renderCycleTooltip(
-            'Cancelar',
-            <button
-              type="button"
-              onClick={handleCancelWeightEdit}
-              disabled={isSavingWeight}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-input bg-control text-content-muted transition-colors hover:bg-control-hover hover:text-control-foreground disabled:text-content-muted/60"
-              aria-label="Cancelar edição de peso"
-            >
-              <X size={12} />
-            </button>
-          )}
+          <label className="min-w-0">
+            <span className="mb-0.5 block truncate text-[9px] font-semibold uppercase leading-none text-content-muted">
+              Questões
+            </span>
+            <input
+              value={weightDraft.questions}
+              onChange={(event) => setWeightDraft(prev => ({ ...prev, questions: event.target.value }))}
+              placeholder="0"
+              inputMode="decimal"
+              aria-label="Quantidade de questões da matéria"
+              className="app-field app-type-control h-7 w-full min-w-0 px-2 text-[11px] backdrop-blur placeholder:text-content-muted/60"
+            />
+          </label>
+          <label className="min-w-0">
+            <span className="mb-0.5 block truncate text-[9px] font-semibold uppercase leading-none text-content-muted">
+              Pontos
+            </span>
+            <input
+              value={weightDraft.points}
+              onChange={(event) => setWeightDraft(prev => ({ ...prev, points: event.target.value }))}
+              placeholder="0"
+              inputMode="decimal"
+              aria-label="Quantidade de pontos da matéria"
+              className="app-field app-type-control h-7 w-full min-w-0 px-2 text-[11px] backdrop-blur placeholder:text-content-muted/60"
+            />
+          </label>
+          <div className="flex min-w-0 items-end justify-end gap-1">
+            {renderCycleTooltip(
+              'Salvar peso',
+              <button
+                type="button"
+                onClick={() => handleSaveSubjectWeightInline(subject.id)}
+                disabled={isSavingWeight}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:bg-control-hover disabled:text-content-muted/70"
+                aria-label="Salvar peso da matéria"
+              >
+                {isSavingWeight ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              </button>
+            )}
+            {renderCycleTooltip(
+              'Cancelar',
+              <button
+                type="button"
+                onClick={handleCancelWeightEdit}
+                disabled={isSavingWeight}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-input bg-control text-content-muted transition-colors hover:bg-control-hover hover:text-control-foreground disabled:text-content-muted/60"
+                aria-label="Cancelar edição de peso"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
         </div>
       );
     }
@@ -3280,9 +3338,7 @@ const Subjects = () => {
   const renderCycleWorkspaceHeader = () => {
     const isCycleMode = activeTab === 'all';
     const expandableSubjectIds = isCycleMode
-      ? filteredList
-        .filter(item => !cycleClosedSubjectIdSet.has(item.subject.id))
-        .map(item => item.id)
+      ? filteredList.map(item => item.id)
       : verticalSubjectList.map(item => item.id);
     const allExpanded = expandableSubjectIds.length > 0 && expandableSubjectIds.every(id => expandedSubjectIds.includes(id));
     const title = isCycleMode ? 'Fila do Ciclo' : 'Edital Verticalizado';
@@ -3503,6 +3559,7 @@ const Subjects = () => {
 	                  })();
 
                   const isEditing = editingSubjectId === subject.id;
+                  const isWeightLineActive = editingWeightSubjectId === subject.id || weightSavedSubjectId === subject.id;
 
                   return (
 	                    <SortableItem key={item.id} id={item.id} lockAxis="vertical" disabled={!isReorderingCycle}>
@@ -3578,14 +3635,20 @@ const Subjects = () => {
                                       {(() => { const n = getUnifiedSubjectName(subject.id, subject.name); return n.charAt(0).toUpperCase() + n.slice(1); })()}
                                     </h4>
 
-	                                    <div className="app-type-meta mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-content-muted">
-	                                      <span className="flex min-w-0 items-center gap-0.5 break-words">
-	                                        <ListTodo size={10} /> {subjectTopicSummaryLabel}
-	                                      </span>
-	                                      {!isClosedInCycle && (
+	                                    <div className="app-type-meta mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-content-muted">
+	                                      {isWeightLineActive && !isClosedInCycle ? (
+	                                        renderSubjectWeightControl(subject)
+	                                      ) : (
 	                                        <>
-	                                          <span className="h-1 w-1 rounded-full bg-content-muted/30" aria-hidden="true" />
-	                                          {renderSubjectWeightControl(subject)}
+	                                          <span className="flex min-w-0 items-center gap-0.5 break-words">
+	                                            <ListTodo size={10} /> {subjectTopicSummaryLabel}
+	                                          </span>
+	                                          {!isClosedInCycle && (
+	                                            <>
+	                                              <span className="h-1 w-1 rounded-full bg-content-muted/30" aria-hidden="true" />
+	                                              {renderSubjectWeightControl(subject)}
+	                                            </>
+	                                          )}
 	                                        </>
 	                                      )}
 	                                    </div>
@@ -3632,6 +3695,7 @@ const Subjects = () => {
 
                               </div>
 
+                            {!isWeightLineActive && (
                             <div className="flex items-center gap-2 shrink-0">
 
                               {activeTab === 'all' && (
@@ -3689,6 +3753,7 @@ const Subjects = () => {
                                 </>
                               )}
                             </div>
+                            )}
                           </div>
 
                             {/* === TÓPICOS (dentro do mesmo card) === */}
@@ -3710,12 +3775,7 @@ const Subjects = () => {
 	                                    const hasStarted = contactCount > 0 || isTopicStarted(topic);
 	                                    const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
                                     const statusVisual = getCycleTopicStatusVisual(topic);
-                                    const statusState: 'empty' | 'dot' | 'check' =
-                                      completed ? 'check' : hasStarted ? 'dot' : 'empty';
-	                                    const statusLabel =
-	                                      statusState === 'check' ? 'Tópico concluído' :
-	                                      statusState === 'dot' ? 'Tópico em estudo' :
-	                                      'Tópico não iniciado';
+	                                    const statusLabel = `Tópico ${statusVisual.label.toLowerCase()}`;
 	                                    const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
 	                                    const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
 
@@ -3723,12 +3783,13 @@ const Subjects = () => {
 	                                      <div
 	                                        key={topic.id}
 	                                        data-topic-item
-	                                        className="app-cycle-topic-row relative grid min-h-10 cursor-default grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-t app-hairline py-2.5 pl-4 pr-3 transition-colors first:border-t-0 group/topic sm:pr-4"
+	                                        className="app-cycle-topic-row relative grid min-h-10 cursor-default grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 border-t app-hairline py-2.5 pl-3 pr-3 transition-colors first:border-t-0 group/topic sm:gap-x-3 sm:pl-4 sm:pr-4"
                                       >
 	                                        {renderCycleTooltip(
 	                                          statusLabel,
 	                                          <div
-	                                            className="flex h-full min-h-5 cursor-default select-none items-center justify-center"
+	                                            className="flex h-full min-h-7 w-4 cursor-help select-none items-center justify-center rounded-md transition-colors hover:bg-control-hover/40"
+	                                            data-topic-status-indicator
 	                                            role="img"
 	                                            aria-label={statusLabel}
 	                                          >
@@ -3891,7 +3952,7 @@ const Subjects = () => {
                   event.preventDefault();
                   strategicPanelTitleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
-                className="flex min-w-0 scroll-mt-20 items-center gap-2 text-title-section transition-colors hover:text-primary"
+                className="inline-flex w-fit max-w-full min-w-0 scroll-mt-20 items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-title-section transition-colors hover:text-primary"
               >
                 <Shield size={17} className="shrink-0 text-primary" />
                 <span className="app-type-section-title min-w-0 truncate">
@@ -3900,26 +3961,27 @@ const Subjects = () => {
               </a>
               <div className="hidden h-11 xl:block" aria-hidden="true" />
             </div>
-            {isStrategicDockVisible && (
-              <a
-                href="#strategic-cycle-panel"
-                onClick={(event) => {
-                  event.preventDefault();
-                  strategicPanelTitleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-                className="fixed inset-x-4 bottom-3 z-40 flex min-w-0 items-center justify-between gap-3 rounded-lg border app-hairline bg-surface/60 px-2 py-1.5 text-primary shadow-lg shadow-primary/5 backdrop-blur-md transition-colors hover:bg-surface/75 md:left-[calc(var(--sidebar-width)+1rem)] md:peer-data-[state=collapsed]:left-[calc(var(--sidebar-width-icon)+1.5rem)]"
-              >
-                <span className="inline-flex min-w-0 items-center gap-2">
-                  <Shield size={17} className="shrink-0 text-primary" />
-                  <span className="app-type-section-title min-w-0 truncate">
-                    Painel estratégico do edital
-                  </span>
-                </span>
-                <span className="app-type-action-xs shrink-0 text-primary">
-                  Ver
-                </span>
-              </a>
-            )}
+            <a
+              ref={strategicDockRef}
+              href="#strategic-cycle-panel"
+              aria-hidden={!isStrategicDockVisible}
+              tabIndex={isStrategicDockVisible ? 0 : -1}
+              onClick={(event) => {
+                event.preventDefault();
+                strategicPanelTitleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              style={{ left: strategicDockLayout.left, width: strategicDockLayout.width }}
+              className={`fixed bottom-3 z-40 inline-flex min-w-0 items-center gap-2 rounded-lg border app-hairline bg-surface/60 px-2 py-1.5 text-primary shadow-lg shadow-primary/5 backdrop-blur-md transition-[opacity,transform,background-color] duration-150 ease-out hover:bg-surface/75 ${
+                isStrategicDockVisible
+                  ? 'translate-y-0 opacity-100'
+                  : 'pointer-events-none translate-y-1 opacity-0'
+              }`}
+            >
+              <Shield size={17} className="shrink-0 text-primary" />
+              <span className="app-type-section-title min-w-0 truncate">
+                Painel estratégico do edital
+              </span>
+            </a>
             <StrategicEditalPanel />
           </div>
         )}

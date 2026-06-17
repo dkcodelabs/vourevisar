@@ -140,7 +140,7 @@ export const AppLayout = () => {
               {pageTitle}
             </h1>
             {routeDescription && (
-              <p className="app-type-page-subtitle mt-0.5 min-w-0 max-w-full overflow-hidden text-content-muted [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:1] min-[460px]:[-webkit-line-clamp:2]">
+              <p className="app-type-page-subtitle mt-0.5 hidden min-w-0 max-w-full overflow-hidden text-content-muted [-webkit-box-orient:vertical] [-webkit-line-clamp:1] sm:[display:-webkit-box] min-[760px]:[-webkit-line-clamp:2]">
                 {routeDescription}
               </p>
             )}
