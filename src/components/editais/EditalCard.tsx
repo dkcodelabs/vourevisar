@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
-    Trash2, Play, Eye, CalendarDays, Clock,
-    BookOpen, AlertTriangle, CheckCircle2, Timer, GraduationCap, X, Loader2, RefreshCw,
-    Edit2, Plus
+    Trash2, Play, Eye, Clock,
+    BookOpen, AlertTriangle, GraduationCap, BriefcaseBusiness, X, Loader2, RefreshCw,
+    Edit2
 } from 'lucide-react';
 import type { UserEdital } from '@/pages/Editais';
 
@@ -45,28 +45,17 @@ export const EditalCard = ({
     const hours = Math.floor(metrics.totalStudyMinutes / 60);
     const mins = metrics.totalStudyMinutes % 60;
     const studyTimeLabel = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-
-    const getUrgencyColor = () => {
-        if (daysLeft === null || daysLeft === undefined || isNaN(daysLeft)) {
-            return { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30', label: 'Definir data da prova', icon: 'calendar' };
-        }
-        
-        const examDateFormatted = edital.examDate ? new Date(edital.examDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '';
-        
-        if (daysLeft <= 0) {
-            return { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', label: `Prova vencida${examDateFormatted ? ` em ${examDateFormatted}` : ''}`, icon: 'alert' };
-        }
-        if (daysLeft <= 15) {
-            return { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30', label: `${daysLeft} dias para a prova`, icon: 'alert' };
-        }
-        if (daysLeft <= 45) {
-            return { bg: 'bg-sky-500/20', text: 'text-sky-400', border: 'border-sky-500/30', label: `${daysLeft} dias para a prova`, icon: 'alert' };
-        }
-        return { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30', label: `${daysLeft} dias para a prova`, icon: 'clock' };
-    };
-
-    const urgency = getUrgencyColor();
-    const createdDate = new Date(edital.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+    const studyTimeCaption = metrics.totalStudyMinutes > 0 ? 'tempo de estudo' : 'sem registro';
+    const examDateLabel = edital.examDate
+        ? `Prova ${new Date(edital.examDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}`
+        : 'Sem data da prova';
+    const sourceBadge = edital.sourceId && sourceStatusKnown && !sourceAvailable
+        ? { label: 'Catálogo removido', className: 'text-warning' }
+        : edital.sourceId
+            ? { label: 'Cópia • Catálogo', className: 'text-primary' }
+            : edital.isImported
+                ? { label: 'Cópia • IA', className: 'text-incidence' }
+                : { label: 'Manual', className: 'text-content-muted' };
 
     // Procura por Órgão e Cargo estruturados ou faz o split do name como fallback
     const displayOrgan = edital.organ || edital.name.split(' - ')[0];
@@ -78,80 +67,29 @@ export const EditalCard = ({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className="glow-card group relative overflow-hidden bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 hover:border-border-strong dark:hover:border-white/10 transition-all duration-300 rounded-3xl w-full max-w-[420px] mx-auto xl:mx-0"
+            className="glow-card group relative flex h-full w-full max-w-[420px] mx-auto flex-col overflow-hidden rounded-3xl border border-border bg-card transition-all duration-300 hover:border-border-strong dark:border-white/5 dark:bg-zinc-900/40 dark:hover:border-white/10 xl:mx-0"
         >
             {/* Destaque (Highlight) via Div Absoluta para evitar recortes */}
             {isHighlighted && (
                 <div className="absolute inset-0 rounded-[inherit] ring-[3px] ring-primary shadow-[0_0_20px_rgba(14,165,233,0.3)] animate-pulse-subtle pointer-events-none z-50" />
             )}
 
-            {/* Ações Topo Direito */}
-            <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-                {edital.sourceId && hasUpdate && (
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onSync?.();
-                        }}
-                        disabled={isProcessing}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg transition-all disabled:opacity-50 bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 animate-pulse border border-emerald-400"
-                        title="Atualização disponível!"
-                    >
-                        {isProcessing && edital.sourceId ? (
-                            <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                            <RefreshCw size={16} className="animate-spin-slow" />
-                        )}
-                    </button>
-                )}
-                
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit?.();
-                    }}
-                    disabled={isProcessing}
-                    className="w-8 h-8 flex items-center justify-center bg-secondary/50 dark:bg-zinc-800/50 border border-border dark:border-white/5 hover:text-primary hover:bg-primary/10 text-content-muted rounded-lg transition-all disabled:opacity-50"
-                    title="Editar edital"
-                >
-                    <Edit2 size={16} />
-                </button>
-
-                <button
-                    onClick={onDelete}
-                    disabled={isProcessing}
-                    className="w-8 h-8 flex items-center justify-center bg-secondary/50 dark:bg-zinc-800/50 border border-border dark:border-white/5 hover:bg-red-500/10 text-content-muted hover:text-red-400 rounded-lg transition-all disabled:opacity-50"
-                    title="Excluir edital"
-                >
-                    {isProcessing && !edital.mergedIntoCycle ? (
-                        <Loader2 size={16} className="animate-spin text-red-500" />
-                    ) : (
-                        <Trash2 size={16} />
-                    )}
-                </button>
-            </div>
-
-            <div className="p-4 md:p-5">
-                <div className="flex items-start mb-3">
-                    <div className="flex-1 min-w-0 pr-32">
-                        <div className="flex flex-col min-w-0">
-                            <h3 className="text-[15px] font-black text-foreground tracking-tight truncate uppercase flex items-center gap-x-2">
-                                <span>{displayOrgan}</span>
-                                {edital.year && (
-                                    <>
-                                        <span className="text-content-muted font-normal">•</span>
-                                        <span className="text-foreground">{edital.year}</span>
-                                    </>
-                                )}
+            <div className="flex h-full flex-col p-4 md:p-5">
+                <div className="relative mb-3 h-[104px] border-b border-border pb-3 dark:border-white/5">
+                    <div className="min-w-0">
+                        <div className="flex min-w-0 flex-col">
+                            <h3 className="line-clamp-2 text-[13px] font-black uppercase leading-tight tracking-tight text-foreground [overflow-wrap:anywhere] sm:text-[14px]">
+                                {edital.year ? `${edital.year} - ` : ''}{displayOrgan}
                             </h3>
-                            <div className="space-y-0.5">
+                            <div className="mt-1 min-h-[31px] space-y-0.5">
                                 {displayPosition && (
-                                    <p className="text-[11px] text-content-muted font-bold tracking-tight uppercase truncate">
-                                        {displayPosition}
+                                    <p className="flex items-center gap-1.5 truncate text-[10px] font-bold uppercase tracking-tight text-content-muted">
+                                        <BriefcaseBusiness size={11} className="shrink-0 text-content-muted/80" />
+                                        <span className="truncate">{displayPosition}</span>
                                     </p>
                                 )}
                                 {edital.examBoard && (
-                                    <p className="flex items-center gap-1.5 text-[10px] text-primary/80 font-black tracking-[0.12em] uppercase truncate">
+                                    <p className="flex items-center gap-1.5 truncate text-[10px] font-black uppercase tracking-[0.10em] text-primary/80">
                                         <GraduationCap size={11} className="shrink-0" />
                                         <span className="truncate">{edital.examBoard}</span>
                                     </p>
@@ -159,70 +97,57 @@ export const EditalCard = ({
                             </div>
                         </div>
                     </div>
+                    <div className="absolute bottom-3 left-0">
+                        <span className="text-[10px] font-medium text-content-muted">{examDateLabel}</span>
+                    </div>
                 </div>
 
-                <div className="flex items-center justify-between border-b border-border dark:border-white/5 pb-3 mb-4">
-                    <span className="text-[10px] text-content-muted font-medium">{createdDate}</span>
-                    {edital.sourceId && sourceStatusKnown && !sourceAvailable ? (
-                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-amber-500">
-                            CATÁLOGO REMOVIDO
-                        </span>
-                    ) : edital.sourceId ? (
-                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-500">
-                            CÓPIA • CATÁLOGO
-                        </span>
-                    ) : edital.isImported ? (
-                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-purple-500">
-                            CÓPIA • IA
-                        </span>
-                    ) : (
-                        <span className="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-500">
-                            MANUAL
-                        </span>
-                    )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="bg-secondary dark:bg-white/5 rounded-2xl p-3 border border-border dark:border-white/5">
-                        <div className="flex items-center gap-2 mb-2">
+                <div className="mx-auto mb-4 grid w-[94%] grid-cols-2 gap-3">
+                    <div className="flex min-h-[74px] flex-col rounded-2xl border border-border/80 bg-gradient-to-b from-background/95 to-background/70 px-3 py-2.5 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)] dark:border-white/5 dark:from-white/[0.045] dark:to-white/[0.025]">
+                        <div className="mb-1.5 flex items-center justify-start gap-2">
                             <BookOpen size={12} className="text-content-muted" />
                             <span className="text-[9px] font-bold text-content-muted uppercase tracking-widest">Progresso</span>
                         </div>
-                        <div className="flex flex-col gap-1.5 mt-1">
-                            {/* Tópicos */}
-                            <div className="flex items-center gap-2">
-                                <div className="text-base font-bold text-foreground leading-none">
-                                    {metrics.completedTopics}<span className="text-[10px] text-content-muted font-bold ml-1 uppercase truncate">/{metrics.totalTopics} tópicos</span>
+                        <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                                <div className="text-[10px] font-bold leading-none text-foreground">
+                                    {metrics.completedTopics}<span className="ml-1 truncate text-content-muted">/{metrics.totalTopics} Tópicos</span>
                                 </div>
                             </div>
                             
-                            {/* Matérias */}
-                            <div className="flex items-center gap-2">
-                                <div className="text-base font-bold text-foreground leading-none">
-                                    {metrics.completedSubjectsCount || 0}<span className="text-[10px] text-content-muted font-bold ml-1 uppercase truncate">/{metrics.subjectsCount} matérias</span>
+                            <div className="flex items-center justify-center gap-2">
+                                <div className="text-[10px] font-bold leading-none text-foreground">
+                                    {metrics.completedSubjectsCount || 0}<span className="ml-1 truncate text-content-muted">/{metrics.subjectsCount} Matérias</span>
                                 </div>
                             </div>
                         </div>
-                        <div className="w-full h-1 bg-secondary dark:bg-zinc-800 rounded-full mt-2 overflow-hidden border border-border dark:border-white/5">
+                        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-content-muted/15">
                             <div
-                                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
-                                style={{ width: `${progress}%` }}
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                    progress > 0 ? 'bg-success' : 'bg-transparent'
+                                }`}
+                                style={{ width: progress > 0 ? `max(${progress}%, 6px)` : '0%' }}
                             />
                         </div>
                     </div>
                     
-                    <div className="bg-secondary dark:bg-white/5 rounded-2xl p-3 border border-border dark:border-white/5 flex flex-col items-center justify-center text-center">
-                        <span className="text-[9px] font-bold text-content-muted/80 uppercase tracking-widest mb-1">Tempo</span>
-                        <div className="text-2xl font-black text-sky-400 leading-none">
-                            {studyTimeLabel}
+                    <div className="flex min-h-[74px] flex-col rounded-2xl border border-border/80 bg-gradient-to-b from-background/95 to-background/70 px-3 py-2.5 text-center shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)] dark:border-white/5 dark:from-white/[0.045] dark:to-white/[0.025]">
+                        <div className="mb-1.5 flex items-center justify-start gap-2">
+                            <Clock size={12} className="text-content-muted" />
+                            <span className="text-[9px] font-bold text-content-muted/80 uppercase tracking-widest">Tempo</span>
                         </div>
-                        <p className="text-[10px] text-content-muted mt-1 font-bold lowercase tracking-tight">
-                            tempo de estudo
-                        </p>
+                        <div className="flex flex-1 flex-col items-center justify-center">
+                            <div className="text-[20px] font-black text-sky-400 leading-none">
+                                {studyTimeLabel}
+                            </div>
+                            <p className="mt-1 text-[10px] font-bold tracking-tight text-content-muted">
+                                {studyTimeCaption === 'sem registro' ? 'Sem registro' : 'Tempo de estudo'}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 justify-center">
+                <div className="mx-auto mb-3 grid w-[92%] grid-cols-2 gap-3 justify-center">
                     {metrics.subjectsCount > 0 ? (
                         <>
                             <button
@@ -305,26 +230,55 @@ export const EditalCard = ({
                     </motion.div>
                 )}
 
-                {!isProcessing && urgency && (
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit?.();
-                        }}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-xl mt-4 border transition-all w-full group/urgency ${urgency.bg} ${urgency.border} hover:opacity-80`}
-                    >
-                        {urgency.icon === 'calendar' ? (
-                            <CalendarDays size={14} className={urgency.text} />
-                        ) : urgency.icon === 'clock' ? (
-                            <Clock size={14} className={urgency.text} />
-                        ) : (
-                            <AlertTriangle size={14} className={urgency.text} />
+                <div className="mt-auto flex min-h-11 items-center justify-between gap-3 border-t border-border/80 pt-3 dark:border-white/5">
+                    <span className={`min-w-0 truncate text-[9px] font-black uppercase tracking-[0.15em] ${sourceBadge.className}`}>
+                        <span className="pl-2">{sourceBadge.label}</span>
+                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                        {edital.sourceId && hasUpdate && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSync?.();
+                                }}
+                                disabled={isProcessing}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-success/40 bg-success text-success-foreground transition-colors disabled:opacity-50"
+                                title="Atualização disponível!"
+                            >
+                                {isProcessing && edital.sourceId ? (
+                                    <Loader2 size={15} className="animate-spin" />
+                                ) : (
+                                    <RefreshCw size={15} className="animate-spin-slow" />
+                                )}
+                            </button>
                         )}
-                        <span className={`text-xs font-bold ${urgency.text}`}>
-                            {urgency.label}
-                        </span>
-                    </button>
-                )}
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit?.();
+                            }}
+                            disabled={isProcessing}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary/50 text-content-muted transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50 dark:border-white/5 dark:bg-zinc-800/50"
+                            title="Editar edital"
+                        >
+                            <Edit2 size={15} />
+                        </button>
+
+                        <button
+                            onClick={onDelete}
+                            disabled={isProcessing}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary/50 text-content-muted transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 dark:border-white/5 dark:bg-zinc-800/50"
+                            title="Excluir edital"
+                        >
+                            {isProcessing && !edital.mergedIntoCycle ? (
+                                <Loader2 size={15} className="animate-spin text-destructive" />
+                            ) : (
+                                <Trash2 size={15} />
+                            )}
+                        </button>
+                    </div>
+                </div>
             </div>
         </motion.div>
     );

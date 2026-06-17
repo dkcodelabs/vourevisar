@@ -638,7 +638,11 @@ const Subjects = () => {
   const strategicPanelTitleRef = useRef<HTMLAnchorElement | null>(null);
   const strategicPanelRef = useRef<HTMLElement | null>(null);
   const strategicDockRef = useRef<HTMLAnchorElement | null>(null);
-  const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
+  const [cycleExpandedSubjectIds, setCycleExpandedSubjectIds] = useState<string[]>([]);
+  const [verticalExpandedSubjectIds, setVerticalExpandedSubjectIds] = useState<string[]>([]);
+  const cycleExpansionStorageKey = user?.id ? `study_cycle_expanded_subjects_${user.id}` : null;
+  const loadedCycleExpansionKeyRef = useRef<string | null>(null);
+  const [hydratedCycleExpansionKey, setHydratedCycleExpansionKey] = useState<string | null>(null);
   const [highlightedSubjectId, setHighlightedSubjectId] = useState<string | null>(null);
   const [expandedBeforeSearch, setExpandedBeforeSearch] = useState<string[]>([]);
   const [isAddingSubject, setIsAddingSubject] = useState(false);
@@ -652,6 +656,7 @@ const Subjects = () => {
 
   // View mode: ciclo padrão ou visualização verticalizada do edital
   const [activeTab, setActiveTab] = useState<SubjectTab>('all');
+  const expandedSubjectIds = activeTab === 'vertical' ? verticalExpandedSubjectIds : cycleExpandedSubjectIds;
 
   // Estado para o modal de tópicos
   const [topicsModal, setTopicsModal] = useState<{
@@ -1013,8 +1018,37 @@ const Subjects = () => {
 
   useEffect(() => {
     if (cycleClosedSubjectIdSet.size === 0) return;
-    setExpandedSubjectIds(prev => prev.filter(id => !cycleClosedSubjectIdSet.has(id)));
+    setCycleExpandedSubjectIds(prev => prev.filter(id => !cycleClosedSubjectIdSet.has(id)));
   }, [cycleClosedSubjectIdSet]);
+
+  useEffect(() => {
+    if (!cycleExpansionStorageKey || loadedCycleExpansionKeyRef.current === cycleExpansionStorageKey) return;
+
+    loadedCycleExpansionKeyRef.current = cycleExpansionStorageKey;
+
+    try {
+      const storedValue = localStorage.getItem(cycleExpansionStorageKey);
+      const storedIds = storedValue ? JSON.parse(storedValue) : [];
+      setCycleExpandedSubjectIds(Array.isArray(storedIds) ? storedIds.filter(id => typeof id === 'string') : []);
+    } catch {
+      setCycleExpandedSubjectIds([]);
+    }
+
+    setHydratedCycleExpansionKey(cycleExpansionStorageKey);
+  }, [cycleExpansionStorageKey]);
+
+  useEffect(() => {
+    if (!dataLoaded || expandedSubjectList.length === 0) return;
+
+    const validSubjectIds = new Set(expandedSubjectList.map(item => item.id));
+    setCycleExpandedSubjectIds(prev => prev.filter(id => validSubjectIds.has(id)));
+  }, [dataLoaded, expandedSubjectList]);
+
+  useEffect(() => {
+    if (!cycleExpansionStorageKey || hydratedCycleExpansionKey !== cycleExpansionStorageKey) return;
+
+    localStorage.setItem(cycleExpansionStorageKey, JSON.stringify(cycleExpandedSubjectIds));
+  }, [cycleExpansionStorageKey, cycleExpandedSubjectIds, hydratedCycleExpansionKey]);
 
   // Sincronização redundante de localSubjects removida para evitar flicker.
   // localSubjects agora é gerenciado diretamente no loadSubjects.
@@ -1443,7 +1477,7 @@ const Subjects = () => {
     setIsReorderingCycle(prev => {
       const next = !prev;
       if (next) {
-        setExpandedSubjectIds([]);
+        setCycleExpandedSubjectIds([]);
       }
       return next;
     });
@@ -1552,7 +1586,7 @@ const Subjects = () => {
 
     setUserCycle(updatedCycle);
     localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(updatedCycle));
-    setExpandedSubjectIds(prev => prev.filter(id =>
+    setCycleExpandedSubjectIds(prev => prev.filter(id =>
       !equivalentSubjectIds.has(id) &&
       getUnifiedSubjectId(id, dynamicUnificationMap) !== normalizedMateriaId &&
       id !== rawSubjectId
@@ -1952,11 +1986,17 @@ const Subjects = () => {
   };
 
   const toggleExpand = (itemId: string) => {
-    setExpandedSubjectIds(prev =>
+    const updateExpandedIds = (prev: string[]) =>
       prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
-        : [...prev, itemId]
-    );
+        : [...prev, itemId];
+
+    if (activeTab === 'vertical') {
+      setVerticalExpandedSubjectIds(updateExpandedIds);
+      return;
+    }
+
+    setCycleExpandedSubjectIds(updateExpandedIds);
   };
 
   const toggleAllCycleSubjects = () => {
@@ -1966,7 +2006,12 @@ const Subjects = () => {
     const allSubjectsExpanded = subjectIds.length > 0 &&
       subjectIds.every(id => expandedSubjectIds.includes(id));
 
-    setExpandedSubjectIds(allSubjectsExpanded ? [] : subjectIds);
+    if (activeTab === 'vertical') {
+      setVerticalExpandedSubjectIds(allSubjectsExpanded ? [] : subjectIds);
+      return;
+    }
+
+    setCycleExpandedSubjectIds(allSubjectsExpanded ? [] : subjectIds);
   };
 
   const handleOpenTopicsModal = (subject: Subject) => {
@@ -2067,7 +2112,7 @@ const Subjects = () => {
 
   useEffect(() => {
     if (activeTab !== 'vertical') return;
-    setExpandedSubjectIds(verticalSubjectList.map(item => item.id));
+    setVerticalExpandedSubjectIds(verticalSubjectList.map(item => item.id));
   }, [activeTab, verticalSubjectList]);
 
   const handleOpenVerticalTopicNotes = useCallback((subjectId: string, topicId: string) => {
@@ -2532,7 +2577,7 @@ const Subjects = () => {
   };
 
   const focusSubjectFromStrategicAction = (subjectId: string) => {
-    setExpandedSubjectIds([subjectId]);
+    setCycleExpandedSubjectIds([subjectId]);
     setHighlightedSubjectId(subjectId);
 
     window.setTimeout(() => {
@@ -3283,8 +3328,12 @@ const Subjects = () => {
     const previousName = newSubjectName;
     setNewSubjectName(query);
 
+    if (activeTab === 'vertical') {
+      return;
+    }
+
     if (!previousName && query.trim()) {
-      setExpandedBeforeSearch([...expandedSubjectIds]);
+      setExpandedBeforeSearch([...cycleExpandedSubjectIds]);
     }
 
     if (query.trim()) {
@@ -3305,9 +3354,9 @@ const Subjects = () => {
         }
       });
 
-      setExpandedSubjectIds(newExpanded);
+      setCycleExpandedSubjectIds(newExpanded);
     } else {
-      setExpandedSubjectIds(expandedBeforeSearch);
+      setCycleExpandedSubjectIds(expandedBeforeSearch);
       setExpandedBeforeSearch([]);
     }
   };
@@ -3322,7 +3371,7 @@ const Subjects = () => {
     setActiveTab(nextTab);
 
     if (nextTab === 'vertical') {
-      setExpandedSubjectIds(verticalSubjectList.map(item => item.id));
+      setVerticalExpandedSubjectIds(verticalSubjectList.map(item => item.id));
     }
   };
 

@@ -67,6 +67,12 @@ export interface UserEdital {
     mergedIntoCycle?: boolean;
 }
 
+type StudySessionSummary = {
+    edital_id: string | null;
+    subject_id: string | null;
+    session_duration_minutes: number | null;
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const getDaysUntilExam = (dateStr?: string): number | null => {
     if (!dateStr) return null;
@@ -152,6 +158,7 @@ const Editais = () => {
     const navigate = useNavigate();
 
     const [editais, setEditais] = useState<UserEdital[]>([]);
+    const [studySessions, setStudySessions] = useState<StudySessionSummary[]>([]);
     const [loadingEditais, setLoadingEditais] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [filterCycle, setFilterCycle] = useState(false);
@@ -349,17 +356,29 @@ const Editais = () => {
     const fetchEditais = useCallback(async () => {
         if (!user?.id) return;
         try {
-            const { data, error } = await withTimeout(
+            const [{ data, error }, { data: sessionsData, error: sessionsError }] = await Promise.all([
+                withTimeout(
                 editaisTable()
                     .select('*')
                     .eq('user_id', user.id)
                     .order('created_at', { ascending: false }),
                 10000,
                 'Carregamento de editais'
-            );
+                ),
+                withTimeout(
+                    supabase
+                        .from('study_sessions')
+                        .select('edital_id, subject_id, session_duration_minutes')
+                        .eq('user_id', user.id),
+                    10000,
+                    'Carregamento de sessoes de estudo'
+                )
+            ]);
 
             if (error) throw error;
+            if (sessionsError) throw sessionsError;
             setEditais((data || []).map(rowToEdital));
+            setStudySessions((sessionsData || []) as StudySessionSummary[]);
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'fetch', userMessage: 'Erro ao carregar editais.' });
         } finally {
@@ -702,17 +721,25 @@ const Editais = () => {
             s.topics && s.topics.length > 0 && s.topics.every(t => t.completed)
         ).length;
 
-        const totalStudyMinutes = uniqueSubjects.reduce((acc, s) =>
-            acc + (s.topics?.reduce((tAcc, t) => tAcc + (t.review_count || 0) * 25, 0) || 0), 0);
+        const subjectIdSet = new Set(ids);
+        const realStudyMinutes = studySessions.reduce((acc, session) => {
+            const belongsToEdital = session.edital_id === edital.id ||
+                (!session.edital_id && Boolean(session.subject_id && subjectIdSet.has(session.subject_id)));
+
+            if (!belongsToEdital) return acc;
+
+            const duration = Number(session.session_duration_minutes || 0);
+            return Number.isFinite(duration) && duration > 0 ? acc + duration : acc;
+        }, 0);
 
         return {
             totalTopics,
             completedTopics,
-            totalStudyMinutes,
+            totalStudyMinutes: realStudyMinutes,
             subjectsCount: uniqueSubjects.length,
             completedSubjectsCount
         };
-    }, [subjects]);
+    }, [subjects, studySessions]);
 
     // ── CRUD Operations ──
     const handleDeleteEdital = useCallback(async (edital: UserEdital) => {
@@ -1802,7 +1829,7 @@ const Editais = () => {
                                         exit={{ opacity: 0, scale: 0.9 }}
                                         onClick={handleMerge}
                                         disabled={isMerging}
-                                        className="flex items-center gap-1.5 h-9 px-4 bg-violet-500 hover:bg-violet-600 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50"
+                                        className="app-button-primary flex h-9 items-center gap-1.5 px-4 text-[9px] font-bold uppercase tracking-wider transition-colors disabled:cursor-not-allowed"
                                     >
                                         {isMerging ? (
                                             <RefreshCw size={14} className="animate-spin" />
@@ -1858,7 +1885,7 @@ const Editais = () => {
                     {/* Sub-header info (opcional, bem discreto agora) */}
                     <div className="flex items-center gap-4 text-[9px] font-bold text-content-muted uppercase tracking-[0.15em] px-1">
                         {selectedIds.size > 0 && (
-                            <span className="text-violet-400">{selectedIds.size} selecionados</span>
+                            <span className="text-primary">{selectedIds.size} selecionados</span>
                         )}
                     </div>
 
@@ -1890,9 +1917,9 @@ const Editais = () => {
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 flex items-center gap-3 text-orange-600 dark:text-orange-400 animate-pulse-subtle"
+                    className="flex items-center gap-3 rounded-xl border border-warning/20 bg-warning/10 p-3 text-warning animate-pulse-subtle"
                 >
-                    <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center shrink-0">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-warning/15">
                         <AlertTriangle size={16} />
                     </div>
                     <div className="flex-1">
@@ -2022,7 +2049,7 @@ const Editais = () => {
                                     onClick={() => {
                                         setFilterCycle(false);
                                     }}
-                                    className="px-8 py-4 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    className="app-button-primary px-8 py-4 text-xs font-black uppercase tracking-widest transition-colors"
                                 >
                                     Limpar Todos os Filtros
                                 </button>
@@ -2035,7 +2062,7 @@ const Editais = () => {
                                                 toast.success("Sugestões órfãs limpas com sucesso.");
                                             }
                                         }}
-                                        className="px-8 py-4 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-amber-500 hover:text-white transition-all"
+                                        className="app-button-warning px-8 py-4 text-xs font-black uppercase tracking-widest transition-colors"
                                     >
                                         Limpar Sugestões Antigas
                                     </button>
@@ -2043,7 +2070,7 @@ const Editais = () => {
                                 {filterCycle && (
                                     <button
                                         onClick={() => setFilterCycle(false)}
-                                        className="px-8 py-4 bg-secondary text-foreground text-xs font-black uppercase tracking-widest rounded-2xl border border-border hover:bg-secondary/80 transition-all"
+                                        className="app-button-secondary px-8 py-4 text-xs font-black uppercase tracking-widest transition-colors"
                                     >
                                         Ver Biblioteca Completa
                                     </button>
@@ -2054,7 +2081,7 @@ const Editais = () => {
                     )}
                 </motion.div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                <div className="grid auto-rows-fr grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {filteredEditais.map(edital => {
                         const metrics = getEditalMetrics(edital);
                         const daysLeft = getDaysUntilExam(edital.examDate);
@@ -2149,7 +2176,7 @@ const Editais = () => {
                             <div
                                 key={edital.id}
                                 id={`edital-${edital.id}`}
-                                className="w-full"
+                                className="h-full w-full"
                             >
                                 <EditalCard
                                     key={edital.id}
@@ -2220,25 +2247,25 @@ const Editais = () => {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-md bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] p-8 shadow-2xl flex flex-col gap-6"
+                            className="relative flex w-full max-w-md flex-col gap-6 rounded-[32px] border border-border bg-modal-background p-8 text-modal-foreground shadow-2xl dark:border-white/[0.08]"
                         >
                             <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                                    <Trash2 className="text-red-500" size={28} />
+                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-destructive/10">
+                                    <Trash2 className="text-destructive" size={28} />
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-bold text-foreground tracking-tight">Excluir Edital?</h3>
-                                    <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                                    <p className="mt-0.5 text-xs font-medium text-content-muted">
                                         Esta ação afetará suas matérias e progresso.
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="text-zinc-400 text-sm leading-relaxed">
+                            <div className="text-sm leading-relaxed text-content-muted">
                                 <p className="mb-4">Tem certeza que deseja excluir o edital <strong>"{deleteConfirm.edital.name}"</strong>?</p>
 
                                 {deleteConfirm.edital.isImported ? (
-                                    <div className="bg-sky-500/10 border border-sky-500/20 p-4 rounded-xl text-sky-400 text-sm">
+                                    <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-primary">
                                         <div className="flex items-start gap-3">
                                             <Info size={18} className="shrink-0 mt-0.5" />
                                             <div>
@@ -2250,7 +2277,7 @@ const Editais = () => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 text-sm">
+                                    <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
                                         <div className="flex items-start gap-3">
                                             <AlertTriangle size={18} className="shrink-0 mt-0.5" />
                                             <div>
@@ -2268,14 +2295,14 @@ const Editais = () => {
                                 <button
                                     onClick={() => setDeleteConfirm({ isOpen: false, edital: null })}
                                     disabled={processingId === deleteConfirm.edital.id}
-                                    className="flex-1 py-4 bg-secondary dark:bg-zinc-800 text-content-muted dark:text-zinc-400 font-bold rounded-2xl hover:bg-secondary/80 dark:hover:bg-zinc-700 transition-all text-xs uppercase tracking-widest disabled:opacity-50"
+                                    className="app-button-secondary flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-colors disabled:cursor-not-allowed"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     onClick={() => handleDeleteEdital(deleteConfirm.edital!)}
                                     disabled={processingId === deleteConfirm.edital.id}
-                                    className="flex-1 py-4 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition-all text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                                    className="app-button-danger flex flex-1 items-center justify-center gap-2 py-4 text-xs font-bold uppercase tracking-widest transition-colors disabled:cursor-not-allowed"
                                 >
                                     {processingId === deleteConfirm.edital.id ? (
                                         <RefreshCw size={16} className="animate-spin" />
@@ -2305,11 +2332,11 @@ const Editais = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-md bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] p-8 shadow-2xl"
+                            className="relative w-full max-w-md rounded-[32px] border border-border bg-modal-background p-8 text-modal-foreground shadow-2xl dark:border-white/[0.08]"
                         >
                             <div className="flex items-center gap-4 mb-6">
-                                <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center shrink-0">
-                                    <Unlink className="text-sky-400" size={22} />
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-warning/10">
+                                    <Unlink className="text-warning" size={22} />
                                 </div>
                                 <div>
                                     <h3 className="text-base font-semibold text-content-main tracking-tight">Remover do Ciclo</h3>
@@ -2318,10 +2345,10 @@ const Editais = () => {
                                     </p>
                                 </div>
                             </div>
-                            <div className="text-zinc-400 text-sm leading-relaxed mb-8">
+                            <div className="mb-8 text-sm leading-relaxed text-content-muted">
                                 Tem certeza que deseja remover o edital <strong>"{unloadConfirm.edital.name}"</strong> do seu ciclo atual?
                                 <br /><br />
-                                <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-400 text-sm">
+                                <div className="rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-primary">
                                     <div className="flex items-start gap-3">
                                         <Info size={18} className="shrink-0 mt-0.5" />
                                         <div>
@@ -2337,7 +2364,7 @@ const Editais = () => {
                                         handleUnloadCycle(unloadConfirm.edital!);
                                         setUnloadConfirm({ isOpen: false, edital: null });
                                     }}
-                                    className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-all text-xs uppercase tracking-widest shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                                    className="app-button-warning flex flex-1 items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-widest transition-colors"
                                 >
                                     Remover
                                 </button>
@@ -2362,7 +2389,7 @@ const Editais = () => {
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            className="relative flex min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-2xl shadow-black/35 dark:border-white/[0.08] dark:bg-[#18181B]" style={{ maxHeight: 'calc(100dvh - 32px)' }}
+                            className="relative flex min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-border bg-modal-background shadow-2xl shadow-black/35 dark:border-white/[0.08]" style={{ maxHeight: 'calc(100dvh - 32px)' }}
                         >
                             {/* Efeito de Profundidade Sutil */}
                             <div className="absolute inset-0 pointer-events-none border border-white/[0.03] rounded-[32px]" />
@@ -2371,11 +2398,11 @@ const Editais = () => {
                                 <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-background/90 backdrop-blur-md animate-in fade-in duration-300 rounded-[28px]">
                                     <div className="flex flex-col items-center gap-6 text-center max-w-[280px]">
                                         <div className="relative">
-                                            <div className="absolute -inset-4 bg-emerald-500/20 blur-2xl rounded-full animate-pulse" />
-                                            <div className="relative bg-emerald-500/10 p-5 rounded-full border border-emerald-500/20">
-                                                <Loader2 size={32} className="text-emerald-500 animate-spin" />
+                                            <div className="absolute -inset-4 rounded-full bg-success/20 blur-2xl animate-pulse" />
+                                            <div className="relative rounded-full border border-success/20 bg-success/10 p-5">
+                                                <Loader2 size={32} className="text-success animate-spin" />
                                             </div>
-                                            <Merge size={16} className="absolute -bottom-1 -right-1 text-emerald-500 bg-background rounded-full p-0.5 border border-emerald-500/20" />
+                                            <Merge size={16} className="absolute -bottom-1 -right-1 rounded-full border border-success/20 bg-background p-0.5 text-success" />
                                         </div>
 
                                         <div className="space-y-3">
@@ -2387,7 +2414,7 @@ const Editais = () => {
                                                     {processingProgress?.message || "Analisando a compatibilidade..."}
                                                 </p>
                                                 <div className="flex justify-center mt-1">
-                                                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                                                    <span className="rounded-full border border-success/20 bg-success/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-success animate-pulse">
                                                         {mergePhase === 'exact'
                                                             ? "Mapeamento Primário"
                                                             : mergePhase === 'finalizing'
@@ -2400,7 +2427,7 @@ const Editais = () => {
                                         </div>
                                         <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden border border-border/50 relative">
                                             <div
-                                                className="h-full bg-emerald-500 rounded-full transition-all duration-300 ease-out"
+                                                className="h-full rounded-full bg-success transition-all duration-300 ease-out"
                                                 style={{ width: `${processingProgress?.percentage ?? ((mergePhase === 'exact' ? 10 : 50))}%` }}
                                             />
                                         </div>
@@ -2409,7 +2436,7 @@ const Editais = () => {
                             )}
 
                             {/* Header - Espaçamento Interno Lateral 2cm (px-8), Vertical 1cm (py-4) */}
-                            <div className="shrink-0 px-6 pt-4 pb-4 border-b border-white/[0.08] flex items-start justify-between bg-white dark:bg-[#18181B] sticky top-0 z-[60] md:px-8">
+                            <div className="sticky top-0 z-[60] flex shrink-0 items-start justify-between border-b border-border bg-modal-background px-6 pb-4 pt-4 md:px-8">
                                 <div className="flex flex-col gap-1.5 focus:outline-none">
                                     <div className="flex items-center gap-3">
                                         {/* Navegação Rápida < > */}
@@ -2442,7 +2469,7 @@ const Editais = () => {
                                         )}
 
                                         <div className="flex items-center gap-2.5">
-                                            <div className="flex items-center justify-center rounded-full bg-sky-500/10 text-sky-500 text-[10px] font-black px-2 py-0.5 border border-sky-500/20">
+                                            <div className="flex items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
                                                 {cycleConflict.step === 'success' ? '2/2' :
                                                  cycleConflict.existingIds.length === 0 ? '1/2' :
                                                  cycleConflict.action === 'replace' ? (cycleConflict.step === 'select' ? '1/2' : '2/2') :
@@ -2487,17 +2514,17 @@ const Editais = () => {
                                     <motion.div
                                         initial={{ opacity: 0, y: -8 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center justify-between gap-4 flex-shrink-0"
+                                        className="flex flex-shrink-0 items-center justify-between gap-4 rounded-2xl border border-warning/20 bg-warning/10 p-4"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0">
-                                                <FileText size={18} className="text-amber-600 dark:text-amber-400" />
+                                            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-warning/15">
+                                                <FileText size={18} className="text-warning" />
                                             </div>
                                             <div>
-                                                <p className="text-xs font-black text-amber-800 dark:text-amber-300">
+                                                <p className="text-xs font-black text-warning">
                                                     Mesclagem recuperada
                                                 </p>
-                                                <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
+                                                <p className="text-[10px] font-medium text-warning/80">
                                                     Restauramos sua última análise · {new Date((cycleConflict as any).updatedAt).toLocaleString('pt-BR')}
                                                 </p>
                                             </div>
@@ -2508,7 +2535,7 @@ const Editais = () => {
                                                 setIsRecoveringMerge(false);
                                                 setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
                                             }}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-800/50 rounded-xl transition-all flex-shrink-0"
+                                            className="app-button-warning flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold transition-colors"
                                         >
                                             <Trash2 size={12} />
                                             Descartar
@@ -2869,8 +2896,8 @@ const Editais = () => {
                                     {cycleConflict.step === 'success' && (
                                         <div className="flex flex-col items-center gap-5 py-2 animate-in zoom-in-95 duration-500 w-full">
                                             <div className="flex flex-col items-center justify-center gap-3 text-center w-full">
-                                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                                                    <CheckCircle2 size={24} className="text-emerald-500" />
+                                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-success/20 bg-success/10">
+                                                    <CheckCircle2 size={24} className="text-success" />
                                                 </div>
                                                 <div className="space-y-1">
                                                     <h4 className="text-2xl font-black text-foreground uppercase tracking-tight">
@@ -2884,7 +2911,7 @@ const Editais = () => {
 
                                             <div className="w-full rounded-2xl p-4 border border-border/70 dark:border-white/[0.06] bg-secondary/50 dark:bg-white/[0.03] space-y-4">
                                                 {cycleConflict.existingIds.length > 0 && cycleConflict.action === 'replace' && (
-                                                    <div className="p-3 rounded-xl border border-sky-500/20 bg-sky-500/[0.08] flex items-start gap-3 text-sky-500">
+                                                    <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/10 p-3 text-primary">
                                                         <Info size={14} className="shrink-0 mt-0.5" />
                                                         <p className="text-[11px] font-medium leading-relaxed text-foreground/90">
                                                             O ciclo anterior foi desativado e sua nova trilha de estudos está pronta para execução.
@@ -2894,7 +2921,7 @@ const Editais = () => {
 
                                                 <div className="space-y-3">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="w-1.5 h-4 bg-[#10B981] rounded-full" />
+                                                        <div className="h-4 w-1.5 rounded-full bg-success" />
                                                         <h5 className="text-sm font-black text-foreground uppercase tracking-tight leading-tight">
                                                             {cycleConflict.edital?.name}
                                                         </h5>
@@ -2931,7 +2958,7 @@ const Editais = () => {
                             </div>
 
                             {/* Rodapé - Lateral 2cm, Vertical 1cm */}
-                            <div className="shrink-0 border-t border-white/[0.08] bg-white/95 px-6 py-2.5 backdrop-blur-xl dark:bg-[#18181A]/95 md:px-8">
+                            <div className="shrink-0 border-t border-border bg-modal-background/95 px-6 py-2.5 backdrop-blur-xl md:px-8">
                                 {cycleConflict.step === 'select' ? (
                                     cycleConflict.existingIds.length === 0 ? (
                                         <div className="flex items-center justify-between gap-4">
@@ -2948,12 +2975,12 @@ const Editais = () => {
                                             <button
                                                 onClick={() => handleCycleConflictAction('replace')}
                                                 disabled={isMerging}
-                                                className="group flex h-11 min-w-[210px] items-center justify-center rounded-xl bg-emerald-500 px-5 text-center text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-[0.98] disabled:opacity-50"
+                                                className="app-button-success group flex h-11 min-w-[210px] items-center justify-center px-5 text-center transition-colors disabled:cursor-not-allowed"
                                             >
                                                 {isMerging && <Loader2 size={16} className="mr-2 animate-spin" />}
                                                 <div className="flex flex-col items-start text-left">
                                                     <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider">CARREGAR NO CICLO</span>
-                                                    <span className="text-[9px] font-bold leading-none text-emerald-100/85">Adicionar ao planejamento</span>
+                                                    <span className="text-[9px] font-bold leading-none text-success-foreground/85">Adicionar ao planejamento</span>
                                                 </div>
                                             </button>
                                         </div>
@@ -2972,23 +2999,23 @@ const Editais = () => {
                                             <div className="flex items-center justify-end gap-3">
                                             <button
                                                 onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }))}
-                                                className="group flex h-10 w-[172px] items-center justify-center gap-2.5 rounded-xl border border-[#5C2B36] bg-[#3F1D24]/40 text-center transition-all hover:bg-[#4C242D]/60 active:scale-[0.98] disabled:opacity-50"
+                                                className="group flex h-10 w-[172px] items-center justify-center gap-2.5 rounded-xl border border-destructive/25 bg-destructive/10 text-center transition-colors hover:bg-destructive/15 active:scale-[0.98] disabled:opacity-50"
                                             >
-                                                <RefreshCw size={16} className="text-[#F87171]" />
+                                                <RefreshCw size={16} className="text-destructive" />
                                                 <div className="flex flex-col items-start text-left">
-                                                    <span className="text-[11px] font-black text-[#F87171] uppercase tracking-wider leading-none mb-0.5">SUBSTITUIR</span>
-                                                    <span className="text-[9px] text-[#FCA5A5] font-bold leading-none">Começar do zero</span>
+                                                    <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider text-destructive">SUBSTITUIR</span>
+                                                    <span className="text-[9px] font-bold leading-none text-destructive/70">Começar do zero</span>
                                                 </div>
                                             </button>
 
                                             <button
                                                 onClick={handleHybridPreview}
                                                 disabled={isMerging}
-                                                className="group flex h-10 w-[172px] items-center justify-center gap-2.5 rounded-xl bg-emerald-500 text-center text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-[0.98] disabled:opacity-50"
+                                                className="app-button-success group flex h-10 w-[172px] items-center justify-center gap-2.5 text-center transition-colors disabled:cursor-not-allowed"
                                             >
                                                 <div className="flex flex-col items-start text-left">
                                                     <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">MESCLAR</span>
-                                                    <span className="text-[9px] text-emerald-100/80 font-bold leading-none">Manter progresso</span>
+                                                    <span className="text-[9px] font-bold leading-none text-success-foreground/80">Manter progresso</span>
                                                 </div>
                                             </button>
                                             </div>
@@ -2998,9 +3025,9 @@ const Editais = () => {
                                     <div className="flex flex-col gap-3">
                                         {/* Aviso: tópicos serão agrupados, não unificados */}
                                         {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && cycleConflict.existingIds.length > 0 && (
-                                            <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
-                                                <AlertTriangle size={13} className="text-amber-500 shrink-0 mt-0.5" />
-                                                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium leading-snug">
+                                            <div className="flex items-start gap-2.5 rounded-xl border border-warning/20 bg-warning/10 px-3 py-2.5">
+                                                <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warning" />
+                                                <p className="text-[10px] font-medium leading-snug text-warning">
                                                     <span className="font-black">Agrupamento sem unificação.</span> Matérias com o mesmo nome de editais diferentes permanecerão como entradas separadas no seu ciclo. Para unificar os tópicos, use "Processar Tópicos" ao lado.
                                                 </p>
                                             </div>
@@ -3011,12 +3038,12 @@ const Editais = () => {
                                                 <button
                                                     onClick={() => handleTopicPreview(true)}
                                                     disabled={isMerging || isAnalyzingTopics}
-                                                    className="flex h-10 items-center justify-center gap-2.5 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sky-500 transition-all hover:bg-sky-500/20 active:scale-95 disabled:opacity-50"
+                                                    className="app-button-primary flex h-10 items-center justify-center gap-2.5 px-4 transition-colors disabled:cursor-not-allowed"
                                                 >
                                                     {isAnalyzingTopics ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                                                     <div className="flex flex-col items-start text-left">
                                                         <span className="mb-0.5 text-[10px] font-black uppercase leading-none tracking-wider">PROCESSAR TÓPICOS</span>
-                                                        <span className="text-[8px] font-bold leading-none text-sky-500/80">Avançar análise com IA</span>
+                                                        <span className="text-[8px] font-bold leading-none text-primary-foreground/80">Avançar análise com IA</span>
                                                     </div>
                                                 </button>
                                             )}
@@ -3024,14 +3051,14 @@ const Editais = () => {
                                             <button
                                                 onClick={() => handleCycleConflictAction(cycleConflict.action!)}
                                                 disabled={isMerging || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
-                                                className="flex h-10 items-center justify-center gap-2.5 rounded-xl bg-emerald-500 px-4 text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-95 disabled:opacity-50"
+                                                className="app-button-success flex h-10 items-center justify-center gap-2.5 px-4 transition-colors disabled:cursor-not-allowed"
                                             >
                                                 {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                                                 <div className="flex flex-col items-start text-left">
                                                     <span className="mb-0.5 text-[10px] font-black uppercase leading-none tracking-wider">
                                                         {cycleConflict.existingIds.length === 0 ? 'CRIAR CICLO' : 'FINALIZAR DIRETO'}
                                                     </span>
-                                                    <span className="text-[8px] font-bold leading-none text-emerald-100/80">
+                                                    <span className="text-[8px] font-bold leading-none text-success-foreground/80">
                                                         {cycleConflict.existingIds.length === 0 ? 'Concluir' : '(Pular mesclagem de tópicos)'}
                                                     </span>
                                                 </div>
@@ -3043,14 +3070,14 @@ const Editais = () => {
                                         <button
                                             onClick={() => handleCycleConflictAction('merge')}
                                             disabled={isMerging || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
-                                            className="flex h-10 items-center justify-center gap-2.5 rounded-xl bg-emerald-500 px-5 text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-95 disabled:opacity-50"
+                                            className="app-button-success flex h-10 items-center justify-center gap-2.5 px-5 transition-colors disabled:cursor-not-allowed"
                                         >
                                             {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                                             <div className="flex flex-col items-start text-left">
                                                 <span className="mb-0.5 text-[10px] font-black uppercase leading-none tracking-wider">
                                                     SALVAR MESCLAGEM
                                                 </span>
-                                                <span className="text-[8px] font-bold leading-none text-emerald-100/80">
+                                                <span className="text-[8px] font-bold leading-none text-success-foreground/80">
                                                     Matérias + Tópicos
                                                 </span>
                                             </div>
@@ -3062,7 +3089,7 @@ const Editais = () => {
                                             setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false });
                                             navigate('/ciclo-estudos');
                                         }}
-                                        className="h-10 w-full rounded-xl bg-emerald-500 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-emerald-400 active:scale-95"
+                                        className="app-button-primary h-10 w-full text-xs font-black uppercase tracking-widest transition-colors"
                                     >
                                         IR PARA O CICLO DE ESTUDOS ➔
                                     </button>
