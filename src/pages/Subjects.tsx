@@ -144,6 +144,16 @@ const isTopicStarted = (topic: Topic) =>
   Boolean(topic.next_review) ||
   isTopicCompleted(topic);
 
+const isTopicInReviewFlow = (topic: Topic) =>
+  !isTopicCompleted(topic) && (
+    (topic.reviewCount || 0) > 0 ||
+    (topic.review_count || 0) > 0 ||
+    hasMeaningfulReviewStage(topic.reviewStage) ||
+    hasMeaningfulReviewStage(topic.review_stage) ||
+    Boolean(topic.nextReview) ||
+    Boolean(topic.next_review)
+  );
+
 const isSubjectCompletedInEdital = (subject: Subject) => {
   const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
   return activeTopics.length > 0 && activeTopics.every(isTopicCompleted);
@@ -164,15 +174,6 @@ const getTopicContactCount = (
 );
 
 const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
-  if (topic.is_active === false) {
-    return {
-      label: 'Inativo',
-      badgeClassName: 'bg-destructive/10 text-destructive',
-      indicatorClassName: 'bg-destructive',
-      actionClassName: 'border-transparent bg-transparent text-destructive hover:border-destructive/20 hover:bg-destructive/10',
-    };
-  }
-
   if (isTopicCompleted(topic)) {
     return {
       label: 'Concluído',
@@ -182,9 +183,18 @@ const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
     };
   }
 
+  if (isTopicInReviewFlow(topic)) {
+    return {
+      label: 'Em revisão',
+      badgeClassName: 'bg-info/10 text-info',
+      indicatorClassName: 'bg-info',
+      actionClassName: 'border-transparent bg-transparent text-info hover:border-info/20 hover:bg-info/10',
+    };
+  }
+
   if (isTopicStarted(topic)) {
     return {
-      label: 'Em estudo',
+      label: 'Iniciado',
       badgeClassName: 'bg-primary/10 text-primary',
       indicatorClassName: 'bg-primary',
       actionClassName: 'border-transparent bg-transparent text-primary hover:border-primary/20 hover:bg-primary/10',
@@ -192,7 +202,7 @@ const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
   }
 
   return {
-    label: 'Não estudado',
+    label: 'Não iniciado',
     badgeClassName: 'bg-muted text-content-muted',
     indicatorClassName: 'bg-content-muted/55',
     actionClassName: 'border-transparent bg-transparent text-content-muted hover:border-info/20 hover:bg-info/10 hover:text-info',
@@ -3479,20 +3489,18 @@ const Subjects = () => {
 	                    topic.is_active !== false && isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo)
 	                  ).length;
 	                  const needsCycleClosure = activeTopicsStartedInCurrentCycle > 0 && !isClosedInCycle;
-	                  const topicStatusLabel = noTopics
-	                    ? 'Sem tópicos'
-                      : startedTopicsCount === 0
-                        ? 'Nenhum iniciado'
-                      : inReviewTopicsCount === totalTopicsCount
-                        ? 'Todos iniciados'
-                        : startedTopicsCount === totalTopicsCount
-                          ? 'Todos iniciados'
-                          : `${startedTopicsCount}/${totalTopicsCount} iniciados`;
-	                  const subjectCycleStatusLabel = isCompletedInEdital
-	                    ? 'Concluída no edital'
-	                    : isManuallyStudiedInCycle || isFullyStartedInCycle
-	                      ? 'Concluída no ciclo'
-	                      : topicStatusLabel;
+	                  const subjectTopicSummaryLabel = (() => {
+	                    if (noTopics) return '0 tópicos';
+	                    if (isCompletedInEdital) {
+	                      return `${completedTopicsCount}/${totalTopicsCount} tópicos concluídos`;
+	                    }
+	                    if (isManuallyStudiedInCycle || isFullyStartedInCycle) {
+	                      return activeTopicsStartedInCurrentCycle > 0
+	                        ? `${activeTopicsStartedInCurrentCycle}/${totalTopicsCount} tópicos neste ciclo`
+	                        : 'Concluída no ciclo';
+	                    }
+	                    return `${startedTopicsCount}/${totalTopicsCount} tópicos iniciados`;
+	                  })();
 
                   const isEditing = editingSubjectId === subject.id;
 
@@ -3571,31 +3579,14 @@ const Subjects = () => {
                                     </h4>
 
 	                                    <div className="app-type-meta mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-content-muted">
-	                                      <span className="flex min-w-0 items-center gap-0.5">
-	                                        <ListTodo size={10} /> {totalTopicsCount} Tópico{totalTopicsCount === 1 ? '' : 's'}
+	                                      <span className="flex min-w-0 items-center gap-0.5 break-words">
+	                                        <ListTodo size={10} /> {subjectTopicSummaryLabel}
 	                                      </span>
-                                      {!noTopics && (
-                                        <>
-                                          <span className="h-1 w-1 rounded-full bg-content-muted/30" aria-hidden="true" />
-	                                          <span className="min-w-0 break-words">{subjectCycleStatusLabel}</span>
-	                                        </>
-	                                      )}
 	                                      {!isClosedInCycle && (
 	                                        <>
 	                                          <span className="h-1 w-1 rounded-full bg-content-muted/30" aria-hidden="true" />
 	                                          {renderSubjectWeightControl(subject)}
 	                                        </>
-	                                      )}
-	                                      {isClosedInCycle && renderCycleTooltip(
-	                                          isCompletedInEdital
-	                                            ? 'Todos os tópicos ativos desta matéria já estão concluídos.'
-	                                            : isFullyStartedInCycle
-	                                              ? 'Todos os tópicos ativos desta matéria já foram iniciados. Ela fica concluída neste ciclo.'
-	                                              : 'Matéria já marcada como estudada neste ciclo. Ela continua na fila para histórico e pode voltar se necessário.',
-	                                          <span className="inline-flex items-center gap-1 rounded-md border border-success/15 bg-success/10 px-1.5 py-0.5 font-black text-success">
-	                                            <Check size={10} strokeWidth={3} />
-	                                            {isCompletedInEdital ? 'Concluída' : 'Concluída no ciclo'}
-	                                          </span>
 	                                      )}
 	                                    </div>
 	                                  </div>
@@ -3707,15 +3698,14 @@ const Subjects = () => {
                                 onClick={(e) => e.stopPropagation()}
                               >
 
-                              {subject.topics.length === 0 ? (
+                              {activeSubjectTopics.length === 0 ? (
                                 <div className="py-4 text-center text-xs text-content-muted">
                                   Nenhum tópico cadastrado
                                 </div>
                               ) : (
                                 <div className="flex flex-col">
-                                  {subject.topics.map((topic) => {
+                                  {activeSubjectTopics.map((topic) => {
                                     const completed = isTopicCompleted(topic);
-                                    const isActive = topic.is_active !== false;
 	                                    const contactCount = getTopicContactCount(topic, topicStats);
 	                                    const hasStarted = contactCount > 0 || isTopicStarted(topic);
 	                                    const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
@@ -3733,61 +3723,51 @@ const Subjects = () => {
 	                                      <div
 	                                        key={topic.id}
 	                                        data-topic-item
-	                                        className={`app-cycle-topic-row relative grid min-h-10 cursor-default grid-cols-[8px_minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-t app-hairline py-2.5 pl-4 pr-3 transition-colors first:border-t-0 group/topic sm:grid-cols-[8px_minmax(0,1fr)_auto] sm:items-center sm:pr-4 ${
-                                          !isActive ? 'opacity-40 grayscale-[0.5]' : ''
-                                        }`}
+	                                        className="app-cycle-topic-row relative grid min-h-10 cursor-default grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-t app-hairline py-2.5 pl-4 pr-3 transition-colors first:border-t-0 group/topic sm:pr-4"
                                       >
-	                                        <div
-	                                          className="mt-0.5 sm:mt-0 flex h-full min-h-5 items-center justify-center cursor-default select-none pointer-events-none"
-	                                          role="img"
-	                                          aria-label={statusLabel}
-	                                        >
-	                                          <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
-	                                        </div>
-
-	                                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-	                                          <span
-	                                            className={`app-type-body-small min-w-0 max-w-full break-words transition-opacity ${
-	                                              completed ? 'text-content-muted opacity-50' : !isActive ? 'text-content-muted opacity-40' : 'text-content-main'
-	                                            }`}
+	                                        {renderCycleTooltip(
+	                                          statusLabel,
+	                                          <div
+	                                            className="flex h-full min-h-5 cursor-default select-none items-center justify-center"
+	                                            role="img"
+	                                            aria-label={statusLabel}
 	                                          >
-	                                            {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="app-type-badge ml-1 opacity-60">(inativo)</span>}
-	                                          </span>
+	                                            <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
+	                                          </div>
+	                                        )}
+
+	                                        <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2">
+	                                          <div className="flex min-w-0 items-center gap-1.5">
+	                                            <span
+	                                              className={`app-type-body-small min-w-0 max-w-full break-words transition-opacity ${
+	                                                completed ? 'text-content-muted opacity-50' : 'text-content-main'
+	                                              }`}
+	                                            >
+	                                              {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)}
+	                                            </span>
+	                                            {studiedInCurrentCycle && !completed && renderCycleTooltip(
+	                                              'Tópico iniciado neste ciclo',
+	                                              <CheckCircle2
+	                                                size={12}
+	                                                className="flex-shrink-0 text-content-muted"
+	                                                role="img"
+	                                                aria-label={`Tópico iniciado neste ciclo: ${topic.name}`}
+	                                              />
+	                                            )}
+	                                          </div>
 	                                          {incidenceDisplay && (
-	                                            renderCycleTooltip(
-	                                              incidenceTitle,
-	                                              <span className="app-type-badge whitespace-nowrap rounded border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-incidence">
-	                                                {incidenceDisplay}
-	                                              </span>
-	                                            )
+	                                            <div className="flex min-w-0">
+	                                              {renderCycleTooltip(
+	                                                incidenceTitle,
+	                                                <span className="app-type-badge max-w-full truncate rounded border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-incidence">
+	                                                  {incidenceDisplay}
+	                                                </span>
+	                                              )}
+	                                            </div>
 	                                          )}
-	                                          {studiedInCurrentCycle && !completed && (
-                                            <CheckCircle2
-                                              size={12}
-                                              className="flex-shrink-0 text-content-muted"
-                                              role="img"
-                                              aria-label={`Tópico novo neste ciclo: ${topic.name}`}
-                                            >
-                                              <title>Tópico novo neste ciclo</title>
-                                            </CheckCircle2>
-                                          )}
                                         </div>
 
-	                                        <div className="col-start-2 flex min-w-0 flex-wrap items-center justify-end gap-1 self-end sm:col-start-3 sm:flex-nowrap sm:self-center">
-                                          <div className="flex items-center gap-1.5 pr-1">
-                                            {(() => {
-                                              if (!isActive) {
-                                                return (
-                                                  <span className="app-type-badge whitespace-nowrap rounded border border-destructive/20 bg-destructive/10 px-1.5 py-0.5 text-destructive">
-                                                    NA LIXEIRA
-                                                  </span>
-                                                );
-                                              }
-                                              return null;
-                                            })()}
-                                          </div>
-
-                                          {isActive && (
+	                                        <div className="flex min-w-0 items-center justify-end gap-1 self-center">
                                             <div
                                               className={`hidden md:flex h-6 items-center gap-1 transition-all duration-200 opacity-0 pointer-events-none group-hover/topic:pointer-events-auto ${completed ? 'group-hover/topic:opacity-40' : 'group-hover/topic:opacity-100'}`}
                                             >
@@ -3825,13 +3805,11 @@ const Subjects = () => {
                                                 </button>
                                               )}
                                             </div>
-                                          )}
-	                                          {isActive && (
 	                                            <div className="flex-shrink-0">
 	                                              {completed ? (
 	                                                <span className="app-type-action-xs ml-0.5 flex h-7 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-success/15 bg-success/10 px-2.5 text-success">
 	                                                  <Check size={11} />
-	                                                  Concluído
+	                                                  <span className="hidden sm:inline">Concluído</span>
 	                                                </span>
 	                                              ) : hasStarted ? (
 	                                                renderCycleTooltip(
@@ -3845,7 +3823,7 @@ const Subjects = () => {
 	                                                    aria-label={`Continuar estudo do tópico ${topic.name}`}
 	                                                  >
 	                                                    <BookOpen size={11} />
-	                                                    Continuar
+	                                                    <span className="hidden sm:inline">Continuar</span>
 	                                                  </button>
 	                                                )
 	                                              ) : (
@@ -3860,25 +3838,11 @@ const Subjects = () => {
 	                                                    aria-label={`Iniciar estudo do tópico ${topic.name}`}
 	                                                  >
 	                                                    <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-	                                                    Iniciar
+	                                                    <span className="hidden sm:inline">Iniciar</span>
 	                                                  </button>
 	                                                )
 	                                              )}
 	                                            </div>
-                                          )}
-                                          {!isActive && renderCycleTooltip(
-                                              'Restaurar tópico',
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleRestoreTopic(topic.id);
-                                                }}
-                                                className="app-type-action-xs flex h-7 items-center gap-2 rounded-lg bg-success/10 px-3 text-success transition-all hover:bg-success hover:text-success-foreground"
-                                                aria-label={`Restaurar tópico ${topic.name}`}
-                                              >
-                                                <Plus size={14} /> Restaurar
-                                              </button>
-                                          )}
                                         </div>
                                       </div>
                                     );
