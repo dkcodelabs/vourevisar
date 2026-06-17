@@ -2597,7 +2597,7 @@ const Subjects = () => {
           ].map(item => (
             <div key={item.label} className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
               <p className="text-[9px] font-black uppercase tracking-wide text-content-muted">{item.label}</p>
-              <p className="mt-1 text-base font-black text-title-card tabular-nums">{item.value}</p>
+                  <p className="mt-1 text-sm font-bold text-title-card tabular-nums">{item.value}</p>
             </div>
           ))}
         </div>
@@ -2925,18 +2925,18 @@ const Subjects = () => {
 	            <div className="app-gradient-panel overflow-hidden rounded-2xl p-4">
 	              <div className="flex items-start justify-between gap-4">
 	                <div className="min-w-0 flex-1">
-	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-primary">
+	                  <h4 className="app-type-eyebrow text-primary">
 	                    Ciclo {currentCycleNumber}
 	                  </h4>
 	                  {renderCycleTooltip(
 	                    editalCycleLabel,
-	                    <p className="mt-1 overflow-hidden break-words text-[11px] font-semibold leading-snug text-content-muted [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
+	                    <p className="app-type-caption mt-1 overflow-hidden break-words text-content-muted [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
 	                      {editalCycleLabel}
 	                    </p>
 	                  )}
 	                </div>
 	                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-primary/25 bg-surface/60 backdrop-blur">
-	                  <span className="text-lg font-black text-title-card tabular-nums">{strategicPanelStats.coveragePercentage}%</span>
+	                  <span className="text-base font-bold text-title-card tabular-nums">{strategicPanelStats.coveragePercentage}%</span>
 	                </div>
 	              </div>
 	              <div className="app-progress-track mt-4 h-1.5 w-full overflow-hidden rounded-full">
@@ -2948,25 +2948,25 @@ const Subjects = () => {
 	              {forecastText && (
 	                <div className="mt-3 flex items-start gap-2 text-content-muted">
 	                  <Gauge size={14} className="mt-0.5 shrink-0 text-primary" />
-	                  <p className="min-w-0 text-[11px] font-semibold leading-relaxed">
+	                  <p className="app-type-caption min-w-0">
 	                    {forecastText}
 	                  </p>
 	                </div>
 	              )}
-	              <div className="mt-4 grid grid-cols-2 gap-2">
+	              <div className="app-responsive-stat-grid mt-4">
 	                <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
 	                  <div className="flex items-center justify-between gap-3">
-	                    <p className="text-[9px] font-black uppercase leading-tight text-content-muted">Matérias concluídas no ciclo</p>
-	                    <p className="text-base font-black text-title-card tabular-nums">{cycleVisualStats.studiedSubjects}</p>
+	                    <p className="app-type-eyebrow text-content-muted">Matérias concluídas no ciclo</p>
+	                    <p className="text-sm font-bold text-title-card tabular-nums">{cycleVisualStats.studiedSubjects}</p>
 	                  </div>
 	                </div>
 	                <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
 	                  <div className="flex items-center justify-between gap-3">
-	                    <p className="text-[9px] font-black uppercase leading-tight text-content-muted">Tópicos iniciados</p>
-	                    <p className="text-base font-black text-title-card tabular-nums">{strategicPanelStats.topicsStartedThisCycle}</p>
+	                    <p className="app-type-eyebrow text-content-muted">Tópicos iniciados</p>
+	                    <p className="text-sm font-bold text-title-card tabular-nums">{strategicPanelStats.topicsStartedThisCycle}</p>
 	                  </div>
 	                  {formatTopicDelta(topicDelta) && (
-	                    <p className="mt-1 text-[10px] font-semibold text-content-muted">
+	                    <p className="app-type-caption mt-1 text-content-muted">
 	                      {formatTopicDelta(topicDelta)}
 	                    </p>
 	                  )}
@@ -2974,7 +2974,7 @@ const Subjects = () => {
 	              </div>
 	              <div className="mt-2 space-y-2">
 	                {!lastClosedCycle && (
-	                  <p className="text-[11px] text-content-muted leading-relaxed">
+	                  <p className="app-type-caption text-content-muted">
 	                    Ao iniciar o próximo ciclo, este resumo será salvo para comparar sua evolução.
 	                  </p>
 	                )}
@@ -2984,7 +2984,7 @@ const Subjects = () => {
 	            {strategicAlerts.length > 0 && (
 	              <div className="app-glass rounded-2xl p-4">
 	                <div className="mb-3 flex items-center justify-between gap-3">
-	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-warning">
+	                  <h4 className="app-type-eyebrow text-warning">
 	                    Atenção estratégica
 	                  </h4>
 	                  <AlertCircle size={15} className="text-warning" />
@@ -3000,18 +3000,18 @@ const Subjects = () => {
 	                          </div>
 	                          <div className="min-w-0 flex-1">
 	                            <div className="flex flex-wrap items-center gap-2">
-	                              <span className="text-[9px] font-black uppercase tracking-wider opacity-80">{style.label}</span>
-	                              <p className="text-[11px] font-black uppercase tracking-wider text-title-card">{alert.title}</p>
+	                              <span className="app-type-badge opacity-80">{style.label}</span>
+	                              <p className="app-type-eyebrow text-title-card">{alert.title}</p>
 	                            </div>
-	                            <p className="mt-1 text-xs font-semibold leading-relaxed text-title-card">{alert.message}</p>
-	                            <p className="mt-1 text-[10px] leading-relaxed text-content-muted">{alert.evidence}</p>
+	                            <p className="app-type-body-small mt-1 text-title-card">{alert.message}</p>
+	                            <p className="app-type-caption mt-1 text-content-muted">{alert.evidence}</p>
 	                          </div>
 	                        </div>
 	                        {alert.actionLabel && alert.actionType !== 'none' && (
 	                          <button
 	                            type="button"
 	                            onClick={() => handleStrategicAlertAction(alert)}
-	                            className="mt-1 h-7 rounded-lg border app-hairline bg-surface/45 px-2.5 text-[10px] font-black uppercase tracking-wider text-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+	                            className="app-type-action-xs mt-1 h-7 rounded-lg border app-hairline bg-surface/45 px-2.5 text-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
 	                          >
 	                            {alert.actionLabel}
 	                          </button>
@@ -3026,7 +3026,7 @@ const Subjects = () => {
 	            {queueSuggestion && (
 	              <div className="rounded-2xl border border-incidence/20 bg-incidence/[0.07] p-4">
 	                <div className="mb-3 flex items-center justify-between gap-3">
-	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-incidence">
+	                  <h4 className="app-type-eyebrow text-incidence">
 	                    Ajuste sugerido da fila
 	                  </h4>
 	                  <ListTodo size={15} className="text-incidence" />
@@ -3036,16 +3036,16 @@ const Subjects = () => {
 	                    <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-incidence/15 text-incidence">
 	                      <MoveUp size={14} />
 	                    </div>
-	                    <p className="text-[10px] font-black uppercase tracking-wider text-incidence">
+	                    <p className="app-type-eyebrow text-incidence">
 	                      {queueSuggestion.title}
 	                    </p>
 	                  </div>
-	                  <p className="text-xs font-semibold leading-relaxed text-title-card">{queueSuggestion.message}</p>
-	                  <p className="mt-1 text-[10px] leading-relaxed text-content-muted">{queueSuggestion.evidence}</p>
+	                  <p className="app-type-body-small text-title-card">{queueSuggestion.message}</p>
+	                  <p className="app-type-caption mt-1 text-content-muted">{queueSuggestion.evidence}</p>
 	                  {queueSuggestion.limitations.length > 0 && (
 	                    <div className="mt-2 space-y-1">
 	                      {queueSuggestion.limitations.map(limit => (
-	                        <p key={limit} className="text-[10px] leading-relaxed text-content-muted">
+	                        <p key={limit} className="app-type-caption text-content-muted">
 	                          {limit}
 	                        </p>
 	                      ))}
@@ -3054,7 +3054,7 @@ const Subjects = () => {
 	                  <button
 	                    type="button"
 	                    onClick={() => handleApplySuggestedQueueOrder(queueSuggestion.suggestedOrder)}
-	                    className="mt-3 h-8 rounded-lg border border-incidence/25 bg-incidence/10 px-3 text-[10px] font-black uppercase tracking-wider text-incidence transition-colors hover:border-incidence/50 hover:bg-incidence/20"
+	                    className="app-type-action-xs mt-3 h-8 rounded-lg border border-incidence/25 bg-incidence/10 px-3 text-incidence transition-colors hover:border-incidence/50 hover:bg-incidence/20"
 	                  >
 	                    Aplicar sugestão
 	                  </button>
@@ -3064,10 +3064,10 @@ const Subjects = () => {
 
 	            <div className="app-surface rounded-2xl p-4">
 	              <div className="mb-3 flex items-center justify-between gap-3">
-	                <h4 className="text-[11px] font-black uppercase tracking-widest text-content-muted">
+	                <h4 className="app-type-eyebrow text-content-muted">
 	                  Insights
 	                </h4>
-	                <span className="inline-flex items-center gap-1 rounded-full border border-primary/15 bg-primary/5 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-primary">
+	                <span className="app-type-badge inline-flex items-center gap-1 rounded-full border border-primary/15 bg-primary/5 px-2 py-1 text-primary">
 	                  <Sparkles size={11} />
 	                  {cycleMaturity.label}
 	                </span>
@@ -3082,9 +3082,9 @@ const Subjects = () => {
 	                          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface/55 backdrop-blur">
 	                            <Icon size={14} />
 	                          </div>
-	                          <p className="text-[10px] font-black uppercase tracking-wider">{item.label}</p>
+	                          <p className="app-type-eyebrow">{item.label}</p>
 	                        </div>
-	                        <p className="text-xs font-semibold leading-relaxed text-title-card">{item.value}</p>
+	                        <p className="app-type-body-small text-title-card">{item.value}</p>
 	                      </div>
 	                    );
 	                  })}
@@ -3093,7 +3093,7 @@ const Subjects = () => {
 	                <div className="rounded-xl border border-dashed border-primary/20 bg-primary/5 p-3">
 	                  <div className="mb-2 flex items-center gap-2 text-primary">
 	                    <Sparkles size={14} />
-	                    <span className="text-[10px] font-black uppercase tracking-wider">Sem sinal confiável ainda</span>
+	                    <span className="app-type-eyebrow">Sem sinal confiável ainda</span>
 	                  </div>
 	                  <p className="text-xs text-content-muted leading-relaxed">
 	                    {insightReadinessText}
@@ -3108,7 +3108,7 @@ const Subjects = () => {
 	                  type="button"
 	                  onClick={() => setResetCycleConfirmOpen(true)}
 	                  disabled={isResettingCycle}
-	                  className="inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-destructive/70 transition-colors hover:border-destructive/20 hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+	                  className="app-type-action-xs inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-destructive/70 transition-colors hover:border-destructive/20 hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
 	                  aria-label="Reiniciar ciclo de estudos"
 	                >
 	                  {isResettingCycle ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
@@ -3177,7 +3177,7 @@ const Subjects = () => {
           <button
             type="button"
             onClick={handleViewModeToggle}
-            className="app-control h-7 shrink-0 gap-1.5 px-1.5 text-[11px] font-medium tracking-normal sm:px-2"
+            className="app-control app-type-control h-7 shrink-0 gap-1.5 px-1.5 sm:px-2"
             aria-label={activeTab === 'vertical' ? 'Voltar para o modo ciclo' : 'Ver conteúdo em modo edital'}
           >
             <FileText size={11} />
@@ -3209,7 +3209,7 @@ const Subjects = () => {
         onKeyDown={(e) => {
           if (e.key === 'Escape') closeCycleSearch();
         }}
-        className="app-field h-7 w-full py-0.5 pl-6 pr-6 text-[11px] font-medium backdrop-blur placeholder:text-content-muted/45"
+        className="app-field app-type-control h-7 w-full py-0.5 pl-6 pr-6 backdrop-blur placeholder:text-content-muted/45"
         aria-label="Buscar na fila do ciclo"
       />
       {newSubjectName.trim() && (
@@ -3239,7 +3239,7 @@ const Subjects = () => {
               type="button"
               onClick={handleToggleCycleReorder}
               disabled={reorderDisabled}
-              className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border px-1.5 text-[11px] font-medium tracking-normal transition-colors sm:px-2 ${
+              className={`app-type-control inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border px-1.5 transition-colors sm:px-2 ${
                 isReorderingCycle
                   ? 'border-warning/45 bg-warning/15 text-warning shadow-[0_0_18px_hsl(var(--warning)/0.12)]'
                   : 'app-control disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-transparent disabled:hover:bg-transparent disabled:hover:text-content-muted'
@@ -3289,16 +3289,16 @@ const Subjects = () => {
           <h3 className="app-type-section-title min-w-0 break-words text-title-section">
             {title}
           </h3>
-          <span className="shrink-0 rounded-md bg-primary/8 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+          <span className="app-type-badge shrink-0 rounded-md bg-primary/8 px-1.5 py-0.5 text-primary">
             ({count})
           </span>
         </div>
-        <div className="app-glass flex min-w-0 items-center justify-between gap-1.5 rounded-2xl px-2 py-2 sm:gap-3">
-          <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1.5">
+        <div className="app-glass app-cycle-toolbar rounded-2xl px-2 py-2">
+          <div className="app-cycle-toolbar-primary">
             {renderCycleReorderButton()}
             {renderCycleSearchControl()}
           </div>
-          <div className="flex shrink-0 flex-nowrap items-center gap-1.5">
+          <div className="app-cycle-toolbar-secondary">
             {renderViewModeButton()}
             <TooltipProvider delayDuration={120}>
               <Tooltip>
@@ -3307,7 +3307,7 @@ const Subjects = () => {
                     type="button"
                     onClick={toggleAllCycleSubjects}
                     disabled={expandableSubjectIds.length === 0}
-                    className="app-control h-7 shrink-0 gap-1 px-1.5 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-35 sm:px-2"
+                    className="app-control app-type-control h-7 shrink-0 gap-1 px-1.5 disabled:cursor-not-allowed disabled:opacity-35 sm:px-2"
                     aria-label={allExpanded ? 'Recolher todas as matérias' : 'Expandir todas as matérias'}
                   >
                     <ChevronDown
@@ -3451,7 +3451,7 @@ const Subjects = () => {
                   <button
                     onClick={() => setStartNextCycleConfirmOpen(true)}
                     disabled={isStartingNextCycle}
-                    className="app-success-button h-9 shrink-0 gap-2 px-3 text-[10px] font-black uppercase tracking-wider disabled:cursor-not-allowed"
+                    className="app-success-button app-type-action-xs h-9 shrink-0 gap-2 px-3 disabled:cursor-not-allowed"
                   >
                     {isStartingNextCycle ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
                     Novo Ciclo
@@ -3747,16 +3747,16 @@ const Subjects = () => {
 
 	                                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
 	                                          <span
-	                                            className={`min-w-0 max-w-full break-words text-[11px] font-medium leading-snug transition-opacity sm:text-[11.5px] ${
+	                                            className={`app-type-body-small min-w-0 max-w-full break-words transition-opacity ${
 	                                              completed ? 'text-content-muted opacity-50' : !isActive ? 'text-content-muted opacity-40' : 'text-content-main'
 	                                            }`}
 	                                          >
-	                                            {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="text-[9px] ml-1 opacity-60">(inativo)</span>}
+	                                            {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="app-type-badge ml-1 opacity-60">(inativo)</span>}
 	                                          </span>
 	                                          {incidenceDisplay && (
 	                                            renderCycleTooltip(
 	                                              incidenceTitle,
-	                                              <span className="whitespace-nowrap rounded border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-incidence">
+	                                              <span className="app-type-badge whitespace-nowrap rounded border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-incidence">
 	                                                {incidenceDisplay}
 	                                              </span>
 	                                            )
@@ -3778,7 +3778,7 @@ const Subjects = () => {
                                             {(() => {
                                               if (!isActive) {
                                                 return (
-                                                  <span className="whitespace-nowrap rounded border border-destructive/20 bg-destructive/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-destructive">
+                                                  <span className="app-type-badge whitespace-nowrap rounded border border-destructive/20 bg-destructive/10 px-1.5 py-0.5 text-destructive">
                                                     NA LIXEIRA
                                                   </span>
                                                 );
@@ -3829,7 +3829,7 @@ const Subjects = () => {
 	                                          {isActive && (
 	                                            <div className="flex-shrink-0">
 	                                              {completed ? (
-	                                                <span className="ml-0.5 flex h-7 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-success/15 bg-success/10 px-2.5 text-[10px] font-black text-success">
+	                                                <span className="app-type-action-xs ml-0.5 flex h-7 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-success/15 bg-success/10 px-2.5 text-success">
 	                                                  <Check size={11} />
 	                                                  Concluído
 	                                                </span>
@@ -3841,7 +3841,7 @@ const Subjects = () => {
 	                                                      e.stopPropagation();
 	                                                      navigate(`/revisoes?topicId=${topic.id}`);
 	                                                    }}
-	                                                    className={`flex-shrink-0 h-7 px-2.5 rounded-lg flex items-center justify-center gap-1.5 border text-[10px] font-black transition-all ml-0.5 ${statusVisual.actionClassName}`}
+	                                                    className={`app-type-action-xs flex-shrink-0 h-7 px-2.5 rounded-lg flex items-center justify-center gap-1.5 border transition-all ml-0.5 ${statusVisual.actionClassName}`}
 	                                                    aria-label={`Continuar estudo do tópico ${topic.name}`}
 	                                                  >
 	                                                    <BookOpen size={11} />
@@ -3856,7 +3856,7 @@ const Subjects = () => {
                                                       e.stopPropagation();
 	                                                      openReviewModal(topic.id);
 	                                                    }}
-	                                                    className={`flex-shrink-0 h-7 px-2.5 rounded-lg border transition-all duration-300 flex items-center justify-center gap-1.5 ml-0.5 group text-[10px] font-black ${statusVisual.actionClassName}`}
+	                                                    className={`app-type-action-xs flex-shrink-0 h-7 px-2.5 rounded-lg border transition-all duration-300 flex items-center justify-center gap-1.5 ml-0.5 group ${statusVisual.actionClassName}`}
 	                                                    aria-label={`Iniciar estudo do tópico ${topic.name}`}
 	                                                  >
 	                                                    <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
@@ -3873,7 +3873,7 @@ const Subjects = () => {
                                                   e.stopPropagation();
                                                   handleRestoreTopic(topic.id);
                                                 }}
-                                                className="flex h-7 items-center gap-2 rounded-lg bg-success/10 px-3 text-[10px] font-black uppercase tracking-wider text-success transition-all hover:bg-success hover:text-success-foreground"
+                                                className="app-type-action-xs flex h-7 items-center gap-2 rounded-lg bg-success/10 px-3 text-success transition-all hover:bg-success hover:text-success-foreground"
                                                 aria-label={`Restaurar tópico ${topic.name}`}
                                               >
                                                 <Plus size={14} /> Restaurar
@@ -3951,7 +3951,7 @@ const Subjects = () => {
                     Painel estratégico do edital
                   </span>
                 </span>
-                <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-primary">
+                <span className="app-type-action-xs shrink-0 text-primary">
                   Ver
                 </span>
               </a>

@@ -378,7 +378,7 @@
   }
 
   .app-type-page-title {
-    font-size: clamp(1rem, 0.94rem + 0.28vw, 1.25rem);
+    font-size: clamp(0.96rem, 0.91rem + 0.22vw, 1.125rem);
     font-weight: 800;
     line-height: 1.12;
     letter-spacing: 0;
@@ -393,14 +393,14 @@
   }
 
   .app-type-section-title {
-    font-size: clamp(1rem, 0.94rem + 0.25vw, 1.125rem);
+    font-size: clamp(0.92rem, 0.88rem + 0.18vw, 1.02rem);
     font-weight: 800;
-    line-height: 1.18;
+    line-height: 1.16;
     letter-spacing: 0;
   }
 
   .app-type-card-title {
-    font-size: clamp(0.8125rem, 0.78rem + 0.12vw, 0.92rem);
+    font-size: clamp(0.75rem, 0.72rem + 0.1vw, 0.84rem);
     font-weight: 750;
     line-height: 1.2;
     letter-spacing: 0;
@@ -408,10 +408,84 @@
   }
 
   .app-type-meta {
-    font-size: clamp(0.625rem, 0.6rem + 0.08vw, 0.6875rem);
-    font-weight: 650;
+    font-size: clamp(0.5625rem, 0.54rem + 0.06vw, 0.625rem);
+    font-weight: 600;
     line-height: 1.35;
     letter-spacing: 0;
+  }
+
+  .app-type-eyebrow {
+    font-size: clamp(0.5rem, 0.49rem + 0.04vw, 0.5625rem);
+    font-weight: 750;
+    line-height: 1.25;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+  }
+
+  .app-type-caption {
+    font-size: clamp(0.5625rem, 0.54rem + 0.06vw, 0.625rem);
+    font-weight: 550;
+    line-height: 1.45;
+    letter-spacing: 0;
+  }
+
+  .app-type-body-small {
+    font-size: clamp(0.625rem, 0.6rem + 0.06vw, 0.6875rem);
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: 0;
+  }
+
+  .app-type-control {
+    font-size: clamp(0.625rem, 0.6rem + 0.06vw, 0.6875rem);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .app-type-action-xs {
+    font-size: clamp(0.5625rem, 0.54rem + 0.06vw, 0.625rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .app-type-badge {
+    font-size: clamp(0.5rem, 0.49rem + 0.04vw, 0.5625rem);
+    font-weight: 750;
+    line-height: 1.1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .app-responsive-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+    gap: 0.5rem;
+  }
+
+  .app-cycle-toolbar {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.375rem;
+  }
+
+  .app-cycle-toolbar-primary,
+  .app-cycle-toolbar-secondary {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .app-cycle-toolbar-primary {
+    flex: 1 1 auto;
+  }
+
+  .app-cycle-toolbar-secondary {
+    flex: 0 0 auto;
   }
 
   .app-sidebar-shell {
