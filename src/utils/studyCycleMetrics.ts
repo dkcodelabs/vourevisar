@@ -70,15 +70,20 @@ const isTopicCompleted = (topic: MetricTopic) =>
   topic.reviewStage === 'Concluído' ||
   topic.review_stage === 'Concluído';
 
+const hasMeaningfulReviewStage = (stage?: string | null) => {
+  const normalized = String(stage || '').trim().toLowerCase();
+  return Boolean(normalized) &&
+    !['0', 'novo', 'não iniciado', 'nao iniciado', 'null', 'undefined'].includes(normalized);
+};
+
 const isTopicStarted = (topic: MetricTopic) =>
   Boolean(topic.first_studied_at) ||
   Boolean(topic.firstStudiedAt) ||
   (topic.reviewCount || 0) > 0 ||
   (topic.review_count || 0) > 0 ||
-  Boolean(topic.reviewStage) ||
-  Boolean(topic.review_stage) ||
-  topic.completed === true ||
-  topic.is_completed === true;
+  hasMeaningfulReviewStage(topic.reviewStage) ||
+  hasMeaningfulReviewStage(topic.review_stage) ||
+  isTopicCompleted(topic);
 
 const firstStudyDate = (topic: MetricTopic) =>
   topic.first_studied_at || topic.firstStudiedAt || null;

@@ -5,10 +5,11 @@ import { CSS } from '@dnd-kit/utilities';
 interface SortableItemProps {
   id: string;
   lockAxis?: 'vertical' | 'free';
+  disabled?: boolean;
   children: React.ReactNode | ((props: { listeners: any; attributes: any }) => React.ReactNode);
 }
 
-export const SortableItem = ({ id, lockAxis = 'vertical', children }: SortableItemProps) => {
+export const SortableItem = ({ id, lockAxis = 'vertical', disabled = false, children }: SortableItemProps) => {
   const {
     attributes,
     listeners,
@@ -16,7 +17,7 @@ export const SortableItem = ({ id, lockAxis = 'vertical', children }: SortableIt
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled });
 
   // CSS.Translate.toString aplica apenas translação (x, y) sem escala,
   // evitando a deformação quando o item passa por cima de cards de alturas diferentes.

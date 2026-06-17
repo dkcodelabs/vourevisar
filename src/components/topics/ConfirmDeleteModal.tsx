@@ -49,7 +49,7 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
               onConfirm();
             }}
             disabled={isLoading}
-            className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center gap-2"
+            className="app-danger-button flex items-center justify-center gap-2"
           >
             {isLoading ? (
               <Loader2 size={16} className="animate-spin" />

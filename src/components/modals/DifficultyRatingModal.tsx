@@ -50,10 +50,10 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   const previousContactCount = Math.max(0, normalizedReviewCount - 1);
   const previousReviewCount = Math.max(0, previousContactCount - 1);
   const stageLabel = isFirstContact
-    ? 'MARCANDO 1º CONTATO'
-    : `MARCANDO ${reviewOrdinalBeingRecorded}ª REVISÃO`;
+    ? 'REGISTRAR 1º CONTATO'
+    : `REGISTRAR ${reviewOrdinalBeingRecorded}ª REVISÃO`;
   const progressLabel = isFirstContact
-    ? 'Nenhum contato registrado ainda.'
+    ? ''
     : `Já registrado: ${previousContactCount === 1 ? '1º contato' : `${previousContactCount} contatos`} (${previousReviewCount} ${previousReviewCount === 1 ? 'revisão realizada' : 'revisões realizadas'}).`;
   const primaryActionLabel = onConfirmReview
     ? (isFirstContact ? 'Finalizar' : 'Confirmar')
@@ -116,49 +116,51 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="relative w-full max-w-[560px] overflow-hidden rounded-2xl border border-border bg-card p-6 text-sm text-foreground shadow-2xl shadow-black/35 dark:bg-zinc-900"
+        className="relative max-h-[92vh] w-full max-w-[520px] overflow-y-auto rounded-2xl border border-border bg-card p-5 text-sm text-foreground shadow-2xl shadow-black/35 dark:bg-zinc-900 sm:p-6"
       >
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-xl bg-secondary/50 text-content-muted transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:pointer-events-none"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-xl bg-secondary/50 text-content-muted transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:pointer-events-none"
           title="Fechar e manter pausa"
           aria-label="Fechar e manter pausa"
           disabled={isSaving}
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4" />
         </button>
 
-        <div className="mb-6 pr-12">
-          <div className="mb-4 inline-flex h-6 items-center rounded-full border border-primary/25 bg-primary/10 px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
+        <div className="mb-5 pr-10">
+          <div className="mb-3 inline-flex h-6 items-center rounded-full border border-primary/25 bg-primary/10 px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
             {stageLabel}
           </div>
-          <p className="mb-4 text-[11px] font-medium text-content-muted">
-            {progressLabel}
-          </p>
+          {progressLabel && (
+            <p className="mb-3 text-[11px] font-medium text-content-muted">
+              {progressLabel}
+            </p>
+          )}
 
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold leading-tight text-foreground">
+            <h2 className="max-w-full text-[15px] font-semibold leading-snug text-foreground sm:text-base">
               {subjectName || 'Matéria'}
             </h2>
-            <div className="mt-1.5 flex min-w-0 items-center gap-2 pl-4 text-xs font-medium text-content-muted">
-              <span className="h-1 w-1 shrink-0 rounded-full bg-content-muted/50" />
-              <span className="truncate">{topicName || reviewStage || 'Tópico'}</span>
+            <div className="mt-1.5 flex min-w-0 items-start gap-2 text-[11px] font-medium leading-snug text-content-muted">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-content-muted/50" />
+              <span className="min-w-0 break-words">{topicName || reviewStage || 'Tópico'}</span>
             </div>
           </div>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-4">
           {onConfirmReview && (
             <div className="space-y-2.5">
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-content-muted">
                 <span>Tempo de estudo</span>
               </div>
               <div
-                className="flex h-11 cursor-text items-center gap-3 rounded-xl border border-border bg-secondary/35 px-3.5 transition-colors hover:bg-secondary/45 focus-within:border-border focus-within:bg-secondary/50"
+                className="flex h-10 w-full max-w-[180px] cursor-text items-center gap-2.5 rounded-xl border border-border bg-secondary/35 px-3 transition-colors hover:bg-secondary/45 focus-within:border-primary/35 focus-within:bg-secondary/50"
                 onClick={focusDurationInput}
               >
                 <Clock className="h-4 w-4 shrink-0 text-primary" />
-                <div className="flex w-full items-center gap-1.5">
+                <div className="flex min-w-0 items-center gap-1.5">
                   <Input
                     ref={durationInputRef}
                     id="duration-input"
@@ -185,16 +187,16 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
             <DifficultyRating
               value={selectedDifficulty}
               onChange={handleDifficultyChange}
-              size="lg"
+              size="md"
               showLabel={false}
               allowClear={false}
-              className="[&>div]:max-w-none [&_button]:min-h-[72px] [&_button]:rounded-xl [&_button]:border-border [&_button]:bg-secondary/30 [&_button]:px-4 [&_button]:py-3 [&_button_span]:text-[11px] [&_button_span]:uppercase"
+              className="[&>div]:max-w-none [&_button]:min-h-[64px] [&_button]:rounded-xl [&_button]:border-border [&_button]:bg-secondary/30 [&_button]:px-3 [&_button]:py-2.5 [&_button_span]:text-[10px] [&_button_span]:uppercase"
             />
           </div>
 
-          <div className="flex gap-3 rounded-xl border border-border bg-secondary/25 px-4 py-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Info className="h-4 w-4" />
+          <div className="flex gap-3 rounded-xl border border-border bg-secondary/25 px-3.5 py-3">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Info className="h-3.5 w-3.5" />
             </div>
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">{noticeTitle}</p>
@@ -204,18 +206,21 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
         </div>
 
         <div className="mt-6 flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.9fr_1.25fr]">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.35fr]">
             <Button
-              variant="outline"
+              variant="cancel"
+              size="lg"
               onClick={() => onResume ? onResume() : onClose()}
-              className="h-10 rounded-xl border-border bg-secondary/35 text-[11px] font-semibold uppercase tracking-[0.12em] text-content-muted hover:bg-secondary hover:text-foreground"
+              className="h-11"
               disabled={isSaving}
             >
               Voltar
             </Button>
             <Button
+              variant="confirm"
+              size="lg"
               onClick={handleSubmit}
-              className="h-10 rounded-xl bg-primary text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-foreground shadow-sm shadow-primary/20 transition-all hover:bg-primary/90 disabled:bg-secondary disabled:text-content-muted disabled:shadow-none"
+              className="h-11"
               disabled={!selectedDifficulty || isSaving}
             >
               {isSaving ? (
@@ -235,7 +240,7 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
           {onDiscard && (
             <button
               onClick={onDiscard}
-              className="mx-auto mt-1 text-xs font-medium text-rose-400 hover:text-rose-300 hover:underline"
+              className="mx-auto mt-1 inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10"
               disabled={isSaving}
             >
               Descartar Sessão

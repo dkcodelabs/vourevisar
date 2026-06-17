@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'react-toastify'
 import { getSupabaseClient } from '@/services/gutCalculator'
 import { Bot, Clock, Database, Filter, Loader2, Play, Sparkles, XCircle } from 'lucide-react'
+import { toastGate } from '@/lib/errors/toastGate'
 
 export type TopicIncidenceFilter = 'all' | 'pending' | 'with-volume' | 'without-volume' | 'catalog' | 'ai' | 'skipped' | 'error' | 'zero-volume'
 
@@ -129,7 +130,7 @@ export function AllTopicsTable({
     const processTopicNow = async (topic: TopicRow) => {
         const supabase = getSupabaseClient()
         if (!supabase) {
-            toast.error('Supabase não configurado')
+            toastGate.notifyError('Supabase não configurado', 'ALL-TOPICS-PROCESS-01', { severity: 'medium' })
             return
         }
 
@@ -152,7 +153,7 @@ export function AllTopicsTable({
             if (!result) {
                 toast.info(data?.message || 'Nenhum resultado retornado para este tópico.')
             } else if (result.status === 'error') {
-                toast.error(`Erro ao processar: ${result.reason || 'falha desconhecida'}`)
+                toastGate.notifyError(`Erro ao processar: ${result.reason || 'falha desconhecida'}`, 'ALL-TOPICS-PROCESS-02', { severity: 'medium' })
             } else if (result.status === 'zero') {
                 toast.warn(`Processado, mas sem sinal: ${topic.name}`)
             } else {
@@ -162,7 +163,7 @@ export function AllTopicsTable({
             await loadTopics()
         } catch (err) {
             console.error('Erro ao processar tópico específico:', err)
-            toast.error(err instanceof Error ? err.message : 'Erro ao processar tópico')
+            toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao processar tópico', 'ALL-TOPICS-PROCESS-03', { severity: 'medium' })
         } finally {
             setProcessingTopicId(null)
         }

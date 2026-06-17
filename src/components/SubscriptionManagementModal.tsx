@@ -152,6 +152,15 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
 
       console.log(`Changing subscription for user ${userId} to ${action}`)
 
+      // Verificar se o usuário já tem uma assinatura na tabela
+      const { data: existingSub, error: checkError } = await supabase
+        .from('user_subscriptions')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (checkError) throw checkError
+
       if (action === 'deactivate') {
         // Desativar assinatura - usar deactivate_subscription
         const { data, error } = await supabase
@@ -166,33 +175,29 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         const trialEndDate = new Date()
         trialEndDate.setDate(trialEndDate.getDate() + 7)
 
-        // Primeiro tentar update, se não existir, fazer insert
-        const { error: updateError } = await supabase
-          .from('user_subscriptions')
-          .update({
-            plan: 'free_trial' as const,
-            status: 'trial' as const,
-            trial_started_at: new Date().toISOString(),
-            trial_ends_at: trialEndDate.toISOString(),
-            subscription_started_at: null,
-            subscription_ends_at: null,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
+        const subscriptionData = {
+          plan: 'free_trial' as const,
+          status: 'trial' as const,
+          trial_started_at: new Date().toISOString(),
+          trial_ends_at: trialEndDate.toISOString(),
+          subscription_started_at: null,
+          subscription_ends_at: null,
+          updated_at: new Date().toISOString()
+        }
 
-        if (updateError) {
-          // Se update falhou, tentar insert
+        if (existingSub) {
+          const { error: updateError } = await supabase
+            .from('user_subscriptions')
+            .update(subscriptionData)
+            .eq('user_id', userId)
+          if (updateError) throw updateError
+        } else {
           const { error: insertError } = await supabase
             .from('user_subscriptions')
             .insert({
               user_id: userId,
-              plan: 'free_trial' as const,
-              status: 'trial' as const,
-              trial_started_at: new Date().toISOString(),
-              trial_ends_at: trialEndDate.toISOString(),
-              updated_at: new Date().toISOString()
+              ...subscriptionData
             })
-          
           if (insertError) throw insertError
         }
 
@@ -208,33 +213,29 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         const subscriptionEndDate = new Date()
         subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + (plan === 'annual' ? 12 : 1))
         
-        // Primeiro tentar update, se não existir, fazer insert
-        const { error: updateError } = await supabase
-          .from('user_subscriptions')
-          .update({
-            plan: plan as 'monthly' | 'annual',
-            status: 'active' as const,
-            subscription_started_at: new Date().toISOString(),
-            subscription_ends_at: subscriptionEndDate.toISOString(),
-            trial_started_at: null,
-            trial_ends_at: null,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
+        const subscriptionData = {
+          plan: plan as 'monthly' | 'annual',
+          status: 'active' as const,
+          subscription_started_at: new Date().toISOString(),
+          subscription_ends_at: subscriptionEndDate.toISOString(),
+          trial_started_at: null,
+          trial_ends_at: null,
+          updated_at: new Date().toISOString()
+        }
 
-        if (updateError) {
-          // Se update falhou, tentar insert
+        if (existingSub) {
+          const { error: updateError } = await supabase
+            .from('user_subscriptions')
+            .update(subscriptionData)
+            .eq('user_id', userId)
+          if (updateError) throw updateError
+        } else {
           const { error: insertError } = await supabase
             .from('user_subscriptions')
             .insert({
               user_id: userId,
-              plan: plan as 'monthly' | 'annual',
-              status: 'active' as const,
-              subscription_started_at: new Date().toISOString(),
-              subscription_ends_at: subscriptionEndDate.toISOString(),
-              updated_at: new Date().toISOString()
+              ...subscriptionData
             })
-          
           if (insertError) throw insertError
         }
 

@@ -118,6 +118,35 @@ describe('studyCycleEventInsights', () => {
     }));
   });
 
+  it('does not flag a priority subject that is already closed in the cycle', () => {
+    const insights = getStudyCycleEventInsights({
+      subjects: [
+        {
+          id: 'a',
+          name: 'Direito Penal',
+          exam_weight_percentage: 35,
+          topics: [
+            { id: 'a-1', first_studied_at: '2026-06-01T12:00:00-03:00', total_volume: 900 },
+            { id: 'a-2', first_studied_at: '2026-06-01T12:00:00-03:00', total_volume: 700 },
+          ],
+        },
+        { id: 'b', name: 'Português', topics: [{ id: 'b-1' }] },
+      ],
+      events: [
+        event('1', 'b'),
+        event('2', 'b'),
+        event('3', 'b'),
+        event('4', 'b'),
+        event('5', 'b'),
+      ],
+      currentOrder: ['b', 'a'],
+    });
+
+    expect(insights).not.toContainEqual(expect.objectContaining({
+      subjectId: 'a',
+    }));
+  });
+
   it('detects too many reviews compared with new topics', () => {
     const insights = getStudyCycleEventInsights({
       subjects: [
@@ -174,6 +203,33 @@ describe('studyCycleEventInsights', () => {
       ],
       currentOrder: ['a'],
       overdueReviews: 4,
+    });
+
+    expect(insights).not.toContainEqual(expect.objectContaining({
+      id: 'many-reviews-few-new-topics',
+    }));
+  });
+
+  it('does not flag many reviews when there are no unstarted active topics left', () => {
+    const insights = getStudyCycleEventInsights({
+      subjects: [
+        {
+          id: 'a',
+          name: 'Português',
+          topics: [
+            { id: 't1', first_studied_at: '2026-06-01T12:00:00-03:00' },
+            { id: 't2', first_studied_at: '2026-06-02T12:00:00-03:00' },
+          ],
+        },
+      ],
+      events: [
+        event('1', 'a', 'topic_started'),
+        event('2', 'a', 'topic_reviewed'),
+        event('3', 'a', 'topic_reviewed'),
+        event('4', 'a', 'topic_reviewed'),
+        event('5', 'a', 'topic_reviewed'),
+      ],
+      currentOrder: ['a'],
     });
 
     expect(insights).not.toContainEqual(expect.objectContaining({

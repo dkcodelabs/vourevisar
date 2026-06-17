@@ -18,6 +18,8 @@ interface EditalOriginData {
     organ?: string;
     position?: string;
     year?: string;
+    exam_date?: string | null;
+    exam_board?: string | null;
 }
 
 type OriginInfo = { name: string; organ?: string; isImported: boolean; sourceId?: string };
@@ -62,7 +64,7 @@ export const useEditalOriginsWithMerge = () => {
             console.log('[useEditalOriginsWithMerge] Carregando editais para:', user.id);
             const { data, error } = await withTimeout(
                 supabase.from('user_editais')
-                    .select('id, name, subject_ids, active_subject_ids, is_imported, merged_into_cycle, source_id, organ, position, year')
+                    .select('id, name, subject_ids, active_subject_ids, is_imported, merged_into_cycle, source_id, organ, position, year, exam_date, exam_board')
                     .eq('user_id', user.id),
                 12000,
                 'Carregamento de editais de origem'
@@ -81,6 +83,8 @@ export const useEditalOriginsWithMerge = () => {
                 organ: row.organ,
                 position: row.position,
                 year: row.year,
+                exam_date: row.exam_date,
+                exam_board: row.exam_board,
             }));
             
             console.log('[useEditalOriginsWithMerge] Editais carregados:', parsedEditais.length);

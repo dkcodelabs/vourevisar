@@ -8,11 +8,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-worker-secret',
 };
 
-const WORKER_VERSION = '2026-06-05-accurate-search-limit';
+const WORKER_VERSION = '2026-06-08-two-year-search-window';
 const MAX_TERMS_PER_TOPIC = 3;
 const MAX_GOOGLE_CALLS_PER_TOPIC = 3;
 const STRONG_SIGNAL_THRESHOLD = 1000;
 const DEFAULT_DAILY_GOOGLE_CALL_LIMIT = 100;
+const DEFAULT_YEARS_WINDOW = 2;
 const DAILY_SEARCH_LIMIT_LABEL = 'Limite diario de buscas atingido';
 
 type TopicRow = {
@@ -164,21 +165,23 @@ const callAiHandler = async (
 ) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const workerSecret = Deno.env.get('INCIDENCE_WORKER_SECRET');
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error('Supabase env ausente para chamar ai-handler');
   }
 
-  if (!authToken) {
-    throw new Error('JWT do usuário ausente para chamar ai-handler');
+  if (!authToken && !workerSecret) {
+    throw new Error('JWT do usuário ou segredo interno ausente para chamar ai-handler');
   }
 
   const response = await fetch(`${supabaseUrl}/functions/v1/ai-handler`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken || serviceRoleKey}`,
       apikey: serviceRoleKey,
+      ...(workerSecret && !authToken ? { 'x-worker-secret': workerSecret } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -495,7 +498,7 @@ Responda somente JSON:
 const searchGoogleVolume = async (
   supabase: ReturnType<typeof createClient>,
   query: string,
-  anosPreferencia = 3,
+  anosPreferencia = DEFAULT_YEARS_WINDOW,
   authToken?: string | null,
 ) => {
   const data = await callAiHandler(supabase, {
@@ -920,6 +923,12 @@ serve(async (req) => {
     const limit = Math.min(Math.max(Number(body.limit || 2), 1), 5);
     const requestedTopicId = typeof body.topicId === 'string' ? body.topicId : null;
     const dryRun = body.dryRun === true;
+    const previewQueue = body.previewQueue === true;
+    const requestedEditalId = typeof body.editalId === 'string' && body.editalId ? body.editalId : null;
+    const requestedSubjectId = typeof body.subjectId === 'string' && body.subjectId ? body.subjectId : null;
+    const requestedQueueStatus = ['pending', 'no_result', 'error'].includes(String(body.queueStatus || ''))
+      ? String(body.queueStatus)
+      : 'pending';
     const configuredDailyGoogleLimit = Number(Deno.env.get('INCIDENCE_DAILY_GOOGLE_LIMIT') || DEFAULT_DAILY_GOOGLE_CALL_LIMIT);
     const dailyGoogleLimit = Number.isFinite(configuredDailyGoogleLimit)
       ? Math.max(configuredDailyGoogleLimit, 0)
@@ -1015,11 +1024,37 @@ serve(async (req) => {
     }
 
     const topicSelect = 'id,name,subject_id,subjects!inner(id,name,user_id,edital_id,user_editais(id,name,exam_board,organ,position,year,created_at))';
-    const pendingTopicFilter = (query: any) => query
-      .neq('is_active', false)
-      .eq('is_skipped', false)
-      .or('total_volume.is.null,total_volume.eq.0')
-      .or(`last_trend_check_at.is.null,last_trend_check_at.lt.${thirtyDaysAgo},status.eq.error`);
+    const applyQueueScope = (query: any) => {
+      let scopedQuery = query.eq('subjects.user_id', targetUserId);
+
+      if (requestedEditalId) {
+        scopedQuery = scopedQuery.eq('subjects.edital_id', requestedEditalId);
+      }
+
+      if (requestedSubjectId) {
+        scopedQuery = scopedQuery.eq('subject_id', requestedSubjectId);
+      }
+
+      return scopedQuery;
+    };
+
+    const pendingTopicFilter = (query: any) => {
+      const filteredQuery = query
+        .neq('is_active', false)
+        .eq('is_skipped', false);
+
+      if (requestedQueueStatus === 'error') {
+        return filteredQuery.eq('status', 'error');
+      }
+
+      if (requestedQueueStatus === 'no_result') {
+        return filteredQuery.eq('status', 'no_volume');
+      }
+
+      return filteredQuery
+        .or('total_volume.is.null,total_volume.eq.0')
+        .or(`last_trend_check_at.is.null,last_trend_check_at.lt.${thirtyDaysAgo},status.eq.error`);
+    };
 
     const firstCandidateQuery = requestedTopicId
       ? (supabase as any)
@@ -1028,10 +1063,11 @@ serve(async (req) => {
         .eq('subjects.user_id', targetUserId)
         .eq('id', requestedTopicId)
       : pendingTopicFilter(
-        (supabase as any)
-          .from('topics')
-          .select(topicSelect)
-          .eq('subjects.user_id', targetUserId)
+        applyQueueScope(
+          (supabase as any)
+            .from('topics')
+            .select(topicSelect)
+        )
       )
         .order('last_trend_check_at', { ascending: true, nullsFirst: true })
         .order('created_at', { ascending: true });
@@ -1063,7 +1099,7 @@ serve(async (req) => {
     }
 
     const firstSubject = getTopicSubject(firstCandidate);
-    let topicQuery = requestedTopicId
+    const topicQuery = requestedTopicId
       ? (supabase as any)
         .from('topics')
         .select(topicSelect)
@@ -1071,12 +1107,13 @@ serve(async (req) => {
         .eq('id', requestedTopicId)
         .limit(1)
       : pendingTopicFilter(
-        (supabase as any)
-        .from('topics')
-          .select(topicSelect)
-          .eq('subjects.user_id', targetUserId)
+        applyQueueScope(
+          (supabase as any)
+            .from('topics')
+            .select(topicSelect)
+        )
       )
-        .eq('subject_id', firstCandidate.subject_id || firstSubject?.id)
+        .eq('subject_id', requestedSubjectId || firstCandidate.subject_id || firstSubject?.id)
         .order('last_trend_check_at', { ascending: true, nullsFirst: true })
         .order('created_at', { ascending: true })
         .limit(limit);
@@ -1084,6 +1121,62 @@ serve(async (req) => {
     const { data: topics, error: topicError } = await topicQuery;
 
     if (topicError) throw topicError;
+
+    if (previewQueue) {
+      const previewResults = ((topics || []) as TopicRow[]).map((topic) => {
+        const analysisContext = getAnalysisContext(topic);
+
+        return {
+          topic_id: topic.id,
+          topic_name: topic.name,
+          subject_name: getTopicSubjectName(topic),
+          status: 'preview',
+          volume: 0,
+          reason: requestedTopicId
+            ? 'Tópico selecionado manualmente para prévia.'
+            : 'Próximo tópico pendente da fila manual/controlada.',
+          edital_id: analysisContext.editalId,
+          edital_name: analysisContext.editalName,
+          exam_board: analysisContext.examBoard,
+          organ: analysisContext.organization,
+          position: analysisContext.career,
+          year: analysisContext.year,
+        };
+      });
+
+      return new Response(JSON.stringify({
+        worker_version: WORKER_VERSION,
+        preview_queue: true,
+        processed: previewResults.length,
+        scoped_user_id: targetUserId,
+        paid_user: targetUserIsPaid,
+        processing_context: {
+          requested_topic_id: requestedTopicId,
+          requested_edital_id: requestedEditalId,
+          requested_subject_id: requestedSubjectId,
+          queue_status: requestedQueueStatus,
+          subject_id: firstCandidate.subject_id || firstSubject?.id || null,
+          subject_name: getTopicSubjectName(firstCandidate),
+          edital_id: getAnalysisContext(firstCandidate).editalId,
+          edital_name: getAnalysisContext(firstCandidate).editalName,
+          exam_board: getAnalysisContext(firstCandidate).examBoard,
+          organ: getAnalysisContext(firstCandidate).organization,
+          position: getAnalysisContext(firstCandidate).career,
+          year: getAnalysisContext(firstCandidate).year,
+          queue_selection: queueSelection,
+        },
+        catalog: 0,
+        ai: 0,
+        zero: 0,
+        skipped: 0,
+        deferred: 0,
+        errors: 0,
+        dryRun: true,
+        results: previewResults,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const results = [];
     const affectedSubjectIds = new Set<string>();
@@ -1148,18 +1241,6 @@ serve(async (req) => {
             exam_board: analysisContext.examBoard,
           });
           if (topic.subject_id) affectedSubjectIds.add(topic.subject_id);
-          continue;
-        }
-
-        if (!bearer || bearer === serviceRoleKey) {
-          results.push({
-            topic_id: topic.id,
-            topic_name: topic.name,
-            subject_name: subjectName,
-            status: 'deferred',
-            volume: 0,
-            reason: 'Processamento por IA adiado: chamada automatica ainda precisa de autenticacao segura para o ai-handler.',
-          });
           continue;
         }
 
@@ -1247,7 +1328,7 @@ serve(async (req) => {
                 organ: analysisContext.organization,
                 position: analysisContext.career,
                 year: analysisContext.year,
-                years_window: 3,
+                years_window: DEFAULT_YEARS_WINDOW,
               },
               last_analyzed_at: now,
               updated_at: now,
@@ -1285,7 +1366,7 @@ serve(async (req) => {
               organ: analysisContext.organization,
               position: analysisContext.career,
               year: analysisContext.year,
-              years_window: 3,
+              years_window: DEFAULT_YEARS_WINDOW,
             },
           });
         }

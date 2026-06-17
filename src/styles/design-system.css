@@ -3,16 +3,6 @@
   Este arquivo centraliza as regras visuais para garantir sincronia total com o modelo.
 */
 
-:root {
-    /* Arredondamento padrão do modelo (8px) */
-    --radius: 0.5rem;
-
-    /* Cores base do modelo (Slate palette) */
-    --background: 210 40% 98%;
-    --foreground: 222.2 47.4% 25%;
-    --content-muted: 215.4 16.3% 46.9%;
-}
-
 /* Tipografia - Forçando Plus Jakarta Sans em todo o sistema */
 body {
     font-family: 'Plus Jakarta Sans', sans-serif !important;

@@ -11,10 +11,114 @@ import {
     PremiumStateCard,
 } from "@/components/ui"
 
+const gradientPalettes = [
+    {
+        name: "Signal Red",
+        colors: "#FF6B35 | #FF1840",
+        gradient: "linear-gradient(90deg, #FF6B35 0%, #FF1840 100%)",
+        textClassName: "text-white",
+    },
+    {
+        name: "Indigo Night",
+        colors: "#0047AB | #1A1A2E",
+        gradient: "linear-gradient(90deg, #0047AB 0%, #1A1A2E 100%)",
+        textClassName: "text-white",
+    },
+    {
+        name: "Golden Rush",
+        colors: "#FFD700 | #FF9800",
+        gradient: "linear-gradient(90deg, #FFD700 0%, #FF9800 100%)",
+        textClassName: "text-black",
+    },
+    {
+        name: "Deep Forest",
+        colors: "#0D2818 | #1B4332",
+        gradient: "linear-gradient(90deg, #0D2818 0%, #1B4332 100%)",
+        textClassName: "text-white",
+    },
+    {
+        name: "Aurora",
+        colors: "#00FF87 | #60EFFF",
+        gradient: "linear-gradient(90deg, #00FF87 0%, #60EFFF 100%)",
+        textClassName: "text-black",
+    },
+    {
+        name: "Deep Space",
+        colors: "#0A0A1A | #16213E",
+        gradient: "linear-gradient(90deg, #0A0A1A 0%, #16213E 100%)",
+        textClassName: "text-white",
+    },
+    {
+        name: "Rose Quartz",
+        colors: "#FFB7C5 | #C5A3FF",
+        gradient: "linear-gradient(90deg, #FFB7C5 0%, #C5A3FF 100%)",
+        textClassName: "text-black",
+    },
+    {
+        name: "Emerald Depths",
+        colors: "#1B4332 | #004D40",
+        gradient: "linear-gradient(90deg, #1B4332 0%, #004D40 100%)",
+        textClassName: "text-white",
+    },
+    {
+        name: "Lemon Fizz",
+        colors: "#FFF44F | #FFB74D",
+        gradient: "linear-gradient(90deg, #FFF44F 0%, #FFB74D 100%)",
+        textClassName: "text-black",
+    },
+    {
+        name: "Berry Dark",
+        colors: "#92000A | #4A0040",
+        gradient: "linear-gradient(90deg, #92000A 0%, #4A0040 100%)",
+        textClassName: "text-white",
+    },
+    {
+        name: "Neon Pulse",
+        colors: "#A8FF00 | #00FFEF",
+        gradient: "linear-gradient(90deg, #A8FF00 0%, #00FFEF 100%)",
+        textClassName: "text-black",
+    },
+    {
+        name: "Obsidian",
+        colors: "#0A0A14 | #1C1C2E",
+        gradient: "linear-gradient(90deg, #0A0A14 0%, #1C1C2E 100%)",
+        textClassName: "text-white",
+    },
+]
+
 // ============ Página de Demonstração ============
 const RevealCardDemo: React.FC = () => {
     return (
-        <div className="p-8 space-y-12 max-w-7xl mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-12 max-w-7xl mx-auto">
+            <section className="min-w-0 max-w-[calc(100vw-3.5rem)] overflow-hidden sm:max-w-full">
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <Star className="text-primary" size={24} />
+                    Paletas salvas
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                    Degradês escolhidos para referência visual rápida dentro da página de componentes.
+                </p>
+
+                <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2">
+                    {gradientPalettes.map((palette) => (
+                        <article
+                            key={palette.name}
+                            className="relative flex min-h-64 w-full min-w-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 px-4 py-12 text-center shadow-sm sm:min-h-80 sm:px-6"
+                            style={{ background: palette.gradient }}
+                        >
+                            <div className="relative flex max-w-full flex-col items-center gap-4">
+                                <h3 className={`break-words text-3xl font-black leading-none drop-shadow-sm sm:text-4xl xl:text-5xl ${palette.textClassName}`}>
+                                    {palette.name}
+                                </h3>
+                                <p className={`max-w-full rounded-full border border-white/30 bg-white/10 px-3 py-2 text-xs font-bold shadow-sm backdrop-blur sm:px-4 sm:text-base ${palette.textClassName}`}>
+                                    {palette.colors}
+                                </p>
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            </section>
+
             {/* Seção 0: Welcome Banners */}
             <section>
                 <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">

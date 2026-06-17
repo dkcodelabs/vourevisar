@@ -129,6 +129,15 @@ export function useSimpleSubscription() {
 
     } catch (err) {
       console.error('Error fetching subscription:', err)
+      if (!skipLoading) {
+        setSubscription({
+          plan: 'free_trial',
+          status: 'trial',
+          isActive: false,
+          displayBadge: 'Verificando',
+          badgeColor: 'gray'
+        })
+      }
     } finally {
       if (!skipLoading) setLoading(false)
     }

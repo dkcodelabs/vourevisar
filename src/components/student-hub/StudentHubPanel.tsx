@@ -91,6 +91,7 @@ type StatusFilterOption = 'todas' | 'em_aberto' | FeedbackStatus;
 interface StudentHubPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: 'notificacoes' | 'feedbacks';
 }
 
 // ─── Skeleton Components ─────────────────────────────────────
@@ -119,7 +120,7 @@ const SkeletonCard: React.FC = () => (
 );
 
 // ─── Componente Principal ────────────────────────────────────
-export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClose }) => {
+export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClose, initialTab = 'notificacoes' }) => {
   // Analytics: Log opening
   useEffect(() => {
     if (isOpen) {
@@ -134,6 +135,12 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && initialTab === 'feedbacks') {
+      setActiveTab('feedbacks');
+    }
+  }, [isOpen, initialTab]);
 
   // ── Hooks ───────────────────────────────────────────────────
   // Hook unificado para Unread/Fingerprint logic
@@ -175,8 +182,10 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
       setStatusFilter(feedbackUnreadCount > 0 ? 'todas' : 'em_aberto');
 
       // 2. Navegação Inteligente:
-      // Se não há notificações de estudo, mas há feedbacks não lidos -> vai para Feedback
-      if (studyUnreadCount === 0 && feedbackUnreadCount > 0) {
+      // A sidebar pode abrir direto em Feedback; o sino mantém o comportamento inteligente.
+      if (initialTab === 'feedbacks') {
+        setActiveTab('feedbacks');
+      } else if (studyUnreadCount === 0 && feedbackUnreadCount > 0) {
         setActiveTab('feedbacks');
       } else {
         setActiveTab('notificacoes');
@@ -188,7 +197,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
     }
 
     wasOpenRef.current = isOpen;
-  }, [isOpen, studyUnreadCount, feedbackUnreadCount, refetchNotifs, refetchFeedbacks]);
+  }, [isOpen, initialTab, studyUnreadCount, feedbackUnreadCount, refetchNotifs, refetchFeedbacks]);
 
 
   // Filtrar notificações (Exclusivo Estudo)

@@ -1,14 +1,14 @@
 /**
  * MODULE: SubscriptionManagement
- * 
+ *
  * RESPONSIBILITY:
  * - Assigning and modifying user subscription plans.
  * - Visualizing subscription status (Active, Trial, Expired).
  * - Manual overrides for customer support.
- * 
+ *
  * SCOPE STATUS: FROZEN ❄️
  * - This module is considered feature-complete.
- * 
+ *
  * EXCLUSIONS (DO NOT ADD):
  * - Payment gateway integration logic or checkout flows.
  * - Coupon generation engines.
@@ -56,7 +56,7 @@ const SubscriptionManagement = () => {
     const [processingUserId, setProcessingUserId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const stats = useSubscriptionStats();
-    
+
     // Asaas Integration State
     const [selectedAsaasUser, setSelectedAsaasUser] = useState<UserWithSubscription | null>(null);
     const [asaasDetails, setAsaasDetails] = useState<{ subscription: AsaasSubscription | null, payments: AsaasPayment[] } | null>(null);
@@ -181,62 +181,20 @@ const SubscriptionManagement = () => {
                 const { error } = await supabase.rpc('deactivate_subscription', { target_user_id: userId });
                 if (error) throw error;
             } else if (action === 'activate_trial') {
-                const trialEndDate = new Date();
-                trialEndDate.setDate(trialEndDate.getDate() + 7);
-                const { error: updateError } = await supabase
-                    .from('user_subscriptions')
-                    .update({
-                        plan: 'free_trial',
-                        status: 'trial',
-                        trial_started_at: new Date().toISOString(),
-                        trial_ends_at: trialEndDate.toISOString(),
-                        subscription_started_at: null,
-                        subscription_ends_at: null,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('user_id', userId);
-
-                if (updateError) {
-                    const { error: insertError } = await supabase.from('user_subscriptions').insert({
-                        user_id: userId,
-                        plan: 'free_trial',
-                        status: 'trial',
-                        trial_started_at: new Date().toISOString(),
-                        trial_ends_at: trialEndDate.toISOString(),
-                        updated_at: new Date().toISOString()
-                    });
-                    if (insertError) throw insertError;
-                }
+                const { error } = await supabase.rpc('activate_trial_subscription', {
+                    target_user_id: userId,
+                    trial_days: 7
+                });
+                if (error) throw error;
             } else {
                 const planMap = { 'activate_monthly': 'monthly', 'activate_annual': 'annual' };
                 const plan = planMap[action];
-                const subscriptionEndDate = new Date();
-                subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + (plan === 'annual' ? 12 : 1));
 
-                const { error: updateError } = await supabase
-                    .from('user_subscriptions')
-                    .update({
-                        plan: plan as 'free_trial' | 'monthly' | 'annual',
-                        status: 'active',
-                        subscription_started_at: new Date().toISOString(),
-                        subscription_ends_at: subscriptionEndDate.toISOString(),
-                        trial_started_at: null,
-                        trial_ends_at: null,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('user_id', userId);
-
-                if (updateError) {
-                    const { error: insertError } = await supabase.from('user_subscriptions').insert({
-                        user_id: userId,
-                        plan: plan as 'free_trial' | 'monthly' | 'annual',
-                        status: 'active',
-                        subscription_started_at: new Date().toISOString(),
-                        subscription_ends_at: subscriptionEndDate.toISOString(),
-                        updated_at: new Date().toISOString()
-                    });
-                    if (insertError) throw insertError;
-                }
+                const { error } = await supabase.rpc('activate_paid_subscription', {
+                    target_user_id: userId,
+                    plan_type: plan
+                });
+                if (error) throw error;
             }
 
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -256,7 +214,7 @@ const SubscriptionManagement = () => {
                 }
             });
             // Não precisamos setar o erro manualmente pq o Toast do errorService já avisa
-            // setError(normalized.userMessage); 
+            // setError(normalized.userMessage);
         } finally {
             setProcessingUserId(null);
         }
@@ -390,9 +348,9 @@ const SubscriptionManagement = () => {
 
                                 <div className="flex items-center gap-3 pr-2">
                                     {user.asaas_subscription_id && (
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             className="h-8 gap-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20 shadow-none rounded-lg shrink-0 px-3 flex items-center"
                                             onClick={() => handleViewAsaas(user)}
                                         >
@@ -447,7 +405,7 @@ const SubscriptionManagement = () => {
                                 <XCircle className="w-6 h-6 text-muted-foreground" />
                             </Button>
                         </div>
-                        
+
                         <div className="p-6 overflow-y-auto flex-1">
                             {loadingAsaas ? (
                                 <div className="py-12 flex flex-col items-center justify-center">
@@ -481,7 +439,7 @@ const SubscriptionManagement = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div>
                                         <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 px-1">Histórico de Cobranças</h3>
                                         {asaasDetails.payments && asaasDetails.payments.length > 0 ? (
@@ -496,8 +454,8 @@ const SubscriptionManagement = () => {
                                                         </div>
                                                         <div className="flex flex-col items-end gap-2">
                                                             <Badge className={`shadow-none ${
-                                                                payment.status === 'RECEIVED' || payment.status === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 
-                                                                payment.status === 'PENDING' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' : 
+                                                                payment.status === 'RECEIVED' || payment.status === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                                                                payment.status === 'PENDING' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' :
                                                                 payment.status === 'OVERDUE' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' :
                                                                 'bg-black/10 dark:bg-white/10 text-foreground border-black/20 dark:border-white/20'
                                                             }`}>{payment.status}</Badge>

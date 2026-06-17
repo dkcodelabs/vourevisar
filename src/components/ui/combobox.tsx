@@ -87,7 +87,7 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-white border border-gray-200 shadow-lg">
+      <PopoverContent className="w-[--radix-popover-trigger-width] border-border bg-popover p-0 shadow-xl">
         <Command shouldFilter={false}>
           <CommandInput 
             placeholder={searchPlaceholder}
@@ -98,7 +98,7 @@ export function Combobox({
           <CommandList>
             <CommandEmpty>
               <div className="text-center py-2">
-                <p className="text-sm text-gray-500 mb-2">{emptyText}</p>
+                <p className="mb-2 text-sm text-content-muted">{emptyText}</p>
                 {allowCustomInput && searchValue.trim() && (
                   <Button
                     size="sm"
@@ -117,7 +117,7 @@ export function Combobox({
                   key={option.value}
                   value={option.label}
                   onSelect={() => handleSelect(option.value)}
-                  className="hover:bg-gray-100 cursor-pointer"
+                  className="cursor-pointer hover:bg-control-hover"
                 >
                   <Check
                     className={cn(

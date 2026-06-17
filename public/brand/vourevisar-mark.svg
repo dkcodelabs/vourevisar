@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-labelledby="title desc">
+  <title id="title">Simbolo vouRevisar</title>
+  <desc id="desc">Símbolo quadrado do vouRevisar com trilha de revisão e progresso.</desc>
+  <defs>
+    <linearGradient id="vr-mark-gradient" x1="38" y1="128" x2="140" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2F80FF"/>
+      <stop offset="0.52" stop-color="#28B8D8"/>
+      <stop offset="1" stop-color="#5E9F3E"/>
+    </linearGradient>
+    <filter id="vr-soft-shadow" x="-20%" y="-25%" width="140%" height="150%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="13" flood-color="#0F172A" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+
+  <rect x="18" y="18" width="144" height="144" rx="34" fill="#FFFFFF" filter="url(#vr-soft-shadow)"/>
+  <path d="M51 124H129" fill="none" stroke="#2F80FF" stroke-width="14" stroke-linecap="round"/>
+  <path d="M51 108L79 72L101 99L129 55" fill="none" stroke="url(#vr-mark-gradient)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="79" cy="72" r="8" fill="#FFFFFF" stroke="#28B8D8" stroke-width="5"/>
+  <circle cx="101" cy="99" r="8" fill="#FFFFFF" stroke="#5E9F3E" stroke-width="5"/>
+</svg>

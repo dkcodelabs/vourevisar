@@ -55,6 +55,35 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				surface: {
+					DEFAULT: 'hsl(var(--surface))',
+					raised: 'hsl(var(--surface-raised))',
+				},
+				title: {
+					page: 'hsl(var(--title-page))',
+					section: 'hsl(var(--title-section))',
+					card: 'hsl(var(--title-card))',
+				},
+				control: {
+					DEFAULT: 'hsl(var(--control-background))',
+					hover: 'hsl(var(--control-background-hover))',
+					foreground: 'hsl(var(--control-foreground))',
+				},
+				modal: {
+					DEFAULT: 'hsl(var(--modal-background))',
+					foreground: 'hsl(var(--modal-foreground))',
+				},
+				overlay: {
+					DEFAULT: 'hsl(var(--overlay-background))',
+				},
+				info: {
+					DEFAULT: 'hsl(var(--info))',
+					foreground: 'hsl(var(--info-foreground))',
+				},
+				incidence: {
+					DEFAULT: 'hsl(var(--incidence))',
+					foreground: 'hsl(var(--incidence-foreground))',
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -78,6 +107,7 @@ export default {
 					foreground: 'hsl(var(--warning-foreground))',
 				},
 				'content-muted': 'hsl(var(--content-muted))',
+				'content-main': 'hsl(var(--content-main))',
 				'card-muted': 'hsl(var(--card-muted))',
 				'border-strong': 'hsl(var(--border-strong))',
 				brand: {
@@ -89,7 +119,12 @@ export default {
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				sm: 'calc(var(--radius) - 4px)',
+				control: 'var(--radius-control)',
+				button: 'var(--radius-button)',
+				card: 'var(--radius-card)',
+				modal: 'var(--radius-modal)',
+				panel: 'var(--radius-panel)'
 			},
 			keyframes: {
 				'accordion-down': {

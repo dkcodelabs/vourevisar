@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Plus, Trash2, Edit, Edit2, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Settings, Merge, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, Clock, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, ScanText, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ListTodo, Target, TrendingUp, TrendingDown, Trophy } from 'lucide-react';
+import { Plus, Trash2, Edit, Edit2, ChevronDown, Check, X, CheckSquare, Square, Search, GripVertical, FileText, Merge, FolderUp, Loader2, Sparkles, AlertCircle, Copy, CheckCircle2, GraduationCap, RefreshCw, BarChart2, Zap, ArrowRight, Bookmark, MoveUp, Shield, Layers, FileDown, Filter, Play, Wand2, BookOpen, Link2Off, RotateCcw, ListTodo, Target, TrendingUp, Trophy, Gauge } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { performGlobalCleanup, repairOrphanedSubjects } from "@/services/dataIntegrityService";
 import { useNavigate } from 'react-router-dom';
@@ -76,6 +75,10 @@ type CycleSubjectSnapshot = {
   topics_started: number;
   topics_completed: number;
   studied_in_cycle: boolean;
+  manually_marked_in_cycle?: boolean;
+  all_topics_started?: boolean;
+  completed_in_edital?: boolean;
+  closed_in_cycle?: boolean;
 };
 
 type CycleRotationSnapshot = {
@@ -95,6 +98,8 @@ type CycleRotationSnapshot = {
   per_subject: CycleSubjectSnapshot[];
   created_at: string;
 };
+
+type StudyCycleMaturityPhase = 'cold_start' | 'started' | 'active' | 'historical';
 
 const getTopicFirstStudyDate = (topic: Topic): string | Date | null | undefined =>
   topic.first_studied_at || topic.firstStudiedAt;
@@ -116,23 +121,38 @@ const isTopicNewlyStartedInCycle = (topic: Topic, cycleStart?: string | null): b
 const getTopicCompletedInCycle = (topic: Topic, cycleStart?: string | null): boolean =>
   isTopicCompleted(topic) && isTopicNewlyStartedInCycle(topic, cycleStart);
 
-const isTopicStarted = (topic: Topic) =>
-  Boolean(topic.first_studied_at) ||
-  Boolean(topic.firstStudiedAt) ||
-  (topic.reviewCount || 0) > 0 ||
-  (topic.review_count || 0) > 0 ||
-  Boolean(topic.reviewStage) ||
-  Boolean(topic.review_stage) ||
-  Boolean(topic.nextReview) ||
-  Boolean(topic.next_review) ||
-  topic.completed === true ||
-  topic.is_completed === true;
-
 const isTopicCompleted = (topic: Topic) =>
   topic.completed === true ||
   topic.is_completed === true ||
   topic.reviewStage === 'Concluído' ||
   topic.review_stage === 'Concluído';
+
+const hasMeaningfulReviewStage = (stage?: string | null) => {
+  const normalized = String(stage || '').trim().toLowerCase();
+  return Boolean(normalized) &&
+    !['0', 'novo', 'não iniciado', 'nao iniciado', 'null', 'undefined'].includes(normalized);
+};
+
+const isTopicStarted = (topic: Topic) =>
+  Boolean(topic.first_studied_at) ||
+  Boolean(topic.firstStudiedAt) ||
+  (topic.reviewCount || 0) > 0 ||
+  (topic.review_count || 0) > 0 ||
+  hasMeaningfulReviewStage(topic.reviewStage) ||
+  hasMeaningfulReviewStage(topic.review_stage) ||
+  Boolean(topic.nextReview) ||
+  Boolean(topic.next_review) ||
+  isTopicCompleted(topic);
+
+const isSubjectCompletedInEdital = (subject: Subject) => {
+  const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
+  return activeTopics.length > 0 && activeTopics.every(isTopicCompleted);
+};
+
+const isSubjectFullyStarted = (subject: Subject) => {
+  const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
+  return activeTopics.length > 0 && activeTopics.every(isTopicStarted);
+};
 
 const getTopicContactCount = (
   topic: Topic,
@@ -147,35 +167,35 @@ const getCycleTopicStatusVisual = (topic: Topic): CycleTopicStatusVisual => {
   if (topic.is_active === false) {
     return {
       label: 'Inativo',
-      badgeClassName: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
-      indicatorClassName: 'bg-rose-500',
-      actionClassName: 'border-transparent bg-transparent text-rose-500 hover:border-rose-500/20 hover:bg-rose-500/10',
+      badgeClassName: 'bg-destructive/10 text-destructive',
+      indicatorClassName: 'bg-destructive',
+      actionClassName: 'border-transparent bg-transparent text-destructive hover:border-destructive/20 hover:bg-destructive/10',
     };
   }
 
   if (isTopicCompleted(topic)) {
     return {
       label: 'Concluído',
-      badgeClassName: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-      indicatorClassName: 'bg-emerald-500',
-      actionClassName: 'border-transparent bg-transparent text-emerald-500 hover:border-emerald-500/20 hover:bg-emerald-500/10',
+      badgeClassName: 'bg-success/10 text-success',
+      indicatorClassName: 'bg-success',
+      actionClassName: 'border-transparent bg-transparent text-success hover:border-success/20 hover:bg-success/10',
     };
   }
 
   if (isTopicStarted(topic)) {
     return {
       label: 'Em estudo',
-      badgeClassName: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-      indicatorClassName: 'bg-blue-500',
-      actionClassName: 'border-transparent bg-transparent text-blue-500 hover:border-blue-500/20 hover:bg-blue-500/10',
+      badgeClassName: 'bg-primary/10 text-primary',
+      indicatorClassName: 'bg-primary',
+      actionClassName: 'border-transparent bg-transparent text-primary hover:border-primary/20 hover:bg-primary/10',
     };
   }
 
   return {
     label: 'Não estudado',
-    badgeClassName: 'bg-gray-200 text-gray-700 dark:bg-slate-600 dark:text-slate-300',
-    indicatorClassName: 'bg-slate-400 dark:bg-slate-500',
-    actionClassName: 'border-transparent bg-transparent text-slate-500 hover:border-slate-500/20 hover:bg-slate-500/10',
+    badgeClassName: 'bg-muted text-content-muted',
+    indicatorClassName: 'bg-content-muted/55',
+    actionClassName: 'border-transparent bg-transparent text-content-muted hover:border-info/20 hover:bg-info/10 hover:text-info',
   };
 };
 
@@ -224,9 +244,7 @@ const Subjects = () => {
   });
   const [isSavingWeight, setIsSavingWeight] = useState(false);
   const [cycleSnapshots, setCycleSnapshots] = useState<CycleRotationSnapshot[]>([]);
-  const [reviewsDoneTodayCount, setReviewsDoneTodayCount] = useState(0);
   const [cycleStudyEvents, setCycleStudyEvents] = useState<CycleStudyEvent[]>([]);
-
   // States for Merge Reversion
   const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
   const [selectedMergeId, setSelectedMergeId] = useState<string | null>(null);
@@ -422,20 +440,12 @@ const Subjects = () => {
 
   // Cache simples no localStorage
   const loadSubjects = useCallback(async (ignoreCache: boolean = false) => {
-    console.log('📥 LOAD SUBJECTS CALLED:', {
-      user: !!user,
-      userId: user?.id,
-      ignoreCache,
-      timestamp: new Date().toISOString()
-    });
-
     if (!user) return;
 
     // Remover cache antigo se existir
     const cacheKey = `subjects_${user.id}`;
     localStorage.removeItem(cacheKey);
 
-    console.log('🔄 LOADING FROM DATABASE');
     if (isFirstLoad.current) {
       setIsLoading(true);
     }
@@ -452,14 +462,8 @@ const Subjects = () => {
       );
 
       const transformedSubjects = transformSubjectsData(data || []);
-      console.log('🔄 SETTING SUBJECTS:', {
-        rawCount: data?.length || 0,
-        transformedCount: transformedSubjects.length
-      });
       setSubjects(transformedSubjects);
       setLocalSubjects(transformedSubjects);
-
-      console.log('✅ DATA LOADED:', { subjectsCount: transformedSubjects.length });
     } catch (error) {
       await errorService.report(
         error,
@@ -504,9 +508,6 @@ const Subjects = () => {
     const subjectIds = Array.isArray(subjectIdsRaw) 
       ? subjectIdsRaw.filter(id => typeof id === 'string' && id.length > 0)
       : [];
-
-    console.log('[Subjects] handleUnloadCycle:', { editalId, editalName, subjectIds, raw: subjectIdsRaw });
-
     if (!user) return;
     setUnloadingEditalId(editalId);
     try {
@@ -578,6 +579,7 @@ const Subjects = () => {
 
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectSource, setNewSubjectSource] = useState('');
+  const [isCycleSearchOpen, setIsCycleSearchOpen] = useState(false);
   const [localSubjects, setLocalSubjects] = useState<Subject[]>([]);
   // IDs de subjects ocultos localmente (otimismo para handleDelete)
   const [hiddenSubjectIds, setHiddenSubjectIds] = useState<Set<string>>(new Set());
@@ -609,9 +611,14 @@ const Subjects = () => {
   const [loading, setLoading] = useState(true);
   const [toastShown, setToastShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const strategicPanelTitleRef = useRef<HTMLAnchorElement | null>(null);
+  const strategicPanelRef = useRef<HTMLElement | null>(null);
   const [expandedSubjectIds, setExpandedSubjectIds] = useState<string[]>([]);
+  const [highlightedSubjectId, setHighlightedSubjectId] = useState<string | null>(null);
   const [expandedBeforeSearch, setExpandedBeforeSearch] = useState<string[]>([]);
   const [isAddingSubject, setIsAddingSubject] = useState(false);
+  const [isStrategicDockVisible, setIsStrategicDockVisible] = useState(false);
+  const [isReorderingCycle, setIsReorderingCycle] = useState(false);
 
   // Estados para edição inline
   const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
@@ -729,10 +736,6 @@ const Subjects = () => {
       } else {
         localStorage.setItem(cacheKey, JSON.stringify(cycleData));
         setUserCycle(cycleData);
-        console.log('🔄 USER CYCLE LOADED:', {
-          cycleLength: cycleData.ciclo_atual?.length || 0,
-          timestamp: new Date().toISOString()
-        });
       }
     } catch (error) {
       console.error('Erro ao carregar ciclo:', error);
@@ -823,7 +826,6 @@ const Subjects = () => {
           return;
         }
 
-        console.log(`🔔 EXTERNAL UPDATE DETECTED (${event.type}) - Scheduling refresh...`);
         clearTimeout(updateTimeout);
         updateTimeout = setTimeout(async () => {
           try {
@@ -832,7 +834,6 @@ const Subjects = () => {
               loadUserCycle()
             ]);
             // O refresh do hook de origens é chamado via evento no próprio hook ou manualmente se necessário
-            console.log('✅ Synchronized refresh completed');
           } catch (err) {
             console.error('❌ Synchronized refresh failed:', err);
           }
@@ -933,15 +934,61 @@ const Subjects = () => {
     return expanded;
   }, [userCycle?.ciclo_atual, dynamicUnificationMap, localSubjects, activeSubjectIdsSet, hiddenSubjectIds]);
 
+  const getEquivalentSubjectIds = useCallback((subjectId: string) => {
+    const ids = new Set<string>([subjectId, getUnifiedSubjectId(subjectId, dynamicUnificationMap)]);
+    const group = dynamicUnificationMap?.unifiedSubjects.find(unified =>
+      unified.originalSubjectIds.some(id => ids.has(id))
+    );
+
+    group?.originalSubjectIds.forEach(id => ids.add(id));
+    return ids;
+  }, [dynamicUnificationMap]);
+
   const studiedCycleIdSet = useMemo(() => {
     const studiedIds = userCycle?.materias_estudadas_ciclo || [];
-    return new Set(studiedIds.map((id: string) => getUnifiedSubjectId(id, dynamicUnificationMap)));
-  }, [userCycle?.materias_estudadas_ciclo, dynamicUnificationMap]);
+    const ids = new Set<string>();
+
+    studiedIds.forEach((id: string) => {
+      getEquivalentSubjectIds(id).forEach(equivalentId => ids.add(equivalentId));
+    });
+
+    return ids;
+  }, [getEquivalentSubjectIds, userCycle?.materias_estudadas_ciclo]);
+
+  const completedEditalSubjectIdSet = useMemo(() => {
+    const ids = new Set<string>();
+
+    expandedSubjectList.forEach(item => {
+      if (!isSubjectCompletedInEdital(item.subject)) return;
+      getEquivalentSubjectIds(item.subject.id).forEach(equivalentId => ids.add(equivalentId));
+    });
+
+    return ids;
+  }, [expandedSubjectList, getEquivalentSubjectIds]);
+
+  const fullyStartedSubjectIdSet = useMemo(() => {
+    const ids = new Set<string>();
+
+    expandedSubjectList.forEach(item => {
+      if (!isSubjectFullyStarted(item.subject)) return;
+      getEquivalentSubjectIds(item.subject.id).forEach(equivalentId => ids.add(equivalentId));
+    });
+
+    return ids;
+  }, [expandedSubjectList, getEquivalentSubjectIds]);
+
+  const cycleClosedSubjectIdSet = useMemo(() => {
+    return new Set<string>([
+      ...Array.from(studiedCycleIdSet),
+      ...Array.from(fullyStartedSubjectIdSet),
+      ...Array.from(completedEditalSubjectIdSet),
+    ]);
+  }, [completedEditalSubjectIdSet, fullyStartedSubjectIdSet, studiedCycleIdSet]);
 
   useEffect(() => {
-    if (studiedCycleIdSet.size === 0) return;
-    setExpandedSubjectIds(prev => prev.filter(id => !studiedCycleIdSet.has(id)));
-  }, [studiedCycleIdSet]);
+    if (cycleClosedSubjectIdSet.size === 0) return;
+    setExpandedSubjectIds(prev => prev.filter(id => !cycleClosedSubjectIdSet.has(id)));
+  }, [cycleClosedSubjectIdSet]);
 
   // Sincronização redundante de localSubjects removida para evitar flicker.
   // localSubjects agora é gerenciado diretamente no loadSubjects.
@@ -1011,72 +1058,21 @@ const Subjects = () => {
   }, [loadCycleStudyEvents]);
 
   useEffect(() => {
-    const loadReviewsDoneToday = async () => {
-      const topicIds = expandedSubjectList.flatMap(item =>
-        item.subject.topics.map(topic => topic.id)
-      );
+    if (!isCycleSearchOpen || !inputRef.current) return;
 
-      if (topicIds.length === 0) {
-        setReviewsDoneTodayCount(0);
-        return;
-      }
+    const timeoutId = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
 
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
-
-      try {
-        const { data, error } = await supabase
-          .from('topic_review_history')
-          .select('review_stage')
-          .in('topic_id', topicIds)
-          .gte('reviewed_at', start.toISOString())
-          .lt('reviewed_at', end.toISOString());
-
-        if (error) throw error;
-
-        const reviewsOnly = (data || []).filter(row => {
-          const stage = String(row.review_stage || '').toLowerCase();
-          return stage !== 'first_contact' && stage !== 'primeiro contato';
-        });
-
-        setReviewsDoneTodayCount(reviewsOnly.length);
-      } catch (error) {
-        console.warn('Revisões de hoje indisponíveis:', error);
-        setReviewsDoneTodayCount(0);
-      }
-    };
-
-    loadReviewsDoneToday();
-  }, [expandedSubjectList]);
-
-  // Focar o input quando necessário
-  useLayoutEffect(() => {
-    if (!loading && !isAddingSubject && newSubjectName === '' && inputRef.current) {
-      const timeoutId = setTimeout(() => {
-        if (inputRef.current && document.activeElement !== inputRef.current) {
-          inputRef.current.focus();
-        }
-      }, 50);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [loading, newSubjectName, isAddingSubject]);
-
-  // Efeito para manter foco após operações
-  useEffect(() => {
-    if (!isAddingSubject && newSubjectName === '' && inputRef.current) {
-      const timeoutId = setTimeout(() => {
-        if (inputRef.current && document.activeElement !== inputRef.current) {
-          inputRef.current.focus();
-        }
-      }, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isAddingSubject, newSubjectName]);
+    return () => clearTimeout(timeoutId);
+  }, [isCycleSearchOpen]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -1416,6 +1412,16 @@ const Subjects = () => {
     // Mantém o estado aberto/fechado da fila durante a ordenação.
   };
 
+  const handleToggleCycleReorder = () => {
+    setIsReorderingCycle(prev => {
+      const next = !prev;
+      if (next) {
+        setExpandedSubjectIds([]);
+      }
+      return next;
+    });
+  };
+
   const getCycleEventContext = useCallback((subjectId?: string | null) => {
     const cycleOrderSnapshot = (userCycle?.ciclo_atual || []).map((id: string) =>
       getUnifiedSubjectId(id, dynamicUnificationMap)
@@ -1501,17 +1507,29 @@ const Subjects = () => {
     ) || materiaId;
 
     const currentStudied = userCycle.materias_estudadas_ciclo || [];
-    if (currentStudied.includes(rawSubjectId)) return;
+    const normalizedMateriaId = getUnifiedSubjectId(materiaId, dynamicUnificationMap);
+    const equivalentSubjectIds = getEquivalentSubjectIds(materiaId);
+    const updatedStudiedIds = [
+      ...currentStudied.filter((id: string) =>
+        !equivalentSubjectIds.has(id) &&
+        getUnifiedSubjectId(id, dynamicUnificationMap) !== normalizedMateriaId
+      ),
+      normalizedMateriaId,
+    ];
     const previousUserCycle = userCycle;
     const updatedCycle = {
       ...userCycle,
-      materias_estudadas_ciclo: [...currentStudied, rawSubjectId],
+      materias_estudadas_ciclo: Array.from(new Set(updatedStudiedIds)),
       atualizado_em: new Date().toISOString(),
     };
 
     setUserCycle(updatedCycle);
     localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(updatedCycle));
-    setExpandedSubjectIds(prev => prev.filter(id => id !== materiaId && id !== rawSubjectId));
+    setExpandedSubjectIds(prev => prev.filter(id =>
+      !equivalentSubjectIds.has(id) &&
+      getUnifiedSubjectId(id, dynamicUnificationMap) !== normalizedMateriaId &&
+      id !== rawSubjectId
+    ));
 
     try {
       const { error } = await supabase
@@ -1551,13 +1569,13 @@ const Subjects = () => {
         }
       );
     }
-  }, [dynamicUnificationMap, getUnifiedSubjectName, localSubjects, recordCycleEvent, user, userCycle]);
+  }, [dynamicUnificationMap, getEquivalentSubjectIds, getUnifiedSubjectName, localSubjects, recordCycleEvent, user, userCycle]);
 
   const handleMarcarMateriaComoEstudada = useCallback((materiaId: string) => {
     if (!userCycle) return;
 
     // Verificar se é a última matéria pendente no ciclo
-    const pendingSubjects = expandedSubjectList.filter(item => !studiedCycleIdSet.has(item.subject.id));
+    const pendingSubjects = expandedSubjectList.filter(item => !cycleClosedSubjectIdSet.has(item.subject.id));
     const isLastPending = pendingSubjects.length === 1 && 
       pendingSubjects[0].subject.id === getUnifiedSubjectId(materiaId, dynamicUnificationMap);
 
@@ -1567,7 +1585,7 @@ const Subjects = () => {
     } else {
       executeMarcarMateriaComoEstudada(materiaId);
     }
-  }, [userCycle, expandedSubjectList, studiedCycleIdSet, dynamicUnificationMap, executeMarcarMateriaComoEstudada]);
+  }, [userCycle, expandedSubjectList, cycleClosedSubjectIdSet, dynamicUnificationMap, executeMarcarMateriaComoEstudada]);
 
   const handleVoltarMateriaParaFila = useCallback(async (materiaId: string) => {
     if (!user || !userCycle) return;
@@ -1577,9 +1595,14 @@ const Subjects = () => {
     ) || materiaId;
 
     const currentStudied = userCycle.materias_estudadas_ciclo || [];
-    if (!currentStudied.includes(rawSubjectId)) return;
-
-    const updatedStudied = currentStudied.filter((id: string) => id !== rawSubjectId);
+    const normalizedMateriaId = getUnifiedSubjectId(materiaId, dynamicUnificationMap);
+    const equivalentSubjectIds = getEquivalentSubjectIds(materiaId);
+    const updatedStudied = currentStudied.filter((id: string) =>
+      id !== rawSubjectId &&
+      !equivalentSubjectIds.has(id) &&
+      getUnifiedSubjectId(id, dynamicUnificationMap) !== normalizedMateriaId
+    );
+    if (updatedStudied.length === currentStudied.length) return;
 
     const previousUserCycle = userCycle;
     const updatedCycle = {
@@ -1628,20 +1651,21 @@ const Subjects = () => {
         }
       );
     }
-  }, [dynamicUnificationMap, getUnifiedSubjectName, localSubjects, recordCycleEvent, user, userCycle]);
+  }, [dynamicUnificationMap, getEquivalentSubjectIds, getUnifiedSubjectName, localSubjects, recordCycleEvent, user, userCycle]);
 
   const buildCurrentCycleSnapshot = useCallback(() => {
     if (!user || !userCycle) return null;
 
     const cycleStart = userCycle.data_inicio_ciclo || null;
-    const studiedIds = new Set((userCycle.materias_estudadas_ciclo || []).map((id: string) =>
-      getUnifiedSubjectId(id, dynamicUnificationMap)
-    ));
     const cycleSubjects = expandedSubjectList.map(item => item.subject);
     const perSubject: CycleSubjectSnapshot[] = cycleSubjects.map(subject => {
       const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
       const topicsStarted = activeTopics.filter(topic => isTopicNewlyStartedInCycle(topic, cycleStart)).length;
       const topicsCompleted = activeTopics.filter(topic => getTopicCompletedInCycle(topic, cycleStart)).length;
+      const manuallyMarkedInCycle = studiedCycleIdSet.has(subject.id);
+      const allTopicsStarted = isSubjectFullyStarted(subject);
+      const completedInEdital = isSubjectCompletedInEdital(subject);
+      const closedInCycle = manuallyMarkedInCycle || allTopicsStarted || completedInEdital;
 
       return {
         subject_id: subject.id,
@@ -1649,7 +1673,11 @@ const Subjects = () => {
         total_topics: activeTopics.length,
         topics_started: topicsStarted,
         topics_completed: topicsCompleted,
-        studied_in_cycle: studiedIds.has(subject.id),
+        studied_in_cycle: closedInCycle,
+        manually_marked_in_cycle: manuallyMarkedInCycle,
+        all_topics_started: allTopicsStarted,
+        completed_in_edital: completedInEdital,
+        closed_in_cycle: closedInCycle,
       };
     });
 
@@ -1669,12 +1697,14 @@ const Subjects = () => {
       studied_subject_count: perSubject.filter(subject => subject.studied_in_cycle).length,
       topics_started_count: perSubject.reduce((sum, subject) => sum + subject.topics_started, 0),
       topics_completed_count: perSubject.reduce((sum, subject) => sum + subject.topics_completed, 0),
-      studied_subject_ids: Array.from(studiedIds),
+      studied_subject_ids: cycleSubjects
+        .filter(subject => studiedCycleIdSet.has(subject.id) || isSubjectFullyStarted(subject) || isSubjectCompletedInEdital(subject))
+        .map(subject => subject.id),
       cycle_subject_ids: cycleSubjects.map(subject => subject.id),
       edital_ids: editalIds,
       per_subject: perSubject,
     };
-  }, [dynamicUnificationMap, expandedSubjectList, getUnifiedSubjectName, user, userCycle]);
+  }, [expandedSubjectList, getUnifiedSubjectName, studiedCycleIdSet, user, userCycle]);
 
   const handleIniciarProximoCiclo = useCallback(async () => {
     if (!user || !userCycle) return;
@@ -1841,6 +1871,8 @@ const Subjects = () => {
   const handleApplySuggestedQueueOrder = async (suggestedOrder: string[]) => {
     if (!user || !userCycle || suggestedOrder.length === 0) return;
 
+    setIsReorderingCycle(false);
+
     const previousUserCycle = userCycle;
     const nextUserCycle = {
       ...userCycle,
@@ -1859,6 +1891,7 @@ const Subjects = () => {
           atualizado_em: nextUserCycle.atualizado_em,
         })
         .eq('user_id', user.id)
+        .eq('id', userCycle.id)
         .eq('status', 'active');
 
       if (error) throw error;
@@ -1900,18 +1933,20 @@ const Subjects = () => {
   };
 
   const toggleAllCycleSubjects = () => {
-    const cycleSubjectIds = filteredList
-      .filter(item => !studiedCycleIdSet.has(item.subject.id))
-      .map(item => item.id);
-    const allCycleSubjectsExpanded = cycleSubjectIds.length > 0 &&
-      cycleSubjectIds.every(id => expandedSubjectIds.includes(id));
+    const subjectIds = activeTab === 'vertical'
+      ? verticalSubjectList.map(item => item.id)
+      : filteredList
+        .filter(item => !cycleClosedSubjectIdSet.has(item.subject.id))
+        .map(item => item.id);
+    const allSubjectsExpanded = subjectIds.length > 0 &&
+      subjectIds.every(id => expandedSubjectIds.includes(id));
 
     setExpandedSubjectIds(prev => {
-      if (allCycleSubjectsExpanded) {
-        return prev.filter(id => !cycleSubjectIds.includes(id));
+      if (allSubjectsExpanded) {
+        return prev.filter(id => !subjectIds.includes(id));
       }
 
-      return Array.from(new Set([...prev, ...cycleSubjectIds]));
+      return Array.from(new Set([...prev, ...subjectIds]));
     });
   };
 
@@ -1951,26 +1986,24 @@ const Subjects = () => {
   }, [expandedSubjectList, newSubjectName, isImportEditalModalOpen]);
 
   const studiedCycleList = useMemo(() => {
-    const studiedIds = (userCycle?.materias_estudadas_ciclo || [])
-      .map((id: string) => getUnifiedSubjectId(id, dynamicUnificationMap));
     const seen = new Set<string>();
 
-    return studiedIds
-      .map((id: string) => filteredList.find(item => item.subject.id === id))
+    return filteredList
+      .filter(item => cycleClosedSubjectIdSet.has(item.subject.id))
       .filter((item): item is ExpandedSubjectItem => {
         if (!item || seen.has(item.subject.id)) return false;
         seen.add(item.subject.id);
         return true;
       });
-  }, [filteredList, userCycle?.materias_estudadas_ciclo, dynamicUnificationMap]);
+  }, [filteredList, cycleClosedSubjectIdSet]);
   const isCycleFullyStudied = expandedSubjectList.length > 0 &&
-    expandedSubjectList.every(item => studiedCycleIdSet.has(item.subject.id));
+    expandedSubjectList.every(item => cycleClosedSubjectIdSet.has(item.subject.id));
   const orderedCycleDisplayList = useMemo(() => {
     const pending: ExpandedSubjectItem[] = [];
     const studied: ExpandedSubjectItem[] = [];
 
     filteredList.forEach(item => {
-      if (studiedCycleIdSet.has(item.subject.id)) {
+      if (cycleClosedSubjectIdSet.has(item.subject.id)) {
         studied.push(item);
       } else {
         pending.push(item);
@@ -1978,7 +2011,7 @@ const Subjects = () => {
     });
 
     return [...pending, ...studied];
-  }, [filteredList, studiedCycleIdSet]);
+  }, [filteredList, cycleClosedSubjectIdSet]);
 
   const verticalSubjectList = useMemo(() => {
     const normalizeText = (text: string) =>
@@ -2039,7 +2072,7 @@ const Subjects = () => {
 	  const cycleVisualStats = useMemo(() => {
 	    const cycleSubjects = expandedSubjectList.map(item => item.subject);
 	    const totalSubjects = cycleSubjects.length;
-	    const studiedSubjects = cycleSubjects.filter(subject => studiedCycleIdSet.has(subject.id)).length;
+	    const studiedSubjects = cycleSubjects.filter(subject => cycleClosedSubjectIdSet.has(subject.id)).length;
 	    const remainingSubjects = Math.max(totalSubjects - studiedSubjects, 0);
     const progressPercentage = totalSubjects > 0 ? Math.round((studiedSubjects / totalSubjects) * 100) : 0;
     const parsedCycleStartMs = userCycle?.data_inicio_ciclo ? new Date(userCycle.data_inicio_ciclo).getTime() : NaN;
@@ -2060,7 +2093,7 @@ const Subjects = () => {
       subjectsPerDay,
 	      daysToFinish,
 	    };
-	  }, [expandedSubjectList, studiedCycleIdSet, userCycle?.data_inicio_ciclo]);
+	  }, [expandedSubjectList, cycleClosedSubjectIdSet, userCycle?.data_inicio_ciclo]);
 
 	  const strategicPanelStats = useMemo(() => {
 	    const cycleSubjects = expandedSubjectList.map(item => item.subject);
@@ -2092,23 +2125,6 @@ const Subjects = () => {
 	      ).length,
 	      0,
 	    );
-	    const perSubjectStartedThisCycle = cycleSubjects.map(subject => {
-	      const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
-	      return {
-	        subjectName: getUnifiedSubjectName(subject.id, subject.name),
-	        topicsStarted: activeTopics.filter(topic => isTopicNewlyStartedInCycle(topic, cycleStart)).length,
-	        totalTopics: activeTopics.length,
-	      };
-	    });
-	    const subjectWithMostTopicsStartedThisCycle = perSubjectStartedThisCycle.reduce<{
-	      subjectName: string;
-	      topicsStarted: number;
-	      totalTopics: number;
-	    } | null>((best, subject) => {
-	      if (subject.topicsStarted <= 0) return best;
-	      if (!best || subject.topicsStarted > best.topicsStarted) return subject;
-	      return best;
-	    }, null);
 	    const examWeightTotals = getExamWeightTotals(cycleSubjects);
 	    const highestIncidenceTopic = cycleSubjects.flatMap(subject =>
 	      subject.topics
@@ -2124,23 +2140,6 @@ const Subjects = () => {
 	      volume: number;
 	    } | null>((best, topic) => {
 	      if (!best || topic.volume > best.volume) return topic;
-	      return best;
-	    }, null);
-	    const analyzedTopicVolumes = cycleSubjects.flatMap(subject =>
-	      subject.topics
-	        .filter(topic => topic.is_active !== false && typeof topic.total_volume === 'number' && topic.total_volume > 0)
-	        .map(topic => ({
-	          topicName: topic.name,
-	          subjectName: getUnifiedSubjectName(subject.id, subject.name),
-	          volume: topic.total_volume || 0,
-	        }))
-	    );
-	    const lowestIncidenceTopic = analyzedTopicVolumes.reduce<{
-	      topicName: string;
-	      subjectName: string;
-	      volume: number;
-	    } | null>((best, topic) => {
-	      if (!best || topic.volume < best.volume) return topic;
 	      return best;
 	    }, null);
 	    const highestIncidenceSubject = cycleSubjects.map(subject => {
@@ -2188,13 +2187,68 @@ const Subjects = () => {
 	      completedSubjects,
 	      inProgressSubjects,
 	      topicsStartedThisCycle,
-	      subjectWithMostTopicsStartedThisCycle,
 	      highestIncidenceTopic,
-	      lowestIncidenceTopic,
 	      highestIncidenceSubject,
 	      highestPendingWeightSubject,
 	    };
 	  }, [expandedSubjectList, getUnifiedSubjectName, userCycle?.data_inicio_ciclo]);
+
+	  const cycleMaturity = useMemo(() => {
+	    const cycleNumber = (userCycle?.ciclos_realizados || 0) + 1;
+	    const eventCount = cycleStudyEvents.filter(event =>
+	      ['topic_started', 'topic_reviewed', 'topic_continued', 'subject_marked_studied', 'cycle_reordered'].includes(event.event_type)
+	    ).length;
+	    const hasSavedCycleHistory = cycleSnapshots.length > 0;
+	    const hasLegacyCycleHistory = cycleNumber > 1;
+	    const hasAnyStartedTopic = strategicPanelStats.startedTopics > 0 || strategicPanelStats.topicsStartedThisCycle > 0;
+	    const hasActiveUse =
+	      eventCount >= 8 ||
+	      strategicPanelStats.topicsStartedThisCycle >= 5 ||
+	      cycleVisualStats.studiedSubjects >= 2 ||
+	      strategicPanelStats.coveragePercentage >= 10;
+
+	    let phase: StudyCycleMaturityPhase = 'cold_start';
+	    if (hasSavedCycleHistory || (hasLegacyCycleHistory && (eventCount >= 4 || hasAnyStartedTopic))) {
+	      phase = 'historical';
+	    } else if (hasActiveUse) {
+	      phase = 'active';
+	    } else if (hasAnyStartedTopic || cycleVisualStats.studiedSubjects > 0) {
+	      phase = 'started';
+	    }
+
+	    const labelByPhase: Record<StudyCycleMaturityPhase, string> = {
+	      cold_start: 'Início do ciclo',
+	      started: 'Primeiros sinais',
+	      active: 'Uso ativo',
+	      historical: hasSavedCycleHistory ? 'Histórico disponível' : 'Histórico parcial',
+	    };
+
+	    const descriptionByPhase: Record<StudyCycleMaturityPhase, string> = {
+	      cold_start: 'Comece alguns tópicos para o sistema detectar padrões sem forçar alerta cedo demais.',
+	      started: 'Já existe primeiro contato. Os próximos sinais aparecem conforme você avança na fila.',
+	      active: 'Já há uso suficiente para cruzar ritmo, cobertura, peso e cobrança com mais segurança.',
+	      historical: hasSavedCycleHistory
+	        ? 'Já há ciclo salvo para comparação e leitura de evolução.'
+	        : `Você está no ciclo ${cycleNumber}, mas o histórico detalhado começou a ser salvo agora.`,
+	    };
+
+	    return {
+	      phase,
+	      label: labelByPhase[phase],
+	      description: descriptionByPhase[phase],
+	      eventCount,
+	      cycleNumber,
+	      hasSavedCycleHistory,
+	    };
+	  }, [
+	    cycleSnapshots.length,
+	    cycleStudyEvents,
+	    cycleVisualStats.studiedSubjects,
+	    strategicPanelStats.coveragePercentage,
+	    strategicPanelStats.startedTopics,
+	    strategicPanelStats.topicsStartedThisCycle,
+	    userCycle?.ciclos_realizados,
+	  ]);
 
 	  const strategicAlerts = useMemo(() => {
 	    const cycleSubjects = expandedSubjectList.map(item => ({
@@ -2202,7 +2256,7 @@ const Subjects = () => {
 	      name: getUnifiedSubjectName(item.subject.id, item.subject.name),
 	    }));
 
-	    return getStudyCycleAlerts({
+	    const alerts = getStudyCycleAlerts({
 	      subjects: cycleSubjects,
 	      editais: editaisNoCiclo.map(edital => ({
 	        id: edital.id,
@@ -2213,7 +2267,14 @@ const Subjects = () => {
 	      hasCycleHistory: cycleSnapshots.length > 0,
 	      maxAlerts: 3,
 	    });
-	  }, [cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, getUnifiedSubjectName]);
+
+	    if (cycleMaturity.phase === 'cold_start') return [];
+	    if (cycleMaturity.phase === 'started') {
+	      return alerts.filter(alert => alert.severity === 'critical').slice(0, 1);
+	    }
+
+	    return alerts;
+	  }, [cycleMaturity.phase, cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, getUnifiedSubjectName]);
 
 	  const cycleMetrics = useMemo(() => {
 	    return getStudyCycleMetrics({
@@ -2222,10 +2283,9 @@ const Subjects = () => {
 	        exam_date: edital.exam_date || edital.examDate || null,
 	      })),
 	      cycleStart: userCycle?.data_inicio_ciclo || null,
-	      reviewsDoneToday: reviewsDoneTodayCount,
 	      hasCycleHistory: cycleSnapshots.length > 0,
 	    });
-	  }, [cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, reviewsDoneTodayCount, userCycle?.data_inicio_ciclo]);
+	  }, [cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, userCycle?.data_inicio_ciclo]);
 
   const cycleEventInsights = useMemo(() => {
     const currentOrder = (userCycle?.ciclo_atual || []).map((id: string) =>
@@ -2240,12 +2300,14 @@ const Subjects = () => {
       events: cycleStudyEvents,
       currentOrder,
       overdueReviews: cycleMetrics.overdueReviews,
-      minEvents: 5,
+      minEvents: cycleMaturity.phase === 'historical' ? 4 : 5,
       maxInsights: 3,
     });
-  }, [cycleMetrics.overdueReviews, cycleStudyEvents, dynamicUnificationMap, expandedSubjectList, getUnifiedSubjectName, userCycle?.ciclo_atual]);
+  }, [cycleMaturity.phase, cycleMetrics.overdueReviews, cycleStudyEvents, dynamicUnificationMap, expandedSubjectList, getUnifiedSubjectName, userCycle?.ciclo_atual]);
 
   const queueSuggestion = useMemo(() => {
+    if (!['active', 'historical'].includes(cycleMaturity.phase)) return null;
+
     const currentOrder = (userCycle?.ciclo_atual || []).map((id: string) =>
       getUnifiedSubjectId(id, dynamicUnificationMap)
     );
@@ -2259,7 +2321,37 @@ const Subjects = () => {
       currentOrder,
       minEvents: 6,
     });
-  }, [cycleStudyEvents, dynamicUnificationMap, expandedSubjectList, getUnifiedSubjectName, userCycle?.ciclo_atual]);
+  }, [cycleMaturity.phase, cycleStudyEvents, dynamicUnificationMap, expandedSubjectList, getUnifiedSubjectName, userCycle?.ciclo_atual]);
+
+  useEffect(() => {
+    if (activeTab !== 'all') {
+      setIsStrategicDockVisible(false);
+      return;
+    }
+
+    const title = strategicPanelTitleRef.current;
+    if (!title) return;
+
+    let frameId = 0;
+    const updateDockVisibility = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const titleRect = title.getBoundingClientRect();
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        setIsStrategicDockVisible(titleRect.top > viewportHeight - 52);
+      });
+    };
+
+    updateDockVisibility();
+    window.addEventListener('resize', updateDockVisibility);
+    document.addEventListener('scroll', updateDockVisibility, true);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener('resize', updateDockVisibility);
+      document.removeEventListener('scroll', updateDockVisibility, true);
+    };
+  }, [activeTab, strategicAlerts.length, queueSuggestion]);
 
 	  if (isLoading || isOriginsLoading || loading) {
     return <LoadingSpinner size="large" showText fullPage />;
@@ -2269,6 +2361,19 @@ const Subjects = () => {
     setVisibleCount(prev => prev + ITEMS_PER_PAGE);
   };
 
+  const renderCycleTooltip = (
+    content: React.ReactNode,
+    trigger: React.ReactElement,
+    side: 'top' | 'right' | 'bottom' | 'left' = 'top'
+  ) => (
+    <TooltipProvider delayDuration={120}>
+      <Tooltip>
+        <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+        <TooltipContent side={side}>{content}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
   const renderSubjectWeightControl = (subject: Subject) => {
     const strategicWeight = getSubjectStrategicWeight(subject);
     const isEditingWeight = editingWeightSubjectId === subject.id;
@@ -2276,7 +2381,7 @@ const Subjects = () => {
     if (isEditingWeight) {
       return (
         <div
-          className="flex flex-wrap items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 py-1"
+          className="flex flex-wrap items-center gap-1 rounded-xl border border-warning/25 bg-warning/10 px-1.5 py-1"
           onClick={(event) => event.stopPropagation()}
         >
           <input
@@ -2284,64 +2389,85 @@ const Subjects = () => {
             onChange={(event) => setWeightDraft(prev => ({ ...prev, questions: event.target.value }))}
             placeholder="Questões"
             inputMode="decimal"
-            className="h-7 w-16 rounded-md border border-border/60 bg-background px-2 text-[10px] font-bold text-foreground outline-none focus:border-primary"
+            className="app-field h-7 w-16 px-2 text-[10px] font-bold backdrop-blur placeholder:text-content-muted/60"
           />
           <input
             value={weightDraft.points}
             onChange={(event) => setWeightDraft(prev => ({ ...prev, points: event.target.value }))}
             placeholder="Pontos"
             inputMode="decimal"
-            className="h-7 w-16 rounded-md border border-border/60 bg-background px-2 text-[10px] font-bold text-foreground outline-none focus:border-primary"
+            className="app-field h-7 w-16 px-2 text-[10px] font-bold backdrop-blur placeholder:text-content-muted/60"
           />
-          <input
-            value={weightDraft.percentage}
-            onChange={(event) => setWeightDraft(prev => ({ ...prev, percentage: event.target.value }))}
-            placeholder="%"
-            inputMode="decimal"
-            className="h-7 w-12 rounded-md border border-border/60 bg-background px-2 text-[10px] font-bold text-foreground outline-none focus:border-primary"
-          />
-          <button
-            type="button"
-            onClick={() => handleSaveSubjectWeightInline(subject.id)}
-            disabled={isSavingWeight}
-            className="h-7 w-7 rounded-md bg-primary text-primary-foreground disabled:opacity-60 inline-flex items-center justify-center"
-            title="Salvar peso"
-            aria-label="Salvar peso da matéria"
-          >
-            {isSavingWeight ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-          </button>
-          <button
-            type="button"
-            onClick={handleCancelWeightEdit}
-            disabled={isSavingWeight}
-            className="h-7 w-7 rounded-md border border-border/60 text-content-muted hover:text-foreground disabled:opacity-60 inline-flex items-center justify-center"
-            title="Cancelar"
-            aria-label="Cancelar edição de peso"
-          >
-            <X size={12} />
-          </button>
+          {renderCycleTooltip(
+            'Salvar peso',
+            <button
+              type="button"
+              onClick={() => handleSaveSubjectWeightInline(subject.id)}
+              disabled={isSavingWeight}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:bg-control-hover disabled:text-content-muted/70"
+              aria-label="Salvar peso da matéria"
+            >
+              {isSavingWeight ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+            </button>
+          )}
+          {renderCycleTooltip(
+            'Cancelar',
+            <button
+              type="button"
+              onClick={handleCancelWeightEdit}
+              disabled={isSavingWeight}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-input bg-control text-content-muted transition-colors hover:bg-control-hover hover:text-control-foreground disabled:text-content-muted/60"
+              aria-label="Cancelar edição de peso"
+            >
+              <X size={12} />
+            </button>
+          )}
         </div>
       );
     }
 
     return (
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          handleStartWeightEdit(subject);
-        }}
-        className={`font-bold px-1.5 py-0.5 rounded-md border transition-colors ${
-          strategicWeight.hasWeight
-            ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20 hover:bg-sky-500/15'
-            : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20 hover:bg-amber-500/15'
-        }`}
-        title={strategicWeight.hasWeight ? `${strategicWeight.label}. Clique para editar.` : 'Clique para informar o peso desta matéria.'}
-        aria-label={strategicWeight.hasWeight ? 'Editar peso da matéria' : 'Informar peso da matéria'}
-      >
-        {strategicWeight.hasWeight ? strategicWeight.label : 'Sem peso'}
-      </button>
+      renderCycleTooltip(
+        strategicWeight.hasWeight ? `${strategicWeight.label}. Clique para editar.` : 'Clique para informar o peso desta matéria.',
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            handleStartWeightEdit(subject);
+          }}
+          className={`inline-flex items-center gap-1 text-[10px] font-semibold leading-none transition-colors ${
+            strategicWeight.hasWeight
+              ? 'text-content-muted/70 hover:text-primary'
+              : 'text-warning/80 hover:text-warning'
+          }`}
+          aria-label={strategicWeight.hasWeight ? 'Editar peso da matéria' : 'Informar peso da matéria'}
+        >
+          {strategicWeight.hasWeight ? (
+            strategicWeight.label
+          ) : (
+            <>
+              <Gauge size={11} strokeWidth={2.2} />
+              <span className="sr-only">Sem peso informado</span>
+            </>
+          )}
+        </button>
+      )
     );
+  };
+
+  const focusSubjectFromStrategicAction = (subjectId: string) => {
+    setExpandedSubjectIds([subjectId]);
+    setHighlightedSubjectId(subjectId);
+
+    window.setTimeout(() => {
+      setHighlightedSubjectId(current => current === subjectId ? null : current);
+    }, 1800);
+
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-subject-id="${subjectId}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   };
 
   const handleStrategicAlertAction = (alert: StudyCycleAlert) => {
@@ -2349,23 +2475,21 @@ const Subjects = () => {
       const subject = expandedSubjectList.find(item => item.subject.id === alert.subjectId)?.subject;
       if (subject) {
         handleStartWeightEdit(subject);
-        setExpandedSubjectIds(prev => Array.from(new Set([...prev, alert.subjectId!])));
+        focusSubjectFromStrategicAction(alert.subjectId);
       }
       return;
     }
 
     if (alert.actionType === 'start_topic' && alert.topicId) {
+      if (alert.subjectId) {
+        focusSubjectFromStrategicAction(alert.subjectId);
+      }
       openReviewModal(alert.topicId);
       return;
     }
 
     if ((alert.actionType === 'start_topic' || alert.actionType === 'review_cycle') && alert.subjectId) {
-      setExpandedSubjectIds(prev => Array.from(new Set([...prev, alert.subjectId!])));
-      requestAnimationFrame(() => {
-        document
-          .querySelector(`[data-subject-id="${alert.subjectId}"]`)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
+      focusSubjectFromStrategicAction(alert.subjectId);
     }
   };
 
@@ -2384,27 +2508,157 @@ const Subjects = () => {
     return { label: statusVisual.label, className: statusVisual.badgeClassName };
   };
 
+  const formatVerticalDate = (value?: string | null) => {
+    if (!value) return null;
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? new Date(`${value}T00:00:00`)
+      : new Date(value);
+    if (!Number.isFinite(date.getTime())) return null;
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const renderVerticalEditalSummary = () => {
+    const cycleSubjectIds = new Set(expandedSubjectList.map(item => item.subject.id));
+    const activeCycleEditais = editaisNoCiclo.filter(edital =>
+      (edital.subject_ids || []).some(subjectId => cycleSubjectIds.has(getUnifiedSubjectId(subjectId, dynamicUnificationMap)))
+    );
+    const primaryEdital = activeCycleEditais[0] || editaisNoCiclo[0] || null;
+    const examBoard = primaryEdital?.exam_board?.trim() || null;
+    const position = primaryEdital?.position?.trim() || null;
+    const editalName = primaryEdital
+      ? (primaryEdital.organ?.trim() || primaryEdital.name?.trim() || 'Edital carregado')
+      : 'Edital carregado';
+    const examDate = formatVerticalDate(primaryEdital?.exam_date || null);
+    const totalTopics = cycleMetrics.totalTopics;
+    const startedTopics = cycleMetrics.startedTopics;
+    const completedTopics = cycleMetrics.completedTopics;
+    const unstartedTopics = cycleMetrics.unstartedTopics;
+    const inProgressTopics = Math.max(startedTopics - completedTopics, 0);
+    const coverage = totalTopics > 0 ? Math.round((startedTopics / totalTopics) * 100) : 0;
+    const reviewSummary = cycleMetrics.overdueReviews > 0
+      ? `${cycleMetrics.overdueReviews} atrasada${cycleMetrics.overdueReviews === 1 ? '' : 's'}`
+      : cycleMetrics.dueTodayReviews > 0
+        ? `${cycleMetrics.dueTodayReviews} hoje`
+        : 'em dia';
+    const paceText = cycleMetrics.daysUntilExam !== null && unstartedTopics > 0
+      ? `${cycleMetrics.dailyNewTopicsGoal} tópico${cycleMetrics.dailyNewTopicsGoal === 1 ? '' : 's'}/dia para tocar tudo até a prova.`
+      : cycleMetrics.estimatedDaysToFirstContact !== null && unstartedTopics > 0
+        ? `No ritmo atual, o primeiro contato fecha em cerca de ${cycleMetrics.estimatedDaysToFirstContact} dias.`
+        : unstartedTopics === 0
+          ? 'Todos os tópicos ativos já tiveram primeiro contato.'
+          : 'Informe a data da prova para calcular o ritmo necessário.';
+    const metaItems = [
+      examBoard ? `Banca ${examBoard}` : null,
+      position,
+      examDate ? `Prova ${examDate}` : null,
+    ].filter(Boolean);
+
+    return (
+      <section className="app-gradient-panel mb-4 overflow-hidden rounded-2xl p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-primary">
+              <FileText size={15} />
+              <h3 className="text-sm font-black tracking-tight">Mapa do edital</h3>
+            </div>
+            <p className="mt-2 line-clamp-2 text-[13px] font-bold leading-snug text-title-card">
+              {editalName}
+            </p>
+            {metaItems.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-content-muted">
+                {metaItems.map((item, index) => (
+                  <span key={`${item}-${index}`} className="inline-flex min-w-0 items-center gap-1">
+                    {index > 0 && <span className="h-1 w-1 rounded-full bg-content-muted/40" aria-hidden="true" />}
+                    <span className="truncate">{item}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-3 rounded-xl border app-hairline bg-surface/60 px-3 py-2 backdrop-blur sm:min-w-32 sm:flex-col sm:items-start sm:gap-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-content-muted">Iniciado</span>
+            <span className="text-xl font-black text-title-card tabular-nums">{coverage}%</span>
+          </div>
+        </div>
+
+        <div className="app-progress-track mt-3 h-1.5 w-full overflow-hidden rounded-full">
+          <div
+            className="app-progress-fill h-full rounded-full transition-all duration-500"
+            style={{ width: `${coverage}%` }}
+          />
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+          {[
+            { label: 'Iniciados', value: `${startedTopics}/${totalTopics}` },
+            { label: 'Não iniciados', value: unstartedTopics },
+            { label: 'Em andamento', value: inProgressTopics },
+            { label: 'Concluídos', value: completedTopics },
+          ].map(item => (
+            <div key={item.label} className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
+              <p className="text-[9px] font-black uppercase tracking-wide text-content-muted">{item.label}</p>
+              <p className="mt-1 text-base font-black text-title-card tabular-nums">{item.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 grid gap-2 text-[11px] font-semibold text-content-muted sm:grid-cols-2">
+          <div className="flex min-w-0 items-center gap-2 rounded-xl border app-hairline bg-surface/45 px-3 py-2 backdrop-blur">
+            <Gauge size={13} className="shrink-0 text-info" />
+            <span className="min-w-0">{paceText}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/revisoes')}
+            className="flex min-w-0 items-center gap-2 rounded-xl border app-hairline bg-surface/45 px-3 py-2 text-left backdrop-blur transition-colors hover:border-primary/25 hover:bg-primary/10 hover:text-primary"
+          >
+            <BookOpen size={13} className="shrink-0" />
+            <span className="min-w-0">Revisões: {reviewSummary}</span>
+          </button>
+        </div>
+      </section>
+    );
+  };
+
   const renderVerticalEditalView = () => (
-    <div className="w-full rounded-xl border border-border/40 dark:border-white/5 overflow-hidden bg-card">
+    <>
+      {renderVerticalEditalSummary()}
+      <div className="app-surface w-full overflow-hidden rounded-2xl">
       {verticalSubjectList.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center text-content-muted">
           <FileText size={28} className="mb-3 opacity-50" />
           <p className="text-sm font-semibold">Nenhum tópico encontrado{newSubjectName.trim() ? ` para "${newSubjectName}"` : ''}.</p>
         </div>
       ) : (
-	        verticalSubjectList.map(({ subject, topics }) => (
-	          <div key={subject.id} className="border-b border-border/40 dark:border-white/5 last:border-b-0">
-	            <div className="sticky top-0 z-10 bg-background flex flex-wrap items-center gap-2 px-4 py-2 border-b border-primary/10">
-	              <span className="text-xs font-black uppercase tracking-widest text-primary/80">
-	                {getUnifiedSubjectName(subject.id, subject.name)}
-	              </span>
-	              <span className="text-[10px] text-content-muted font-semibold tabular-nums">
-	                {topics.length} tópico{topics.length !== 1 ? 's' : ''}
-	              </span>
-	              {renderSubjectWeightControl(subject)}
+	        verticalSubjectList.map(({ subject, topics }) => {
+            const isExpanded = expandedSubjectIds.includes(subject.id);
+
+            return (
+	          <div key={subject.id} className="border-b app-hairline last:border-b-0">
+	            <div className="sticky top-0 z-10 flex w-full items-start gap-2 border-b border-primary/10 bg-surface/90 px-3 py-2 backdrop-blur-md sm:px-4">
+	              <div className="min-w-0 flex-1">
+	                <span className="block break-words text-[13px] font-black uppercase leading-snug tracking-wider text-title-section">
+	                  {getUnifiedSubjectName(subject.id, subject.name)}
+	                </span>
+	                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+	                  <span className="text-[10px] font-semibold tabular-nums text-content-muted">
+	                    {topics.length} tópico{topics.length !== 1 ? 's' : ''}
+	                  </span>
+	                  {renderSubjectWeightControl(subject)}
+	                </div>
+	              </div>
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(subject.id)}
+                  className="ml-auto grid h-6 w-6 place-items-center rounded-lg text-content-muted transition-colors hover:bg-primary/10 hover:text-primary"
+                  aria-label={isExpanded ? 'Recolher matéria' : 'Expandir matéria'}
+                  aria-expanded={isExpanded}
+                >
+                  <ChevronDown size={13} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
 	            </div>
 
-            {topics
+            {isExpanded && topics
               .slice()
               .sort((a, b) => {
                 if (a.position !== undefined && b.position !== undefined) return a.position - b.position;
@@ -2429,90 +2683,102 @@ const Subjects = () => {
                 return (
 	                  <div
 	                    key={topic.id}
-	                    className="relative flex flex-col lg:flex-row lg:items-center gap-3 px-4 py-2.5 pl-5 border-b border-border/40 dark:border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group"
+	                    className="group app-cycle-topic-row relative grid gap-1.5 border-b app-hairline px-3 py-2 pl-4 transition-colors last:border-b-0 sm:px-4 sm:pl-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-3 lg:py-2"
 	                  >
                     <div
-                      className={`absolute left-0 top-2 bottom-2 w-1 rounded-r-full ${statusVisual.indicatorClassName}`}
+                      className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full sm:w-1 ${statusVisual.indicatorClassName}`}
                       aria-hidden="true"
                     />
-	                    <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
-	                      <span className={`text-sm break-words leading-snug ${isTopicCompleted(topic) ? 'text-content-muted line-through decoration-content-muted/40' : topic.is_active === false ? 'text-content-muted opacity-50' : 'text-foreground'}`}>
-	                        {topic.name} {topic.is_active === false && <span className="text-[9px] ml-1 uppercase opacity-60">(inativo)</span>}
+	                    <div className="min-w-0">
+	                      <span className={`block break-words text-[12px] leading-snug sm:text-[12.5px] ${isTopicCompleted(topic) ? 'text-content-muted line-through decoration-content-muted/40' : topic.is_active === false ? 'text-content-muted opacity-50' : 'text-foreground'}`}>
+	                        {topic.name}
+	                        {studiedInCurrentCycle && !isTopicCompleted(topic) && (
+	                          renderCycleTooltip(
+	                            'Tópico iniciado neste ciclo',
+	                            <CheckCircle2
+	                              size={12}
+	                              className="ml-1 inline-block align-[-2px] text-content-muted/70"
+	                              aria-label="Tópico iniciado neste ciclo"
+	                            />
+	                          )
+	                        )}
+	                        {topic.is_active === false && <span className="text-[9px] ml-1 uppercase opacity-60">(inativo)</span>}
 	                      </span>
 	                      {incidenceDisplay && (
-	                        <span
-	                          className="px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20"
-	                          title={incidenceTitle}
-	                        >
-	                          {incidenceDisplay}
-	                        </span>
+	                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+	                          {renderCycleTooltip(
+	                            incidenceTitle,
+	                            <span className="rounded-md border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-incidence">
+	                              {incidenceDisplay}
+	                            </span>
+	                          )}
+	                        </div>
 	                      )}
-                      {studiedInCurrentCycle && !isTopicCompleted(topic) && (
-                        <CheckCircle2
-                          size={14}
-                          className="ml-2 inline-block align-[-2px] text-slate-400 dark:text-slate-500"
-                          role="img"
-                          aria-label={`Tópico novo neste ciclo: ${topic.name}`}
-                        >
-                          <title>Tópico novo neste ciclo</title>
-                        </CheckCircle2>
-                      )}
                     </div>
 
-	                    <span className={`flex-shrink-0 self-end lg:self-center px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap ${status.className}`}>
-	                      {status.label}
-	                    </span>
-
-	                    <div className="flex-shrink-0 self-end lg:self-center flex flex-wrap items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleOpenVerticalTopicNotes(subject.id, topic.id)}
-                        className={`p-1 rounded transition-colors ${hasNotes ? 'text-primary/60 hover:text-primary' : 'text-gray-400 hover:text-primary/70'}`}
-                        aria-label={`Anotações para ${topic.name}`}
-                        title={`Anotações para ${topic.name}`}
-                      >
-                        <FileText size={15} />
-                      </button>
+	                    <div className="flex min-w-0 items-center justify-between gap-2 opacity-90 transition-opacity group-hover:opacity-100 lg:justify-end">
+	                      <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9.5px] font-bold whitespace-nowrap ${status.className}`}>
+	                        {status.label}
+	                      </span>
+	                      <div className="flex shrink-0 items-center gap-1">
+                      {renderCycleTooltip(
+                        `Anotações para ${topic.name}`,
+                        <button
+                          onClick={() => handleOpenVerticalTopicNotes(subject.id, topic.id)}
+                          className={`grid h-7 w-7 place-items-center rounded transition-colors ${hasNotes ? 'text-primary/60 hover:text-primary' : 'text-content-muted/60 hover:text-primary/70'}`}
+                          aria-label={`Anotações para ${topic.name}`}
+                        >
+                          <FileText size={13} />
+                        </button>
+                      )}
 
 	                      {isTopicCompleted(topic) ? (
-	                        <span className="h-8 px-3 rounded-lg flex items-center justify-center gap-1.5 border border-emerald-500/15 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold whitespace-nowrap">
-	                          <Check size={12} />
+	                        <span className="flex h-7 items-center justify-center gap-1.5 rounded-lg border border-success/15 bg-success/10 px-2 text-[10px] font-bold whitespace-nowrap text-success">
+	                          <Check size={11} />
 	                          Concluído
 	                        </span>
 	                      ) : hasStarted ? (
-	                        <button
-	                          onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
-	                          className={`h-8 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all border text-[11px] font-bold whitespace-nowrap ${statusVisual.actionClassName}`}
-	                          title="Continuar estudo do tópico"
-	                          aria-label={`Continuar estudo do tópico ${topic.name}`}
-	                        >
-	                          <BookOpen size={12} />
-	                          Continuar
-	                        </button>
+	                        renderCycleTooltip(
+	                          'Continuar estudo do tópico',
+	                          <button
+	                            onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
+	                            className={`flex h-7 items-center justify-center gap-1.5 rounded-lg border px-2 text-[10px] font-bold whitespace-nowrap transition-all ${statusVisual.actionClassName}`}
+	                            aria-label={`Continuar estudo do tópico ${topic.name}`}
+	                          >
+	                            <BookOpen size={11} />
+	                            Continuar
+	                          </button>
+	                        )
 	                      ) : (
-	                        <button
-	                          onClick={() => openReviewModal(topic.id)}
-	                          className={`h-8 px-3 rounded-lg border transition-all flex items-center justify-center gap-1.5 text-[11px] font-bold whitespace-nowrap ${statusVisual.actionClassName}`}
-	                          title="Iniciar estudo do tópico"
-	                          aria-label={`Iniciar estudo do tópico ${topic.name}`}
-	                        >
-	                          <Play size={10} className="ml-[1px]" />
-	                          Iniciar estudo
-	                        </button>
+	                        renderCycleTooltip(
+	                          'Iniciar estudo do tópico',
+	                          <button
+	                            onClick={() => openReviewModal(topic.id)}
+	                            className={`flex h-7 items-center justify-center gap-1.5 rounded-lg border px-2 text-[10px] font-bold whitespace-nowrap transition-all ${statusVisual.actionClassName}`}
+	                            aria-label={`Iniciar estudo do tópico ${topic.name}`}
+	                          >
+	                            <Play size={10} className="ml-[1px]" />
+	                            Iniciar<span className="hidden sm:inline"> estudo</span>
+	                          </button>
+	                        )
 	                      )}
+	                      </div>
                     </div>
                   </div>
                 );
               })}
-          </div>
-        ))
+	          </div>
+            );
+        })
       )}
-    </div>
+      </div>
+    </>
   );
 
   const renderEmptyCycleState = () => (
     <div className="flex min-h-[520px] w-full items-center justify-center text-center">
       <div className="flex max-w-md flex-col items-center">
-        <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-blue-500/10 dark:from-primary/20 dark:to-blue-500/20 rounded-full flex items-center justify-center mb-6 shadow-inner">
+        <div className="app-empty-orb mb-6 flex h-20 w-20 items-center justify-center rounded-full">
           <span className="text-4xl text-primary">📚</span>
         </div>
         <h3 className="text-xl font-bold text-foreground mb-3">
@@ -2525,7 +2791,7 @@ const Subjects = () => {
         </p>
         <button
           onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
-          className="px-6 py-3 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+          className="app-primary-button px-6 py-3"
         >
           Ir para Meus Editais
         </button>
@@ -2536,9 +2802,9 @@ const Subjects = () => {
 	  const StrategicEditalPanel = () => {
 	    const highestPendingWeight = strategicPanelStats.highestPendingWeightSubject;
 	    const highestIncidence = strategicPanelStats.highestIncidenceTopic;
-	    const lowestIncidence = strategicPanelStats.lowestIncidenceTopic;
 	    const highestIncidenceSubject = strategicPanelStats.highestIncidenceSubject;
-	    const currentCycleNumber = (userCycle?.ciclos_realizados || 0) + 1;
+	    const currentCycleNumber = cycleMaturity.cycleNumber;
+	    const canShowStrategicInsights = ['active', 'historical'].includes(cycleMaturity.phase);
 	    const activeCycleEditais = editaisNoCiclo.filter(e =>
 	      e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
 	    );
@@ -2553,148 +2819,160 @@ const Subjects = () => {
 	      : 'Edital carregado';
 	    const formatDerivedWeightPercentage = (value?: number | null) =>
 	      typeof value === 'number' && Number.isFinite(value)
-	        ? `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% do edital`
+	        ? `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% entre pesos informados`
 	        : null;
+	    const queueMainSubjectId = queueSuggestion?.suggestedOrder?.[0] || null;
+	    const visibleEventInsights = cycleEventInsights.filter(insight =>
+	      !(queueMainSubjectId && insight.id.startsWith('priority-neglected:') && insight.subjectId === queueMainSubjectId)
+	    );
 	    const insightItems = [
-	      highestIncidenceSubject
+	      ...(cycleMaturity.phase !== 'cold_start' ? visibleEventInsights.map(insight => ({
+	        label: insight.title,
+	        value: `${insight.message} ${insight.evidence}`,
+	        icon: BarChart2,
+	        className: insight.severity === 'warning'
+	          ? 'border-incidence/25 bg-incidence/10 text-incidence'
+	          : 'border-incidence/20 bg-incidence/10 text-incidence',
+	      })) : []),
+	      canShowStrategicInsights && highestIncidenceSubject
 	        ? {
-	            label: 'Matéria mais cobrada',
-	            value: `${highestIncidenceSubject.subjectName} (${highestIncidenceSubject.totalVolume.toLocaleString('pt-BR')})`,
+	            label: 'Maior cobrança por matéria',
+	            value: `${highestIncidenceSubject.subjectName}: cobrança alta encontrada em ${highestIncidenceSubject.analyzedTopicsCount} tópico${highestIncidenceSubject.analyzedTopicsCount === 1 ? '' : 's'}.`,
 	            icon: Trophy,
-	            className: 'border-sky-500/20 bg-sky-500/10 text-sky-300',
+	            className: 'border-info/20 bg-info/10 text-info',
 	          }
 	        : null,
-	      highestIncidence
+	      canShowStrategicInsights && highestIncidence
 	        ? {
-	            label: 'Tópico mais cobrado',
-	            value: `${highestIncidence.topicName} em ${highestIncidence.subjectName} (${highestIncidence.volume.toLocaleString('pt-BR')})`,
+	            label: 'Tópico de maior cobrança',
+	            value: `${highestIncidence.topicName}. Matéria: ${highestIncidence.subjectName}.`,
 	            icon: TrendingUp,
-	            className: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300',
+	            className: 'border-incidence/20 bg-incidence/10 text-incidence',
 	          }
 	        : null,
-	      lowestIncidence && highestIncidence && lowestIncidence.topicName !== highestIncidence.topicName
-	        ? {
-	            label: 'Tópico menos cobrado',
-	            value: `${lowestIncidence.topicName} em ${lowestIncidence.subjectName} (${lowestIncidence.volume.toLocaleString('pt-BR')})`,
-	            icon: TrendingDown,
-	            className: 'border-slate-500/20 bg-slate-500/10 text-slate-300',
-	          }
-	        : null,
-	      highestPendingWeight
+	      canShowStrategicInsights && highestPendingWeight
 	        ? {
 	            label: 'Maior peso pendente',
 	            value: `${getUnifiedSubjectName(highestPendingWeight.subject.id, highestPendingWeight.subject.name)} (${formatDerivedWeightPercentage(highestPendingWeight.percentage) || `${highestPendingWeight.effectiveWeight.value} ${highestPendingWeight.effectiveWeight.label}`})`,
 	            icon: Target,
-	            className: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
+	            className: 'border-warning/20 bg-warning/10 text-warning',
 	          }
 	        : null,
 	    ].filter(Boolean) as Array<{ label: string; value: string; icon: typeof Target; className: string }>;
+	    const insightReadinessText = (() => {
+	      if (cycleMaturity.phase === 'cold_start') {
+	        return cycleMaturity.description;
+	      }
+
+	      if (cycleMaturity.phase === 'started') {
+	        return `${cycleMaturity.description} Ainda preciso de mais alguns eventos do ciclo para separar padrão real de começo normal.`;
+	      }
+
+	      if (cycleMaturity.phase === 'historical' && !cycleMaturity.hasSavedCycleHistory && cycleEventInsights.length === 0) {
+	        return `${cycleMaturity.description} As comparações finas aparecem depois que um ciclo for fechado com snapshot salvo.`;
+	      }
+
+	      if (!highestIncidence && !highestIncidenceSubject && cycleEventInsights.length === 0) {
+	        return 'Ainda não encontrei risco ou oportunidade confiável. Quando houver cobrança analisada, peso conhecido relevante ou padrão real de uso, o insight aparece aqui.';
+	      }
+
+	      return 'Nenhum novo insight estratégico confiável neste momento.';
+	    })();
 	    const forecastText = cycleVisualStats.remainingSubjects === 0
 	      ? 'Este ciclo já está completo.'
 	      : cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0
-	        ? `Mantendo o ritmo atual, você fecha a fila em aproximadamente ${cycleVisualStats.daysToFinish} dias.`
+	        ? `Pelo ritmo de matérias fechadas neste ciclo, você fecha a fila em cerca de ${cycleVisualStats.daysToFinish} dias.`
 	        : null;
 	    const lastClosedCycle = cycleSnapshots[0] || null;
-	    const subjectDelta = lastClosedCycle
-	      ? cycleVisualStats.studiedSubjects - lastClosedCycle.studied_subject_count
-	      : null;
 	    const topicDelta = lastClosedCycle
 	      ? strategicPanelStats.topicsStartedThisCycle - lastClosedCycle.topics_started_count
 	      : null;
-	    const formatDelta = (value: number | null, singular: string, pluralText: string) => {
+	    const formatTopicDelta = (value: number | null) => {
 	      if (value === null) return null;
-	      if (value === 0) return `igual ao ciclo ${lastClosedCycle?.cycle_number}`;
+	      if (value === 0) return `Mesmo volume do ciclo ${lastClosedCycle?.cycle_number}.`;
 	      const abs = Math.abs(value);
-	      return `${value > 0 ? '+' : '-'}${abs} ${abs === 1 ? singular : pluralText} vs ciclo ${lastClosedCycle?.cycle_number}`;
+	      const label = `${abs} ${abs === 1 ? 'tópico' : 'tópicos'}`;
+	      return value > 0
+	        ? `${label} a mais que no ciclo ${lastClosedCycle?.cycle_number}.`
+	        : `${label} a menos que no ciclo ${lastClosedCycle?.cycle_number}.`;
 	    };
 	    const alertStyles: Record<StudyCycleAlert['severity'], { card: string; icon: string; label: string }> = {
 	      critical: {
-	        card: 'border-rose-500/25 bg-rose-500/10 text-rose-300',
-	        icon: 'bg-rose-500/15 text-rose-300',
+	        card: 'border-destructive/25 bg-destructive/10 text-destructive',
+	        icon: 'bg-destructive/15 text-destructive',
 	        label: 'Crítico',
 	      },
 	      warning: {
-	        card: 'border-amber-500/25 bg-amber-500/10 text-amber-300',
-	        icon: 'bg-amber-500/15 text-amber-300',
+	        card: 'border-warning/25 bg-warning/10 text-warning',
+	        icon: 'bg-warning/15 text-warning',
 	        label: 'Atenção',
 	      },
 	      info: {
-	        card: 'border-sky-500/20 bg-sky-500/10 text-sky-300',
-	        icon: 'bg-sky-500/15 text-sky-300',
+	        card: 'border-info/20 bg-info/10 text-info',
+	        icon: 'bg-info/15 text-info',
 	        label: 'Sinal',
 	      },
 	    };
 
 	    return (
-	      <aside className="hidden md:block min-w-0">
-	        <div className="sticky top-4">
-	          <div className="mb-3 flex items-center gap-2 px-1">
-	            <Shield size={14} className="text-primary shrink-0" />
-            <h3 className="text-[15px] font-bold text-primary">
-	              Painel estratégico do edital
-	            </h3>
-	          </div>
-
+	      <aside
+	        id="strategic-cycle-panel"
+	        ref={strategicPanelRef}
+	        className="block min-w-0 scroll-mt-20 xl:scroll-mt-4"
+	      >
+	        <div className="xl:sticky xl:top-4">
 	          <div className="space-y-3">
-	            <div className="overflow-hidden rounded-xl border border-primary/15 bg-gradient-to-br from-primary/10 via-card to-card p-4">
+	            <div className="app-gradient-panel overflow-hidden rounded-2xl p-4">
 	              <div className="flex items-start justify-between gap-4">
-	                <div className="min-w-0">
+	                <div className="min-w-0 flex-1">
 	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-primary">
 	                    Ciclo {currentCycleNumber}
 	                  </h4>
-	                  <p className="mt-1 truncate text-[11px] font-semibold text-content-muted" title={editalCycleLabel}>
-	                    {editalCycleLabel}
-	                  </p>
+	                  {renderCycleTooltip(
+	                    editalCycleLabel,
+	                    <p className="mt-1 overflow-hidden break-words text-[11px] font-semibold leading-snug text-content-muted [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
+	                      {editalCycleLabel}
+	                    </p>
+	                  )}
 	                </div>
-	                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-primary/25 bg-background/60">
-	                  <span className="text-lg font-black text-foreground tabular-nums">{strategicPanelStats.coveragePercentage}%</span>
+	                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-primary/25 bg-surface/60 backdrop-blur">
+	                  <span className="text-lg font-black text-title-card tabular-nums">{strategicPanelStats.coveragePercentage}%</span>
 	                </div>
 	              </div>
-	              <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-muted/30">
+	              <div className="app-progress-track mt-4 h-1.5 w-full overflow-hidden rounded-full">
 	                <div
-	                  className="h-full rounded-full bg-primary transition-all duration-500"
+	                  className="app-progress-fill h-full rounded-full transition-all duration-500"
 	                  style={{ width: `${strategicPanelStats.coveragePercentage}%` }}
 	                />
 	              </div>
-	              <div className="mt-4 space-y-2">
-	                <div className="rounded-lg border border-white/10 bg-background/35 px-3 py-2">
+	              {forecastText && (
+	                <div className="mt-3 flex items-start gap-2 text-content-muted">
+	                  <Gauge size={14} className="mt-0.5 shrink-0 text-primary" />
+	                  <p className="min-w-0 text-[11px] font-semibold leading-relaxed">
+	                    {forecastText}
+	                  </p>
+	                </div>
+	              )}
+	              <div className="mt-4 grid grid-cols-2 gap-2">
+	                <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
 	                  <div className="flex items-center justify-between gap-3">
-	                    <p className="text-[10px] font-black uppercase text-content-muted">Matérias marcadas neste ciclo</p>
-	                    <p className="text-base font-black text-foreground tabular-nums">{cycleVisualStats.studiedSubjects}</p>
+	                    <p className="text-[9px] font-black uppercase leading-tight text-content-muted">Matérias concluídas no ciclo</p>
+	                    <p className="text-base font-black text-title-card tabular-nums">{cycleVisualStats.studiedSubjects}</p>
 	                  </div>
-	                  {formatDelta(subjectDelta, 'matéria', 'matérias') && (
+	                </div>
+	                <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
+	                  <div className="flex items-center justify-between gap-3">
+	                    <p className="text-[9px] font-black uppercase leading-tight text-content-muted">Tópicos iniciados</p>
+	                    <p className="text-base font-black text-title-card tabular-nums">{strategicPanelStats.topicsStartedThisCycle}</p>
+	                  </div>
+	                  {formatTopicDelta(topicDelta) && (
 	                    <p className="mt-1 text-[10px] font-semibold text-content-muted">
-	                      {formatDelta(subjectDelta, 'matéria', 'matérias')}
+	                      {formatTopicDelta(topicDelta)}
 	                    </p>
 	                  )}
 	                </div>
-	                <div className="rounded-lg border border-white/10 bg-background/35 px-3 py-2">
-	                  <div className="flex items-center justify-between gap-3">
-	                    <p className="text-[10px] font-black uppercase text-content-muted">Tópicos novos no ciclo</p>
-	                    <p className="text-base font-black text-foreground tabular-nums">{strategicPanelStats.topicsStartedThisCycle}</p>
-	                  </div>
-	                  {formatDelta(topicDelta, 'tópico', 'tópicos') && (
-	                    <p className="mt-1 text-[10px] font-semibold text-content-muted">
-	                      {formatDelta(topicDelta, 'tópico', 'tópicos')}
-	                    </p>
-	                  )}
-	                </div>
-	                {strategicPanelStats.subjectWithMostTopicsStartedThisCycle ? (
-	                  <div className="rounded-lg border border-white/10 bg-background/35 px-3 py-2">
-	                    <p className="text-[10px] font-black uppercase text-content-muted">Maior abertura no ciclo</p>
-	                    <p className="mt-1 truncate text-xs font-black text-foreground" title={strategicPanelStats.subjectWithMostTopicsStartedThisCycle.subjectName}>
-	                      {strategicPanelStats.subjectWithMostTopicsStartedThisCycle.subjectName}
-	                    </p>
-	                    <p className="mt-1 text-[10px] text-content-muted">
-	                      {strategicPanelStats.subjectWithMostTopicsStartedThisCycle.topicsStarted}/{strategicPanelStats.subjectWithMostTopicsStartedThisCycle.totalTopics} tópicos novos
-	                    </p>
-	                  </div>
-	                ) : (
-	                  <div className="rounded-lg border border-dashed border-white/10 bg-background/20 px-3 py-2">
-	                    <p className="text-[10px] font-black uppercase text-content-muted">Maior abertura no ciclo</p>
-	                    <p className="mt-1 text-xs text-content-muted">Ainda sem tópicos novos neste ciclo.</p>
-	                  </div>
-	                )}
+	              </div>
+	              <div className="mt-2 space-y-2">
 	                {!lastClosedCycle && (
 	                  <p className="text-[11px] text-content-muted leading-relaxed">
 	                    Ao iniciar o próximo ciclo, este resumo será salvo para comparar sua evolução.
@@ -2703,107 +2981,13 @@ const Subjects = () => {
 	              </div>
 	            </div>
 
-	            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.07] p-4">
-	              <div className="mb-3 flex items-center justify-between gap-3">
-	                <h4 className="text-[11px] font-black uppercase tracking-widest text-emerald-300">
-	                  Plano de hoje
-	                </h4>
-	                <Clock size={15} className="text-emerald-300" />
-	              </div>
-	              <div className="grid grid-cols-2 gap-2">
-	                <div className="rounded-lg border border-emerald-500/15 bg-background/35 px-3 py-2">
-	                  <p className="text-[10px] font-black uppercase text-content-muted">Tópicos novos</p>
-	                  <p className="mt-1 text-lg font-black text-foreground tabular-nums">
-	                    {cycleMetrics.dailyNewTopicsGoal}
-	                  </p>
-	                  <p className="mt-1 text-[10px] text-content-muted">
-	                    {cycleMetrics.newTopicDeficitToday > 0
-	                      ? `faltam ${cycleMetrics.newTopicDeficitToday} hoje`
-	                      : cycleMetrics.dailyNewTopicsGoal > 0
-	                        ? 'meta cumprida hoje'
-	                        : 'sem prova datada'}
-	                  </p>
-	                </div>
-	                <div className="rounded-lg border border-emerald-500/15 bg-background/35 px-3 py-2">
-	                  <p className="text-[10px] font-black uppercase text-content-muted">Revisões hoje</p>
-	                  <p className="mt-1 text-lg font-black text-foreground tabular-nums">
-	                    {cycleMetrics.dailyReviewGoal}
-	                  </p>
-	                  <p className="mt-1 text-[10px] text-content-muted">
-	                    {cycleMetrics.reviewDeficitToday > 0
-	                      ? `${cycleMetrics.overdueReviews} atrasada${cycleMetrics.overdueReviews === 1 ? '' : 's'}`
-	                      : cycleMetrics.dailyReviewGoal > 0
-	                        ? 'revisões em dia'
-	                        : 'sem revisão vencida'}
-	                  </p>
-	                </div>
-	              </div>
-	              <div className="mt-2 rounded-lg border border-emerald-500/15 bg-background/30 px-3 py-2">
-	                <div className="flex items-center justify-between gap-3">
-	                  <p className="text-[10px] font-black uppercase text-content-muted">Faltam iniciar</p>
-	                  <p className="text-sm font-black text-foreground tabular-nums">{cycleMetrics.unstartedTopics}</p>
-	                </div>
-	                <p className="mt-1 text-[10px] leading-relaxed text-content-muted">
-	                  {cycleMetrics.daysUntilExam !== null
-	                    ? `Para ver tudo antes da prova, a meta usa ${cycleMetrics.daysUntilExam} dia${cycleMetrics.daysUntilExam === 1 ? '' : 's'} restantes.`
-	                    : cycleMetrics.estimatedDaysToFirstContact !== null
-	                      ? `No ritmo atual, o primeiro contato fecha em cerca de ${cycleMetrics.estimatedDaysToFirstContact} dia${cycleMetrics.estimatedDaysToFirstContact === 1 ? '' : 's'}.`
-	                      : 'Inicie tópicos para o sistema estimar o fechamento do primeiro contato.'}
-	                </p>
-	              </div>
-	            </div>
-
-	            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-4">
-	              <div className="mb-3 flex items-center justify-between gap-3">
-	                <h4 className="text-[11px] font-black uppercase tracking-widest text-cyan-300">
-	                  Sinais de cobrança
-	                </h4>
-	                <Target size={15} className="text-cyan-300" />
-	              </div>
-	              {highestIncidence ? (
-	                <div className="space-y-3">
-	                  <div className="rounded-xl border border-cyan-500/25 bg-background/50 p-3">
-	                    <div className="mb-2 flex items-center gap-2">
-	                      <div className="grid h-7 w-7 place-items-center rounded-lg bg-cyan-500/15 text-cyan-300">
-	                        <TrendingUp size={15} />
-	                      </div>
-	                      <p className="text-[10px] font-black uppercase tracking-wider text-cyan-300">Maior sinal</p>
-	                    </div>
-	                    <p className="text-sm font-black leading-snug text-foreground">{highestIncidence.topicName}</p>
-	                    <p className="mt-1 text-[11px] text-content-muted">
-	                      {highestIncidence.subjectName} · sinal {highestIncidence.volume.toLocaleString('pt-BR')}
-	                    </p>
-	                  </div>
-	                  {lowestIncidence && lowestIncidence.topicName !== highestIncidence.topicName && (
-	                    <div className="flex items-start gap-2 rounded-lg border border-cyan-500/15 bg-background/30 px-3 py-2">
-	                      <TrendingDown size={14} className="mt-0.5 shrink-0 text-content-muted" />
-	                      <div className="min-w-0">
-	                        <p className="text-[10px] font-black uppercase text-content-muted">Menor sinal</p>
-	                        <p className="truncate text-xs font-bold text-foreground" title={lowestIncidence.topicName}>{lowestIncidence.topicName}</p>
-	                      </div>
-	                    </div>
-	                  )}
-	                </div>
-	              ) : (
-	                <div className="rounded-xl border border-cyan-500/20 bg-background/40 p-3">
-	                  <div className="mb-2 flex items-center gap-2 text-cyan-300">
-	                    <ScanText size={15} />
-	                    <span className="text-[10px] font-black uppercase tracking-wider">Aguardando IA</span>
-	                  </div>
-	                  <p className="text-xs text-content-muted leading-relaxed">
-	                    Quando a IA registrar sinais de cobrança nos tópicos, este mapa mostra os pontos mais fortes do edital.
-	                  </p>
-	                </div>
-	              )}
-	            </div>
-
 	            {strategicAlerts.length > 0 && (
-	              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
+	              <div className="app-glass rounded-2xl p-4">
 	                <div className="mb-3 flex items-center justify-between gap-3">
-	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-amber-300">
+	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-warning">
 	                    Atenção estratégica
 	                  </h4>
-	                  <AlertCircle size={15} className="text-amber-300" />
+	                  <AlertCircle size={15} className="text-warning" />
 	                </div>
 	                <div className="space-y-2">
 	                  {strategicAlerts.map(alert => {
@@ -2817,9 +3001,9 @@ const Subjects = () => {
 	                          <div className="min-w-0 flex-1">
 	                            <div className="flex flex-wrap items-center gap-2">
 	                              <span className="text-[9px] font-black uppercase tracking-wider opacity-80">{style.label}</span>
-	                              <p className="text-[11px] font-black uppercase tracking-wider text-foreground">{alert.title}</p>
+	                              <p className="text-[11px] font-black uppercase tracking-wider text-title-card">{alert.title}</p>
 	                            </div>
-	                            <p className="mt-1 text-xs font-semibold leading-relaxed text-foreground">{alert.message}</p>
+	                            <p className="mt-1 text-xs font-semibold leading-relaxed text-title-card">{alert.message}</p>
 	                            <p className="mt-1 text-[10px] leading-relaxed text-content-muted">{alert.evidence}</p>
 	                          </div>
 	                        </div>
@@ -2827,7 +3011,7 @@ const Subjects = () => {
 	                          <button
 	                            type="button"
 	                            onClick={() => handleStrategicAlertAction(alert)}
-	                            className="mt-1 h-7 rounded-lg border border-white/10 bg-background/45 px-2.5 text-[10px] font-black uppercase tracking-wider text-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+	                            className="mt-1 h-7 rounded-lg border app-hairline bg-surface/45 px-2.5 text-[10px] font-black uppercase tracking-wider text-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
 	                          >
 	                            {alert.actionLabel}
 	                          </button>
@@ -2840,23 +3024,23 @@ const Subjects = () => {
 	            )}
 
 	            {queueSuggestion && (
-	              <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.07] p-4">
+	              <div className="rounded-2xl border border-incidence/20 bg-incidence/[0.07] p-4">
 	                <div className="mb-3 flex items-center justify-between gap-3">
-	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-fuchsia-300">
+	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-incidence">
 	                    Ajuste sugerido da fila
 	                  </h4>
-	                  <ListTodo size={15} className="text-fuchsia-300" />
+	                  <ListTodo size={15} className="text-incidence" />
 	                </div>
-	                <div className="rounded-xl border border-fuchsia-500/20 bg-background/40 p-3">
+	                <div className="rounded-xl border border-incidence/20 bg-surface/45 p-3 backdrop-blur">
 	                  <div className="mb-2 flex items-center gap-2">
-	                    <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-fuchsia-500/15 text-fuchsia-300">
+	                    <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-incidence/15 text-incidence">
 	                      <MoveUp size={14} />
 	                    </div>
-	                    <p className="text-[10px] font-black uppercase tracking-wider text-fuchsia-300">
+	                    <p className="text-[10px] font-black uppercase tracking-wider text-incidence">
 	                      {queueSuggestion.title}
 	                    </p>
 	                  </div>
-	                  <p className="text-xs font-semibold leading-relaxed text-foreground">{queueSuggestion.message}</p>
+	                  <p className="text-xs font-semibold leading-relaxed text-title-card">{queueSuggestion.message}</p>
 	                  <p className="mt-1 text-[10px] leading-relaxed text-content-muted">{queueSuggestion.evidence}</p>
 	                  {queueSuggestion.limitations.length > 0 && (
 	                    <div className="mt-2 space-y-1">
@@ -2870,7 +3054,7 @@ const Subjects = () => {
 	                  <button
 	                    type="button"
 	                    onClick={() => handleApplySuggestedQueueOrder(queueSuggestion.suggestedOrder)}
-	                    className="mt-3 h-8 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/10 px-3 text-[10px] font-black uppercase tracking-wider text-fuchsia-200 transition-colors hover:border-fuchsia-400/50 hover:bg-fuchsia-500/20"
+	                    className="mt-3 h-8 rounded-lg border border-incidence/25 bg-incidence/10 px-3 text-[10px] font-black uppercase tracking-wider text-incidence transition-colors hover:border-incidence/50 hover:bg-incidence/20"
 	                  >
 	                    Aplicar sugestão
 	                  </button>
@@ -2878,46 +3062,15 @@ const Subjects = () => {
 	              </div>
 	            )}
 
-	            {cycleEventInsights.length > 0 && (
-	              <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.07] p-4">
-	                <div className="mb-3 flex items-center justify-between gap-3">
-	                  <h4 className="text-[11px] font-black uppercase tracking-widest text-violet-300">
-	                    Padrões observados
-	                  </h4>
-	                  <BarChart2 size={15} className="text-violet-300" />
-	                </div>
-	                <div className="space-y-2">
-	                  {cycleEventInsights.map(insight => (
-	                    <div
-	                      key={insight.id}
-	                      className={`rounded-xl border p-3 ${
-	                        insight.severity === 'warning'
-	                          ? 'border-violet-500/25 bg-background/45'
-	                          : 'border-violet-500/15 bg-background/30'
-	                      }`}
-	                    >
-	                      <div className="mb-1 flex items-center gap-2">
-	                        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-violet-500/15 text-violet-300">
-	                          <BarChart2 size={14} />
-	                        </div>
-	                        <p className="text-[10px] font-black uppercase tracking-wider text-violet-300">
-	                          {insight.title}
-	                        </p>
-	                      </div>
-	                      <p className="text-xs font-semibold leading-relaxed text-foreground">{insight.message}</p>
-	                      <p className="mt-1 text-[10px] leading-relaxed text-content-muted">{insight.evidence}</p>
-	                    </div>
-	                  ))}
-	                </div>
-	              </div>
-	            )}
-
-	            <div className="rounded-xl border border-gray-200/70 dark:border-white/[0.06] bg-white dark:bg-card p-4">
+	            <div className="app-surface rounded-2xl p-4">
 	              <div className="mb-3 flex items-center justify-between gap-3">
 	                <h4 className="text-[11px] font-black uppercase tracking-widest text-content-muted">
 	                  Insights
 	                </h4>
-	                <Sparkles size={14} className="text-primary" />
+	                <span className="inline-flex items-center gap-1 rounded-full border border-primary/15 bg-primary/5 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-primary">
+	                  <Sparkles size={11} />
+	                  {cycleMaturity.label}
+	                </span>
 	              </div>
 	              {insightItems.length > 0 ? (
 	                <div className="grid grid-cols-1 gap-2">
@@ -2926,12 +3079,12 @@ const Subjects = () => {
 	                    return (
 	                      <div key={item.label} className={`rounded-xl border p-3 ${item.className}`}>
 	                        <div className="mb-2 flex items-center gap-2">
-	                          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-background/40">
+	                          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface/55 backdrop-blur">
 	                            <Icon size={14} />
 	                          </div>
 	                          <p className="text-[10px] font-black uppercase tracking-wider">{item.label}</p>
 	                        </div>
-	                        <p className="text-xs font-semibold leading-relaxed text-foreground">{item.value}</p>
+	                        <p className="text-xs font-semibold leading-relaxed text-title-card">{item.value}</p>
 	                      </div>
 	                    );
 	                  })}
@@ -2943,223 +3096,249 @@ const Subjects = () => {
 	                    <span className="text-[10px] font-black uppercase tracking-wider">Sem sinal confiável ainda</span>
 	                  </div>
 	                  <p className="text-xs text-content-muted leading-relaxed">
-	                    Os insights aparecem quando houver peso preenchido, tópicos novos no ciclo ou sinal de cobrança analisado.
+	                    {insightReadinessText}
 	                  </p>
 	                </div>
 	              )}
 	            </div>
 
-	            {forecastText && (
-	              <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
-	                <h4 className="text-[11px] font-black uppercase tracking-widest text-primary mb-2">
-	                  Previsão calculada
-	                </h4>
-	                <p className="text-xs text-content-muted leading-relaxed">
-	                  {forecastText}
-	                </p>
+	            {userCycle && (
+	              <div className="flex justify-end">
+	                <button
+	                  type="button"
+	                  onClick={() => setResetCycleConfirmOpen(true)}
+	                  disabled={isResettingCycle}
+	                  className="inline-flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-destructive/70 transition-colors hover:border-destructive/20 hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+	                  aria-label="Reiniciar ciclo de estudos"
+	                >
+	                  {isResettingCycle ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+	                  <span>Resetar ciclo</span>
+	                </button>
 	              </div>
 	            )}
+
 	          </div>
 	        </div>
 	      </aside>
     );
   };
 
-  const renderCycleDetailsSheet = () => {
-    const rhythmWidth = Math.min(100, Math.max(0, Math.round(cycleVisualStats.subjectsPerDay * 25)));
-    const formatSubjectsPerDay = (value: number) => {
-      if (value <= 0) return 'Sem ritmo ainda';
-      if (value < 1) {
-        const daysPerSubject = Math.max(2, Math.round(1 / value));
-        return `1 matéria a cada ${daysPerSubject} dias`;
-      }
-      const rounded = Math.round(value);
-      const displayValue = Math.abs(value - rounded) < 0.05 ? rounded.toString() : value.toFixed(1);
-      return `${displayValue} ${displayValue === '1' ? 'matéria' : 'matérias'}/dia`;
-    };
+  const handleCycleSearchChange = (query: string) => {
+    const previousName = newSubjectName;
+    setNewSubjectName(query);
 
-    return (
-      <Sheet>
-        <SheetTrigger asChild>
+    if (!previousName && query.trim()) {
+      setExpandedBeforeSearch([...expandedSubjectIds]);
+    }
+
+    if (query.trim()) {
+      const normalizeText = (text: string) =>
+        text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+      const normalizedQuery = normalizeText(query);
+      const newExpanded: string[] = [];
+
+      expandedSubjectList.forEach(item => {
+        const matchesSubject = normalizeText(item.subject.name).includes(normalizedQuery);
+        const hasMatchingTopic = item.subject.topics?.some(topic =>
+          normalizeText(topic.name).includes(normalizedQuery)
+        );
+
+        if ((matchesSubject || hasMatchingTopic) && !cycleClosedSubjectIdSet.has(item.subject.id)) {
+          newExpanded.push(item.id);
+        }
+      });
+
+      setExpandedSubjectIds(newExpanded);
+    } else {
+      setExpandedSubjectIds(expandedBeforeSearch);
+      setExpandedBeforeSearch([]);
+    }
+  };
+
+  const closeCycleSearch = () => {
+    setIsCycleSearchOpen(false);
+    handleCycleSearchChange('');
+  };
+
+  const handleViewModeToggle = () => {
+    const nextTab: SubjectTab = activeTab === 'vertical' ? 'all' : 'vertical';
+    setActiveTab(nextTab);
+
+    if (nextTab === 'vertical') {
+      setExpandedSubjectIds(verticalSubjectList.map(item => item.id));
+    }
+  };
+
+  const renderViewModeButton = () => (
+    <TooltipProvider delayDuration={120}>
+      <Tooltip>
+        <TooltipTrigger asChild>
           <button
             type="button"
-            className="h-7 rounded-lg border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-black uppercase tracking-wider text-primary transition-colors hover:bg-primary/20 inline-flex items-center gap-1.5"
+            onClick={handleViewModeToggle}
+            className="app-control h-7 shrink-0 gap-1.5 px-1.5 text-[11px] font-medium tracking-normal sm:px-2"
+            aria-label={activeTab === 'vertical' ? 'Voltar para o modo ciclo' : 'Ver conteúdo em modo edital'}
           >
-            <Settings size={12} />
-            Detalhes
+            <FileText size={11} />
+            <span className="hidden min-[760px]:inline xl:inline">
+              {activeTab === 'vertical' ? 'Modo ciclo' : 'Modo edital'}
+            </span>
           </button>
-        </SheetTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          {activeTab === 'vertical' ? 'Voltar para o modo ciclo' : 'Ver conteúdo em modo edital'}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 
-        <SheetContent side="right" className="w-full sm:max-w-xl bg-background dark:bg-zinc-950 border-border overflow-y-auto">
-          <SheetHeader className="pr-8">
-            <SheetTitle className="text-xl font-black tracking-tight">
-              Detalhes do Ciclo
-            </SheetTitle>
-            <SheetDescription>
-              Ritmo e controle do ciclo atual.
-            </SheetDescription>
-          </SheetHeader>
+  const renderCycleSearchControl = () => (
+    <div
+      className="relative h-7 min-w-0 flex-1 transition-[width] duration-200 sm:max-w-[15rem] sm:flex-none sm:focus-within:w-[220px]"
+      onClick={() => setIsCycleSearchOpen(true)}
+    >
+      <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-content-muted" size={11} />
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder="Buscar"
+        value={newSubjectName}
+        onFocus={() => setIsCycleSearchOpen(true)}
+        onChange={(e) => handleCycleSearchChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') closeCycleSearch();
+        }}
+        className="app-field h-7 w-full py-0.5 pl-6 pr-6 text-[11px] font-medium backdrop-blur placeholder:text-content-muted/45"
+        aria-label="Buscar na fila do ciclo"
+      />
+      {newSubjectName.trim() && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            closeCycleSearch();
+          }}
+          className="absolute right-1 top-1/2 grid h-4 w-4 -translate-y-1/2 place-items-center rounded text-content-muted transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Limpar busca"
+        >
+          <X size={10} />
+        </button>
+      )}
+    </div>
+  );
 
-          <div className="mt-6 space-y-4">
-            <div className="rounded-2xl border border-border bg-card dark:bg-zinc-900 p-5">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                  <Clock size={16} className="text-blue-500" />
-                </div>
-                <h4 className="text-xs font-black uppercase tracking-widest text-content-main">
-                  Inteligência de Ritmo
-                </h4>
-              </div>
+  const renderCycleReorderButton = () => {
+    const reorderDisabled = activeTab === 'vertical';
 
-              <div className="space-y-3">
-                <div>
-                  <div className="flex items-center justify-between gap-3 mb-1.5">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-content-muted">
-                      Ritmo atual
-                    </span>
-                    <span className="text-xs font-black text-foreground tabular-nums">
-                      {formatSubjectsPerDay(cycleVisualStats.subjectsPerDay)}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full bg-muted/20 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 transition-all duration-500"
-                      style={{ width: `${rhythmWidth}%` }}
-                    />
-                  </div>
-                </div>
+    return (
+      <TooltipProvider delayDuration={120}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={handleToggleCycleReorder}
+              disabled={reorderDisabled}
+              className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border px-1.5 text-[11px] font-medium tracking-normal transition-colors sm:px-2 ${
+                isReorderingCycle
+                  ? 'border-warning/45 bg-warning/15 text-warning shadow-[0_0_18px_hsl(var(--warning)/0.12)]'
+                  : 'app-control disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-transparent disabled:hover:bg-transparent disabled:hover:text-content-muted'
+              }`}
+              aria-pressed={isReorderingCycle}
+              aria-label={
+                reorderDisabled
+                  ? 'Organização disponível apenas no modo ciclo'
+                  : isReorderingCycle
+                    ? 'Concluir organização da fila'
+                    : 'Organizar ordem da fila'
+              }
+            >
+              {isReorderingCycle ? <Check size={11} /> : <GripVertical size={12} />}
+              <span className="hidden min-[760px]:inline xl:inline">
+                {isReorderingCycle ? 'OK' : 'Organizar'}
+              </span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {reorderDisabled ? 'Disponível no modo ciclo' : isReorderingCycle ? 'Concluir organização' : 'Organizar ordem'}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
 
-                <div className="pt-3 border-t border-border/50">
-                  <p className="text-xs text-content-muted leading-relaxed">
-                    {cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0 ? (
-                      <>
-                        Faltam aprox. <strong className="text-foreground">{cycleVisualStats.daysToFinish} dias</strong> para bater este ciclo no ritmo atual.
-                      </>
-                    ) : cycleVisualStats.remainingSubjects === 0 ? (
-                      'Este ciclo já está completo.'
-                    ) : (
-                      'Marque matérias como estudadas para gerar uma estimativa de conclusão.'
-                    )}
-                  </p>
-                </div>
-              </div>
-            </div>
+  const renderCycleWorkspaceHeader = () => {
+    const isCycleMode = activeTab === 'all';
+    const expandableSubjectIds = isCycleMode
+      ? filteredList
+        .filter(item => !cycleClosedSubjectIdSet.has(item.subject.id))
+        .map(item => item.id)
+      : verticalSubjectList.map(item => item.id);
+    const allExpanded = expandableSubjectIds.length > 0 && expandableSubjectIds.every(id => expandedSubjectIds.includes(id));
+    const title = isCycleMode ? 'Fila do Ciclo' : 'Edital Verticalizado';
+    const count = isCycleMode ? filteredList.length : verticalSubjectList.length;
 
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-red-400 mb-2">
-                    Zona de controle
-                  </h4>
-                  <p className="text-sm font-bold text-foreground">
-                    Reiniciar ciclo de estudos
-                  </p>
-                  <p className="text-xs text-content-muted mt-1 leading-relaxed">
-                    Zera o giro atual e limpa as matérias marcadas como estudadas, sem apagar matérias ou tópicos.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setResetCycleConfirmOpen(true)}
-                  disabled={!userCycle || isResettingCycle}
-                  className="h-9 px-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-black uppercase tracking-wider transition-colors shrink-0 inline-flex items-center gap-2"
-                >
-                  {isResettingCycle ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                  Resetar
-                </button>
-              </div>
-            </div>
+    return (
+      <div className="mb-2 space-y-2 px-0">
+        <div className="flex min-w-0 items-center gap-2">
+          {isCycleMode ? (
+            <ListTodo size={17} className="shrink-0 text-primary" />
+          ) : (
+            <FileText size={16} className="shrink-0 text-primary" />
+          )}
+          <h3 className="app-type-section-title min-w-0 break-words text-title-section">
+            {title}
+          </h3>
+          <span className="shrink-0 rounded-md bg-primary/8 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+            ({count})
+          </span>
+        </div>
+        <div className="app-glass flex min-w-0 items-center justify-between gap-1.5 rounded-2xl px-2 py-2 sm:gap-3">
+          <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1.5">
+            {renderCycleReorderButton()}
+            {renderCycleSearchControl()}
           </div>
-        </SheetContent>
-      </Sheet>
+          <div className="flex shrink-0 flex-nowrap items-center gap-1.5">
+            {renderViewModeButton()}
+            <TooltipProvider delayDuration={120}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={toggleAllCycleSubjects}
+                    disabled={expandableSubjectIds.length === 0}
+                    className="app-control h-7 shrink-0 gap-1 px-1.5 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-35 sm:px-2"
+                    aria-label={allExpanded ? 'Recolher todas as matérias' : 'Expandir todas as matérias'}
+                  >
+                    <ChevronDown
+                      size={11}
+                      className={`transition-transform ${allExpanded ? 'rotate-180' : ''}`}
+                    />
+                    <span className="hidden min-[760px]:inline xl:inline">
+                      {allExpanded ? 'Recolher' : 'Expandir'}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {allExpanded ? 'Recolher todos' : 'Expandir todos'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      </div>
     );
   };
 
   const mainSubjectUI = (
     <div className="space-y-6 w-full">
-
-      <div className="mb-5 relative z-20">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full">
-          <div className="flex flex-col sm:flex-row items-center gap-3 flex-1 min-w-0">
-                {/* Search Input - Slightly Wider */}
-                <div className="relative w-full sm:min-w-[220px] lg:min-w-[280px] lg:max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted" size={14} />
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    placeholder={isImportEditalModalOpen ? "Matéria..." : "Buscar..."}
-                    value={newSubjectName}
-                    onChange={(e) => {
-                      const query = e.target.value;
-                      const previousName = newSubjectName;
-                      setNewSubjectName(query);
-
-                      if (isImportEditalModalOpen) return;
-
-                      if (!previousName && query.trim()) {
-                        setExpandedBeforeSearch([...expandedSubjectIds]);
-                      }
-
-                      if (query.trim()) {
-                        const normalizeText = (text: string) =>
-                          text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
-                        const normalizedQuery = normalizeText(query);
-                        const newExpanded: string[] = [];
-
-                        expandedSubjectList.forEach(item => {
-                          const matchesSubject = normalizeText(item.subject.name).includes(normalizedQuery);
-                          const hasMatchingTopic = item.subject.topics?.some(topic =>
-                            normalizeText(topic.name).includes(normalizedQuery)
-                          );
-                          if ((matchesSubject || hasMatchingTopic) && !studiedCycleIdSet.has(item.subject.id)) {
-                            newExpanded.push(item.id);
-                          }
-                        });
-
-                        setExpandedSubjectIds(newExpanded);
-                      } else {
-                        setExpandedSubjectIds(expandedBeforeSearch);
-                        setExpandedBeforeSearch([]);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        if (isImportEditalModalOpen) {
-                          const originInput = document.getElementById('new-subject-source');
-                          originInput?.focus();
-                        } else {
-                          handleSaveSubject();
-                        }
-                      }
-                    }}
-                    className="w-full h-10 bg-card dark:bg-zinc-900 border border-border dark:border-white/10 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-primary/50 transition-all text-foreground placeholder:text-content-muted/50 shadow-sm"
-                  />
-                </div>
-
-                {/* View mode - compact control */}
-                {!isImportEditalModalOpen && (
-                  <button
-                    onClick={() => setActiveTab(activeTab === 'vertical' ? 'all' : 'vertical')}
-                    title={activeTab === 'vertical' ? 'Voltar para o modo ciclo' : 'Ver conteúdo em modo edital'}
-                    className={`h-10 px-3 rounded-xl border text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap inline-flex items-center gap-2 shrink-0 ${
-                      activeTab === 'vertical'
-                        ? 'bg-primary/10 border-primary/25 text-primary'
-                        : 'bg-card dark:bg-zinc-900 border-border dark:border-white/10 text-content-muted hover:text-primary hover:border-primary/30'
-                    }`}
-                  >
-                    <FileText size={14} />
-                    {activeTab === 'vertical' ? 'Modo ciclo' : 'Modo edital'}
-                  </button>
-                )}
-          </div>
-        </div>
-      </div>
-
       {activeTab === 'vertical' ? (
-        renderVerticalEditalView()
+        <div className="space-y-3">
+          {renderCycleWorkspaceHeader()}
+          {renderVerticalEditalView()}
+        </div>
       ) : (
-        <div className={activeTab === 'all' ? "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)] gap-8 items-start" : "w-full"}>
+        <div className={activeTab === 'all' ? "grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.58fr)] xl:gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.54fr)] items-start" : "w-full"}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -3167,58 +3346,16 @@ const Subjects = () => {
           onDragEnd={handleDragEnd}
         >
         <div className="w-full min-w-0">
-          {activeTab === 'all' && (
-            <div className="mb-3 flex items-center justify-between px-1 pl-[26px]">
-              <div className="flex items-center gap-2 min-w-0">
-                <ListTodo size={14} className="text-primary shrink-0" />
-                <h3 className="text-[15px] font-bold text-primary">
-                  Fila do Ciclo
-                </h3>
-                <span className="text-[10px] text-gray-400 dark:text-white/30">
-                  ({filteredList.length})
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {renderCycleDetailsSheet()}
-                <button
-                  type="button"
-                  onClick={toggleAllCycleSubjects}
-                  className="hidden md:flex h-7 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold text-gray-400 transition-colors hover:bg-primary/10 hover:text-primary dark:text-white/25 dark:hover:text-primary"
-                  title={
-                    filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
-                      ? 'Recolher todos os tópicos'
-                      : 'Expandir todos os tópicos'
-                  }
-                  aria-label={
-                    filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
-                      ? 'Recolher todos os tópicos das matérias'
-                      : 'Expandir todos os tópicos das matérias'
-                  }
-                >
-                  <ChevronDown
-                    size={12}
-                    className={`transition-transform ${
-                      filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
-                        ? 'rotate-180'
-                        : ''
-                    }`}
-                  />
-                  {filteredList.length > 0 && filteredList.every(item => expandedSubjectIds.includes(item.id))
-                    ? 'Recolher'
-                    : 'Expandir'}
-                </button>
-              </div>
-            </div>
-          )}
+          {activeTab === 'all' && renderCycleWorkspaceHeader()}
 
           {(displayList.length === 0 && dataLoaded && !isLoading) ? (
             <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-500 w-full mb-12">
               {localSubjects.length === 0 ? (
                 <>
-                  <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-blue-500/10 dark:from-primary/20 dark:to-blue-500/20 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                  <div className="app-empty-orb mb-6 flex h-20 w-20 items-center justify-center rounded-full">
                     <span className="text-4xl text-primary">📚</span>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground mb-3">
+                  <h3 className="mb-3 text-xl font-bold text-title-section">
                     Nenhuma matéria cadastrada
                   </h3>
                   <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
@@ -3226,41 +3363,41 @@ const Subjects = () => {
                   </p>
                   <button
                     onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
-                    className="px-6 py-3 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                    className="app-primary-button px-6 py-3"
                   >
                     Ir para Meus Editais
                   </button>
                 </>
               ) : activeTab === 'all' && hasActiveCycle && isCycleFullyStudied ? (
-                <div className="w-full max-w-xl rounded-2xl border border-emerald-800/40 bg-emerald-900/10 p-6 text-left shadow-sm">
+                <div className="app-gradient-panel w-full max-w-xl rounded-2xl p-6 text-left">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center shrink-0">
-                      <CheckCircle2 size={22} className="text-emerald-500" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-success/25 bg-success/10">
+                      <CheckCircle2 size={22} className="text-success" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-lg font-black text-foreground">
+                      <h3 className="text-lg font-black text-title-section">
                         Ciclo {(userCycle?.ciclos_realizados || 0) + 1} finalizado
                       </h3>
                       <p className="text-sm text-content-muted mt-1 leading-relaxed">
-                        Todas as matérias pendentes deste ciclo foram marcadas como estudadas.
+                        Todas as matérias pendentes deste ciclo foram concluídas no ciclo ou já estão concluídas no edital.
                       </p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 my-5">
-                    <div className="rounded-xl border border-emerald-800/30 bg-background/40 p-4 text-center">
+                    <div className="app-soft-panel rounded-xl p-4 text-center">
                       <p className="text-[10px] font-black uppercase tracking-widest text-content-muted mb-1">
                         Estudadas
                       </p>
-                      <p className="text-2xl font-black text-foreground">
+                    <p className="text-2xl font-black text-title-card">
                         {studiedCycleList.length}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-emerald-800/30 bg-background/40 p-4 text-center">
+                    <div className="app-soft-panel rounded-xl p-4 text-center">
                       <p className="text-[10px] font-black uppercase tracking-widest text-content-muted mb-1">
                         Total
                       </p>
-                      <p className="text-2xl font-black text-foreground">
+                      <p className="text-2xl font-black text-title-card">
                         {studiedCycleList.length}
                       </p>
                     </div>
@@ -3270,7 +3407,7 @@ const Subjects = () => {
                     <button
                       onClick={() => setStartNextCycleConfirmOpen(true)}
                       disabled={isStartingNextCycle}
-                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all inline-flex items-center gap-2"
+                      className="app-success-button gap-2 px-5 py-2.5 disabled:cursor-not-allowed"
                     >
                       {isStartingNextCycle ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                       Iniciar Próximo Ciclo
@@ -3279,8 +3416,8 @@ const Subjects = () => {
                 </div>
               ) : (
                 <>
-                  <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
-                    <Search size={32} className="text-slate-400" />
+                  <div className="app-empty-orb mb-6 flex h-16 w-16 items-center justify-center rounded-full">
+                    <Search size={32} className="text-content-muted" />
                   </div>
                   <h3 className="text-lg font-bold text-foreground mb-2">
                     {newSubjectName.trim() && !isImportEditalModalOpen ? 'Nada encontrado na fila' : 'Nenhuma matéria ativa no ciclo'}
@@ -3292,7 +3429,7 @@ const Subjects = () => {
                   </p>
                   <button
                     onClick={() => navigate('/meus-editais')}
-                    className="px-5 py-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all"
+                    className="app-primary-button px-5 py-2"
                   >
                     Ir para Meus Editais
                   </button>
@@ -3302,19 +3439,19 @@ const Subjects = () => {
           ) : (
             <>
               {activeTab === 'all' && isCycleFullyStudied && (
-                <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex items-center justify-between gap-4">
+                <div className="app-gradient-panel mb-4 flex items-center justify-between gap-4 rounded-xl px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-foreground">
                       Ciclo concluído
                     </p>
                     <p className="text-xs text-content-muted mt-0.5">
-                      Todas as matérias da fila foram marcadas como estudadas.
+                      Todas as matérias da fila foram concluídas no ciclo ou já estão concluídas no edital.
                     </p>
                   </div>
                   <button
                     onClick={() => setStartNextCycleConfirmOpen(true)}
                     disabled={isStartingNextCycle}
-                    className="h-9 px-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed text-[10px] font-black uppercase tracking-wider transition-colors shrink-0 inline-flex items-center gap-2"
+                    className="app-success-button h-9 shrink-0 gap-2 px-3 text-[10px] font-black uppercase tracking-wider disabled:cursor-not-allowed"
                   >
                     {isStartingNextCycle ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
                     Novo Ciclo
@@ -3324,20 +3461,24 @@ const Subjects = () => {
 
               <SortableContext items={displayList.map(i => i.id)} strategy={verticalListSortingStrategy}>
                 <div className={activeTab === 'all' ? "flex flex-col gap-1.5" : "space-y-1.5"}>
-                {displayList.map((item) => {
-                  const { subject } = item;
-                  const isStudiedInCycle = studiedCycleIdSet.has(subject.id);
-                  const totalTopicsCount = subject.topics.length;
-                  const completedTopicsCount = subject.topics.filter(isTopicCompleted).length;
-                  const inReviewTopicsCount = subject.topics.filter(topic =>
-                    isTopicStarted(topic) && !isTopicCompleted(topic)
-                  ).length;
+	                {displayList.map((item) => {
+	                  const { subject } = item;
+	                  const isManuallyStudiedInCycle = studiedCycleIdSet.has(subject.id);
+	                  const isFullyStartedInCycle = fullyStartedSubjectIdSet.has(subject.id);
+	                  const isCompletedInEdital = completedEditalSubjectIdSet.has(subject.id);
+	                  const isClosedInCycle = isManuallyStudiedInCycle || isFullyStartedInCycle || isCompletedInEdital;
+	                  const activeSubjectTopics = subject.topics.filter(topic => topic.is_active !== false);
+	                  const totalTopicsCount = activeSubjectTopics.length;
+	                  const completedTopicsCount = activeSubjectTopics.filter(isTopicCompleted).length;
+	                  const inReviewTopicsCount = activeSubjectTopics.filter(topic =>
+	                    isTopicStarted(topic) && !isTopicCompleted(topic)
+	                  ).length;
 	                  const noTopics = totalTopicsCount === 0;
 	                  const startedTopicsCount = inReviewTopicsCount + completedTopicsCount;
 	                  const activeTopicsStartedInCurrentCycle = subject.topics.filter(topic =>
 	                    topic.is_active !== false && isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo)
 	                  ).length;
-	                  const needsCycleClosure = activeTopicsStartedInCurrentCycle > 0 && !isStudiedInCycle;
+	                  const needsCycleClosure = activeTopicsStartedInCurrentCycle > 0 && !isClosedInCycle;
 	                  const topicStatusLabel = noTopics
 	                    ? 'Sem tópicos'
                       : startedTopicsCount === 0
@@ -3347,146 +3488,155 @@ const Subjects = () => {
                         : startedTopicsCount === totalTopicsCount
                           ? 'Todos iniciados'
                           : `${startedTopicsCount}/${totalTopicsCount} iniciados`;
-	                  const subjectCycleStatusLabel = isStudiedInCycle ? 'Concluída no ciclo' : topicStatusLabel;
+	                  const subjectCycleStatusLabel = isCompletedInEdital
+	                    ? 'Concluída no edital'
+	                    : isManuallyStudiedInCycle || isFullyStartedInCycle
+	                      ? 'Concluída no ciclo'
+	                      : topicStatusLabel;
 
                   const isEditing = editingSubjectId === subject.id;
 
                   return (
-                    <SortableItem key={item.id} id={item.id} lockAxis="vertical">
+	                    <SortableItem key={item.id} id={item.id} lockAxis="vertical" disabled={!isReorderingCycle}>
                       {({ listeners, attributes }) => (
-                        <div className="w-full max-w-full flex items-start gap-1.5" data-subject-item>
-                          <div
-                            className="w-5 h-[56px] shrink-0 flex items-center justify-center cursor-move text-gray-300 dark:text-white/20 hover:text-gray-500 dark:hover:text-white/50 transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                            {...listeners}
-                            {...attributes}
-                            aria-label={`Ordenar ${getUnifiedSubjectName(subject.id, subject.name)}`}
-                            title="Ordenar matéria"
-                          >
-                            <GripVertical size={15} />
-                          </div>
+	                        <div className="w-full max-w-full flex items-start gap-1.5" data-subject-item>
+	                          <div
+	                            className={`h-[56px] w-5 shrink-0 items-center justify-center rounded-xl border transition-all touch-none ${
+	                                isReorderingCycle
+	                                  ? 'flex cursor-grab border-warning/20 bg-warning/10 text-warning shadow-[0_0_18px_hsl(var(--warning)/0.10)] active:cursor-grabbing'
+	                                  : 'hidden'
+	                              }`}
+	                            onClick={(e) => e.stopPropagation()}
+	                            {...listeners}
+	                            {...attributes}
+	                            aria-label={`Arrastar ${getUnifiedSubjectName(subject.id, subject.name)} para reorganizar a fila`}
+	                          >
+	                            <GripVertical size={isReorderingCycle ? 16 : 14} />
+	                          </div>
 
                           {/* Container unificado: header + tópicos no mesmo card */}
-                          <div
-                            className={`rounded-lg overflow-hidden border transition-all ${
-                              expandedSubjectIds.includes(item.id)
-                                ? isStudiedInCycle
-                                  ? 'border-emerald-200/60 dark:border-emerald-500/20'
-                                  : 'border-gray-200 dark:border-white/[0.08] shadow-sm'
-                                : isStudiedInCycle
-                                  ? 'border-emerald-200/45 dark:border-emerald-500/12 hover:border-emerald-300/70 dark:hover:border-emerald-500/25'
-                                  : 'border-gray-100 dark:border-white/[0.04] hover:border-gray-200 dark:hover:border-white/[0.08]'
-                            } ${isStudiedInCycle ? 'bg-emerald-50/35 dark:bg-emerald-500/[0.035]' : 'bg-white dark:bg-card'} flex-1 min-w-0`}
-                          >
-                            {/* === HEADER DA MATÉRIA === */}
+	                          <div
+		                            className={`overflow-hidden rounded-2xl border backdrop-blur transition-all ${
+		                              expandedSubjectIds.includes(item.id)
+		                                ? isClosedInCycle
+		                                  ? 'border-success/25'
+		                                  : 'app-hairline shadow-sm'
+	                                : isClosedInCycle
+	                                  ? 'border-success/20 hover:border-success/35'
+	                                  : 'app-hairline'
+		                            } ${isClosedInCycle ? 'app-cycle-subject-closed' : 'app-cycle-subject'} ${isReorderingCycle ? 'ring-1 ring-warning/15 shadow-[0_8px_26px_rgba(0,0,0,0.10)]' : ''} flex-1 min-w-0`}
+		                          >
+	                            {/* === HEADER DA MATÉRIA === */}
                             <div
-                              data-subject-id={subject.id}
-                              onClick={() => toggleExpand(item.id)}
+	                              data-subject-id={subject.id}
+	                              onClick={() => toggleExpand(item.id)}
 	                              className={`min-h-[64px] pl-2 pr-4 py-2 flex items-center gap-2 group cursor-pointer relative transition-colors ${
-	                                isStudiedInCycle
-	                                  ? 'bg-emerald-50/50 dark:bg-emerald-500/[0.045]'
+	                                isClosedInCycle
+	                                  ? 'bg-success/[0.055]'
 	                                  : ''
-                              }`}
+                              } ${highlightedSubjectId === subject.id ? 'study-cycle-subject-focus' : ''}`}
                           >
                               {/* Content area: text + progress */}
-                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="flex items-start gap-3 min-w-0 flex-1">
                                 {/* Text Block */}
-                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const edital = editaisData.find(e => e.id === subject.edital_id);
-                                      if (edital) {
-                                        setSubjectsModal({ 
-                                          isOpen: true, 
-                                          edital: toEditalModalData(edital),
-                                          initialExpandedSubjectId: subject.id
-                                        });
-                                      }
-                                    }}
-                                    className="p-0.5 text-gray-300 dark:text-white/20 hover:text-primary transition-colors flex-shrink-0"
-                                    title="Gerenciar no Edital / Editar tópicos"
-                                  >
-                                    <Edit2 size={14} />
-                                  </button>
+                                <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                                  {renderCycleTooltip(
+                                    'Gerenciar no edital',
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const edital = editaisData.find(e => e.id === subject.edital_id);
+                                        if (edital) {
+                                          setSubjectsModal({
+                                            isOpen: true,
+                                            edital: toEditalModalData(edital),
+                                            initialExpandedSubjectId: subject.id
+                                          });
+                                        }
+                                      }}
+                                      className="mt-[1px] p-0.5 text-content-muted/45 transition-colors hover:text-primary"
+                                      aria-label={`Gerenciar ${getUnifiedSubjectName(subject.id, subject.name)} no edital`}
+                                    >
+                                      <Edit2 size={11} />
+                                    </button>
+                                  )}
 
-                                  <div className="flex flex-col min-w-0 gap-0.5 flex-1">
-                                    <h4 className={`text-[13px] font-bold truncate leading-tight ${
-                                      isStudiedInCycle
-                                        ? 'text-gray-500 dark:text-white/55'
-                                        : 'text-gray-700 dark:text-white/85'
+                                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                    <h4 className={`app-type-card-title overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] ${
+                                      isClosedInCycle
+                                        ? 'text-content-muted'
+                                        : 'text-title-card'
                                     }`}>
                                       {(() => { const n = getUnifiedSubjectName(subject.id, subject.name); return n.charAt(0).toUpperCase() + n.slice(1); })()}
                                     </h4>
 
-	                                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400 dark:text-white/35 leading-none mt-1">
-	                                      <span className="flex items-center gap-0.5">
-	                                        <span className="text-[10px]">≡</span> {totalTopicsCount} Tópico{totalTopicsCount === 1 ? '' : 's'}
+	                                    <div className="app-type-meta mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-content-muted">
+	                                      <span className="flex min-w-0 items-center gap-0.5">
+	                                        <ListTodo size={10} /> {totalTopicsCount} Tópico{totalTopicsCount === 1 ? '' : 's'}
 	                                      </span>
                                       {!noTopics && (
                                         <>
-                                          <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-white/20" aria-hidden="true" />
-	                                          <span>{subjectCycleStatusLabel}</span>
+                                          <span className="h-1 w-1 rounded-full bg-content-muted/30" aria-hidden="true" />
+	                                          <span className="min-w-0 break-words">{subjectCycleStatusLabel}</span>
 	                                        </>
 	                                      )}
-	                                      {!isStudiedInCycle && renderSubjectWeightControl(subject)}
-	                                      {isStudiedInCycle && (
-	                                        <span
-	                                          className="inline-flex items-center gap-1 rounded-md border border-emerald-500/15 bg-emerald-500/10 px-1.5 py-0.5 font-black text-emerald-600 dark:text-emerald-400"
-	                                          title="Matéria já marcada como estudada neste ciclo. Ela continua na fila para histórico e pode voltar se necessário."
-	                                        >
-	                                          <Check size={10} strokeWidth={3} />
-	                                          Fechada
-	                                        </span>
+	                                      {!isClosedInCycle && (
+	                                        <>
+	                                          <span className="h-1 w-1 rounded-full bg-content-muted/30" aria-hidden="true" />
+	                                          {renderSubjectWeightControl(subject)}
+	                                        </>
 	                                      )}
-	                                      {needsCycleClosure && (
-	                                        <span
-	                                          className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-black text-amber-600 dark:text-amber-300"
-	                                          title={`${activeTopicsStartedInCurrentCycle} tópico${activeTopicsStartedInCurrentCycle === 1 ? '' : 's'} novo${activeTopicsStartedInCurrentCycle === 1 ? '' : 's'} neste ciclo. Marque a matéria quando encerrar o bloco.`}
-	                                        >
-	                                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
-	                                          Em andamento no ciclo
-	                                        </span>
+	                                      {isClosedInCycle && renderCycleTooltip(
+	                                          isCompletedInEdital
+	                                            ? 'Todos os tópicos ativos desta matéria já estão concluídos.'
+	                                            : isFullyStartedInCycle
+	                                              ? 'Todos os tópicos ativos desta matéria já foram iniciados. Ela fica concluída neste ciclo.'
+	                                              : 'Matéria já marcada como estudada neste ciclo. Ela continua na fila para histórico e pode voltar se necessário.',
+	                                          <span className="inline-flex items-center gap-1 rounded-md border border-success/15 bg-success/10 px-1.5 py-0.5 font-black text-success">
+	                                            <Check size={10} strokeWidth={3} />
+	                                            {isCompletedInEdital ? 'Concluída' : 'Concluída no ciclo'}
+	                                          </span>
 	                                      )}
 	                                    </div>
 	                                  </div>
 
-                                  {isSubjectMerged(subject.id) && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const mergeInfo = getSubjectMergeInfo(subject.id);
-                                        if (mergeInfo) {
-                                          setSelectedMergeId(mergeInfo.id);
-                                          setSelectedMergeName(mergeInfo.display_name);
+                                  {isSubjectMerged(subject.id) && renderCycleTooltip(
+                                      'Desfazer mesclagem',
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const mergeInfo = getSubjectMergeInfo(subject.id);
+                                          if (mergeInfo) {
+                                            setSelectedMergeId(mergeInfo.id);
+                                            setSelectedMergeName(mergeInfo.display_name);
 
-                                          // Capturar originais para transparência no modal
-                                          const originalIds = [
-                                            mergeInfo.primary_subject_id,
-                                            ...(mergeInfo.merged_subject_ids || [])
-                                          ];
+                                            // Capturar originais para transparência no modal
+                                            const originalIds = [
+                                              mergeInfo.primary_subject_id,
+                                              ...(mergeInfo.merged_subject_ids || [])
+                                            ];
 
-                                          const originals = originalIds.map(sid => {
-                                            const origins = originsMap.get(sid) || [];
-                                            const firstOrigin = origins[0];
-                                            const subj = subjects.find(s => s.id === sid);
-                                            return {
-                                              subjectName: subj?.name || 'Matéria Desconhecida',
-                                              editalName: firstOrigin?.name || 'Edital Desconhecido',
-                                              editalOrgan: firstOrigin?.organ || ''
-                                            };
-                                          });
-                                          setSelectedMergeOriginals(originals);
+                                            const originals = originalIds.map(sid => {
+                                              const origins = originsMap.get(sid) || [];
+                                              const firstOrigin = origins[0];
+                                              const subj = subjects.find(s => s.id === sid);
+                                              return {
+                                                subjectName: subj?.name || 'Matéria Desconhecida',
+                                                editalName: firstOrigin?.name || 'Edital Desconhecido',
+                                                editalOrgan: firstOrigin?.organ || ''
+                                              };
+                                            });
+                                            setSelectedMergeOriginals(originals);
 
-                                          setIsRevertModalOpen(true);
-                                        }
-                                      }}
-                                      title="Desfazer Mesclagem"
-                                      className="w-fit p-1 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition-colors text-orange-500"
-                                    >
-                                      <Link2Off size={14} />
-                                    </button>
-                                  )}
+                                            setIsRevertModalOpen(true);
+                                          }
+                                        }}
+                                        className="w-fit rounded p-1 text-warning transition-colors hover:bg-warning/10"
+                                        aria-label={`Desfazer mesclagem de ${getUnifiedSubjectName(subject.id, subject.name)}`}
+                                      >
+                                        <Link2Off size={14} />
+                                      </button>
+                                    )}
                                 </div>
 
                               </div>
@@ -3495,35 +3645,55 @@ const Subjects = () => {
 
                               {activeTab === 'all' && (
                                 <>
-                                  {isStudiedInCycle ? (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleVoltarMateriaParaFila(subject.id);
-                                      }}
-                                      className="group/return relative w-6 h-6 rounded-full border border-emerald-200 bg-emerald-500/10 text-emerald-600 dark:border-emerald-500/25 dark:text-emerald-400 flex items-center justify-center shrink-0 hover:border-blue-300 hover:bg-blue-500/10 hover:text-blue-500 dark:hover:border-blue-400/40 dark:hover:bg-blue-500/15 dark:hover:text-blue-400 transition-all"
-                                      title="Voltar matéria para a fila"
-                                      aria-label={`Voltar ${getUnifiedSubjectName(subject.id, subject.name)} para a fila do ciclo`}
-                                    >
-                                      <Check size={12} strokeWidth={3} className="transition-all group-hover/return:scale-0 group-hover/return:opacity-0" />
-                                      <RotateCcw size={11} className="absolute scale-0 opacity-0 transition-all group-hover/return:scale-100 group-hover/return:opacity-100" />
-                                    </button>
+		                                  {isCompletedInEdital || isFullyStartedInCycle ? (
+		                                    renderCycleTooltip(
+		                                      isCompletedInEdital
+		                                        ? 'Todos os tópicos ativos desta matéria estão concluídos.'
+		                                        : 'Todos os tópicos ativos desta matéria já foram iniciados.',
+		                                      <button
+		                                        onClick={(e) => e.stopPropagation()}
+		                                        aria-disabled="true"
+		                                        className="relative flex h-6 w-6 shrink-0 cursor-default items-center justify-center rounded-full border border-success/25 bg-success/10 text-success opacity-80"
+		                                        aria-label={isCompletedInEdital
+		                                          ? `${getUnifiedSubjectName(subject.id, subject.name)} concluída no edital`
+	                                          : `${getUnifiedSubjectName(subject.id, subject.name)} concluída no ciclo`}
+		                                      >
+		                                        <Check size={12} strokeWidth={3} />
+		                                      </button>
+		                                    )
+	                                  ) : isManuallyStudiedInCycle ? (
+	                                    renderCycleTooltip(
+	                                      'Voltar matéria para a fila',
+	                                      <button
+	                                        onClick={(e) => {
+	                                          e.stopPropagation();
+                                          handleVoltarMateriaParaFila(subject.id);
+                                        }}
+                                        className="group/return relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-success/25 bg-success/10 text-success transition-all hover:border-success/35 hover:bg-success/15 hover:text-success"
+                                        aria-label={`Voltar ${getUnifiedSubjectName(subject.id, subject.name)} para a fila do ciclo`}
+                                      >
+                                        <Check size={12} strokeWidth={3} className="transition-all group-hover/return:scale-0 group-hover/return:opacity-0" />
+                                        <RotateCcw size={11} className="absolute scale-0 opacity-0 transition-all group-hover/return:scale-100 group-hover/return:opacity-100" />
+                                      </button>
+                                    )
                                   ) : (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleMarcarMateriaComoEstudada(subject.id);
-                                      }}
-                                      title={needsCycleClosure ? 'Há tópicos novos neste ciclo. Marque a matéria quando encerrar este bloco.' : 'Marcar como estudada'}
-                                      aria-label={`Marcar ${getUnifiedSubjectName(subject.id, subject.name)} como estudada`}
-                                      className={`relative w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                                        needsCycleClosure
-                                          ? 'border-amber-300/70 bg-amber-500/10 text-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.10)] before:absolute before:inset-[-5px] before:rounded-full before:border before:border-amber-400/30 before:animate-pulse hover:bg-emerald-500 hover:border-emerald-300/80 hover:text-white hover:shadow-none'
-                                          : 'border-gray-300/80 bg-white/[0.02] text-gray-400/80 hover:bg-emerald-500 hover:border-emerald-300/80 hover:text-white dark:border-white/45 dark:bg-white/[0.03] dark:text-white/45 dark:hover:bg-emerald-500 dark:hover:border-emerald-300/80 dark:hover:text-white'
-                                      }`}
-                                    >
-                                      <Check size={12} strokeWidth={3} />
-                                    </button>
+                                    renderCycleTooltip(
+                                      needsCycleClosure ? 'Há tópicos novos neste ciclo. Marque a matéria quando encerrar este bloco.' : 'Marcar como estudada',
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleMarcarMateriaComoEstudada(subject.id);
+                                        }}
+                                        aria-label={`Marcar ${getUnifiedSubjectName(subject.id, subject.name)} como estudada`}
+                                        className={`relative w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                                          needsCycleClosure
+                                            ? 'border-warning/70 bg-warning/10 text-warning shadow-[0_0_0_3px_hsl(var(--warning)/0.10)] before:absolute before:inset-[-5px] before:rounded-full before:border before:border-warning/30 before:animate-pulse hover:border-success/80 hover:bg-success hover:text-success-foreground hover:shadow-none'
+                                            : 'border-border-strong/70 bg-surface/30 text-content-muted hover:border-success/70 hover:bg-success hover:text-success-foreground dark:bg-surface/20'
+                                        }`}
+                                      >
+                                        <Check size={12} strokeWidth={3} />
+                                      </button>
+                                    )
                                   )}
                                 </>
                               )}
@@ -3533,17 +3703,17 @@ const Subjects = () => {
                             {/* === TÓPICOS (dentro do mesmo card) === */}
                             {expandedSubjectIds.includes(item.id) && (
                               <div
-                                className="border-t border-gray-100 dark:border-white/[0.06]"
+                                className="border-t app-hairline"
                                 onClick={(e) => e.stopPropagation()}
                               >
 
                               {subject.topics.length === 0 ? (
-                                <div className="py-4 text-center text-xs text-gray-400 dark:text-white/30">
+                                <div className="py-4 text-center text-xs text-content-muted">
                                   Nenhum tópico cadastrado
                                 </div>
                               ) : (
                                 <div className="flex flex-col">
-                                  {subject.topics.map((topic, idx) => {
+                                  {subject.topics.map((topic) => {
                                     const completed = isTopicCompleted(topic);
                                     const isActive = topic.is_active !== false;
 	                                    const contactCount = getTopicContactCount(topic, topicStats);
@@ -3563,11 +3733,7 @@ const Subjects = () => {
 	                                      <div
 	                                        key={topic.id}
 	                                        data-topic-item
-	                                        className={`min-h-10 grid grid-cols-[8px_minmax(0,1fr)] sm:grid-cols-[8px_minmax(0,1fr)_auto] items-start sm:items-center gap-x-3 gap-y-2 pl-4 pr-4 py-2 transition-colors group/topic relative cursor-default ${
-	                                          idx % 2 === 0
-	                                            ? 'bg-gray-50/50 dark:bg-white/[0.02]'
-	                                            : 'bg-white dark:bg-transparent'
-                                        } ${
+	                                        className={`app-cycle-topic-row relative grid min-h-10 cursor-default grid-cols-[8px_minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-t app-hairline py-2.5 pl-4 pr-3 transition-colors first:border-t-0 group/topic sm:grid-cols-[8px_minmax(0,1fr)_auto] sm:items-center sm:pr-4 ${
                                           !isActive ? 'opacity-40 grayscale-[0.5]' : ''
                                         }`}
                                       >
@@ -3575,31 +3741,30 @@ const Subjects = () => {
 	                                          className="mt-0.5 sm:mt-0 flex h-full min-h-5 items-center justify-center cursor-default select-none pointer-events-none"
 	                                          role="img"
 	                                          aria-label={statusLabel}
-	                                          title={`${statusLabel}. Use o botão de ação à direita para iniciar ou continuar.`}
 	                                        >
 	                                          <div className={`h-5 w-1 rounded-full ${statusVisual.indicatorClassName}`} />
 	                                        </div>
 
-	                                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+	                                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
 	                                          <span
-	                                            className={`text-[11px] font-medium break-words transition-opacity ${
+	                                            className={`min-w-0 max-w-full break-words text-[11px] font-medium leading-snug transition-opacity sm:text-[11.5px] ${
 	                                              completed ? 'text-content-muted opacity-50' : !isActive ? 'text-content-muted opacity-40' : 'text-content-main'
 	                                            }`}
 	                                          >
 	                                            {topic.name.charAt(0).toUpperCase() + topic.name.slice(1)} {!isActive && <span className="text-[9px] ml-1 opacity-60">(inativo)</span>}
 	                                          </span>
 	                                          {incidenceDisplay && (
-	                                            <span
-	                                              className="text-[9px] font-black tracking-wide whitespace-nowrap px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20"
-	                                              title={incidenceTitle}
-	                                            >
-	                                              {incidenceDisplay}
-	                                            </span>
+	                                            renderCycleTooltip(
+	                                              incidenceTitle,
+	                                              <span className="whitespace-nowrap rounded border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-incidence">
+	                                                {incidenceDisplay}
+	                                              </span>
+	                                            )
 	                                          )}
 	                                          {studiedInCurrentCycle && !completed && (
                                             <CheckCircle2
                                               size={12}
-                                              className="flex-shrink-0 text-slate-400 dark:text-slate-500"
+                                              className="flex-shrink-0 text-content-muted"
                                               role="img"
                                               aria-label={`Tópico novo neste ciclo: ${topic.name}`}
                                             >
@@ -3608,12 +3773,12 @@ const Subjects = () => {
                                           )}
                                         </div>
 
-	                                        <div className="col-start-2 sm:col-start-3 flex items-center justify-end gap-1 self-end sm:self-center">
+	                                        <div className="col-start-2 flex min-w-0 flex-wrap items-center justify-end gap-1 self-end sm:col-start-3 sm:flex-nowrap sm:self-center">
                                           <div className="flex items-center gap-1.5 pr-1">
                                             {(() => {
                                               if (!isActive) {
                                                 return (
-                                                  <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded border text-rose-500 bg-rose-500/10 border-rose-500/20">
+                                                  <span className="whitespace-nowrap rounded border border-destructive/20 bg-destructive/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-destructive">
                                                     NA LIXEIRA
                                                   </span>
                                                 );
@@ -3626,84 +3791,93 @@ const Subjects = () => {
                                             <div
                                               className={`hidden md:flex h-6 items-center gap-1 transition-all duration-200 opacity-0 pointer-events-none group-hover/topic:pointer-events-auto ${completed ? 'group-hover/topic:opacity-40' : 'group-hover/topic:opacity-100'}`}
                                             >
-                                              <button
-                                                type="button"
-                                                className="h-6 w-6 rounded-full border border-transparent bg-transparent text-content-muted/45 hover:border-primary/25 hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-center"
-                                                title="Abrir assistente de IA"
-                                                aria-label={`Abrir assistente de IA para ${topic.name}`}
-                                              >
-                                                <Wand2 size={12} />
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setSelectedTopicForNotes({
-                                                    id: topic.id,
-                                                    name: topic.name,
-                                                    subjectName: subject.name
-                                                  });
-                                                }}
-                                                className={`h-6 w-6 rounded-full border border-transparent bg-transparent transition-all flex items-center justify-center ${
-                                                  (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() &&
-                                                  (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
-                                                    ? 'text-primary/60 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
-                                                    : 'text-content-muted/45 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
-                                                }`}
-                                                title={`Anotações para ${topic.name}`}
-                                                aria-label={`Anotações para ${topic.name}`}
-                                              >
-                                                <FileText size={12} />
-                                              </button>
+                                              {renderCycleTooltip(
+                                                'Abrir assistente de IA',
+                                                <button
+                                                  type="button"
+                                                  className="h-6 w-6 rounded-full border border-transparent bg-transparent text-content-muted/45 hover:border-primary/25 hover:bg-primary/10 hover:text-primary transition-all flex items-center justify-center"
+                                                  aria-label={`Abrir assistente de IA para ${topic.name}`}
+                                                >
+                                                  <Wand2 size={12} />
+                                                </button>
+                                              )}
+                                              {renderCycleTooltip(
+                                                `Anotações para ${topic.name}`,
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedTopicForNotes({
+                                                      id: topic.id,
+                                                      name: topic.name,
+                                                      subjectName: subject.name
+                                                    });
+                                                  }}
+                                                  className={`h-6 w-6 rounded-full border border-transparent bg-transparent transition-all flex items-center justify-center ${
+                                                    (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content)?.trim() &&
+                                                    (typeof topic.notes === 'string' ? topic.notes : topic.notes?.content) !== '<p><br></p>'
+                                                      ? 'text-primary/60 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
+                                                      : 'text-content-muted/45 hover:border-primary/25 hover:bg-primary/10 hover:text-primary'
+                                                  }`}
+                                                  aria-label={`Anotações para ${topic.name}`}
+                                                >
+                                                  <FileText size={12} />
+                                                </button>
+                                              )}
                                             </div>
                                           )}
 	                                          {isActive && (
 	                                            <div className="flex-shrink-0">
 	                                              {completed ? (
-	                                                <span className="flex-shrink-0 h-7 px-2.5 rounded-lg flex items-center justify-center gap-1.5 border border-emerald-500/15 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black ml-0.5">
+	                                                <span className="ml-0.5 flex h-7 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-success/15 bg-success/10 px-2.5 text-[10px] font-black text-success">
 	                                                  <Check size={11} />
 	                                                  Concluído
 	                                                </span>
 	                                              ) : hasStarted ? (
-	                                                <button
-	                                                  onClick={(e) => {
-	                                                    e.stopPropagation();
-	                                                    navigate(`/revisoes?topicId=${topic.id}`);
-	                                                  }}
-	                                                  className={`flex-shrink-0 h-7 px-2.5 rounded-lg flex items-center justify-center gap-1.5 border text-[10px] font-black transition-all ml-0.5 ${statusVisual.actionClassName}`}
-	                                                  title="Continuar estudo do tópico"
-	                                                  aria-label={`Continuar estudo do tópico ${topic.name}`}
-	                                                >
-	                                                  <BookOpen size={11} />
-	                                                  Continuar
-	                                                </button>
+	                                                renderCycleTooltip(
+	                                                  'Continuar estudo do tópico',
+	                                                  <button
+	                                                    onClick={(e) => {
+	                                                      e.stopPropagation();
+	                                                      navigate(`/revisoes?topicId=${topic.id}`);
+	                                                    }}
+	                                                    className={`flex-shrink-0 h-7 px-2.5 rounded-lg flex items-center justify-center gap-1.5 border text-[10px] font-black transition-all ml-0.5 ${statusVisual.actionClassName}`}
+	                                                    aria-label={`Continuar estudo do tópico ${topic.name}`}
+	                                                  >
+	                                                    <BookOpen size={11} />
+	                                                    Continuar
+	                                                  </button>
+	                                                )
 	                                              ) : (
-	                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-	                                                    openReviewModal(topic.id);
-	                                                  }}
-	                                                  className={`flex-shrink-0 h-7 px-2.5 rounded-lg border transition-all duration-300 flex items-center justify-center gap-1.5 ml-0.5 group text-[10px] font-black ${statusVisual.actionClassName}`}
-	                                                  title="Iniciar estudo do tópico"
-	                                                  aria-label={`Iniciar estudo do tópico ${topic.name}`}
-	                                                >
-	                                                  <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-	                                                  Iniciar
-	                                                </button>
+	                                                renderCycleTooltip(
+	                                                  'Iniciar estudo do tópico',
+	                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+	                                                      openReviewModal(topic.id);
+	                                                    }}
+	                                                    className={`flex-shrink-0 h-7 px-2.5 rounded-lg border transition-all duration-300 flex items-center justify-center gap-1.5 ml-0.5 group text-[10px] font-black ${statusVisual.actionClassName}`}
+	                                                    aria-label={`Iniciar estudo do tópico ${topic.name}`}
+	                                                  >
+	                                                    <Play size={10} className="ml-[1px] opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+	                                                    Iniciar
+	                                                  </button>
+	                                                )
 	                                              )}
 	                                            </div>
                                           )}
-                                          {!isActive && (
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleRestoreTopic(topic.id);
-                                              }}
-                                              className="h-7 px-3 flex items-center gap-2 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-lg transition-all text-[10px] font-black uppercase tracking-wider"
-                                              title="Restaurar tópico"
-                                            >
-                                              <Plus size={14} /> Restaurar
-                                            </button>
+                                          {!isActive && renderCycleTooltip(
+                                              'Restaurar tópico',
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleRestoreTopic(topic.id);
+                                                }}
+                                                className="flex h-7 items-center gap-2 rounded-lg bg-success/10 px-3 text-[10px] font-black uppercase tracking-wider text-success transition-all hover:bg-success hover:text-success-foreground"
+                                                aria-label={`Restaurar tópico ${topic.name}`}
+                                              >
+                                                <Plus size={14} /> Restaurar
+                                              </button>
                                           )}
                                         </div>
                                       </div>
@@ -3730,7 +3904,7 @@ const Subjects = () => {
             <div className="mt-8 flex justify-center pb-12">
               <button
                 onClick={handleLoadMore}
-                className="group relative px-8 py-3 bg-card dark:bg-zinc-900 border border-border dark:border-white/5 rounded-2xl flex items-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-xl overflow-hidden"
+                className="app-surface group relative flex items-center gap-3 overflow-hidden rounded-2xl px-8 py-3 transition-all hover:border-primary/50 hover:bg-primary/5"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <RefreshCw size={16} className="text-primary group-hover:rotate-180 transition-transform duration-500" />
@@ -3743,7 +3917,48 @@ const Subjects = () => {
           )}
         </div>
 
-        {activeTab === 'all' && <StrategicEditalPanel />}
+        {activeTab === 'all' && (
+          <div className="min-w-0">
+            <div className="mb-2 space-y-2 px-0">
+              <a
+                ref={strategicPanelTitleRef}
+                href="#strategic-cycle-panel"
+                onClick={(event) => {
+                  event.preventDefault();
+                  strategicPanelTitleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="flex min-w-0 scroll-mt-20 items-center gap-2 text-title-section transition-colors hover:text-primary"
+              >
+                <Shield size={17} className="shrink-0 text-primary" />
+                <span className="app-type-section-title min-w-0 truncate">
+                  Painel estratégico do edital
+                </span>
+              </a>
+              <div className="hidden h-11 xl:block" aria-hidden="true" />
+            </div>
+            {isStrategicDockVisible && (
+              <a
+                href="#strategic-cycle-panel"
+                onClick={(event) => {
+                  event.preventDefault();
+                  strategicPanelTitleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="fixed inset-x-4 bottom-3 z-40 flex min-w-0 items-center justify-between gap-3 rounded-lg border app-hairline bg-surface/60 px-2 py-1.5 text-primary shadow-lg shadow-primary/5 backdrop-blur-md transition-colors hover:bg-surface/75 md:left-[calc(var(--sidebar-width)+1rem)] md:peer-data-[state=collapsed]:left-[calc(var(--sidebar-width-icon)+1.5rem)]"
+              >
+                <span className="inline-flex min-w-0 items-center gap-2">
+                  <Shield size={17} className="shrink-0 text-primary" />
+                  <span className="app-type-section-title min-w-0 truncate">
+                    Painel estratégico do edital
+                  </span>
+                </span>
+                <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-primary">
+                  Ver
+                </span>
+              </a>
+            )}
+            <StrategicEditalPanel />
+          </div>
+        )}
         </DndContext>
         </div>
       )}
@@ -3751,11 +3966,11 @@ const Subjects = () => {
   );
 
   return (
-    <div className="flex w-full text-slate-900 dark:text-slate-100 font-sans">
+    <div className="flex w-full font-sans text-foreground">
       <div className="flex-1 flex flex-col relative w-full">
 
         {/* Header Outside Card */}
-        <main className="flex-1 px-4 md:px-8 pb-8 pt-0 flex flex-col gap-6">
+        <main className="flex-1 px-0 pb-8 pt-0 flex flex-col gap-6">
           <div className="flex-1 min-w-0 w-full">
             {!isImportEditalModalOpen && (
               showCycleWorkspace ? (
@@ -3801,7 +4016,7 @@ const Subjects = () => {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2 text-foreground">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  <CheckCircle2 className="w-5 h-5 text-success" />
                   Concluir ciclo de estudos?
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-content-muted">
@@ -3821,7 +4036,7 @@ const Subjects = () => {
                     }
                     setCompleteCycleConfirmOpen(false);
                   }}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                  className="app-success-button font-semibold"
                 >
                   Confirmar e Concluir
                 </AlertDialogAction>
@@ -3836,11 +4051,11 @@ const Subjects = () => {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2 text-foreground">
-                  <RefreshCw className="w-5 h-5 text-emerald-500" />
+                  <RefreshCw className="w-5 h-5 text-success" />
                   Iniciar próximo ciclo?
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-content-muted">
-                  Isso limpará as matérias marcadas como estudadas neste ciclo e iniciará o Ciclo {(userCycle?.ciclos_realizados || 0) + 2}.
+                  Isso limpará as marcações manuais deste ciclo e iniciará o Ciclo {(userCycle?.ciclos_realizados || 0) + 2}. Matérias com todos os tópicos ativos iniciados continuarão concluídas automaticamente no ciclo.
                   <br /><br />
                   Um resumo deste ciclo será salvo para comparar sua evolução nos próximos ciclos.
                 </AlertDialogDescription>
@@ -3854,7 +4069,7 @@ const Subjects = () => {
                     setStartNextCycleConfirmOpen(false);
                   }}
                   disabled={isStartingNextCycle}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2"
+                  className="app-success-button flex items-center justify-center gap-2 font-semibold"
                 >
                   {isStartingNextCycle ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -3874,11 +4089,11 @@ const Subjects = () => {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-400" />
+                  <AlertCircle className="h-5 w-5 text-destructive" />
                   Resetar ciclo de estudos?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  Isso vai zerar o ciclo atual, limpar as matérias marcadas como estudadas neste ciclo e voltar a contagem para o Ciclo 1.
+                  Isso vai zerar o ciclo atual, limpar as marcações manuais deste ciclo e voltar a contagem para o Ciclo 1. Matérias com todos os tópicos ativos iniciados continuarão concluídas automaticamente no ciclo.
                   <br /><br />
                   Matérias, tópicos e conteúdo cadastrado não serão apagados.
                 </AlertDialogDescription>
@@ -3891,7 +4106,7 @@ const Subjects = () => {
                     handleResetCycle();
                   }}
                   disabled={isResettingCycle}
-                  className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
+                  className="app-danger-button flex items-center justify-center gap-2"
                 >
                   {isResettingCycle ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -3922,7 +4137,7 @@ const Subjects = () => {
                     confirmDeleteTopic();
                   }}
                   disabled={isDeletingTopic}
-                  className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
+                  className="app-danger-button flex items-center justify-center gap-2"
                 >
                   {isDeletingTopic ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -3945,7 +4160,7 @@ const Subjects = () => {
                 <AlertDialogDescription>
                   Tem certeza que deseja remover o edital <strong>"{unloadConfirm.editalName}"</strong> do seu ciclo de estudos?
                   <br /><br />
-                  <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg text-amber-300 text-sm">
+                  <div className="rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-warning">
                     <p><strong>Atenção:</strong> o ciclo atual será reiniciado e o histórico de revisões dos tópicos deste edital será apagado.</p>
                     <p className="mt-1">As matérias e tópicos cadastrados continuarão disponíveis fora do ciclo.</p>
                   </div>
@@ -3962,7 +4177,7 @@ const Subjects = () => {
                     }
                   }}
                   disabled={unloadingEditalId === unloadConfirm.editalId}
-                  className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
+                  className="app-danger-button flex items-center justify-center gap-2"
                 >
                   {unloadingEditalId === unloadConfirm.editalId ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -3983,7 +4198,7 @@ const Subjects = () => {
             <AlertDialogContent className="max-w-sm">
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2 text-base">
-                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  <AlertCircle className="h-5 w-5 text-destructive" />
                   Excluir do Edital
                 </AlertDialogTitle>
               </AlertDialogHeader>
@@ -4000,9 +4215,9 @@ const Subjects = () => {
                   const edil = deletePermanentConfirm.editais[0];
                   const isOriginalSystem = !edil.source_id && edil.is_imported;
                   return (
-                    <div className={`border rounded-lg px-3 py-2 ${isOriginalSystem ? 'bg-red-500/10 border-red-500/20' : 'bg-muted/50 border-border'}`}>
+                    <div className={`rounded-lg border px-3 py-2 ${isOriginalSystem ? 'border-destructive/20 bg-destructive/10' : 'border-border bg-muted/50'}`}>
                       {isOriginalSystem ? (
-                        <p className="text-xs text-red-500 font-medium">
+                        <p className="text-xs font-medium text-destructive">
                           Não é possível excluir: edital original do sistema
                         </p>
                       ) : (
@@ -4012,11 +4227,11 @@ const Subjects = () => {
                             <p className="text-sm font-medium truncate max-w-[180px]">"{edil.name}"</p>
                           </div>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                            edil.source_id 
-                              ? 'bg-blue-500/20 text-blue-400' 
-                              : edil.is_imported 
-                                ? 'bg-purple-500/20 text-purple-400' 
-                                : 'bg-green-500/20 text-green-400'
+                            edil.source_id
+                              ? 'bg-primary/15 text-primary'
+                              : edil.is_imported
+                                ? 'bg-incidence/15 text-incidence'
+                                : 'bg-success/15 text-success'
                           }`}>
                             {edil.source_id ? 'CÓPIA • SISTEMA' : edil.is_imported ? 'CÓPIA • IA' : 'MANUAL'}
                           </span>
@@ -4046,28 +4261,28 @@ const Subjects = () => {
                             disabled={isOriginalSystem}
                             className={`w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between text-xs ${
                               isOriginalSystem
-                                ? 'border-red-300 bg-red-100/80 dark:bg-red-950/40 dark:border-red-800/50 cursor-not-allowed' 
-                                : 'border-border hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
+                                ? 'cursor-not-allowed border-destructive/35 bg-destructive/10'
+                                : 'border-border hover:border-destructive/35 hover:bg-destructive/10'
                             }`}
                           >
                             <div className="flex flex-col gap-0.5 min-w-0">
-                              <span className={`truncate max-w-[180px] font-medium ${isOriginalSystem ? 'text-red-400 dark:text-red-500' : ''}`}>
+                              <span className={`truncate max-w-[180px] font-medium ${isOriginalSystem ? 'text-destructive' : ''}`}>
                                 {edital.name}
                               </span>
                               {isOriginalSystem && (
-                                <span className="text-[9px] font-bold text-red-500 dark:text-red-400">
+                                <span className="text-[9px] font-bold text-destructive">
                                   Edital original do sistema
                                 </span>
                               )}
                             </div>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
                               isOriginalSystem
-                                ? 'bg-red-200/80 text-red-600 dark:bg-red-900/50 dark:text-red-400'
-                                : edital.source_id 
-                                  ? 'bg-blue-500/20 text-blue-500 dark:text-blue-400' 
-                                  : edital.is_imported 
-                                    ? 'bg-purple-500/20 text-purple-500 dark:text-purple-400' 
-                                    : 'bg-green-500/20 text-green-600 dark:text-green-400'
+                                ? 'bg-destructive/15 text-destructive'
+                                : edital.source_id
+                                  ? 'bg-primary/15 text-primary'
+                                  : edital.is_imported
+                                    ? 'bg-incidence/15 text-incidence'
+                                    : 'bg-success/15 text-success'
                             }`}>
                               {isOriginalSystem ? 'SISTEMA' : edital.source_id ? 'CÓPIA' : edital.is_imported ? 'IA' : 'MANUAL'}
                             </span>
@@ -4095,7 +4310,7 @@ const Subjects = () => {
                         handleDeletePermanent(deletePermanentConfirm.subjectId);
                       }
                     }}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs gap-1.5"
+                    className="app-danger-button gap-1.5 text-xs"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Excluir de TODOS
@@ -4110,7 +4325,7 @@ const Subjects = () => {
                         handleDeletePermanent(deletePermanentConfirm.subjectId);
                       }
                     }}
-                    className="bg-red-500 hover:bg-red-600 text-white text-xs gap-1.5"
+                    className="app-danger-button gap-1.5 text-xs"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Excluir
@@ -4287,13 +4502,13 @@ const Subjects = () => {
                 </p>
                 
                 {selectedMergeOriginals.length > 0 && (
-                  <div className="bg-secondary/50 dark:bg-white/5 border border-border/50 rounded-[24px] p-4 scale-95 origin-top translate-y-[-4px]">
+                  <div className="scale-95 rounded-[24px] border border-border/50 bg-secondary/50 p-4 origin-top translate-y-[-4px]">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-content-muted/60 mb-3 ml-1">
                       ESTRUTURA DE SEPARAÇÃO
                     </p>
                     <div className="space-y-2">
                       {selectedMergeOriginals.map((orig, i) => (
-                        <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-card dark:bg-zinc-900 border border-border shadow-sm">
+                        <div key={i} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm">
                           <div className="flex flex-col min-w-0">
                             <span className="text-[13px] font-bold text-content-main truncate uppercase tracking-tight">
                               {orig.subjectName}
@@ -4309,7 +4524,7 @@ const Subjects = () => {
                               )}
                             </div>
                           </div>
-                          <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-500">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/10 text-success">
                              <CheckCircle2 size={14} />
                           </div>
                         </div>

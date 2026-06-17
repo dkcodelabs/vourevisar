@@ -136,7 +136,6 @@ export function useSubscription(): UseSubscriptionReturn {
     } catch (err) {
       console.error('Error fetching subscription:', err)
       setError(err instanceof Error ? err.message : 'Erro ao carregar assinatura')
-      setSubscription(null)
     } finally {
       setLoading(false)
     }

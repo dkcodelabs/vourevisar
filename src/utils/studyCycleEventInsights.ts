@@ -67,13 +67,19 @@ const studyEventTypes = new Set([
 const activeTopics = (subject: EventSubject) =>
   subject.topics.filter(topic => topic.is_active !== false);
 
+const hasMeaningfulReviewStage = (stage?: string | null) => {
+  const normalized = String(stage || '').trim().toLowerCase();
+  return Boolean(normalized) &&
+    !['0', 'novo', 'não iniciado', 'nao iniciado', 'null', 'undefined'].includes(normalized);
+};
+
 const isTopicStarted = (topic: EventTopic) =>
   Boolean(topic.first_studied_at) ||
   Boolean(topic.firstStudiedAt) ||
   (topic.reviewCount || 0) > 0 ||
   (topic.review_count || 0) > 0 ||
-  Boolean(topic.reviewStage) ||
-  Boolean(topic.review_stage) ||
+  hasMeaningfulReviewStage(topic.reviewStage) ||
+  hasMeaningfulReviewStage(topic.review_stage) ||
   topic.completed === true ||
   topic.is_completed === true;
 
@@ -82,6 +88,9 @@ const getStartedRatio = (subject: EventSubject) => {
   if (topics.length === 0) return 0;
   return topics.filter(isTopicStarted).length / topics.length;
 };
+
+const hasUnstartedActiveTopics = (subject: EventSubject) =>
+  activeTopics(subject).some(topic => !isTopicStarted(topic));
 
 const subjectIncidenceVolume = (subject: EventSubject) =>
   activeTopics(subject).reduce((sum, topic) =>
@@ -94,7 +103,7 @@ const getSubjectPriorityEvidence = (
   volume: number,
 ) => {
   if (typeof weightPercentage === 'number' && Number.isFinite(weightPercentage)) {
-    return `${weightPercentage.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% do edital pelos pesos conhecidos.`;
+    return `${weightPercentage.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% entre as matérias com peso informado.`;
   }
 
   if (volume > 0) {
@@ -180,7 +189,11 @@ export const getStudyCycleEventInsights = ({
         hasPrioritySignal,
       };
     })
-    .filter(item => item.hasPrioritySignal && activeTopics(item.subject).length > 0)
+    .filter(item =>
+      item.hasPrioritySignal &&
+      activeTopics(item.subject).length > 0 &&
+      hasUnstartedActiveTopics(item.subject)
+    )
     .sort((a, b) => b.priorityValue - a.priorityValue);
 
   const neglectedPriority = prioritizedSubjects.find(item => item.eventCount === 0);
@@ -188,8 +201,8 @@ export const getStudyCycleEventInsights = ({
     insights.push({
       id: `priority-neglected:${neglectedPriority.subject.id}`,
       severity: 'warning',
-      title: 'Matéria relevante sem evento',
-      message: `${neglectedPriority.subject.name} tem sinal de prioridade, mas ainda não apareceu no uso recente do ciclo.`,
+      title: 'Matéria importante ainda parada',
+      message: `${neglectedPriority.subject.name} tem sinal de prioridade, mas ainda não entrou no seu avanço recente.`,
       evidence: getSubjectPriorityEvidence(
         neglectedPriority.subject,
         neglectedPriority.weightPercentage,
@@ -210,8 +223,8 @@ export const getStudyCycleEventInsights = ({
     insights.push({
       id: `priority-late-in-queue:${latePriority.subject.id}`,
       severity: 'info',
-      title: 'Prioridade no fim da fila',
-      message: `${latePriority.subject.name} tem sinal estratégico e está depois da metade da fila.`,
+      title: 'Matéria estratégica longe na fila',
+      message: `${latePriority.subject.name} tem cobrança ou peso relevante e aparece depois de outras matérias menos urgentes.`,
       evidence: `Posição ${latePriority.orderIndex + 1}/${currentOrder.length}.`,
       subjectId: latePriority.subject.id,
     });
@@ -221,7 +234,7 @@ export const getStudyCycleEventInsights = ({
   const topicReviewedCount = events.filter(event =>
     event.event_type === 'topic_reviewed' || event.event_type === 'topic_continued'
   ).length;
-  const hasUnstartedTopics = subjects.some(subject => activeTopics(subject).length > 0);
+  const hasUnstartedTopics = subjects.some(hasUnstartedActiveTopics);
 
   const reviewBacklogLikelyExplainsBehavior = overdueReviews >= Math.max(3, Math.ceil(topicReviewedCount * 0.6));
 

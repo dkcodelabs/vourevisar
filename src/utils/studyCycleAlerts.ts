@@ -74,21 +74,29 @@ const isTopicCompleted = (topic: AlertTopic) =>
   topic.reviewStage === 'Concluído' ||
   topic.review_stage === 'Concluído';
 
+const hasMeaningfulReviewStage = (stage?: string | null) => {
+  const normalized = String(stage || '').trim().toLowerCase();
+  return Boolean(normalized) &&
+    !['0', 'novo', 'não iniciado', 'nao iniciado', 'null', 'undefined'].includes(normalized);
+};
+
 const isTopicStarted = (topic: AlertTopic) =>
   Boolean(topic.first_studied_at) ||
   Boolean(topic.firstStudiedAt) ||
   (topic.reviewCount || 0) > 0 ||
   (topic.review_count || 0) > 0 ||
-  Boolean(topic.reviewStage) ||
-  Boolean(topic.review_stage) ||
-  topic.completed === true ||
-  topic.is_completed === true;
+  hasMeaningfulReviewStage(topic.reviewStage) ||
+  hasMeaningfulReviewStage(topic.review_stage) ||
+  isTopicCompleted(topic);
 
 const activeTopics = (subject: AlertSubject) =>
   subject.topics.filter(topic => topic.is_active !== false);
 
 const formatPercent = (value: number) =>
   `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+
+const formatKnownWeightShare = (value: number) =>
+  `${formatPercent(value)} entre as matérias com peso informado.`;
 
 const getDaysUntil = (dateValue: string | null | undefined, now: Date) => {
   if (!dateValue) return null;
@@ -142,10 +150,10 @@ export const getStudyCycleAlerts = ({
     alerts.push({
       id: `weighted-subject-unstarted:${subject.id}`,
       severity: percentage !== null && percentage >= 15 ? 'critical' : 'warning',
-      title: 'Peso conhecido parado',
-      message: `${subject.name} tem peso informado e ainda não teve tópico iniciado.`,
+      title: 'Matéria importante parada',
+      message: `${subject.name} tem peso informado, mas ainda não teve primeiro contato.`,
       evidence: percentage !== null
-        ? `${formatPercent(percentage)} do edital calculado pelos pesos conhecidos.`
+        ? formatKnownWeightShare(percentage)
         : `${effectiveWeight.value} ${effectiveWeight.label}.`,
       actionLabel: 'Iniciar matéria',
       actionType: 'start_topic',
@@ -162,10 +170,10 @@ export const getStudyCycleAlerts = ({
     alerts.push({
       id: `weighted-subject-low-progress:${subject.id}`,
       severity: 'warning',
-      title: 'Peso avançando pouco',
+      title: 'Matéria importante pouco aberta',
       message: `${subject.name} tem peso conhecido, mas começou só ${progress?.started}/${progress?.total} tópicos.`,
       evidence: percentage !== null
-        ? `${formatPercent(percentage)} do edital calculado pelos pesos conhecidos.`
+        ? formatKnownWeightShare(percentage)
         : 'Peso informado no edital.',
       actionLabel: 'Ver matéria',
       actionType: 'review_cycle',
@@ -187,10 +195,10 @@ export const getStudyCycleAlerts = ({
     const top = relevantUnstartedTopics[0];
     alerts.push({
       id: `high-volume-topic-unstarted:${top.topic.id}`,
-      severity: top.volume >= 20 ? 'critical' : 'warning',
-      title: 'Tópico cobrado ainda fechado',
-      message: `${top.topic.name} aparece com volume de cobrança e ainda não foi iniciado.`,
-      evidence: `${top.subject.name} · volume ${top.volume.toLocaleString('pt-BR')}.`,
+      severity: 'warning',
+      title: 'Tópico forte ainda não iniciado',
+      message: `${top.topic.name} aparece com cobrança alta e ainda não teve primeiro contato.`,
+      evidence: `Matéria: ${top.subject.name}.`,
       actionLabel: 'Iniciar tópico',
       actionType: 'start_topic',
       subjectId: top.subject.id,
@@ -215,39 +223,11 @@ export const getStudyCycleAlerts = ({
       severity: nearestExam.daysUntil <= 30 ? 'critical' : 'warning',
       title: 'Prova chegando com tópico relevante aberto',
       message: `${nearestExam.edital.name} está a ${nearestExam.daysUntil} dia${nearestExam.daysUntil === 1 ? '' : 's'} e ainda há tópico cobrado sem início.`,
-      evidence: `${top.topic.name} · volume ${top.volume.toLocaleString('pt-BR')}.`,
+      evidence: `${top.topic.name} · matéria: ${top.subject.name}.`,
       actionLabel: 'Priorizar agora',
       actionType: 'start_topic',
       subjectId: top.subject.id,
       topicId: top.topic.id,
-    });
-  }
-
-  const subjectWithoutWeight = subjects.find(subject =>
-    !hasSubjectExamWeight(subject) && activeTopics(subject).length > 0
-  );
-
-  if (subjectWithoutWeight) {
-    alerts.push({
-      id: `subject-without-weight:${subjectWithoutWeight.id}`,
-      severity: 'info',
-      title: 'Peso incompleto',
-      message: `${subjectWithoutWeight.name} ainda não tem peso informado.`,
-      evidence: 'Preencher o peso melhora os alertas, mas não bloqueia o ciclo.',
-      actionLabel: 'Preencher peso',
-      actionType: 'fill_weight',
-      subjectId: subjectWithoutWeight.id,
-    });
-  }
-
-  if (!hasCycleHistory) {
-    alerts.push({
-      id: 'cycle-history-empty',
-      severity: 'info',
-      title: 'Comparação futura',
-      message: 'As comparações entre ciclos começam depois que você fecha o primeiro giro.',
-      evidence: 'Nenhum snapshot de ciclo fechado encontrado ainda.',
-      actionType: 'none',
     });
   }
 

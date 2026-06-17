@@ -54,7 +54,7 @@ Este plano e a referencia de implementacao da pagina Ciclo de Estudos. A pagina 
 - [x] Insights nao repetem metricas do card do ciclo; execucao fica no card de ciclo, estrategia fica em cobranca/peso.
 - [x] Continuar topico ja iniciado nao conta como topico novo no ciclo.
 - [x] Criar camada de alertas estrategicos reais a partir de dados confiaveis.
-- [ ] Salvar historico de uso/ordem real de estudo no ciclo para sugerir reorganizacao sem alterar a fila automaticamente.
+- [x] Salvar historico de uso/ordem real de estudo no ciclo para sugerir reorganizacao sem alterar a fila automaticamente.
 
 ## Estrutura geral da pagina
 
@@ -63,18 +63,56 @@ Este plano e a referencia de implementacao da pagina Ciclo de Estudos. A pagina 
 - [x] Topo horizontal premium.
 - [x] Coluna esquerda com fila do ciclo existente.
 - [x] Coluna direita com resumo e insights do edital.
-- [ ] Rodape discreto com progresso semanal.
-- [ ] Responsividade real para desktop, tablet e mobile.
+- [x] Resumo de ritmo do ciclo sem card semanal separado; semana/retomados removidos por nao agregarem leitura clara neste momento.
+- [x] Ajustar linguagem do resumo diario/semanal para evitar termos vagos como `mais movimento`, previsoes absurdas e metricas sem acao clara.
+- [x] Usar a mesma fonte da pagina de revisoes para o contador de revisoes pendentes, evitando divergencia entre ciclo e revisoes.
+- [x] Mover a previsao calculada para dentro do card do ciclo e explicitar que ela se refere a marcar materias da fila, nao a concluir todo o edital.
+- [x] Remover a leitura de revisoes pendentes da lateral do ciclo por gerar duvida entre revisoes de hoje e atrasadas; essa leitura fica na pagina de revisoes.
+- [x] Apresentar a previsao do ciclo como mensagem leve com icone, nao como uma caixa extra.
+- [x] Otimizar o card de ciclo com materias marcadas e topicos novos lado a lado.
+- [x] Renomear `Topicos novos` para `Topicos iniciados` e restringir comparacao com ciclo anterior aos topicos, sem comparar quantidade de materias marcada.
+- [x] Trocar comparacao com sinais `+/-` por texto claro: `a mais`, `a menos` ou `mesmo volume`, evitando parecer marcador ou erro visual.
+- [x] Corrigir carregamento de estatisticas de revisao em lotes para evitar erro 400 do Supabase quando o ciclo/usuario tem centenas de topicos.
+- [x] Tornar marcar/voltar materia no ciclo robusto para materias unificadas, removendo IDs equivalentes antigos e salvando o ID visivel da fila.
+- [x] Tornar a leitura visual de materia fechada robusta para IDs equivalentes de unificacao, evitando contador subir enquanto a linha continua como `Em andamento`.
+- [x] Preservar `is_active` no carregamento dos topicos para impedir que topicos inativos entrem em cobertura, sinais, insights e contagens do ciclo.
+- [x] Responsividade real da pagina de ciclo validada em desktop, tablet e mobile sem overflow horizontal.
+- [x] Corrigir responsividade da pagina de ciclo em tablet/mobile (~768px e abaixo): grid quebra o painel estrategico abaixo antes de espremer a fila; painel aparece no mobile e o atalho flutuante usa o titulo real do painel.
+- [x] Validar visualmente a rodada de layout da pagina de ciclo: padding global padronizado, busca inline por icone, `Modo edital` ao lado de `Detalhes`, painel estrategico abaixo em larguras intermediarias e barra discreta de atalho para o painel quando houver alerta/sugestao.
+- [x] Validar ajuste fino do cabecalho da pagina de ciclo: no mobile, titulo em cima e acoes compactas alinhadas; no modo edital, mostrar titulo `Modo edital`; remover badge textual `Em andamento no ciclo`; manter apenas o titulo/atalho flutuante `Painel estrategico do edital` sem repetir o titulo dentro do painel.
+- [x] Validar modo `Organizar` da fila: mobile e desktop sem alca lateral por padrao; arraste fica bloqueado fora do modo; ao ativar, alcas aparecem com estado premium para reordenar, materias recolhem automaticamente e sugestao de fila fecha o modo organizar antes de aplicar nova ordem.
+- [x] Padronizar tooltips premium na pagina de ciclo: cabecalho, linhas de materias, topicos, modo edital e painel estrategico usam Radix Tooltip nas acoes principais; validacao confirmou tooltip premium no cabecalho e removeu `title` nativo dos controles internos do ciclo.
+- [x] Migrar o shell global do app para o bloco oficial shadcn de sidebar inset, preservando rotas, permissoes, header, notificacoes, tema, timer, menu do usuario e comportamento mobile. Bloco `sidebar-08` instalado inicialmente, mas o alvo correto passou a ser `sidebar-07` por causa do trilho de icones recolhido; base compativel com Tailwind v3 aplicada, build aprovado e validacao funcional feita em desktop, mobile e tablet. No mobile, os links do menu agora fecham o drawer apos navegar.
+- [x] Corrigir warning de acessibilidade do menu mobile do shadcn/sidebar adicionando titulo e descricao ocultos ao Sheet do componente base.
+- [x] Corrigir o plano exibido no rodape do novo menu: validacao em mobile confirmou que o drawer nao mostra mais `Plano Free` para owner/admin e exibe `Proprietario`.
 
 ### Visual
 
-- [ ] Minimalista.
-- [ ] Dark mode elegante.
-- [ ] Alto espacamento.
-- [ ] Sem excesso de bordas.
-- [ ] Sem glow exagerado.
-- [ ] Hierarquia visual clara.
-- [ ] Legibilidade forte em nomes longos de materias/topicos.
+Direcao para a rodada final de layout:
+
+- Minimalista.
+- Dark mode elegante.
+- Alto espacamento.
+- Sem excesso de bordas.
+- Sem glow exagerado.
+- Hierarquia visual clara.
+- Legibilidade forte em nomes longos de materias/topicos.
+- [x] Definir paleta global 60-30-10 para a primeira rodada visual do ciclo: base neutra premium, superficies neutras, azul como identidade/acao, verde apenas para concluido e tangerine apenas para atencao.
+- [x] Padronizar card comum da fila com token neutro global, sem borda azul no hover; card concluido permanece como variante semantica verde.
+- [x] Formalizar a tabela de tokens visuais por papel antes de expandir para outras telas: titulo de pagina, titulo de coluna, titulo dentro de card, texto principal, texto secundario, texto de botao, input, modal, dropdown, borda, sombra, blur, radius e estados hover/focus/disabled.
+- [x] Auditar inputs, modais e dropdowns da pagina de ciclo em dark/light para remover cores antigas ou estranhas que ainda venham de componentes isolados na rodada inicial: Dialog, AlertDialog, Input, Textarea, Select, Dropdown, Popover, Tooltip, Card, Combobox e ConfirmModal apontam para tokens globais.
+- [ ] Formalizar escala tipografica responsiva por papel: titulo de pagina, titulo de secao, titulo de card, label, metadado, botao, input e corpo; garantir uso consistente de `rem`, `clamp()` quando fizer sentido, line-height adequado e quebras sem sobreposicao em mobile/tablet/desktop. A regra de produto e nao esconder informacao essencial por falta de espaco; quando o texto nao couber, a estrutura deve quebrar para coluna/linha seguinte antes de estourar a caixa. Primeira camada aplicada no header global e nos titulos/metadados da Ciclo com classes tipograficas; falta validacao visual fina e expansao para outras paginas.
+- [ ] Auditar breakpoints da pagina de ciclo contra a referencia mobile-first: mobile base, tablet, laptop e desktop; validar grids flexiveis, wrapping, largura minima de cards/controles, inputs e botoes sem cortes. Padrao esperado: cards e grupos de metricas passam para uma coluna antes de comprimir texto; nada deve ficar sobreposto, oculto indevidamente ou saindo da box, como observado em cards de outras paginas quando a largura reduz. Primeiros ajustes aplicados na barra interna da Ciclo, busca, titulos de materia e linhas de topico; checagem em 390px nao mostrou overflow horizontal; falta validacao visual final.
+- [ ] Validar visualmente a nova paleta da pagina de ciclo em dark e light antes de expandir para outras paginas. Reavaliar bordas dos cards: evitar roxo estranho; recuperar a sensacao do azul premium anterior onde fizer sentido, com borda discreta e coerente com a identidade, sem virar glow forte. Borda dos cards comuns do ciclo voltou para azul discreto de identidade; falta avaliacao visual do usuario.
+- [ ] Refatorar a pagina `src/pages/Subjects.tsx` depois da aprovacao visual da Ciclo: o arquivo acumulou cerca de 4.600 linhas e concentra UI, leitura de dados, modais, painel estrategico, fila, modo edital, handlers e varios render helpers. Extrair primeiro componentes de apresentacao (`CycleWorkspaceHeader`, `StrategicEditalPanel`, `CycleSubjectCard`, `CycleTopicRow`, `VerticalEditalView`) e depois hooks/servicos para dados/eventos, sem misturar essa refatoracao com mudancas visuais novas.
+- [ ] Promover padroes locais da Ciclo para componentes/tokens globais quando a tela for aprovada: header de coluna com toolbar, metric cards, badges semanticas, linha de topico/lista, botoes compactos de acao e estado vazio. Evitar duplicar classes longas como `text-[...]`, `shadow-[...]` e composicoes de card em outras paginas.
+- [ ] Ajustar tooltip global para ter radius proprio mais premium, sem herdar `rounded-control` dos botoes/inputs, preservando legibilidade e contraste em dark/light. Codigo aplicado e build/lint aprovados; falta validacao visual no navegador porque o Browser interno falhou ao anexar a aba.
+- [ ] Formalizar padrao semantico dos botoes de navegacao/decisao: Voltar, Cancelar, Avancar/Proximo, Confirmar e acoes destrutivas, incluindo variante, hover, peso visual e uso em modais/confirm dialogs. Variantes globais iniciais criadas em `Button` (`confirm`, `success`, `warning`, `destructive`, `cancel`, `quiet`); botoes usam `rounded-xl` consistente e borda de 1px; todos os hovers clareiam levemente dentro da cor semantica da propria acao e mudam apenas fundo/borda/texto, sem blur, glow, escala ou sombra externa; `Voltar/Cancelar` seguem classe semantica secundaria neutra com borda/superficie visivel no dark, sem preenchimento azul; `Confirmar/Finalizar` usam classe semantica primaria somente quando habilitados; botoes primarios desabilitados usam `:disabled` em CSS para virar superficie neutra, texto apagado e sem sombra; acoes destrutivas terciarias usam texto vermelho com area de hover; falta validacao visual final.
+- [ ] Formalizar padrao do cabecalho global de pagina: remover breadcrumb `Menu /`, mostrar somente nome da pagina com subtitulo curto logo abaixo, usando hierarquia compacta e responsiva para desktop/tablet/mobile. Aplicado inicialmente no `AppLayout` com descricao da pagina Ciclo; acoes reorganizadas para `iniciar/timer`, `anotacoes`, `notificacoes`; tema claro/escuro movido para o rodape da sidebar; titulo do mobile deixou de depender de truncamento agressivo e checagem em 390px confirmou titulo visivel sem overflow. Falta validacao visual final.
+- [ ] Formalizar padrao da navegacao lateral: remover rotulos textuais de secao quando a separacao visual por linha for suficiente; separar paginas de estudo, conta/ajuda e administracao por `SidebarSeparator`; `Conta` aponta para `/conta`, `Ajuda` abre a aba de feedback do painel lateral, notificacoes ficam apenas no sino da barra superior e o dropdown do usuario fica enxuto com `Conta` e `Sair`. Aplicado inicialmente na sidebar global; separadores passaram a usar degradê com pontas finas, tema foi movido para o rodape, estados ativo/hover ficaram mais discretos; falta validacao visual final, incluindo respiro da borda, alinhamento vertical do logo/nome e clareza do icone de abrir/fechar sidebar sem quebrar o componente shadcn.
+- [ ] Corrigir responsividade da pagina `Meus Editais` quando o padrao da Ciclo for expandido: cards nao devem manter colunas apertadas a ponto de texto, botoes ou metricas sairem da box; antes disso, o layout deve quebrar para uma coluna ou reorganizar os grupos internos. Problema validado visualmente pelo usuario como referencia do que nao pode acontecer na Ciclo.
+- [ ] Evoluir a pagina `/conta` para concentrar perfil, assinatura e preferencias: a aba `Assinatura` deve mostrar, em modo leitura inicialmente, plano atual, status, ciclo mensal/anual, valor, metodo de pagamento, inicio, vencimento/proxima cobranca e historico recente de faturas/pagamentos quando houver dados. Usar `user_subscriptions` como base local (`asaas_customer_id`, `asaas_subscription_id`, `billing_type`, datas e status) e criar uma Edge Function propria para o aluno, por exemplo `asaas-account`, que valide o usuario autenticado e consulte apenas a propria assinatura no Asaas. Nao reutilizar `asaas-admin` para aluno comum e nunca chamar Asaas direto do frontend. Acoes como cancelar, trocar plano, alterar pagamento e emitir segunda via ficam para etapa posterior, depois da leitura estar confiavel.
+- [ ] Reavaliar hover dos cards de materia e das linhas de topico: card de materia deve ter hover neutro de superficie/borda; topico deve usar hover muito sutil apenas se ajudar leitura de lista, sem puxar a cor semantica/linha do status. Hover de materia foi neutralizado para nao clarear acima da superficie do card; linhas de topico usam superficie mais baixa e hover discreto; lint/build aprovados; falta validacao visual.
 
 ## Topo da pagina
 
@@ -82,8 +120,8 @@ O topo deve transmitir progresso estrategico, clareza e continuidade.
 
 ### Manter
 
-- [ ] Nome do ciclo.
-- [ ] Edital atual ou editais ativos no ciclo.
+- [x] Nome do ciclo.
+- [x] Edital atual ou editais ativos no ciclo.
 
 ### Adicionar
 
@@ -99,10 +137,10 @@ O topo deve transmitir progresso estrategico, clareza e continuidade.
 
 ### Remover/evitar
 
-- [ ] Excesso de cards tecnicos.
-- [ ] Visual administrativo.
-- [ ] Blocos gigantes de recomendacao IA.
-- [ ] Repetir uma unica "melhor materia agora" como se fosse comando obrigatorio.
+- [x] Excesso de cards tecnicos.
+- [x] Visual administrativo.
+- [x] Blocos gigantes de recomendacao IA.
+- [x] Repetir uma unica "melhor materia agora" como se fosse comando obrigatorio.
 
 ## Coluna esquerda: fila estrategica do ciclo
 
@@ -113,22 +151,22 @@ Esta coluna e o foco principal da pagina.
 - [x] A fila ja existe.
 - [x] A fila deve preservar a ordem escolhida pelo aluno.
 - [x] A fila deve parecer mais viva, estrategica e premium.
-- [ ] O sistema deve sugerir/alertar, mas nao reorganizar sozinho.
+- [x] O sistema deve sugerir/alertar, mas nao reorganizar sozinho.
 
 ### Cards das materias
 
 Cada materia deve possuir:
 
-- [ ] Nome da materia.
-- [ ] Quantidade total de topicos.
-- [ ] Quantidade de topicos iniciados.
+- [x] Nome da materia.
+- [x] Quantidade total de topicos.
+- [x] Quantidade de topicos iniciados.
 - [x] Indicador percentual de exploracao foi descartado por redundar com `iniciados/total`.
-- [x] Badge pequena de peso no edital.
+- [x] Peso no edital como metadado discreto na linha da materia, na mesma fonte das demais informacoes.
   - Exemplos:
     - `Peso alto`
     - `Peso medio`
     - `Peso baixo`
-    - `Sem peso informado`
+- [x] Quando nao houver peso, mostrar icone discreto clicavel em vez de badge textual chamativa.
 - [x] Tooltip ou texto curto quando o peso for desconhecido.
   - Exemplo: `Peso nao identificado no edital. Voce pode preencher depois.`
 
@@ -139,14 +177,15 @@ Cada materia deve possuir:
 - [x] Materia concluida automaticamente recolhida.
 - [x] Materia concluida permanecendo na mesma fila.
 - [x] Remover area separada `Concluidas no ciclo`.
-- [ ] Definir regra futura: quando todos os topicos da materia estiverem concluidos, decidir se a materia deve ser fechada automaticamente no ciclo ou apenas sugerir fechamento.
+- [x] Definir regra futura: quando todos os topicos ativos da materia estiverem iniciados, a materia fica `Concluida no ciclo`, sempre no final da fila, sem gravar isso como clique manual do aluno.
+- [x] Diferenciar visualmente materia `Concluida no ciclo` por marcacao manual ou todos os topicos iniciados de materia `Concluida no edital` por todos os topicos ativos realmente concluidos/revisoes finalizadas.
 
 ## Topicos
 
 Cada topico deve possuir:
 
-- [ ] Nome do topico.
-- [ ] Estado visual:
+- [x] Nome do topico.
+- [x] Estado visual:
   - Nao iniciado.
   - Iniciado.
   - Em revisao.
@@ -164,7 +203,7 @@ Substituir icones confusos por CTAs claros.
 - [x] Topico em revisao: `Revisoes`.
 - [x] Topico concluido: `Concluido`.
 - [x] Priorizar clareza acima de minimalismo extremo.
-- [ ] Garantir que os botoes nao quebrem no mobile.
+- [x] Garantir que os botoes nao quebrem no mobile: validacao em 390px confirmou controles compactos sem overflow horizontal.
 
 ## Coluna direita: resumo estrategico do edital
 
@@ -188,18 +227,27 @@ Mostrar insights curtos e uteis:
 - [x] Maior peso pendente, somente se houver peso conhecido.
 - [x] Topico com maior sinal de cobranca analisado, somente se houver sinal bruto analisado.
 - [x] Materia com maior sinal de cobranca, somente se houver sinal bruto analisado.
-- [x] Topico mais cobrado e menos cobrado, somente entre topicos analisados.
+- [x] Topico com maior sinal de cobranca, somente entre topicos analisados.
+- [ ] Reavaliar exibicao de `menos cobrado` apenas quando o mapa de cobranca do edital estiver suficientemente completo; com analise parcial, esse dado pode enganar.
 - [x] Materia com mais topicos nao iniciados, somente se houver pendencia real.
 - [x] Estado vazio honesto quando nao houver insights calculaveis.
 - [x] Nao exibir alerta para peso/incidencia ausente enquanto a IA ainda vai gerar esses dados.
+- [x] Remover alerta grande de `Peso incompleto` da lateral quando ele apenas replica a badge `Sem peso` da linha da materia.
+- [x] Integrar padroes observados ao card unico de Insights, evitando blocos redundantes na lateral.
+- [x] Lapidar linguagem dos alertas/insights para termos compreensiveis ao aluno, sem expor jargoes como `evento` ou `sinal`.
+- [x] Remover duplicidade entre sugestao de fila e insight equivalente quando ambos apontam para a mesma materia.
+- [x] Restringir aplicacao da sugestao de fila ao `user_cycles.id` carregado, evitando atualizar outro ciclo ativo por acidente.
+- [x] Explicar no estado vazio dos Insights que ciclos antigos podem nao ter eventos salvos e que o sistema precisa de uso recente/sinal confiavel para inferir padrao.
+- [x] Remover bloco separado de `Sinais de cobranca` da lateral; sinais confiaveis entram no card unico de Insights.
+- [x] Remover `Comparacao futura` da area de atencao estrategica, pois ausencia de snapshot nao e alerta acionavel.
 
 Nao mostrar nesta secao:
 
-- [ ] Retencao.
-- [ ] FSRS.
-- [ ] Esquecimento.
-- [ ] Estabilidade de memoria.
-- [ ] Atrasos detalhados de revisao.
+- Retencao.
+- FSRS.
+- Esquecimento.
+- Estabilidade de memoria.
+- Atrasos detalhados de revisao.
 
 ### Secao 3: Forecast leve
 
@@ -219,18 +267,19 @@ Nao mostrar nesta secao:
   - `subjects.exam_weight_raw`
 - [x] A importacao de edital ja tenta extrair pesos de forma conservadora.
 - [x] Existe edicao manual de peso na tela de edital.
-- [ ] A pagina do ciclo ainda nao consome esses campos no tipo `StudyCycleSubject`.
-- [ ] A pagina do ciclo ainda nao mostra peso visualmente.
+- [x] A pagina do ciclo consome esses campos no tipo `StudyCycleSubject`.
+- [x] A pagina do ciclo mostra peso visualmente.
 
 ### Regra de produto
 
-- [ ] Nunca inventar peso.
-- [ ] Peso ausente nao bloqueia a pagina.
-- [ ] Peso ausente deve aparecer como estado neutro, sem alerta.
+- [x] Nunca inventar peso.
+- [x] Peso ausente nao bloqueia a pagina.
+- [x] Peso ausente aparece como estado neutro, sem alerta.
 - [x] Peso ausente pode ser preenchido diretamente na pagina de ciclo clicando em `Sem peso`.
-- [ ] Se houver peso por bloco, nao distribuir automaticamente entre disciplinas.
-- [ ] Permitir que o aluno ajuste manualmente em local apropriado.
-- [ ] Na pagina de ciclo, usar peso apenas como sinal/alerta, nao para reordenar automaticamente.
+- [x] No atalho inline do ciclo, o aluno preenche apenas questoes e pontos; percentual fica como dado extraido do edital ou calculado pelo sistema quando houver total conhecido.
+- [ ] Se houver peso por bloco, nao distribuir automaticamente entre disciplinas. Fica para a revisao futura da extracao/importacao de edital.
+- [x] Permitir que o aluno ajuste manualmente em local apropriado.
+- [x] Na pagina de ciclo, usar peso apenas como sinal/alerta, nao para reordenar automaticamente.
 
 ## Incidencia dos topicos
 
@@ -238,19 +287,19 @@ Nao mostrar nesta secao:
 
 - [x] Existe base inicial via `topics.total_volume`.
 - [x] O sistema de GUT/Google/IA ainda esta em evolucao.
-- [ ] O tipo `StudyCycleTopic` ainda nao carrega `total_volume`.
-- [ ] A UI do ciclo ainda nao mostra incidencia/cobranca.
+- [x] O tipo `StudyCycleTopic` carrega `total_volume`.
+- [x] A UI do ciclo mostra incidencia/cobranca apenas quando o sinal pode ser exibido com seguranca.
 
 ### Regra de produto
 
-- [ ] Incidencia deve ser sinal visual, nao regra obrigatoria de ordem.
+- [x] Incidencia deve ser sinal visual, nao regra obrigatoria de ordem.
 - [x] Enquanto o motor de nota ainda esta em validacao, nao mostrar baixa/media nem score numerico para o aluno.
 - [x] Mostrar para o aluno apenas destaque de `Cobrança alta` quando houver sinal bruto alto.
 - [ ] Quando o motor de questoes/cobranca estiver consolidado, reavaliar exibicao de baixa/media e score mais detalhado.
 - [x] Quando nao existir dado, nao mostrar badge de incidencia na linha do topico.
 - [x] Quando existir dado, mostrar apenas o volume numerico do topico.
-- [ ] Nao exigir finalizar 100% a IA de incidencia antes de melhorar a pagina.
-- [ ] Preparar a pagina para receber dados melhores depois sem refatoracao grande.
+- [x] Nao exigir finalizar 100% a IA de incidencia antes de melhorar a pagina.
+- [x] Preparar a pagina para receber dados melhores depois sem refatoracao grande.
 
 ## Alertas estrategicos
 
@@ -262,12 +311,12 @@ Os alertas devem apoiar decisao, nao comandar o aluno.
 - [x] Avisar quando houver topicos com maior volume/incidencia ainda nao iniciados.
 - [ ] Avisar quando houver topicos com maior volume/incidencia iniciados, mas ainda nao revisados, se houver dado de revisao confiavel.
 - [x] Avisar quando a data da prova estiver proxima e ainda existirem topicos relevantes abertos.
-- [ ] Avisar quando o aluno estiver concentrando estudo em poucas materias e deixando outras relevantes paradas.
+- [x] Avisar quando o aluno estiver concentrando estudo em poucas materias e deixando outras relevantes paradas.
 - [x] Avisar quando uma materia sem peso impedir calculo melhor, apenas se houver acao direta para preencher o peso.
 - [ ] Avisar sobre incidencia ausente apenas se houver caminho claro para rodar/gerar analise da IA.
 - [x] Oferecer acao clara sem alterar a fila automaticamente.
-- [ ] Evitar alertas grandes, repetitivos ou culpabilizantes.
-- [ ] Nao transformar ausencia de peso/incidencia em problema quando a IA ainda nao gerou dado e o aluno nao pode agir.
+- [x] Evitar alertas grandes, repetitivos ou culpabilizantes.
+- [x] Nao transformar ausencia de peso/incidencia em problema quando a IA ainda nao gerou dado e o aluno nao pode agir.
 
 ### Alertas calculaveis agora
 
@@ -284,8 +333,8 @@ Estes podem ser implementados com os dados ja disponiveis na pagina:
 
 - [ ] Topico importante nao revisado: depende de definir regra de revisao relevante para a pagina de ciclo sem misturar FSRS.
 - [x] Concentracao excessiva em uma materia: depende de historico de eventos de estudo por materia/topico, nao apenas snapshot final.
-- [ ] Sugestao de reorganizar fila: depende de historico de uso da ordem do ciclo e prioridade calculada.
-- [ ] Fechar automaticamente materia com todos os topicos concluidos: depende de decisao de produto para nao confundir ciclo com conclusao definitiva.
+- [x] Sugestao de reorganizar fila: depende de historico de uso da ordem do ciclo e prioridade calculada.
+- [x] Fechar automaticamente materia com todos os topicos iniciados no ciclo, sem confundir com materia realmente concluida no edital.
 
 ## Historico de uso da fila e ordem real de estudo
 
@@ -293,26 +342,26 @@ A ordem salva em `user_cycles.ciclo_atual` mostra a ordem escolhida pelo aluno. 
 
 ### Objetivo
 
-- [ ] Registrar eventos reais de estudo no ciclo: topico novo iniciado, topico ja aberto revisado/retomado, materia marcada como estudada, materia devolvida para fila, ordem alterada manualmente.
-- [ ] Guardar posicao da materia no ciclo no momento do evento.
-- [ ] Guardar ciclo atual, edital, materia, topico, tipo de evento e data/hora.
-- [ ] Usar esse historico para detectar padroes:
+- [x] Registrar eventos reais de estudo no ciclo: topico novo iniciado, topico ja aberto revisado/retomado, materia marcada como estudada, materia devolvida para fila, ordem alterada manualmente.
+- [x] Guardar posicao da materia no ciclo no momento do evento.
+- [x] Guardar ciclo atual, edital, materia, topico, tipo de evento e data/hora.
+- [x] Usar esse historico para detectar padroes:
   - [x] materia importante sempre empurrada para o fim;
-  - [ ] aluno estudando fora da prioridade escolhida;
+  - [x] aluno estudando fora da prioridade escolhida;
   - [x] materias de alto peso ignoradas em ciclos seguidos;
   - [x] muitas revisoes/retornos a topicos ja abertos e poucos topicos novos;
   - fila manual muito desalinhada com peso/incidencia.
 
 ### Regra de produto
 
-- [ ] O sistema pode sugerir reorganizacao da fila, mas nao deve aplicar automaticamente.
-- [ ] Sugestao deve explicar o motivo: peso, incidencia, data da prova, atraso de cobertura ou historico de negligencia.
-- [ ] A acao deve ser reversivel e manual: `Aplicar sugestao`, `Ver motivo`, `Ignorar por enquanto`.
+- [x] O sistema pode sugerir reorganizacao da fila, mas nao deve aplicar automaticamente.
+- [x] Sugestao deve explicar o motivo: peso, incidencia, data da prova, atraso de cobertura ou historico de negligencia.
+- [x] A acao deve ser reversivel e manual: `Aplicar sugestao`, `Ver motivo`, `Ignorar por enquanto`.
 
 ### Persistencia sugerida
 
 - [x] Criar tabela futura `cycle_study_events`.
-- [ ] Campos sugeridos:
+- [x] Campos sugeridos:
   - `id`
   - `user_id`
   - `user_cycle_id`
@@ -324,7 +373,7 @@ A ordem salva em `user_cycles.ciclo_atual` mostra a ordem escolhida pelo aluno. 
   - `subject_position`
   - `cycle_order_snapshot`
   - `created_at`
-- [ ] Nao usar apenas `last_reviewed_at` para medir avanco do ciclo, pois continuar/revisar topico antigo nao e topico novo.
+- [x] Nao usar apenas `last_reviewed_at` para medir avanco do ciclo, pois continuar/revisar topico antigo nao e topico novo.
 
 ## Metas, ritmo e previsao de fechamento
 
@@ -348,7 +397,7 @@ Esta camada transforma o ciclo em orientacao diaria concreta: quantos topicos in
 
 - [ ] Nao criar nova tabela para contar revisoes feitas se `topic_review_history` ja responde.
 - [ ] Nao criar nova tabela para sessoes gerais se `study_sessions` ja responde.
-- [ ] Nao salvar contadores diarios permanentes se eles puderem ser calculados de eventos/historico.
+- [x] Nao salvar contadores diarios permanentes se eles puderem ser calculados de eventos/historico; o resumo semanal do ciclo calcula a partir de eventos recentes.
 - [ ] Evitar campos agregados que podem ficar inconsistentes com `topics` e `topic_review_history`.
 
 ### Lacunas reais de dados
@@ -387,10 +436,12 @@ Esta camada transforma o ciclo em orientacao diaria concreta: quantos topicos in
 
 ### Maturidade dos alertas
 
-- [ ] `cold_start`: sem uso suficiente; mostrar contexto neutro, nao cobranca.
-- [ ] `started`: alguns topicos iniciados; mostrar metas leves e alertas informativos.
-- [ ] `active`: uso consistente por alguns dias; mostrar risco, ritmo, deficit e prioridade.
-- [ ] `historical`: ciclos/eventos suficientes; mostrar comparacoes, padroes e sugestao de reorganizacao.
+- [x] `cold_start`: sem uso suficiente; mostrar contexto neutro, nao cobranca.
+- [x] `started`: alguns topicos iniciados; mostrar metas leves e alertas informativos.
+- [x] `active`: uso consistente por alguns dias; mostrar risco, ritmo, deficit e prioridade.
+- [x] `historical`: ciclos/eventos suficientes; mostrar comparacoes, padroes e sugestao de reorganizacao.
+- [x] Tratar aluno em ciclo antigo sem snapshots como `historico parcial`, evitando parecer bug/cold start quando a persistencia detalhada começou depois.
+- [x] Bloquear sugestao de reorganizacao e sinais pesados de cobranca/peso enquanto a maturidade ainda e `cold_start` ou `started`.
 
 ### Persistencia recomendada
 
@@ -420,8 +471,11 @@ Esta camada transforma o ciclo em orientacao diaria concreta: quantos topicos in
 - [ ] Nao mostrar cobranca pesada no primeiro dia.
 - [ ] Nao punir o aluno por edital sem peso/incidencia.
 - [ ] Separar meta de topicos novos da meta de revisao.
-- [ ] Nao misturar "fechar primeiro contato" com "concluir revisoes".
-- [ ] Toda previsao deve dizer de onde veio: media dos ultimos dias, dias ate prova ou quantidade pendente.
+- [x] Nao misturar "fechar primeiro contato" com "concluir revisoes".
+- [x] Corrigir helpers de ciclo/metricas/alertas para nao contar `review_stage = 0` como topico iniciado.
+- [x] Separar semantica: `Concluida no ciclo` significa todos os topicos ativos iniciados/primeiro contato feito; `Concluida no edital` significa todos os topicos ativos concluidos no sistema de revisao.
+- [x] Consolidar insights e sugestao de fila para ignorar materias ja fechadas no ciclo/edital quando nao ha topico ativo sem primeiro contato.
+- [x] Toda previsao deve dizer de onde veio: media dos ultimos dias, dias ate prova ou quantidade pendente.
 
 ## Sugestoes de reorganizacao da fila
 
@@ -597,7 +651,8 @@ Pagina atual de referencia: `/admin/importancia-prova`.
   - [x] A Edge Function carrega banca/orgao/cargo/ano no `processing_context`.
   - [x] A Edge Function injeta banca/orgao/cargo/ano no prompt do Gemini que gera termos de busca.
   - [x] A Edge Function injeta banca e, quando houver, orgao/cargo nas queries do Google antes do fallback generico.
-  - Estado atual: a busca usa janela de 3 anos (`anosPreferencia = 3`), via filtro `after:<ano atual - 3>`.
+  - Estado atual: a busca usa janela padrao de 2 anos (`anosPreferencia = 2`), via filtro `after:<ano atual - 2>`, para priorizar sinal mais recente.
+  - [ ] Se a janela de 2 anos gerar muitos falsos `Sem resultado util`, criar fallback controlado: tentar 2 anos primeiro e ampliar para 5 anos apenas quando nao houver sinal.
   - [x] Primeiro reaproveitar catalogo por banca/topico/materia quando existir match confiavel.
   - [ ] Depois reaproveitar por banca/materia similar quando nao houver match exato de topico.
   - [x] Por ultimo rodar busca/IA quando nao houver match confiavel no catalogo.
@@ -691,6 +746,14 @@ Pagina atual de referencia: `/admin/importancia-prova`.
   - [ ] Criar reprocessamento controlado dos topicos `Sinal 0` gerados pela versao restritiva `2026-06-04-search-budget-per-topic`.
     - [x] Adicionar botao manual por linha para processar um topico especifico, permitindo reteste controlado.
   - [ ] Avaliar arquitetura de longo prazo baseada em banco proprio de questoes/provas por banca/materia/topico, reduzindo dependencia de busca web em tempo real.
+    - Direcao proposta: SMI (Sistema de Monitoramento de Incidencia), separado do app principal, para coletar evidencia estruturada de questoes por fonte externa.
+    - Premissa de risco: antes de escalar, validar em POC se a plataforma alvo fornece ID unico, estavel e extraivel para cada questao. Sem ID confiavel, nao usar metrica `DISTINCT` como incidencia real.
+    - Arquitetura candidata: Docker para isolamento, n8n em modo fila, Redis para fila/cache, Playwright para coleta estruturada, Ollama/embeddings para mapeamento semantico, Supabase/Postgres para persistencia, Supabase Storage para evidencias/snapshots.
+    - Regra de negocio: incidencia real deve ser calculada por questoes unicas (`COUNT DISTINCT` de IDs), nunca por soma simples de resultados de busca.
+    - Exigir human-in-the-loop para baixa confianca de mapeamento entre topico do edital e filtros/tags da fonte externa.
+    - Manter o coletor agnostico de plataforma, com camada de provider/fonte para permitir Qconcursos ou alternativas no futuro.
+    - POC inicial: validar extracao de IDs unicos/estaveis, deduplicacao, cadencia operacional responsavel, conformidade juridica/termos de uso e custo para 1.000 topicos antes de qualquer escala.
+    - Se a POC falhar ou ficar juridicamente/operacionalmente ruim, manter provider de busca estruturada como plano B temporario.
   - [ ] Avaliar provedores alternativos de busca estruturada apenas como plano B, sem substituir a meta principal de base propria rastreavel.
     - Serper.dev: candidato principal por ser parecido com Google Search JSON e ter volume maior de queries.
     - Tavily: candidato para busca com evidencias textuais/RAG, se a prioridade virar explicar fontes e nao apenas volume bruto.
@@ -707,6 +770,12 @@ Pagina atual de referencia: `/admin/importancia-prova`.
 - [x] Ajustar painel operacional para contar topicos no mesmo escopo do usuario logado.
   - [x] Ajustar tabela operacional para listar e contar topicos no mesmo escopo do usuario logado.
 - [x] Mostrar no resultado do lote manual quais topicos foram processados, com materia, status e valor atribuido, sem exigir procurar o topico na tabela.
+- [x] Trocar linguagem tecnica do lote (`Sinal X`, `Banco confirmou`, `IA quando necessario`) por leitura operacional: processado, salvo, faixa de cobranca e volume bruto.
+- [x] Reorganizar o resultado do lote manual para evitar texto oculto, colunas desalinhadas e repeticao de badges tecnicas.
+- [x] Padronizar a tabela de resultado do processamento com coluna de topico maior, auditoria sem quebra e textos operacionais legiveis.
+- [x] Separar resumo geral do lote da tabela de topicos, evitando duplicar topico/materia e alinhando colunas com os dados exibidos.
+- [x] Remover mensagens tecnicas de rotina como `Volume 0 na busca atual`, data duplicada no resumo e ajustar hierarquia de fonte de materia/topico.
+- [x] Remover a calculadora manual antiga de importancia/sinal (`v12`, multi-search solto) das telas operacionais, mantendo o fluxo por edital/topico como fonte principal.
 - [x] Mostrar no painel de processamento o resultado do topico processado individualmente, sem exigir procurar depois na tabela.
 - [x] Logar no console o retorno completo do processamento individual, igual ao lote.
 - [x] Tornar logs de audit/processamento copiaveis no console via `JSON.stringify`, evitando objetos resumidos com `...`.
@@ -736,11 +805,23 @@ Pagina atual de referencia: `/admin/importancia-prova`.
   - [x] Diferenciar no painel resultados gerados com `Fallback sem Gemini` dos resultados com termos refinados pela IA.
   - [x] Gravar `source_method` no contexto do topico/catalogo para diferenciar busca direta de termos refinados pela IA em auditorias futuras.
 - [ ] Se o painel mostrar `Banco confirmou 0/N`, investigar deploy remoto antigo, permissao de update, schema remoto ou falha silenciosa de persistencia.
-- [ ] Configurar Supabase Cron para chamar a Edge Function em intervalo controlado.
-  - Definir frequencia inicial conservadora.
-  - Chamar `process-topic-incidence` com lote pequeno.
-  - Usar segredo seguro no header, sem expor chave no frontend.
-  - Definir autenticacao segura para chamadas internas ao `ai-handler` quando nao houver JWT de usuario.
+- [ ] Manter processamento de incidencia em modo manual/admin ate consolidar o metodo de calculo.
+  - Motivo: Cron automatico pode consumir cota, preencher dados com estrategia ainda em validacao e atrapalhar testes com novos providers/SMI.
+  - [x] Processamento manual por lote pequeno continua disponivel no painel admin.
+  - [x] Processamento manual por topico especifico continua disponivel para auditoria.
+  - [x] Adicionar filtros manuais de fila por edital, materia e status antes de gastar busca externa.
+  - [x] Manter filtro de materia dependente do edital selecionado, evitando listar materias duplicadas/misturadas de todos os editais do usuario.
+  - [x] Fazer `Ver proximos da fila` e `Processar lote seguro` usarem o mesmo escopo filtrado.
+  - [ ] Antes de liberar qualquer automacao, definir provider oficial, limite diario, regra de fila e criterio de qualidade minimo.
+  - [x] Criar um modo de previa visivel para testar fila sem gravar nem gastar busca externa.
+- [ ] Configurar Supabase Cron para chamar a Edge Function em intervalo controlado somente depois da validacao do metodo.
+  - [ ] Definir frequencia inicial conservadora.
+  - [ ] Chamar `process-topic-incidence` com lote pequeno.
+  - [ ] Usar segredo seguro no header, sem expor chave no frontend.
+  - [x] Definir autenticacao segura para chamadas internas ao `ai-handler` quando nao houver JWT de usuario.
+  - [ ] Criar migration do Cron com `pg_cron` + `pg_net` + Vault apenas quando for ativar a automacao.
+  - [ ] Aplicar migration no Supabase e criar/confirmar secrets somente quando a automacao estiver aprovada.
+  - [ ] Testar job manualmente e conferir retorno/log da Edge Function antes de deixar recorrente.
   - Registrar ou exibir no painel: ultimo processamento, proximo automatico previsto, quantidade processada e falhas recentes.
   - Enquanto o Cron nao existir, a pagina deve mostrar claramente `Proximo automatico: ainda nao configurado`.
 - [ ] Avaliar Supabase Queues se o volume de topicos ou retentativas crescer.
@@ -781,11 +862,30 @@ Decisao de produto: flashcards/questoes nao devem ser gerados automaticamente pa
 
 - [x] Remover ou reduzir informacoes de revisao nesta pagina.
 - [x] Ajustar estados vazios.
-- [ ] Ajustar dark mode.
-- [ ] Validar visual no navegador.
+- [x] Criar cenarios controlados de teste no Supabase para validar regras de maturidade, fechamento de ciclo, snapshots, alertas e insights sem depender de dados reais do aluno.
+  - Cenario criado na conta `vourevisar@gmail.com` com prefixo `TESTE INSIGHTS - NAO USAR`.
+  - Cobertura: materia sem topicos, sem peso, sem uso, peso alto parado, parcial em andamento, todos os topicos iniciados, concluida no edital, cobranca alta sem iniciar e revisoes vencidas relevantes.
+  - Inclui eventos de ciclo, historico de revisao e snapshot anterior para alimentar maturidade, comparacao e insights.
+  - Backup/restauracao do ciclo original salvo em `docs/test-cycle-supabase-backup.md`.
+  - Gerar materias/topicos com datas diferentes, pesos, sinais de cobranca, eventos de ciclo e snapshots.
+  - Fases `cold_start`, `started`, `active` e `historical` validadas por alternancia controlada do ciclo ativo no Supabase.
+  - Cenario `Ciclo teste CTAs` criado para validar `Iniciar materia`, `Iniciar topico` e `Aplicar sugestao` com dados reais no Supabase.
+  - Evitar misturar esses dados com editais reais do usuario.
+- [x] Ajustar/validar dark mode: alternancia claro/escuro manteve fila, painel e controles renderizados sem overflow horizontal.
+- [x] Validar visual no navegador em desktop, tablet e mobile.
 - [x] Corrigir deslocamento do texto da linha do topico.
 - [x] Corrigir icones de hover ficando atras do botao principal.
-- [ ] Rodar `npm run lint`.
+- [x] Adicionar teste automatizado para garantir que topico inativo (`is_active = false`) nao volte a entrar nas metricas do ciclo.
+- [ ] Validar clique real dos CTAs estrategicos na UI: `Iniciar materia`, `Iniciar topico` e `Aplicar sugestao`, conferindo rolagem/modal, persistencia no banco e evento registrado.
+  - [x] `Aplicar sugestao` gravou evento `cycle_reordered` com `source=strategic_suggestion` e atualizou a ordem do ciclo no banco.
+  - [x] `Iniciar topico` registrou primeiro contato em topico do cenario controlado.
+  - [x] Adicionado teste de regressao garantindo que alerta `Iniciar materia` nao carregue `topicId`, evitando abrir modal de topico por engano.
+  - [x] `Iniciar materia` e CTAs com materia agora recolhem a fila, expandem apenas a materia alvo e aplicam destaque visual curto no cabecalho.
+  - [x] `Iniciar topico` tambem expande e destaca a materia antes de abrir o modal do topico.
+  - [x] Revalidar visualmente `Iniciar topico` no cenario ativo: CTA abriu o modal de primeiro contato sem finalizar estudo.
+  - [ ] Revalidar visualmente `Iniciar materia` apos ajuste para recolher todas as materias e expandir apenas a materia alvo; nesta validacao o alerta ativo era de topico, nao de materia.
+- [x] Melhorar modal de primeiro contato/revisao: titulo sem corte feio, hierarquia menos grosseira, texto redundante removido e campo de tempo compacto.
+- [x] Remover alternancia de cor dos topicos que confundia com a cor da materia; linhas de topico usam superficie unica e separacao por borda/hover.
 - [x] Rodar `npm run lint`.
 - [x] Rodar `npm run build` se a mudanca for ampla.
 
@@ -799,7 +899,38 @@ Decisao de produto: flashcards/questoes nao devem ser gerados automaticamente pa
 
 ## Proximo passo imediato
 
-Deployar e testar a versao `2026-06-05-accurate-search-limit` da Edge Function. Depois disso, configurar o Supabase Cron para rodar a Edge Function automaticamente em lote pequeno e controlado. A validacao visual final em desktop/tablet/mobile fica para quando o sistema completo estiver fechado.
+Antes da rodada final de layout, a pagina de ciclo esta funcionalmente consolidada. O que resta nesta frente e:
+
+- [ ] Revalidar visualmente `Iniciar materia` quando houver alerta ativo desse tipo; o cenario atual exibiu `Iniciar topico` e este foi validado.
+- [ ] Fazer rodada final de layout/responsividade em desktop, tablet e mobile quando o usuario passar a direcao visual.
+  - [x] Reorganizar cabecalho da fila do ciclo em duas linhas: ferramentas da fila acima (`buscar`, `organizar`, `detalhes`, `modo edital`) e identidade da fila abaixo (`Fila do Ciclo`, contador e `Expandir`).
+  - [x] Ajustar cabecalho da fila para titulo primeiro e ferramentas agrupadas em faixa discreta abaixo, reduzindo a sensacao de elementos soltos.
+  - [x] Remover slide/botao `Detalhes` da fila por conteudo redundante; previsao de ritmo fica no painel estrategico e `Resetar ciclo` virou acao discreta no rodape da fila.
+  - [x] Reorganizar ferramentas da fila sem card: `Organizar` e busca à esquerda; `Modo edital` e `Expandir` à direita.
+  - [x] Manter o mesmo cabecalho nos modos `Fila do Ciclo` e `Edital Verticalizado`, com busca ativa, ordenar bloqueado no modo verticalizado e botao de retorno no mesmo ponto do modo edital.
+  - [x] Corrigir responsividade do `Edital Verticalizado`: em mobile/tablet, topico usa duas camadas com nome em cima e status/acoes agrupados abaixo, evitando icones ou badges isolados em linhas quebradas.
+  - [x] Refinar densidade visual do `Edital Verticalizado`: materia com hierarquia maior que topico, linha de topico mais compacta, badge textual `Neste ciclo` removida e estado de ciclo mantido como icone discreto com tooltip.
+  - [x] Diferenciar funcionalmente o `Edital Verticalizado` da fila do ciclo: adicionar mini mapa do edital antes das materias com concurso/cargo/banca/data quando disponiveis, cobertura de primeiro contato, topicos iniciados/pendentes/em andamento/concluidos, ritmo ate a prova e resumo leve de revisoes.
+  - [x] Alinhar titulo da fila com a lista, aproximar ferramentas dos cards e ajustar lapis da materia para ficar menor e alinhado ao nome.
+  - [x] Ajustar a barra de ferramentas da fila: remover caixa alta dos botoes, alinhar controles verticalmente e aproximar a barra dos cards.
+  - [x] Trocar busca abaixo do cabecalho por input minimalista na propria linha de ferramentas.
+  - [x] Ajustar busca no mobile: usar o mesmo input minimalista do desktop, no mesmo local da barra, evitando padroes divergentes.
+  - [x] Manter `Expandir/Recolher` tambem no `Edital Verticalizado`, controlando a abertura das materias dessa visualizacao.
+  - [x] Criar cabecalho proprio para a coluna direita (`Painel estrategico do edital`) e usar o mesmo titulo como atalho inferior no mobile/tablet quando o painel estiver abaixo da fila.
+  - [x] Remover duplicacao do atalho inferior do painel estrategico: o proprio titulo da coluna direita vira chamada compacta/sticky no mobile enquanto o painel estiver oculto.
+  - [x] Corrigir ancora do painel estrategico: titulo real fica normal no fluxo da pagina; dock inferior com `Ver` aparece apenas quando o titulo real ainda esta abaixo da tela e some ao chegar no painel, evitando duplicacao entre mobile/tablet/desktop.
+  - [x] Ajustar clique do dock `Ver` para rolar ate o titulo real do painel com margem abaixo da barra superior.
+  - [x] Alinhar o primeiro card do painel estrategico com a primeira materia da fila no desktop.
+  - [x] Mover `Resetar ciclo` para o fim dos cards do painel estrategico.
+  - [x] Remover menu/dropdown de troca de plataforma da marca no menu lateral, mantendo apenas identidade visual do vouRevisar.
+  - [ ] Validar visualmente no navegador a nova estrutura do cabecalho da fila em tablet com menu aberto, desktop e mobile.
+  - [ ] Avaliar busca expansivel/deslizante ao clicar na lupa, com input abrindo lateralmente dentro da barra de ferramentas da fila.
+  - [x] Iniciar rodada de direcao visual/design system usando `build-web-apps:frontend-app-builder`: conceito visual aprovado em 2026-06-15, tokens globais premium em `src/index.css`/`tailwind.config.ts`, primeira aplicacao na pagina de ciclo e validacao visual autenticada no navegador do app em modo dia/noite. O degrad azul/ciano ficou no shell inteiro, menu lateral e paineis de destaque; o fundo da pagina ficou neutro, frio e sem preto pesado. Em 2026-06-15, a segunda rodada removeu cores soltas visiveis da pagina ciclo, trocando azuis/cinzas/verdes diretos por tokens globais e classes como `app-surface`, `app-glass`, `app-gradient-panel`, `app-primary-button`, `app-success-button` e `app-empty-orb`.
+  - [x] Auditar e limpar cores hardcoded no escopo `Ciclo + shell`: `src/pages/Subjects.tsx`, `src/components/AppLayout.tsx`, `src/components/ui/sidebar.tsx` e utilitarios globais em `src/index.css` nao devem mais depender de `bg-blue`, `bg-zinc`, `bg-slate`, `bg-emerald`, `text-red`, `dark:bg-white/5` e similares para a tela do ciclo; estados visuais passam por tokens globais (`primary`, `info`, `success`, `warning`, `destructive`, `incidence`, `surface`, `border`).
+  - [ ] Expandir a rodada visual para o restante do sistema: revisar paleta dark/light global em todas as telas, reduzir dependencia excessiva de azul quando nao for informacao/acao, consolidar cores semanticas para informacao/alerta/sucesso/cobranca e revisar tokens de superficie/borda/degrade/radius sem repetir o mesmo container em tudo. Para fidelidade visual 10/10, comparar estados equivalentes ao conceito; a pagina real pode destoar quando mostra dados/estados diferentes, como varias materias concluidas em verde.
+  - [ ] Redesenhar o mini `Mapa do edital` na rodada visual posterior: trocar caixas grandes com pouca informacao por composicao mais refinada, com icones e micro-metricas em linha quando couber, evitando duas linhas para dados pequenos e evitando card dentro de card. Primeira aplicacao feita no modo verticalizado com `app-gradient-panel`, micro-metricas e superficies com blur; falta validacao visual real em tablet/mobile antes de marcar como concluido.
+
+As partes pesadas ficam para depois: motor definitivo de cobranca/incidencia, automacao/Cron, flashcards/questoes globais e relatorios avancados.
 
 ## Backlog futuro: radar de concursos e noticias
 
@@ -808,3 +939,10 @@ Deployar e testar a versao `2026-06-05-accurate-search-limit` da Edge Function. 
 - [ ] Se implementado, exigir fonte e link por item, cache persistente, data de coleta, estado de erro honesto e aviso para conferir informacoes oficiais no edital/orgao/banca.
 - [ ] Antes de usar scraping de terceiros, verificar termos de uso, robots.txt, estabilidade tecnica e risco juridico; preferir fontes oficiais, RSS/APIs autorizadas ou curadoria propria.
 - [ ] Definir UX discreta para nao transformar a pagina de ciclo em portal de noticias; possivel recorte: widget separado ou pagina `Concursos em alta`, fora do fluxo principal de estudo.
+
+## Backlog transversal: acesso, assinatura e reconexao
+
+- [x] Evitar que erro temporario de rede na verificacao de role/assinatura redirecione admin ou aluno pagante para `/planos`.
+- [x] Nao chamar ausencia de assinatura de `Plano Free` no novo menu; usar `Sem plano ativo` para usuario comum sem acesso, preservando `Proprietario`, `Administrador`, `Teste gratuito`, `Plano mensal` e `Plano anual` quando esses estados existirem.
+- [ ] Unificar hooks de assinatura/acesso para remover regras duplicadas de admin, owner, trial e assinatura paga.
+- [ ] Validar fluxo de reconexao no navegador em desktop e mobile, incluindo aluno pagante, trial ativo, admin/owner e usuario realmente sem assinatura.

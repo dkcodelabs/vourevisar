@@ -74,6 +74,21 @@ describe('studyCycleQueueSuggestion', () => {
     });
 
     expect(suggestion?.suggestedOrder[0]).toBe('c');
-    expect(suggestion?.evidence).toContain('volume');
+    expect(suggestion?.evidence).toContain('maior cobrança');
+  });
+
+  it('does not suggest moving a subject already closed in the cycle', () => {
+    const suggestion = getStudyCycleQueueSuggestion({
+      subjects: [
+        subject('a', { weight: 5, startedTopics: 1 }),
+        subject('b', { weight: 8, startedTopics: 1 }),
+        subject('c', { weight: 40, volume: 1000, startedTopics: 10 }),
+        subject('d', { weight: 10, startedTopics: 1 }),
+      ],
+      events: events(['a', 'a', 'b', 'b', 'd', 'd']),
+      currentOrder: ['a', 'b', 'c', 'd'],
+    });
+
+    expect(suggestion?.suggestedOrder[0]).not.toBe('c');
   });
 });

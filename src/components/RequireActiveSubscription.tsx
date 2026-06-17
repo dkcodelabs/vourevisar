@@ -9,10 +9,32 @@ interface RequireActiveSubscriptionProps {
 
 export function RequireActiveSubscription({ children }: RequireActiveSubscriptionProps) {
   const location = useLocation();
-  const { loading, hasFullAccess } = useUserAccess();
+  const { loading, error, hasFullAccess, refetch } = useUserAccess();
+
+  React.useEffect(() => {
+    if (!error) return;
+
+    const retryAccessCheck = () => {
+      void refetch();
+    };
+
+    const retryTimer = window.setTimeout(retryAccessCheck, 2500);
+    window.addEventListener('online', retryAccessCheck);
+    window.addEventListener('focus', retryAccessCheck);
+
+    return () => {
+      window.clearTimeout(retryTimer);
+      window.removeEventListener('online', retryAccessCheck);
+      window.removeEventListener('focus', retryAccessCheck);
+    };
+  }, [error, refetch]);
 
   if (loading) {
     return <LoadingSpinner size="large" message="Verificando seu acesso..." fullPage />;
+  }
+
+  if (error) {
+    return <LoadingSpinner size="large" message="Reconectando e confirmando seu acesso..." fullPage />;
   }
 
   if (!hasFullAccess) {

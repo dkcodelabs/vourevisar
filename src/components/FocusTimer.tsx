@@ -198,12 +198,12 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
 
   const buttonClasses = activeTopicId
     ? isPaused
-      ? 'bg-amber-500 text-white shadow-md hover:bg-amber-600'
-      : 'bg-indigo-600 text-white shadow-md hover:shadow-lg animate-pulse'
-    : 'bg-secondary text-muted-foreground hover:bg-secondary/80';
+      ? 'border border-warning/35 bg-warning/15 text-warning hover:bg-warning/20'
+      : 'border border-primary/35 bg-primary text-primary-foreground hover:bg-primary/90 animate-pulse'
+    : 'border border-border/60 bg-control text-content-muted hover:border-primary/25 hover:bg-primary/10 hover:text-primary';
 
   const feedbackClasses = justReturned
-    ? 'ring-4 ring-indigo-500 ring-offset-2 animate-pulse bg-indigo-100 text-indigo-900'
+    ? 'border border-primary/40 bg-primary/15 text-primary animate-pulse'
     : '';
 
   return (
@@ -211,7 +211,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
       <button
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        className={`flex items-center justify-center gap-1.5 px-3 h-9 lg:h-10 rounded-full transition-all duration-300 focus:outline-none focus:ring-0 active:scale-95 group ${justReturned ? feedbackClasses : buttonClasses}`}
+        className={`flex h-9 items-center justify-center gap-1.5 rounded-lg px-2.5 transition-colors duration-200 focus:outline-none focus:ring-0 group lg:h-10 ${justReturned ? feedbackClasses : buttonClasses}`}
         style={activeTopicId && !justReturned && !isPaused ? { animationDuration: '3s' } : {}}
         title={getTitle()}
       >

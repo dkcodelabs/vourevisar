@@ -38,22 +38,22 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   icon: Icon
 }) => {
   const variantStyles = {
-    default: "bg-primary hover:bg-primary/90 text-white shadow-primary/20 hover:opacity-90",
-    destructive: "bg-red-600 hover:bg-red-700 text-white shadow-red-600/20 hover:opacity-90",
-    warning: "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20 hover:opacity-90",
-    success: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:opacity-90"
+    default: "bg-primary text-primary-foreground shadow-primary/20 hover:bg-primary/90",
+    destructive: "bg-destructive text-destructive-foreground shadow-destructive/20 hover:bg-destructive/90",
+    warning: "bg-warning text-warning-foreground shadow-warning/20 hover:bg-warning/90",
+    success: "bg-success text-success-foreground shadow-success/20 hover:bg-success/90"
   };
 
   const iconStyles = {
     default: "text-primary",
-    destructive: "text-red-500",
-    warning: "text-amber-500",
-    success: "text-emerald-500"
+    destructive: "text-destructive",
+    warning: "text-warning",
+    success: "text-success"
   };
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
-      <AlertDialogContent className="max-w-[540px] border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl">
+      <AlertDialogContent className="max-w-[540px] border-border/50 bg-modal/95 backdrop-blur-xl">
         <AlertDialogHeader>
           <div className="flex items-center gap-3 mb-2">
             {Icon && (
@@ -61,7 +61,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 <Icon size={20} />
               </div>
             )}
-            <AlertDialogTitle className="text-xl font-bold tracking-tight text-foreground">
+            <AlertDialogTitle className="text-xl font-bold tracking-tight text-title-section">
               {title}
             </AlertDialogTitle>
           </div>
@@ -73,7 +73,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <AlertDialogCancel 
             onClick={onClose} 
             disabled={isLoading}
-            className="h-10 px-4 rounded-xl font-bold text-[11px] uppercase tracking-widest border-border hover:bg-muted"
+            className="h-10 rounded-xl border-border px-4 text-sm font-semibold hover:bg-control-hover"
           >
             {cancelText}
           </AlertDialogCancel>
@@ -84,7 +84,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             }}
             disabled={isLoading}
             className={cn(
-              "h-10 px-6 rounded-xl font-bold text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 border-none shadow-lg transition-all active:scale-[0.98]",
+              "flex h-10 items-center justify-center gap-2 rounded-xl border-none px-6 text-sm font-semibold shadow-sm transition-all active:scale-[0.98]",
               variantStyles[variant]
             )}
           >

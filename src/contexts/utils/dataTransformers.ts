@@ -48,7 +48,13 @@ export const transformTopicData = (topic: any): Topic => {
     next_review: topic.next_review,
     total_volume: topic.total_volume,
     memory_stability: topic.memory_stability,
-    current_interval: topic.current_interval
+    current_interval: topic.current_interval,
+    is_active: topic.is_active !== false,
+    is_hidden: topic.is_hidden === true,
+    position: topic.position ?? undefined,
+    review_stage: topic.review_stage ?? null,
+    last_used_query: topic.last_used_query,
+    last_audit_log: topic.last_audit_log
   };
 };
 

@@ -76,8 +76,6 @@ export function useUserRole(): UserRoleData & {
     } catch (err) {
       console.error('Error fetching user roles:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
-      setRoles([])
-      setHighestRole(null)
     } finally {
       setLoading(false)
     }

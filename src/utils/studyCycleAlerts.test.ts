@@ -19,12 +19,7 @@ describe('studyCycleAlerts', () => {
       now,
     });
 
-    expect(alerts).toEqual([
-      expect.objectContaining({
-        id: 'subject-without-weight:subject-1',
-        severity: 'info',
-      }),
-    ]);
+    expect(alerts).toEqual([]);
   });
 
   it('warns when a weighted subject has no started topics', () => {
@@ -46,9 +41,12 @@ describe('studyCycleAlerts', () => {
     expect(alerts[0]).toEqual(expect.objectContaining({
       id: 'weighted-subject-unstarted:subject-1',
       severity: 'critical',
-      title: 'Peso conhecido parado',
+      title: 'Matéria importante parada',
       subjectId: 'subject-1',
+      actionLabel: 'Iniciar matéria',
+      actionType: 'start_topic',
     }));
+    expect(alerts[0].topicId).toBeUndefined();
   });
 
   it('points to a high-volume unstarted topic with real incidence data', () => {
@@ -69,7 +67,7 @@ describe('studyCycleAlerts', () => {
 
     expect(alerts).toContainEqual(expect.objectContaining({
       id: 'high-volume-topic-unstarted:topic-1',
-      severity: 'critical',
+      severity: 'warning',
       topicId: 'topic-1',
     }));
   });
@@ -98,18 +96,13 @@ describe('studyCycleAlerts', () => {
     }));
   });
 
-  it('adds a cycle-history alert only when history is missing', () => {
+  it('does not turn missing cycle history into a strategic alert by itself', () => {
     const alerts = getStudyCycleAlerts({
       subjects: [],
       hasCycleHistory: false,
       now,
     });
 
-    expect(alerts).toEqual([
-      expect.objectContaining({
-        id: 'cycle-history-empty',
-        severity: 'info',
-      }),
-    ]);
+    expect(alerts).toEqual([]);
   });
 });

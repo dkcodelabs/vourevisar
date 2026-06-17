@@ -57,13 +57,19 @@ const isTopicCompleted = (topic: QueueTopic) =>
   topic.reviewStage === 'Concluído' ||
   topic.review_stage === 'Concluído';
 
+const hasMeaningfulReviewStage = (stage?: string | null) => {
+  const normalized = String(stage || '').trim().toLowerCase();
+  return Boolean(normalized) &&
+    !['0', 'novo', 'não iniciado', 'nao iniciado', 'null', 'undefined'].includes(normalized);
+};
+
 const isTopicStarted = (topic: QueueTopic) =>
   Boolean(topic.first_studied_at) ||
   Boolean(topic.firstStudiedAt) ||
   (topic.reviewCount || 0) > 0 ||
   (topic.review_count || 0) > 0 ||
-  Boolean(topic.reviewStage) ||
-  Boolean(topic.review_stage) ||
+  hasMeaningfulReviewStage(topic.reviewStage) ||
+  hasMeaningfulReviewStage(topic.review_stage) ||
   isTopicCompleted(topic);
 
 const subjectIncidenceVolume = (subject: QueueSubject) =>
@@ -76,6 +82,9 @@ const getStartedRatio = (subject: QueueSubject) => {
   if (topics.length === 0) return 1;
   return topics.filter(isTopicStarted).length / topics.length;
 };
+
+const hasUnstartedActiveTopics = (subject: QueueSubject) =>
+  activeTopics(subject).some(topic => !isTopicStarted(topic));
 
 const getStudyEventsBySubject = (events: QueueEvent[]) => {
   const counts = new Map<string, number>();
@@ -99,7 +108,10 @@ export const getStudyCycleQueueSuggestion = ({
 
   if (orderedSubjects.length < 4 || events.length < minEvents) return null;
 
-  const activeSubjects = orderedSubjects.filter(subject => activeTopics(subject).length > 0);
+  const activeSubjects = orderedSubjects.filter(subject =>
+    activeTopics(subject).length > 0 &&
+    hasUnstartedActiveTopics(subject)
+  );
   if (activeSubjects.length < 4) return null;
 
   const weightTotals = getExamWeightTotals(activeSubjects);
@@ -165,10 +177,10 @@ export const getStudyCycleQueueSuggestion = ({
 
   const evidenceParts = [
     top.weightPercentage !== null
-      ? `${top.weightPercentage.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% pelos pesos conhecidos`
+      ? `${top.weightPercentage.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% entre os pesos informados`
       : null,
     top.incidenceVolume > 0
-      ? `volume ${top.incidenceVolume.toLocaleString('pt-BR')}`
+      ? `maior cobrança analisada na fila`
       : null,
     `${Math.round(top.startedRatio * 100)}% dos tópicos iniciados`,
   ].filter(Boolean);
@@ -177,7 +189,7 @@ export const getStudyCycleQueueSuggestion = ({
     suggestedOrder: nextOrder,
     movedSubjectIds,
     title: 'Sugestão de fila',
-    message: `Mover ${top.subject.name} para o topo pode deixar o ciclo mais coerente com os sinais atuais.`,
+    message: `${top.subject.name} parece merecer uma posição mais alta na fila atual.`,
     evidence: evidenceParts.join(' · '),
     limitations,
   };

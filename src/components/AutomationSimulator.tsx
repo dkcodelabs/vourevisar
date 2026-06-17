@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'react-toastify'
 import { Progress } from '@/components/ui/progress'
-import { Bot, Clock, Database, Sparkles } from 'lucide-react'
+import { Bot, Clock, Database, Eye, Sparkles } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
 
 interface ProcessedTopicItem {
@@ -24,6 +24,11 @@ interface ProcessedTopicItem {
     rank_percentile?: number | null
     score_confidence?: string
     score_basis_count?: number
+    edital_name?: string
+    exam_board?: string
+    organ?: string
+    position?: string
+    year?: string
 }
 
 // Mantendo interface parecida com AllTopicsTable para consistência
@@ -56,6 +61,20 @@ interface AutomationSimulatorProps {
     externalResult?: any | null
 }
 
+type QueueStatusFilter = 'pending' | 'no_result' | 'error'
+
+interface QueueEditalOption {
+    id: string
+    name: string
+    exam_board: string | null
+}
+
+interface QueueSubjectOption {
+    id: string
+    name: string
+    edital_id: string | null
+}
+
 const logCopyableJson = (label: string, value: unknown) => {
     console.log(label, value)
     console.log(`${label} JSON:\n${JSON.stringify(value, null, 2)}`)
@@ -66,8 +85,22 @@ export function AutomationSimulator({
     externalResult,
 }: AutomationSimulatorProps) {
     const [isProcessing, setIsProcessing] = useState(false)
+    const [isPreviewing, setIsPreviewing] = useState(false)
     const [lastResult, setLastResult] = useState<ProcessedTopic | null>(null)
+    const [queuePreview, setQueuePreview] = useState<ProcessedTopicItem[]>([])
+    const [queueEditals, setQueueEditals] = useState<QueueEditalOption[]>([])
+    const [queueSubjects, setQueueSubjects] = useState<QueueSubjectOption[]>([])
+    const [selectedQueueEditalId, setSelectedQueueEditalId] = useState('')
+    const [selectedQueueSubjectId, setSelectedQueueSubjectId] = useState('')
+    const [queueStatus, setQueueStatus] = useState<QueueStatusFilter>('pending')
     const [quota, setQuota] = useState({ used: 0, limit: 100, remaining: 100 })
+
+    const queueScopeBody = () => ({
+        limit: 2,
+        ...(selectedQueueEditalId ? { editalId: selectedQueueEditalId } : {}),
+        ...(selectedQueueSubjectId ? { subjectId: selectedQueueSubjectId } : {}),
+        queueStatus,
+    })
 
     const applyQuotaFromResult = (result: any) => {
         const googleQuota = result?.google_quota
@@ -152,6 +185,7 @@ export function AutomationSimulator({
                 .maybeSingle()
 
             if (data) {
+                const incidenceContext = (data.incidence_context || {}) as any
                 const logFromDB: ProcessedTopic = {
                     id: data.id,
                     timestamp: new Date(data.last_trend_check_at),
@@ -169,13 +203,75 @@ export function AutomationSimulator({
                     api_cost: (data.last_audit_log as any)?.total_api_calls || 0,
                     from_catalog: data.incidence_source === 'catalog',
                     incidence_source: data.incidence_source,
-                    source_method: (data.incidence_context as any)?.source_method
+                    source_method: incidenceContext?.source_method,
+                    items: [{
+                        topic_id: data.id,
+                        topic_name: data.name,
+                        subject_name: (data.subjects as any)?.name || 'Geral',
+                        status: data.status === 'catalog_applied' ? 'catalog' : data.status === 'processed' ? 'ai' : String(data.status || 'unknown'),
+                        volume: Number(data.total_volume || 0),
+                        api_calls: Number((data.last_audit_log as any)?.total_api_calls || 0),
+                        reason: data.skip_reason || undefined,
+                        source_method: incidenceContext?.source_method,
+                        normalized_score: typeof incidenceContext?.normalized_score === 'number' ? incidenceContext.normalized_score : undefined,
+                        score_label: incidenceContext?.score_label ? String(incidenceContext.score_label) : undefined,
+                        rank_percentile: typeof incidenceContext?.rank_percentile === 'number' ? incidenceContext.rank_percentile : null,
+                        score_confidence: incidenceContext?.score_confidence ? String(incidenceContext.score_confidence) : undefined,
+                        score_basis_count: typeof incidenceContext?.score_basis_count === 'number' ? incidenceContext.score_basis_count : undefined,
+                    }]
                 }
                 setLastResult(logFromDB)
             }
         }
         loadLast()
     }, [])
+
+    useEffect(() => {
+        const loadQueueFilters = async () => {
+            const { data: authData } = await supabase.auth.getUser()
+            const userId = authData.user?.id
+            if (!userId) return
+
+            const [editalsResult, subjectsResult] = await Promise.all([
+                supabase
+                    .from('user_editais')
+                    .select('id,name,exam_board,created_at')
+                    .eq('user_id', userId)
+                    .order('created_at', { ascending: false }),
+                supabase
+                    .from('subjects')
+                    .select('id,name,edital_id')
+                    .eq('user_id', userId)
+                    .order('name', { ascending: true }),
+            ])
+
+            if (editalsResult.error) {
+                console.warn('[Incidência] Falha ao carregar editais para fila:', editalsResult.error)
+            } else {
+                setQueueEditals((editalsResult.data || []).map((edital: any) => ({
+                    id: String(edital.id),
+                    name: String(edital.name || 'Edital sem nome'),
+                    exam_board: edital.exam_board ? String(edital.exam_board) : null,
+                })))
+            }
+
+            if (subjectsResult.error) {
+                console.warn('[Incidência] Falha ao carregar matérias para fila:', subjectsResult.error)
+            } else {
+                setQueueSubjects((subjectsResult.data || []).map((subject: any) => ({
+                    id: String(subject.id),
+                    name: String(subject.name || 'Matéria sem nome'),
+                    edital_id: subject.edital_id ? String(subject.edital_id) : null,
+                })))
+            }
+        }
+
+        void loadQueueFilters()
+    }, [])
+
+    useEffect(() => {
+        setQueuePreview([])
+    }, [selectedQueueEditalId, selectedQueueSubjectId, queueStatus])
 
     const buildProcessedItems = (result: any): ProcessedTopicItem[] => (
         Array.isArray(result?.results)
@@ -195,6 +291,11 @@ export function AutomationSimulator({
                 rank_percentile: typeof item.rank_percentile === 'number' ? item.rank_percentile : null,
                 score_confidence: item.score_confidence ? String(item.score_confidence) : undefined,
                 score_basis_count: typeof item.score_basis_count === 'number' ? item.score_basis_count : undefined,
+                edital_name: item.edital_name ? String(item.edital_name) : undefined,
+                exam_board: item.exam_board ? String(item.exam_board) : undefined,
+                organ: item.organ ? String(item.organ) : undefined,
+                position: item.position ? String(item.position) : undefined,
+                year: item.year ? String(item.year) : undefined,
             }))
             : []
     )
@@ -263,16 +364,16 @@ export function AutomationSimulator({
             reasoning: firstError
                 || persistenceError
                 || (versionWarning ? 'A função remota ainda não retornou versão. Redeploy pode estar pendente.' : undefined)
-                || (persistenceWarning ? `Banco confirmou ${persistedCount}/${processedTopicIds.length} tópico(s).` : undefined)
+                || (persistenceWarning ? `Salvo ${persistedCount}/${processedTopicIds.length} tópico(s).` : undefined)
                 || (firstDeferredReason ? String(firstDeferredReason) : undefined)
                 || `${mode === 'single' ? 'Tópico' : 'Lote'} concluído agora com ${result.processed || 0} item(ns).`,
             effective_context: result.catalog > 0
-                ? 'Catálogo + busca quando necessário'
+                ? 'Reaproveitado do catálogo'
                 : allDeferred
                     ? 'Busca adiada por limite diário'
                 : usedDirectSearch
                     ? 'Busca direta sem Gemini'
-                    : 'IA quando necessário',
+                    : 'Análise automática',
             last_used_query: firstError
                 ? `Erro: ${firstError}`
                 : first?.status
@@ -308,7 +409,7 @@ export function AutomationSimulator({
         setIsProcessing(true)
         try {
             const { data: result, error } = await supabase.functions.invoke('process-topic-incidence', {
-                body: { limit: 2 }
+                body: queueScopeBody()
             })
 
             if (error) throw error
@@ -362,6 +463,38 @@ export function AutomationSimulator({
         }
     }
 
+    const handlePreviewQueue = async () => {
+        setIsPreviewing(true)
+        try {
+            const { data: result, error } = await supabase.functions.invoke('process-topic-incidence', {
+                body: { ...queueScopeBody(), previewQueue: true }
+            })
+
+            if (error) throw error
+
+            if (result?.error) {
+                toastGate.notifyError(result.error, 'COMPONENTS-AUTOMATIONSIMULATOR-QUEUE-PREVIEW-01', { severity: 'medium' })
+                return
+            }
+
+            const previewItems = buildProcessedItems(result)
+            setQueuePreview(previewItems)
+            logCopyableJson('Prévia da fila de incidência', result)
+
+            if (previewItems.length === 0) {
+                toast.info(result?.message || 'Nenhum tópico pendente na fila atual.')
+            } else {
+                toast.success(`Prévia carregada: ${previewItems.length} tópico(s) na próxima fila.`)
+            }
+        } catch (error) {
+            console.error('❌ Erro ao pré-visualizar fila:', error)
+            const msg = error instanceof Error ? error.message : String(error)
+            toastGate.notifyError(msg, 'COMPONENTS-AUTOMATIONSIMULATOR-QUEUE-PREVIEW-02', { severity: 'medium' })
+        } finally {
+            setIsPreviewing(false)
+        }
+    }
+
     const formatDate = (date: Date) => {
         return new Intl.DateTimeFormat('pt-BR', {
             day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
@@ -373,9 +506,9 @@ export function AutomationSimulator({
     const barColor = quotaPercentage > 90 ? '#dc2626' : quotaPercentage > 75 ? '#f97316' : '#16a34a'
 
     const getItemStatusLabel = (status: string) => {
-        if (status === 'ai') return 'IA'
-        if (status === 'catalog') return 'Catálogo'
-        if (status === 'zero') return 'Sinal 0'
+        if (status === 'ai') return 'Processado'
+        if (status === 'catalog') return 'Reaproveitado'
+        if (status === 'zero' || status === 'no_volume') return 'Sem resultado útil'
         if (status === 'skipped') return 'Pulado'
         if (status === 'deferred') return 'Adiado'
         if (status === 'error') return 'Erro'
@@ -383,6 +516,32 @@ export function AutomationSimulator({
     }
 
     const isDeferredResult = (result: ProcessedTopic) => result.source_method === 'deferred'
+
+    const getCoverageLabel = (item?: Pick<ProcessedTopicItem, 'status' | 'volume' | 'normalized_score' | 'score_label'> | null) => {
+        if (!item) return 'Não analisado'
+        if (item.status === 'deferred') return 'Não analisado hoje'
+        if (item.status === 'error') return 'Erro'
+        if (item.status === 'skipped') return 'Pulado'
+        if (item.status === 'zero' || item.status === 'no_volume' || Number(item.volume || 0) <= 0) return 'Sem resultado útil'
+        if (item.score_label) return item.score_label
+        if (typeof item.normalized_score === 'number') {
+            if (item.normalized_score >= 4) return 'Cobrança alta'
+            if (item.normalized_score >= 3) return 'Cobrança média'
+            return 'Cobrança baixa'
+        }
+        return 'Cobrança registrada'
+    }
+
+    const getCoverageClass = (label: string) => {
+        if (label.includes('alta')) return 'border-red-200 bg-red-50 text-red-700'
+        if (label.includes('média')) return 'border-orange-200 bg-orange-50 text-orange-700'
+        if (label.includes('baixa')) return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        if (label.includes('registrada')) return 'border-blue-200 bg-blue-50 text-blue-700'
+        if (label.includes('útil')) return 'border-orange-200 bg-orange-50 text-orange-700'
+        if (label.includes('analisado')) return 'border-slate-200 bg-slate-50 text-slate-700'
+        if (label === 'Erro') return 'border-red-200 bg-red-50 text-red-700'
+        return 'border-slate-200 bg-slate-50 text-slate-700'
+    }
 
     const getItemSourceLabel = (item: ProcessedTopicItem) => {
         if (item.status === 'catalog') return 'Catálogo'
@@ -399,7 +558,7 @@ export function AutomationSimulator({
         }
         if (status === 'ai') return 'border-violet-200 bg-violet-50 text-violet-700'
         if (status === 'catalog') return 'border-cyan-200 bg-cyan-50 text-cyan-700'
-        if (status === 'zero') return 'border-orange-200 bg-orange-50 text-orange-700'
+        if (status === 'zero' || status === 'no_volume') return 'border-orange-200 bg-orange-50 text-orange-700'
         if (status === 'skipped') return 'border-yellow-200 bg-yellow-50 text-yellow-700'
         if (status === 'deferred') return 'border-slate-200 bg-slate-50 text-slate-700'
         if (status === 'error') return 'border-red-200 bg-red-50 text-red-700'
@@ -412,6 +571,16 @@ export function AutomationSimulator({
             return 'Gemini indisponível; busca direta usada.'
         }
         return reason
+    }
+
+    const isRoutineReason = (reason?: string) => {
+        if (!reason) return true
+        return [
+            'Processado com sucesso',
+            'Lote concluído agora',
+            'Tópico concluído agora',
+            'Volume 0 na busca atual',
+        ].some((text) => reason.includes(text))
     }
 
     const getBatchSourceBadge = (result: ProcessedTopic) => {
@@ -435,11 +604,24 @@ export function AutomationSimulator({
         }
 
         return {
-            label: 'IA',
+            label: 'Busca com IA',
             icon: Bot,
             className: 'bg-violet-50 text-violet-700 border-violet-200',
         }
     }
+
+    const resultItems = lastResult?.items || []
+    const resultCounts = {
+        total: resultItems.length || lastResult?.processed_count || 0,
+        processed: resultItems.filter((item) => ['ai', 'catalog'].includes(item.status)).length,
+        noResult: resultItems.filter((item) => item.status === 'zero' || item.status === 'no_volume').length,
+        deferred: resultItems.filter((item) => item.status === 'deferred').length,
+        errors: resultItems.filter((item) => item.status === 'error').length,
+        skipped: resultItems.filter((item) => item.status === 'skipped').length,
+    }
+    const filteredQueueSubjects = selectedQueueEditalId
+        ? queueSubjects.filter(subject => subject.edital_id === selectedQueueEditalId)
+        : []
 
     return (
         <Card className="mt-6">
@@ -468,24 +650,149 @@ export function AutomationSimulator({
                 </div>
             </CardHeader>
             <CardContent className="space-y-4">
-                <Button
-                    onClick={handleProcessNext}
-                    disabled={isProcessing}
-                    className="w-full"
-                    size="lg"
-                >
-                    {isProcessing ? (
-                        <>
-                            <span className="animate-spin mr-2">⚙️</span>
-                            Processando...
-                        </>
-                    ) : (
-                        <>
-                            <span className="mr-2">🔄</span>
-                            Processar lote seguro
-                        </>
-                    )}
-                </Button>
+                <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_180px]">
+                    <label className="space-y-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                            Edital
+                        </span>
+                        <select
+                            value={selectedQueueEditalId}
+                            onChange={(event) => {
+                                setSelectedQueueEditalId(event.target.value)
+                                setSelectedQueueSubjectId('')
+                            }}
+                            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                            <option value="">Todos os editais</option>
+                            {queueEditals.map((edital) => (
+                                <option key={edital.id} value={edital.id}>
+                                    {edital.name}{edital.exam_board ? ` · ${edital.exam_board}` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="space-y-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                            Matéria
+                        </span>
+                        <select
+                            value={selectedQueueSubjectId}
+                            onChange={(event) => setSelectedQueueSubjectId(event.target.value)}
+                            disabled={!selectedQueueEditalId}
+                            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+                        >
+                            <option value="">
+                                {selectedQueueEditalId ? 'Todas as matérias do edital' : 'Escolha um edital primeiro'}
+                            </option>
+                            {filteredQueueSubjects.map((subject) => (
+                                <option key={subject.id} value={subject.id}>
+                                    {subject.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="space-y-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                            Status
+                        </span>
+                        <select
+                            value={queueStatus}
+                            onChange={(event) => setQueueStatus(event.target.value as QueueStatusFilter)}
+                            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                            <option value="pending">Fila padrão</option>
+                            <option value="no_result">Sem resultado útil</option>
+                            <option value="error">Com erro</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                    <Button
+                        onClick={handlePreviewQueue}
+                        disabled={isProcessing || isPreviewing}
+                        variant="outline"
+                        className="w-full"
+                        size="lg"
+                    >
+                        {isPreviewing ? (
+                            <>
+                                <span className="animate-spin mr-2">⚙️</span>
+                                Carregando fila...
+                            </>
+                        ) : (
+                            <>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Ver próximos da fila
+                            </>
+                        )}
+                    </Button>
+                    <Button
+                        onClick={handleProcessNext}
+                        disabled={isProcessing || isPreviewing}
+                        className="w-full"
+                        size="lg"
+                    >
+                        {isProcessing ? (
+                            <>
+                                <span className="animate-spin mr-2">⚙️</span>
+                                Processando...
+                            </>
+                        ) : (
+                            <>
+                                <span className="mr-2">🔄</span>
+                                Processar lote seguro
+                            </>
+                        )}
+                    </Button>
+                </div>
+
+                {queuePreview.length > 0 && (
+                    <div className="rounded-lg border bg-sky-50/40 p-4">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wide text-sky-700">
+                                    Próximos da fila
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Prévia sem IA, sem busca externa e sem gravação.
+                                </p>
+                            </div>
+                            <Badge variant="outline" className="border-sky-200 bg-white text-sky-700">
+                                {queuePreview.length} item(ns)
+                            </Badge>
+                        </div>
+                        <div className="space-y-2">
+                            {queuePreview.map((item) => (
+                                <div key={item.topic_id} className="rounded-md border bg-background px-3 py-2">
+                                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                                                {item.exam_board || item.edital_name || 'Sem banca informada'}
+                                            </p>
+                                            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                {item.subject_name}
+                                            </p>
+                                            <p className="text-xs font-medium leading-snug text-foreground">
+                                                {item.topic_name}
+                                            </p>
+                                            {item.edital_name && (
+                                                <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                                                    {item.edital_name}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <Badge variant="outline" className="w-fit border-slate-200 bg-slate-50 px-1.5 py-0 text-[10px] font-medium text-slate-500">
+                                            Não processado
+                                        </Badge>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {lastResult && (
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
@@ -500,202 +807,149 @@ export function AutomationSimulator({
                 )}
 
                 {lastResult && (
-                    <div className="mt-4 border rounded-lg overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead className="bg-muted">
-                                <tr>
-                                    <th className="px-4 py-3 text-left font-medium w-[40%]">Tópico & Matéria</th>
-                                    <th className="px-4 py-3 text-left font-medium w-[30%]">Detalhes da Busca</th>
-                                    <th className="px-4 py-3 text-left font-medium w-[20%]">Status & Sinal</th>
-                                    <th className="px-4 py-3 text-center font-medium w-[10%]">Audit</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white">
-                                <tr>
-                                    {/* COLUNA 1: Tópico e Matéria */}
-                                    <td className="px-4 py-4 align-top">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="font-medium text-sm text-foreground leading-snug">
-                                                {lastResult.topico_original}
-                                            </span>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground bg-muted/50 truncate max-w-[200px]">
-                                                    📚 {lastResult.materia}
-                                                </Badge>
-                                                <span className="text-[10px] text-muted-foreground">
-                                                    Processado em {formatDate(lastResult.timestamp)}
+                    <div className="mt-4 overflow-hidden rounded-lg border">
+                        <div className="bg-muted/40 p-4">
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                                        Resumo do lote
+                                    </p>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        {(() => {
+                                            const sourceBadge = getBatchSourceBadge(lastResult)
+                                            const SourceIcon = sourceBadge.icon
+
+                                            return (
+                                                <span className={`inline-flex items-center whitespace-nowrap rounded border px-2 py-1 text-[11px] font-medium ${sourceBadge.className}`}>
+                                                    <SourceIcon className="mr-1 h-3 w-3" />
+                                                    {sourceBadge.label}
                                                 </span>
-                                            </div>
-                                        </div>
-                                    </td>
+                                            )
+                                        })()}
+                                        <span className={`inline-flex items-center whitespace-nowrap rounded border px-2 py-1 text-[11px] font-medium ${lastResult.status === 'error'
+                                            ? 'border-red-200 bg-red-50 text-red-700'
+                                            : isDeferredResult(lastResult)
+                                                ? 'border-slate-200 bg-slate-50 text-slate-700'
+                                                : 'border-green-200 bg-green-50 text-green-700'
+                                            }`}>
+                                            {lastResult.status === 'error' ? 'Com erro' : isDeferredResult(lastResult) ? 'Adiado' : 'Processado'}
+                                        </span>
+                                        {typeof lastResult.persistence_checked_count === 'number' && lastResult.persistence_checked_count > 0 && (
+                                            <span className={`inline-flex items-center whitespace-nowrap rounded border px-2 py-1 text-[11px] font-medium ${
+                                                lastResult.persisted_count === lastResult.persistence_checked_count
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    : 'bg-red-50 text-red-700 border-red-200'
+                                            }`}>
+                                                Salvo {lastResult.persisted_count || 0}/{lastResult.persistence_checked_count}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {lastResult.reasoning && !isRoutineReason(formatOperationalReason(lastResult.reasoning)) && (
+                                        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                                            {formatOperationalReason(lastResult.reasoning)}
+                                        </p>
+                                    )}
+                                </div>
 
-                                    {/* COLUNA 2: Detalhes */}
-                                    <td className="px-4 py-4 align-top">
-                                        <div className="flex flex-col gap-2">
-                                            <div className="bg-muted/30 p-1.5 rounded border border-muted/50">
-                                                <p className="text-[11px] font-mono text-muted-foreground break-words leading-tight">
-                                                    {lastResult.from_catalog ? 'Resultado reaproveitado do catálogo' : lastResult.last_used_query || "Nenhuma query registrada"}
-                                                </p>
-                                            </div>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                {lastResult.effective_context && (
-                                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${lastResult.effective_context.includes("Global")
-                                                        ? "bg-purple-50 text-purple-700 border-purple-200"
-                                                        : "bg-blue-50 text-blue-700 border-blue-200"
-                                                        }`}>
-                                                        🎯 {lastResult.effective_context.replace("🌍 ", "")}
-                                                    </span>
-                                                )}
-                                                {(() => {
-                                                    const sourceBadge = getBatchSourceBadge(lastResult)
-                                                    const SourceIcon = sourceBadge.icon
-
-                                                    return (
-                                                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${sourceBadge.className}`}>
-                                                            <SourceIcon className="mr-1 h-3 w-3" />
-                                                            {sourceBadge.label}
-                                                        </span>
-                                                    )
-                                                })()}
-                                                {lastResult.reasoning && (
-                                                    <span className="text-[10px] text-muted-foreground italic" title={lastResult.reasoning}>
-                                                        "{formatOperationalReason(lastResult.reasoning)}"
-                                                    </span>
-                                                )}
-                                                {typeof lastResult.persistence_checked_count === 'number' && lastResult.persistence_checked_count > 0 && (
-                                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                                                        lastResult.persisted_count === lastResult.persistence_checked_count
-                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                            : 'bg-red-50 text-red-700 border-red-200'
-                                                    }`}>
-                                                        Banco confirmou {lastResult.persisted_count || 0}/{lastResult.persistence_checked_count}
-                                                    </span>
-                                                )}
-                                                {lastResult.worker_version && (
-                                                    <span className="text-[10px] text-muted-foreground">
-                                                        Worker {lastResult.worker_version}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    {/* COLUNA 3: Status e Sinal */}
-                                    <td className="px-4 py-4 align-top">
-                                        <div className="flex flex-col gap-1.5">
-                                            <div className="flex items-center gap-2">
-                                                {lastResult.status === 'error' ? (
-                                                    <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
-                                                        Erro
-                                                    </Badge>
-                                                ) : lastResult.total_volume > 0 ? (
-                                                    <Badge variant="secondary" className="font-mono font-bold bg-blue-50 text-blue-700 border-blue-200">
-                                                        Sinal {lastResult.total_volume.toLocaleString()}
-                                                    </Badge>
-                                                ) : isDeferredResult(lastResult) ? (
-                                                    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700">
-                                                        Não analisado hoje
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="text-muted-foreground">Sinal 0</Badge>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {lastResult.status === 'success' ? (
-                                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                                        Processado
-                                                    </span>
-                                                ) : lastResult.status === 'error' ? (
-                                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-700">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                                                        Erro
-                                                    </span>
-                                                ) : isDeferredResult(lastResult) ? (
-                                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                                        Adiado
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-yellow-700">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                                                        Sem sinal
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    {/* COLUNA 4: Audit */}
-                                    <td className="px-4 py-4 align-middle text-center">
-                                        <div className="flex flex-col items-center gap-1">
-                                            <Badge variant="outline" className={`font-mono text-[10px] ${lastResult.api_cost && lastResult.api_cost > 20 ? 'text-red-600 border-red-200' : ''}`}>
-                                                {lastResult.api_cost || 0} reqs
-                                            </Badge>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 w-6 p-0 rounded-full hover:bg-muted"
-                                                onClick={() => logCopyableJson('Audit', lastResult)}
-                                                title="Ver Detalhes (Console)"
-                                            >
-                                                <Database className="w-3 h-3 opacity-50" />
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:min-w-[420px]">
+                                    <div className="rounded-md border bg-background px-3 py-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Itens</p>
+                                        <p className="mt-1 text-lg font-semibold text-foreground">{resultCounts.total}</p>
+                                    </div>
+                                    <div className="rounded-md border bg-background px-3 py-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Processados</p>
+                                        <p className="mt-1 text-lg font-semibold text-green-700">{resultCounts.processed}</p>
+                                    </div>
+                                    <div className="rounded-md border bg-background px-3 py-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Sem resultado</p>
+                                        <p className="mt-1 text-lg font-semibold text-orange-700">{resultCounts.noResult}</p>
+                                    </div>
+                                    <div className="rounded-md border bg-background px-3 py-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Erros</p>
+                                        <p className="mt-1 text-lg font-semibold text-red-700">{resultCounts.errors}</p>
+                                    </div>
+                                    <div className="rounded-md border bg-background px-3 py-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Adiados</p>
+                                        <p className="mt-1 text-lg font-semibold text-slate-700">{resultCounts.deferred}</p>
+                                    </div>
+                                    <div className="rounded-md border bg-background px-3 py-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Buscas</p>
+                                        <p className="mt-1 text-lg font-semibold text-foreground">{lastResult.api_cost || 0}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         {lastResult.items && lastResult.items.length > 0 && (
-                            <div className="border-t bg-muted/10 p-3">
-                                <div className="mb-2 flex items-center justify-between gap-2">
+                            <div className="border-t bg-muted/10">
+                                <div className="flex items-center justify-between gap-2 px-4 py-3">
                                     <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                                        Tópicos processados neste lote
+                                        Tópicos do lote
                                     </p>
                                     <span className="text-[10px] text-muted-foreground">
                                         {lastResult.items.length} item(ns)
                                     </span>
                                 </div>
-                                <div className="space-y-2">
-                                    {lastResult.items.map((item) => (
-                                        <div key={item.topic_id} className="rounded-lg border bg-background px-3 py-2">
-                                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-sm font-semibold text-foreground" title={item.topic_name}>
-                                                        {item.topic_name}
-                                                    </p>
-                                                    <p className="mt-0.5 text-xs text-muted-foreground">
-                                                        {item.subject_name}
-                                                    </p>
-                                                    {(item.error || item.reason || item.reasoning) && (
-                                                        <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground" title={item.error || item.reason || item.reasoning}>
-                                                            {formatOperationalReason(item.error || item.reason || item.reasoning)}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                                                    <Badge variant="outline" className={getItemStatusClass(item.status, item.source_method, item.reasoning)}>
-                                                        {getItemSourceLabel(item)}
-                                                    </Badge>
-                                                    {item.status === 'deferred' ? (
-                                                        <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700">
-                                                            Não analisado hoje
+                                <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[820px] table-fixed border-t text-sm">
+                                        <thead className="bg-muted/70">
+                                            <tr>
+                                                <th className="w-[46%] px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Matéria e tópico</th>
+                                                <th className="w-[18%] px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Resultado</th>
+                                                <th className="w-[22%] px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Cobrança</th>
+                                                <th className="w-[14%] px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground">Auditoria</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y bg-background">
+                                            {lastResult.items.map((item) => (
+                                                <tr key={item.topic_id}>
+                                                    <td className="px-4 py-3 align-top">
+                                                        <div className="min-w-0 space-y-1">
+                                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                                {item.subject_name}
+                                                            </p>
+                                                            <p className="text-[11px] font-medium leading-snug text-foreground break-words" title={item.topic_name}>
+                                                                {item.topic_name}
+                                                            </p>
+                                                            {(item.error || item.reason || item.reasoning) && !isRoutineReason(formatOperationalReason(item.error || item.reason || item.reasoning)) && (
+                                                                <p className="text-[11px] leading-relaxed text-muted-foreground" title={item.error || item.reason || item.reasoning}>
+                                                                    {formatOperationalReason(item.error || item.reason || item.reasoning)}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 align-top">
+                                                        <Badge variant="outline" className={getItemStatusClass(item.status, item.source_method, item.reasoning)}>
+                                                            {getItemSourceLabel(item)}
                                                         </Badge>
-                                                    ) : (
-                                                        <Badge variant={item.volume > 0 ? 'secondary' : 'outline'} className="font-mono">
-                                                            Sinal {item.volume.toLocaleString('pt-BR')}
-                                                        </Badge>
-                                                    )}
-                                                    {typeof item.api_calls === 'number' && item.api_calls > 0 && (
-                                                        <span className="text-[10px] text-muted-foreground">
-                                                            {item.api_calls} reqs
+                                                    </td>
+                                                    <td className="px-4 py-3 align-top">
+                                                        {item.status === 'deferred' ? (
+                                                            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700">
+                                                                Não analisado hoje
+                                                            </Badge>
+                                                        ) : (
+                                                            <div className="flex flex-col items-start gap-1">
+                                                                <Badge variant="outline" className={getCoverageClass(getCoverageLabel(item))}>
+                                                                    {getCoverageLabel(item)}
+                                                                </Badge>
+                                                                {item.volume > 0 && (
+                                                                    <span className="text-[10px] text-muted-foreground">
+                                                                        Busca encontrou {item.volume.toLocaleString('pt-BR')}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 align-top text-center">
+                                                        <span className="inline-flex whitespace-nowrap rounded border px-2 py-1 text-[10px] text-muted-foreground">
+                                                            {item.api_calls || 0} buscas
                                                         </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         )}

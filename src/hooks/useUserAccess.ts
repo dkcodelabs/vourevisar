@@ -1,12 +1,22 @@
 // =====================================================
 // HOOK COMBINADO - ROLES + ASSINATURAS
 // =====================================================
+import { useCallback } from 'react'
 import { useUserRole } from './useUserRole'
 import { useSubscription } from './useSubscription'
 
 export function useUserAccess() {
   const roleData = useUserRole()
   const subscriptionData = useSubscription()
+  const { refetch: refetchRoles } = roleData
+  const { refetch: refetchSubscription } = subscriptionData
+
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      refetchRoles(),
+      refetchSubscription()
+    ])
+  }, [refetchRoles, refetchSubscription])
 
   // Combinar loading states
   const loading = roleData.loading || subscriptionData.loading
@@ -74,11 +84,6 @@ export function useUserAccess() {
     accessMessage: getAccessMessage(),
     
     // Funções
-    refetch: async () => {
-      await Promise.all([
-        roleData.refetch(),
-        subscriptionData.refetch()
-      ])
-    }
+    refetch
   }
 }
