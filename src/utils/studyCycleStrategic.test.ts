@@ -33,7 +33,7 @@ describe('studyCycleStrategic', () => {
 
     expect(weight.level).toBe('known');
     expect(weight.hasWeight).toBe(true);
-    expect(weight.label).toBe('5 questões · 10 pontos totais');
+    expect(weight.label).toBe('5 questões · 10 pontos');
   });
 
   it('marks topic incidence as not analyzed when volume is absent or zero', () => {

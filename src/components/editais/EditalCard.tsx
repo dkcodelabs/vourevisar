@@ -1,11 +1,16 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
     Trash2, Play, Eye, Clock,
     BookOpen, AlertTriangle, GraduationCap, BriefcaseBusiness, X, Loader2, RefreshCw,
-    Edit2
+    Edit2, Database, Sparkles, FileText, CalendarDays, MoreHorizontal
 } from 'lucide-react';
 import type { UserEdital } from '@/pages/Editais';
+import {
+    editalHeaderBadgeTypography,
+    editalHeaderExamBoardTypography,
+    editalHeaderPositionTypography
+} from '@/components/editais/editalHeaderTypography';
 
 interface EditalCardProps {
     edital: UserEdital;
@@ -38,6 +43,7 @@ export const EditalCard = ({
     onToggleSelect, onViewSubjects, onLoadCycle, onUnloadCycle, onDelete,
     isProcessing = false, processingProgress, hasUpdate = false, sourceAvailable = false, sourceStatusKnown = false, onSync, onEdit, isHighlighted = false
 }: EditalCardProps) => {
+    const [showActions, setShowActions] = React.useState(false);
     const progress = metrics.totalTopics > 0
         ? Math.round((metrics.completedTopics / metrics.totalTopics) * 100)
         : 0;
@@ -50,12 +56,29 @@ export const EditalCard = ({
         ? `Prova ${new Date(edital.examDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}`
         : 'Sem data da prova';
     const sourceBadge = edital.sourceId && sourceStatusKnown && !sourceAvailable
-        ? { label: 'Catálogo removido', className: 'text-warning' }
+        ? {
+            label: 'Catálogo removido',
+            className: 'border-warning/20 bg-warning/10 text-warning',
+            icon: AlertTriangle
+        }
         : edital.sourceId
-            ? { label: 'Cópia • Catálogo', className: 'text-primary' }
+            ? {
+                label: 'Cópia • Catálogo',
+                className: 'border-primary/20 bg-primary/10 text-primary',
+                icon: Database
+            }
             : edital.isImported
-                ? { label: 'Cópia • IA', className: 'text-incidence' }
-                : { label: 'Manual', className: 'text-content-muted' };
+                ? {
+                    label: 'Cópia • IA',
+                    className: 'border-incidence/20 bg-incidence/10 text-incidence',
+                    icon: Sparkles
+                }
+                : {
+                    label: 'Manual',
+                    className: 'border-border bg-secondary text-content-muted',
+                    icon: FileText
+                };
+    const SourceBadgeIcon = sourceBadge.icon;
 
     // Procura por Órgão e Cargo estruturados ou faz o split do name como fallback
     const displayOrgan = edital.organ || edital.name.split(' - ')[0];
@@ -75,146 +98,106 @@ export const EditalCard = ({
             )}
 
             <div className="flex h-full flex-col p-4 md:p-5">
-                <div className="relative mb-3 h-[104px] border-b border-border pb-3 dark:border-white/5">
+                <div className="relative mb-4 min-h-[118px] border-b border-border pb-4 dark:border-white/5">
                     <div className="min-w-0">
-                        <div className="flex min-w-0 flex-col">
-                            <h3 className="line-clamp-2 text-[13px] font-black uppercase leading-tight tracking-tight text-foreground [overflow-wrap:anywhere] sm:text-[14px]">
-                                {edital.year ? `${edital.year} - ` : ''}{displayOrgan}
-                            </h3>
-                            <div className="mt-1 min-h-[31px] space-y-0.5">
+                        <div className="flex min-w-0 flex-col gap-2">
+                            <div className="flex min-w-0 items-start gap-1.5">
+                                <GraduationCap size={12} className="mt-[2px] shrink-0 text-primary" />
+                                <h3 className="line-clamp-2 text-sm font-black uppercase leading-tight tracking-tight text-content-main [overflow-wrap:anywhere]">
+                                    {edital.year ? `${edital.year} - ` : ''}{displayOrgan}
+                                </h3>
+                            </div>
+                            <div className="min-h-[31px] space-y-1">
                                 {displayPosition && (
-                                    <p className="flex items-center gap-1.5 truncate text-[10px] font-bold uppercase tracking-tight text-content-muted">
-                                        <BriefcaseBusiness size={11} className="shrink-0 text-content-muted/80" />
+                                    <p className={`flex min-w-0 items-center gap-1.5 truncate text-content-muted ${editalHeaderPositionTypography}`}>
+                                        <BriefcaseBusiness size={11} className="shrink-0 text-warning" />
                                         <span className="truncate">{displayPosition}</span>
                                     </p>
                                 )}
                                 {edital.examBoard && (
-                                    <p className="flex items-center gap-1.5 truncate text-[10px] font-black uppercase tracking-[0.10em] text-primary/80">
-                                        <GraduationCap size={11} className="shrink-0" />
+                                    <p className={`flex min-w-0 items-center gap-1.5 truncate text-content-muted ${editalHeaderExamBoardTypography}`}>
+                                        <GraduationCap size={11} className="shrink-0 text-incidence" />
                                         <span className="truncate">{edital.examBoard}</span>
                                     </p>
                                 )}
                             </div>
                         </div>
                     </div>
-                    <div className="absolute bottom-3 left-0">
-                        <span className="text-[10px] font-medium text-content-muted">{examDateLabel}</span>
+                    <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-content-muted">
+                            <CalendarDays size={11} className="shrink-0 text-content-muted/80" />
+                            <span className="truncate">{examDateLabel}</span>
+                        </span>
+                        <span className={`inline-flex shrink-0 items-center gap-0.5 rounded border px-1 py-px ${editalHeaderBadgeTypography} ${sourceBadge.className}`}>
+                            <SourceBadgeIcon size={8} />
+                            {sourceBadge.label}
+                        </span>
                     </div>
                 </div>
 
-                <div className="mx-auto mb-4 grid w-[94%] grid-cols-2 gap-3">
-                    <div className="flex min-h-[74px] flex-col rounded-2xl border border-border/80 bg-gradient-to-b from-background/95 to-background/70 px-3 py-2.5 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)] dark:border-white/5 dark:from-white/[0.045] dark:to-white/[0.025]">
-                        <div className="mb-1.5 flex items-center justify-start gap-2">
-                            <BookOpen size={12} className="text-content-muted" />
-                            <span className="text-[9px] font-bold text-content-muted uppercase tracking-widest">Progresso</span>
-                        </div>
-                        <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                                <div className="text-[10px] font-bold leading-none text-foreground">
-                                    {metrics.completedTopics}<span className="ml-1 truncate text-content-muted">/{metrics.totalTopics} Tópicos</span>
-                                </div>
+                <div className="mx-auto mb-4 grid w-[94%] grid-cols-2 overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.09] via-background/70 to-incidence/[0.08] shadow-[inset_0_1px_0_hsl(var(--foreground)/0.06),0_10px_30px_hsl(var(--primary)/0.05)] dark:border-primary/20 dark:from-primary/[0.10] dark:via-white/[0.025] dark:to-incidence/[0.08]">
+                    <div className="flex min-h-[92px] flex-col px-3 py-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-1">
+                                <BookOpen size={12} className="shrink-0 text-primary" />
+                                <span className="whitespace-nowrap text-[8px] font-bold uppercase tracking-[0.08em] text-content-muted sm:text-[9px] sm:tracking-[0.14em]">Progresso</span>
                             </div>
-                            
-                            <div className="flex items-center justify-center gap-2">
-                                <div className="text-[10px] font-bold leading-none text-foreground">
-                                    {metrics.completedSubjectsCount || 0}<span className="ml-1 truncate text-content-muted">/{metrics.subjectsCount} Matérias</span>
-                                </div>
+                            <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[8px] font-bold leading-none text-primary sm:text-[9px]">
+                                {progress}%
+                            </span>
+                        </div>
+                        <div className="flex flex-1 flex-col justify-center gap-1">
+                            <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-[11px] font-bold leading-none text-content-main">Tópicos</span>
+                                <span className="text-[11px] font-black leading-none text-content-main">
+                                    {metrics.completedTopics}<span className="font-bold text-content-muted">/{metrics.totalTopics}</span>
+                                </span>
+                            </div>
+                            <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-[11px] font-bold leading-none text-content-muted">Matérias</span>
+                                <span className="text-[11px] font-black leading-none text-content-main">
+                                    {metrics.completedSubjectsCount || 0}<span className="font-bold text-content-muted">/{metrics.subjectsCount}</span>
+                                </span>
                             </div>
                         </div>
-                        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-content-muted/15">
+                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-content-muted/15">
                             <div
                                 className={`h-full rounded-full transition-all duration-500 ${
-                                    progress > 0 ? 'bg-success' : 'bg-transparent'
+                                    progress > 0
+                                        ? 'bg-gradient-to-r from-primary via-sky-400 to-incidence'
+                                        : 'bg-content-muted/25'
                                 }`}
-                                style={{ width: progress > 0 ? `max(${progress}%, 6px)` : '0%' }}
+                                style={{ width: progress > 0 ? `max(${progress}%, 8px)` : '8px' }}
                             />
                         </div>
                     </div>
                     
-                    <div className="flex min-h-[74px] flex-col rounded-2xl border border-border/80 bg-gradient-to-b from-background/95 to-background/70 px-3 py-2.5 text-center shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)] dark:border-white/5 dark:from-white/[0.045] dark:to-white/[0.025]">
-                        <div className="mb-1.5 flex items-center justify-start gap-2">
-                            <Clock size={12} className="text-content-muted" />
-                            <span className="text-[9px] font-bold text-content-muted/80 uppercase tracking-widest">Tempo</span>
+                    <div className="flex min-h-[92px] flex-col border-l border-border/70 px-3 py-3 dark:border-white/10">
+                        <div className="mb-2 flex items-center gap-1.5">
+                            <Clock
+                                size={12}
+                                className={`shrink-0 ${
+                                    metrics.totalStudyMinutes > 0 ? 'text-primary' : 'text-content-muted'
+                                }`}
+                            />
+                            <span className="truncate text-[9px] font-bold uppercase tracking-[0.16em] text-content-muted">Tempo</span>
                         </div>
-                        <div className="flex flex-1 flex-col items-center justify-center">
-                            <div className="text-[20px] font-black text-sky-400 leading-none">
+                        <div className="flex flex-1 flex-col justify-center">
+                            <div
+                                className={`font-black leading-none tabular-nums ${
+                                    metrics.totalStudyMinutes > 0
+                                        ? 'text-[24px] text-primary'
+                                        : 'text-[22px] text-content-muted'
+                                }`}
+                            >
                                 {studyTimeLabel}
                             </div>
-                            <p className="mt-1 text-[10px] font-bold tracking-tight text-content-muted">
+                            <p className="mt-1 text-[10px] font-bold leading-none text-content-muted">
                                 {studyTimeCaption === 'sem registro' ? 'Sem registro' : 'Tempo de estudo'}
                             </p>
                         </div>
                     </div>
                 </div>
-
-                <div className="mx-auto mb-3 grid w-[92%] grid-cols-2 gap-3 justify-center">
-                    {metrics.subjectsCount > 0 ? (
-                        <>
-                            <button
-                                onClick={onViewSubjects}
-                                className="flex items-center justify-center gap-2 py-1.5 bg-secondary dark:bg-zinc-800/80 border border-border dark:border-white/5 hover:bg-secondary-strong dark:hover:bg-zinc-700 text-content-muted hover:text-foreground dark:hover:text-content-main rounded-xl transition-all text-xs font-bold"
-                            >
-                                <Eye size={14} />
-                                Ver Matérias
-                            </button>
-                            <button
-                                onClick={edital.mergedIntoCycle ? onUnloadCycle : onLoadCycle}
-                                disabled={isProcessing}
-                                className={`relative flex items-center justify-center gap-2 py-1.5 rounded-xl transition-all text-xs font-bold shadow-lg overflow-hidden disabled:opacity-80 disabled:cursor-not-allowed ${
-                                    edital.mergedIntoCycle
-                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 shadow-none'
-                                        : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
-                                }`}
-                            >
-                                {/* Background Fill Animation */}
-                                {isProcessing && processingProgress && (
-                                    <motion.div 
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${processingProgress.percentage}%` }}
-                                        className={`absolute inset-y-0 left-0 z-0 opacity-20 ${
-                                            edital.mergedIntoCycle ? 'bg-red-500' : 'bg-white'
-                                        }`}
-                                    />
-                                )}
-
-                                <div className="relative z-10 flex items-center justify-center gap-2">
-                                    {isProcessing ? (
-                                        <>
-                                            <Loader2 size={14} className="animate-spin" />
-                                            {processingProgress ? `${processingProgress.percentage}%` : ''}
-                                        </>
-                                    ) : edital.mergedIntoCycle ? (
-                                        <>
-                                            <X size={14} />
-                                            Remover
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Play size={14} />
-                                            Carregar Ciclo
-                                        </>
-                                    )}
-                                </div>
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <button
-                                onClick={onViewSubjects}
-                                className="flex items-center justify-center gap-2 py-1.5 bg-secondary dark:bg-zinc-800/80 border border-border dark:border-white/5 hover:bg-secondary-strong dark:hover:bg-zinc-700 text-content-muted hover:text-foreground rounded-xl transition-all text-xs font-bold"
-                            >
-                                <Eye size={14} />
-                                Ver
-                            </button>
-
-                            <div className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
-                                <AlertTriangle size={14} className="text-amber-400 shrink-0" />
-                                <span className="text-[11px] font-bold text-amber-400 leading-tight">Sem matérias</span>
-                            </div>
-                        </>
-                    )}
-                </div>
-
 
                 {/* Detalhes do Progresso de Remoção */}
                 {isProcessing && processingProgress?.message && (
@@ -231,10 +214,73 @@ export const EditalCard = ({
                 )}
 
                 <div className="mt-auto flex min-h-11 items-center justify-between gap-3 border-t border-border/80 pt-3 dark:border-white/5">
-                    <span className={`min-w-0 truncate text-[9px] font-black uppercase tracking-[0.15em] ${sourceBadge.className}`}>
-                        <span className="pl-2">{sourceBadge.label}</span>
-                    </span>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                        {metrics.subjectsCount > 0 ? (
+                            <>
+                                <button
+                                    onClick={onViewSubjects}
+                                    className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-primary/25 bg-primary/[0.08] px-3 text-[10px] font-bold text-primary transition-colors duration-200 hover:border-primary/40 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                                >
+                                    <Eye size={13} className="shrink-0" />
+                                    <span className="truncate">Ver Matérias</span>
+                                </button>
+                                <button
+                                    onClick={edital.mergedIntoCycle ? onUnloadCycle : onLoadCycle}
+                                    disabled={isProcessing}
+                                    className={`relative flex h-8 min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-3 text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-80 ${
+                                        edital.mergedIntoCycle
+                                            ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400'
+                                            : 'bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90'
+                                    }`}
+                                >
+                                    {isProcessing && processingProgress && (
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${processingProgress.percentage}%` }}
+                                            className={`absolute inset-y-0 left-0 z-0 opacity-20 ${
+                                                edital.mergedIntoCycle ? 'bg-red-500' : 'bg-white'
+                                            }`}
+                                        />
+                                    )}
+
+                                    <span className="relative z-10 flex min-w-0 items-center justify-center gap-1.5">
+                                        {isProcessing ? (
+                                            <>
+                                                <Loader2 size={13} className="shrink-0 animate-spin" />
+                                                <span className="truncate">{processingProgress ? `${processingProgress.percentage}%` : ''}</span>
+                                            </>
+                                        ) : edital.mergedIntoCycle ? (
+                                            <>
+                                                <X size={13} className="shrink-0" />
+                                                <span className="truncate">Remover</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Play size={13} className="shrink-0" />
+                                                <span className="truncate">Carregar Ciclo</span>
+                                            </>
+                                        )}
+                                    </span>
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={onViewSubjects}
+                                    className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 text-[10px] font-bold text-content-muted transition-colors hover:bg-secondary-strong hover:text-foreground dark:border-white/5 dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
+                                >
+                                    <Eye size={13} className="shrink-0" />
+                                    <span className="truncate">Ver</span>
+                                </button>
+
+                                <div className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 text-center">
+                                    <AlertTriangle size={13} className="shrink-0 text-amber-400" />
+                                    <span className="truncate text-[10px] font-bold text-amber-400">Sem matérias</span>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <div className="relative flex shrink-0 items-center gap-2">
                         {edital.sourceId && hasUpdate && (
                             <button
                                 onClick={(e) => {
@@ -242,8 +288,9 @@ export const EditalCard = ({
                                     onSync?.();
                                 }}
                                 disabled={isProcessing}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-success/40 bg-success text-success-foreground transition-colors disabled:opacity-50"
+                                className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-success/40 bg-success text-success-foreground transition-colors after:absolute after:-inset-1.5 disabled:opacity-50"
                                 title="Atualização disponível!"
+                                aria-label="Sincronizar atualização do edital"
                             >
                                 {isProcessing && edital.sourceId ? (
                                     <Loader2 size={15} className="animate-spin" />
@@ -253,29 +300,66 @@ export const EditalCard = ({
                             </button>
                         )}
 
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit?.();
-                            }}
-                            disabled={isProcessing}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary/50 text-content-muted transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50 dark:border-white/5 dark:bg-zinc-800/50"
-                            title="Editar edital"
-                        >
-                            <Edit2 size={15} />
-                        </button>
+                        <AnimatePresence initial={false}>
+                            {showActions && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: 10, scale: 0.96 }}
+                                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                                    exit={{ opacity: 0, x: 10, scale: 0.96 }}
+                                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                                    className="absolute bottom-[calc(100%+8px)] right-0 z-20 flex items-center gap-2 rounded-xl border border-border/80 bg-card/95 p-1.5 shadow-xl shadow-black/20 backdrop-blur-md dark:border-white/10"
+                                >
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowActions(false);
+                                            onEdit?.();
+                                        }}
+                                        disabled={isProcessing}
+                                        className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/[0.08] text-primary transition-colors duration-200 after:absolute after:-inset-1.5 hover:border-primary/40 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50"
+                                        title="Editar edital"
+                                        aria-label="Editar edital"
+                                    >
+                                        <Edit2 size={15} />
+                                    </button>
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowActions(false);
+                                            onDelete();
+                                        }}
+                                        disabled={isProcessing}
+                                        className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive transition-colors duration-200 after:absolute after:-inset-1.5 hover:border-destructive/50 hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 disabled:opacity-50"
+                                        title="Excluir edital"
+                                        aria-label="Excluir edital"
+                                    >
+                                        {isProcessing && !edital.mergedIntoCycle ? (
+                                            <Loader2 size={15} className="animate-spin" />
+                                        ) : (
+                                            <Trash2 size={15} />
+                                        )}
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         <button
-                            onClick={onDelete}
-                            disabled={isProcessing}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary/50 text-content-muted transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 dark:border-white/5 dark:bg-zinc-800/50"
-                            title="Excluir edital"
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowActions((current) => !current);
+                            }}
+                            className={`relative flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-200 after:absolute after:-inset-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-incidence/50 ${
+                                showActions
+                                    ? 'border-incidence/35 bg-incidence/15 text-incidence'
+                                    : 'border-incidence/20 bg-incidence/[0.07] text-incidence/80 hover:border-incidence/35 hover:bg-incidence/15 hover:text-incidence'
+                            }`}
+                            aria-label={showActions ? 'Ocultar ações do edital' : 'Mostrar ações do edital'}
+                            aria-expanded={showActions}
+                            title={showActions ? 'Ocultar ações' : 'Mais ações'}
                         >
-                            {isProcessing && !edital.mergedIntoCycle ? (
-                                <Loader2 size={15} className="animate-spin text-destructive" />
-                            ) : (
-                                <Trash2 size={15} />
-                            )}
+                            <MoreHorizontal size={16} />
                         </button>
                     </div>
                 </div>
