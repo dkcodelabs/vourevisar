@@ -31,7 +31,7 @@ const plural = (value: number, singular: string, pluralText: string) =>
   Math.abs(value) === 1 ? singular : pluralText;
 
 const pluralPoint = (value: number) =>
-  Math.abs(value) <= 1 ? 'ponto total' : 'pontos totais';
+  Math.abs(value) <= 1 ? 'ponto' : 'pontos';
 
 export const parseOptionalExamWeightNumber = (value: string) => {
   if (!value.trim()) return null;
@@ -49,7 +49,7 @@ export const getEffectiveSubjectExamWeight = (subject: SubjectExamWeight): Effec
     return {
       value: subject.exam_weight_points,
       source: 'points',
-      label: 'pontos totais',
+      label: 'pontos',
     };
   }
 

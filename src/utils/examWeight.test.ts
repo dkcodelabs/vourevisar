@@ -17,7 +17,7 @@ describe('examWeight', () => {
       exam_weight_percentage: null,
     });
 
-    expect(label).toBe('6 questões · 0,75 ponto total');
+    expect(label).toBe('6 questões · 0,75 ponto');
   });
 
   it('adds derived percentage when totals are reliable', () => {
@@ -32,7 +32,7 @@ describe('examWeight', () => {
       exam_weight_points: 0.75,
     }, totals);
 
-    expect(label).toBe('6 questões · 0,75 ponto total · 7,5% da prova');
+    expect(label).toBe('6 questões · 0,75 ponto · 7,5% da prova');
   });
 
   it('can avoid derived percentage when only question count is available', () => {
@@ -59,7 +59,7 @@ describe('examWeight', () => {
       exam_weight_points: 10,
     }, totals, { derivePercentageFromQuestions: false, derivePercentageFromPoints: false });
 
-    expect(label).toBe('10 questões · 10 pontos totais');
+    expect(label).toBe('10 questões · 10 pontos');
   });
 
   it('keeps explicit percentage even when derived percentages are disabled', () => {
@@ -69,7 +69,7 @@ describe('examWeight', () => {
       exam_weight_percentage: 12.5,
     }, undefined, { derivePercentageFromQuestions: false, derivePercentageFromPoints: false });
 
-    expect(label).toBe('10 questões · 10 pontos totais · 12,5% da prova');
+    expect(label).toBe('10 questões · 10 pontos · 12,5% da prova');
   });
 
   it('prefers total points for effective ordering weight', () => {
@@ -82,7 +82,7 @@ describe('examWeight', () => {
     expect(effective).toEqual({
       value: 0.75,
       source: 'points',
-      label: 'pontos totais',
+      label: 'pontos',
     });
   });
 

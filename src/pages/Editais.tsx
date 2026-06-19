@@ -2081,7 +2081,7 @@ const Editais = () => {
                     )}
                 </motion.div>
             ) : (
-                <div className="grid auto-rows-fr grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                <div className="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-4">
                     {filteredEditais.map(edital => {
                         const metrics = getEditalMetrics(edital);
                         const daysLeft = getDaysUntilExam(edital.examDate);

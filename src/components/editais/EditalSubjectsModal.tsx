@@ -9,8 +9,8 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Plus, X, Trash2, Check, BookOpen, GraduationCap,
-    ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, FileText, Circle, CheckCircle2, Loader2, AlertTriangle, EyeOff, Eye,
-    Database, Save, Cloud, CloudOff, Sparkles, Wand2, EyeIcon, GripVertical
+    ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, FileText, Circle, CheckCircle2, Loader2, AlertTriangle,
+    Database, Save, Sparkles, BriefcaseBusiness, Gauge, BarChart2, BookPlus
 } from 'lucide-react';
 import { Subject, Topic, Status } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,17 +19,24 @@ import { useApp } from '@/contexts/AppContext';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
-import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import type { UserEdital } from '@/pages/Editais';
 import {
     formatExamWeightInputValue,
     getExamWeightTotals,
-    getSubjectExamWeightLabel,
     getSubjectExamWeightLine,
-    getSubjectExamWeightReviewMessage,
     hasSubjectExamWeight,
     parseOptionalExamWeightNumber
 } from '@/utils/examWeight';
+import {
+    filterSubjectsAccentInsensitive,
+    resolveBulkSubjectName
+} from '@/utils/subjectSearch';
+import { parseBulkTopics, shouldAdvanceToBulkTopics } from '@/utils/bulkTopicParser';
+import {
+    editalHeaderBadgeTypography,
+    editalHeaderExamBoardTypography,
+    editalHeaderPositionTypography
+} from '@/components/editais/editalHeaderTypography';
 
 interface AiSubject {
     title: string;
@@ -127,7 +134,7 @@ export const EditalSubjectsModal = ({
                 if (prev.includes(initialExpandedSubjectId)) return prev;
                 return [...prev, initialExpandedSubjectId];
             });
-            
+
             // Pequeno delay para o modal animar e a lista renderizar
             const timer = setTimeout(() => {
                 const el = document.getElementById(`subject-card-${initialExpandedSubjectId}`);
@@ -144,6 +151,7 @@ export const EditalSubjectsModal = ({
 
     // ── UI state ─────────────────────────────────────────────────────────
     const [searchQuery, setSearchQuery] = useState('');
+    const [showManualAdd, setShowManualAdd] = useState(false);
     const [newSubjectName, setNewSubjectName] = useState('');
     const [isSavingSubject, setIsSavingSubject] = useState(false);
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
@@ -160,10 +168,10 @@ export const EditalSubjectsModal = ({
     const [showInactiveIds, setShowInactiveIds] = useState<string[]>([]); // IDs de matérias com lixeira aberta
     const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
     const [editingSubjectName, setEditingSubjectName] = useState('');
-    const [notesModal, setNotesModal] = useState<{ isOpen: boolean; subjectId: string; subjectName: string }>({
-        isOpen: false, subjectId: '', subjectName: ''
-    });
     const [syncStatus, setSyncStatus] = useState<'saved' | 'saving' | 'error' | null>(null);
+    const [editingWeightSubjectId, setEditingWeightSubjectId] = useState<string | null>(null);
+    const [weightSavedSubjectId, setWeightSavedSubjectId] = useState<string | null>(null);
+    const [weightDraft, setWeightDraft] = useState({ questions: '', points: '' });
 
     // Limpa o status de "Sincronizado" após alguns segundos para feedback dinâmico
     useEffect(() => {
@@ -172,14 +180,99 @@ export const EditalSubjectsModal = ({
             return () => clearTimeout(timer);
         }
     }, [syncStatus]);
-    
-    // ── IA Add Mode ──────────────────────────────────────────────────────────
+
+    useEffect(() => {
+        if (weightSavedSubjectId) {
+            const timer = setTimeout(() => setWeightSavedSubjectId(null), 2600);
+            return () => clearTimeout(timer);
+        }
+    }, [weightSavedSubjectId]);
+
+    // ── Adição de tópicos em lote ────────────────────────────────────────────
     const [showIaAdd, setShowIaAdd] = useState(false);
     const [iaSubjectName, setIaSubjectName] = useState('');
     const [iaInputText, setIaInputText] = useState('');
-    const [iaStage, setIaStage] = useState<'input' | 'processing' | 'review'>('input');
+    const [iaStage, setIaStage] = useState<'input' | 'review'>('input');
     const [aiResult, setAiResult] = useState<AiSubject[]>([]);
-    const [isProcessingIa, setIsProcessingIa] = useState(false);
+    const [showIaSubjectSuggestions, setShowIaSubjectSuggestions] = useState(false);
+    const [focusedSuggestionIndex, setFocusedSuggestionIndex] = useState(-1);
+    const [iaOverflowVisible, setIaOverflowVisible] = useState(false);
+    const iaSuggestionsRef = useRef<HTMLDivElement>(null);
+    const iaTopicsInputRef = useRef<HTMLTextAreaElement>(null);
+
+    const iaSubjectSuggestions = useMemo(() => {
+        return filterSubjectsAccentInsensitive(localSubjects, iaSubjectName);
+    }, [localSubjects, iaSubjectName]);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (iaSuggestionsRef.current && !iaSuggestionsRef.current.contains(event.target as Node)) {
+                setShowIaSubjectSuggestions(false);
+            }
+        }
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key === 'Escape') {
+                setShowIaSubjectSuggestions(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
+    useEffect(() => {
+        setFocusedSuggestionIndex(-1);
+    }, [iaSubjectName, showIaSubjectSuggestions]);
+
+    const advanceToBulkTopics = (selectedSubjectName?: string) => {
+        if (selectedSubjectName) setIaSubjectName(selectedSubjectName);
+        setShowIaSubjectSuggestions(false);
+        setFocusedSuggestionIndex(-1);
+        window.requestAnimationFrame(() => iaTopicsInputRef.current?.focus());
+    };
+
+    const handleIaSubjectKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (shouldAdvanceToBulkTopics(e.key, e.shiftKey)) {
+            e.preventDefault();
+            advanceToBulkTopics(resolveBulkSubjectName(
+                iaSubjectSuggestions,
+                focusedSuggestionIndex,
+                iaSubjectName
+            ));
+            return;
+        }
+
+        if (!showIaSubjectSuggestions) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                setShowIaSubjectSuggestions(true);
+            }
+            return;
+        }
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                setFocusedSuggestionIndex(prev =>
+                    prev < iaSubjectSuggestions.length - 1 ? prev + 1 : 0
+                );
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                setFocusedSuggestionIndex(prev =>
+                    prev > 0 ? prev - 1 : iaSubjectSuggestions.length - 1
+                );
+                break;
+            case 'Escape':
+                e.preventDefault();
+                setShowIaSubjectSuggestions(false);
+                break;
+            default:
+                break;
+        }
+    };
 
     // ── Funções de troca de edital ──────────────────────────────────────────
     const hasUnsavedChanges = useMemo(() => {
@@ -210,6 +303,7 @@ export const EditalSubjectsModal = ({
         setLocalEditalIds(newEdital.subjectIds);
         setLocalActiveIds(newEdital.activeSubjectIds?.length ? newEdital.activeSubjectIds : newEdital.subjectIds);
         setShowIaAdd(false);
+        setShowManualAdd(false);
         setIaSubjectName('');
         setIaInputText('');
         setIaStage('input');
@@ -239,8 +333,11 @@ export const EditalSubjectsModal = ({
         }
         setConfirmDeleteSubjectId(null);
         setSearchQuery('');
-        // Reset IA states
+        // Reset batch-add states
         setShowIaAdd(false);
+        setIaOverflowVisible(false);
+        setShowIaSubjectSuggestions(false);
+        setShowManualAdd(false);
         setIaSubjectName('');
         setIaInputText('');
         setIaStage('input');
@@ -253,92 +350,21 @@ export const EditalSubjectsModal = ({
         onBack?.();
     }, [handleClose, onBack]);
 
-    // ── Processar com IA ─────────────────────────────────────────────────────
-    const handleIaProcess = useCallback(async () => {
-        if (!iaSubjectName.trim() || !iaInputText.trim() || !user) return;
-        
-        setIsProcessingIa(true);
-        setIaStage('processing');
-        
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error('Não autorizado');
-            
-            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-edital`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
-                    inputText: iaInputText,
-                    isComplementMode: true,
-                    subjectName: iaSubjectName.trim()
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.error) throw new Error(result.error);
-            
-            interface ExtractionResult {
-                s?: { 
-                    t?: string; 
-                    title?: string; 
-                    p?: { n?: string; name?: string }[]; 
-                    topics?: { n?: string; name?: string }[] 
-                }[];
-                subjects?: { 
-                    t?: string; 
-                    title?: string; 
-                    p?: { n?: string; name?: string }[]; 
-                    topics?: { n?: string; name?: string }[] 
-                }[];
-            }
+    // ── Preparar prévia local ────────────────────────────────────────────────
+    const handleBulkPreview = useCallback(() => {
+        if (!iaSubjectName.trim() || !iaInputText.trim()) return;
 
-            let parsed: ExtractionResult;
-            try {
-                parsed = typeof result.text === 'string' ? JSON.parse(result.text) : result.text;
-            } catch {
-                parsed = { s: [] };
-            }
-            
-            const subjects = parsed.s || parsed.subjects || [];
-            const mapped: AiSubject[] = subjects.map(s => ({
-                title: s.t || s.title || iaSubjectName.trim(),
-                topics: (s.p || s.topics || []).map(t => ({
-                    name: t.n || t.name || '',
-                    selected: true
-                })).filter(t => t.name.trim()),
-                selected: true
-            }));
-            
-            // Force subject name to user input
-            const adjustedResults = mapped.map(s => ({ 
-                ...s, 
-                title: iaSubjectName.trim() 
-            }));
-            
-            setAiResult(adjustedResults);
-            setIaStage('review');
-            
-        } catch (error: unknown) {
-            console.error('Erro na IA:', error);
-            errorService.report(error instanceof Error ? error : new Error(String(error)), { 
-                module: 'EditalSubjectsModal', 
-                action: 'iaProcess', 
-                userMessage: 'Erro ao processar com IA' 
-            });
-            setIaStage('input');
-        } finally {
-            setIsProcessingIa(false);
-        }
-    }, [iaSubjectName, iaInputText, user]);
+        const topics = parseBulkTopics(iaInputText).map(name => ({ name, selected: true }));
+        if (topics.length === 0) return;
 
-    // ── Confirmar e adicionar tópicos da IA ─────────────────────────────────
+        setAiResult([{ title: iaSubjectName.trim(), topics, selected: true }]);
+        setIaStage('review');
+    }, [iaSubjectName, iaInputText]);
+
+    // ── Confirmar e adicionar tópicos em lote ───────────────────────────────
     const handleIaConfirm = useCallback(async () => {
         if (!user || !iaSubjectName.trim()) return;
-        
+
         setIsSavingSubject(true);
         try {
             const selectedTopics = aiResult
@@ -356,17 +382,17 @@ export const EditalSubjectsModal = ({
                         position: idx
                     };
                 });
-            
+
             // Check if subject already exists
             const existingSubject = localSubjects.find(
                 s => s.name.toLowerCase() === iaSubjectName.trim().toLowerCase()
             );
-            
+
             if (existingSubject) {
                 // Add topics to existing subject (in 'topics' table)
                 const existingTopicNames = new Set(existingSubject.topics.map(t => t.name.toLowerCase()));
                 const newTopics = selectedTopics.filter(t => !existingTopicNames.has(t.name.toLowerCase()));
-                
+
                 if (newTopics.length > 0) {
                     const topicsToInsert = newTopics.map((t, idx) => ({
                         subject_id: existingSubject.id,
@@ -377,21 +403,21 @@ export const EditalSubjectsModal = ({
                         review_stage: null,
                         position: existingSubject.topics.length + idx
                     }));
-                    
+
                     const { error: insertErr } = await supabase
                         .from('topics')
                         .insert(topicsToInsert);
-                    
+
                     if (insertErr) throw insertErr;
                 }
-                
+
                 const updatedSubjects = localSubjects.map(s => {
                     if (s.id === existingSubject.id) {
                         return { ...s, topics: [...s.topics, ...newTopics] };
                     }
                     return s;
                 });
-                
+
                 setLocalSubjects(updatedSubjects);
                 hasPendingSync.current = true;
                 setSyncStatus('saved');
@@ -407,9 +433,9 @@ export const EditalSubjectsModal = ({
                     })
                     .select()
                     .single();
-                
+
                 if (createErr) throw createErr;
-                
+
                 // Insert topics into 'topics' table
                 if (selectedTopics.length > 0) {
                     const topicsToInsert = selectedTopics.map((t, idx) => ({
@@ -421,48 +447,48 @@ export const EditalSubjectsModal = ({
                         review_stage: null,
                         position: idx
                     }));
-                    
+
                     const { error: insertErr } = await supabase
                         .from('topics')
                         .insert(topicsToInsert);
-                    
+
                     if (insertErr) throw insertErr;
                 }
-                
+
                 const newSubjectIds = [...localEditalIds, created.id];
                 const newSubjectWithTopics = { ...created, topics: selectedTopics } as Subject;
                 setLocalSubjects([...localSubjects, newSubjectWithTopics]);
                 setLocalEditalIds(newSubjectIds);
-                
+
                 await editaisTable()
-                    .update({ 
+                    .update({
                         subject_ids: newSubjectIds,
                         active_subject_ids: newSubjectIds,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', edital.id);
-                
+
                 hasPendingSync.current = true;
                 setSyncStatus('saved');
-                
+
                 onUpdate({ ...edital, subjectIds: newSubjectIds, activeSubjectIds: newSubjectIds });
             }
-            
+
             setSyncStatus('saved');
             setShowIaAdd(false);
             setIaSubjectName('');
             setIaInputText('');
             setIaStage('input');
             setAiResult([]);
-            
+
             toast.success('Matéria adicionada com sucesso!');
-            
+
         } catch (error: unknown) {
             console.error('Erro ao salvar:', error);
-            errorService.report(error instanceof Error ? error : new Error(String(error)), { 
-                module: 'EditalSubjectsModal', 
-                action: 'iaConfirm', 
-                userMessage: 'Erro ao adicionar matéria' 
+            errorService.report(error instanceof Error ? error : new Error(String(error)), {
+                module: 'EditalSubjectsModal',
+                action: 'iaConfirm',
+                userMessage: 'Erro ao adicionar matéria'
             });
         } finally {
             setIsSavingSubject(false);
@@ -486,6 +512,31 @@ export const EditalSubjectsModal = ({
 
     const totalTopics = localSubjects.reduce((sum, s) => sum + s.topics.length, 0);
     const completedTopics = localSubjects.reduce((sum, s) => sum + s.topics.filter(t => t.completed).length, 0);
+    const displayOrgan = selectedEdital.organ || selectedEdital.name.split(' - ')[0];
+    const displayPosition = selectedEdital.position || (
+        selectedEdital.name.split(' - ').length > 1
+            ? selectedEdital.name.split(' - ').slice(1).join(' - ')
+            : null
+    );
+    const canPreviewBulkTopics = Boolean(iaSubjectName.trim() && parseBulkTopics(iaInputText).length > 0);
+    const sourceBadge = selectedEdital.sourceId
+        ? {
+            label: 'Cópia • Catálogo',
+            className: 'border-primary/20 bg-primary/10 text-primary',
+            icon: Database
+        }
+        : selectedEdital.isImported
+            ? {
+                label: 'Cópia • IA',
+                className: 'border-incidence/20 bg-incidence/10 text-incidence',
+                icon: Sparkles
+            }
+            : {
+                label: 'Manual',
+                className: 'border-border bg-secondary text-content-muted',
+                icon: FileText
+            };
+    const SourceBadgeIcon = sourceBadge.icon;
 
     useEffect(() => {
         if (searchQuery.trim()) setExpandedIds(filteredSubjects.map(s => s.id));
@@ -528,11 +579,11 @@ export const EditalSubjectsModal = ({
 
         try {
             const { data: newSubj, error: subjErr } = await supabase
-                .from('subjects').insert({ 
-                    user_id: user.id, 
-                    name, 
+                .from('subjects').insert({
+                    user_id: user.id,
+                    name,
                     status: 'Nova',
-                    edital_id: edital.id 
+                    edital_id: edital.id
                 })
                 .select('id').single();
             if (subjErr) throw subjErr;
@@ -543,6 +594,7 @@ export const EditalSubjectsModal = ({
 
             setLocalSubjects(prev => prev.map(s => s.id === placeholderId ? { ...s, id: newSubj.id } : s));
             setExpandedIds([newSubj.id]);
+            setShowManualAdd(false);
             setLocalEditalIds(updatedIds);
             onUpdate({ ...edital, subjectIds: updatedIds });
             hasPendingSync.current = true;
@@ -574,7 +626,7 @@ export const EditalSubjectsModal = ({
             // 0. Remove histórico de revisões dos tópicos desta matéria ANTES (limpeza profunda)
             const subjectToDelete = localSubjects.find(s => s.id === subjectId);
             const topicIds = subjectToDelete?.topics.map(t => t.id) || [];
-            
+
             if (topicIds.length > 0) {
                 const { error: histErr } = await supabase
                     .from('topic_review_history')
@@ -606,7 +658,7 @@ export const EditalSubjectsModal = ({
             if (currentCycle && currentCycle.ciclo_atual) {
                 const currentIds = (currentCycle.ciclo_atual as string[]) || [];
                 const newCycleIds = currentIds.filter(id => id !== subjectId);
-                
+
                 if (newCycleIds.length !== currentIds.length) {
                     await supabase
                         .from('user_cycles')
@@ -624,7 +676,7 @@ export const EditalSubjectsModal = ({
             onUpdate({ ...edital, subjectIds: updatedIds, activeSubjectIds: updatedActiveIds });
             hasPendingSync.current = true;
             setSyncStatus('saved');
-            toast.success(`"${subjectName}" excluída permanentemente.`);
+            toast.success(`Matéria "${subjectName}" excluída permanentemente.`);
         } catch (err) {
             // Reverte otimismo
             setLocalSubjects(allSubjects.filter(s => edital.subjectIds.includes(s.id)));
@@ -690,11 +742,11 @@ export const EditalSubjectsModal = ({
 
         try {
             const { data: newTopic, error } = await supabase.from('topics').insert({
-                subject_id: subjectId, 
+                subject_id: subjectId,
                 edital_id: selectedEdital.id,
-                name: text, 
-                completed: false, 
-                review_count: 0, 
+                name: text,
+                completed: false,
+                review_count: 0,
                 review_stage: null,
             }).select('id').single();
             if (error) throw error;
@@ -743,7 +795,7 @@ export const EditalSubjectsModal = ({
     const handleSaveSubjectEdit = useCallback(async () => {
         if (!editingSubjectId || !editingSubjectName.trim()) return;
         const newName = editingSubjectName.trim().toUpperCase();
-        
+
         // Otimismo
         setLocalSubjects(prev => prev.map(s => s.id === editingSubjectId ? { ...s, name: newName } : s));
         setEditingSubjectId(null);
@@ -764,25 +816,18 @@ export const EditalSubjectsModal = ({
         }
     }, [editingSubjectId, editingSubjectName, allSubjects, edital.subjectIds]);
 
-    const updateSubjectWeightLocal = useCallback((
-        subjectId: string,
-        field: 'exam_weight_questions' | 'exam_weight_points' | 'exam_weight_percentage',
-        value: string
-    ) => {
-        const parsed = parseOptionalExamWeightNumber(value);
-        setLocalSubjects(prev => prev.map(subject => {
-            if (subject.id !== subjectId) return subject;
-            const nextSubject = {
-                ...subject,
-                [field]: parsed
-            };
+    const handleStartWeightEdit = useCallback((subject: Subject) => {
+        setWeightSavedSubjectId(null);
+        setEditingWeightSubjectId(subject.id);
+        setWeightDraft({
+            questions: formatExamWeightInputValue(subject.exam_weight_questions),
+            points: formatExamWeightInputValue(subject.exam_weight_points)
+        });
+    }, []);
 
-            if (parsed !== null) {
-                nextSubject.exam_weight_raw = 'Informado manualmente pelo aluno na edição do edital';
-            }
-
-            return nextSubject;
-        }));
+    const handleCancelWeightEdit = useCallback(() => {
+        setEditingWeightSubjectId(null);
+        setWeightDraft({ questions: '', points: '' });
     }, []);
 
     const handleSaveSubjectWeight = useCallback(async (subjectId: string) => {
@@ -791,25 +836,41 @@ export const EditalSubjectsModal = ({
 
         setSyncStatus('saving');
         try {
-            const hasWeight = hasSubjectExamWeight(subject);
+            const examWeightQuestions = parseOptionalExamWeightNumber(weightDraft.questions);
+            const examWeightPoints = parseOptionalExamWeightNumber(weightDraft.points);
+            const nextSubject = {
+                ...subject,
+                exam_weight_questions: examWeightQuestions,
+                exam_weight_points: examWeightPoints,
+                exam_weight_percentage: subject.exam_weight_percentage ?? null,
+                exam_weight_raw:
+                    examWeightQuestions !== null || examWeightPoints !== null || subject.exam_weight_percentage !== null
+                        ? 'Informado manualmente pelo aluno na edição do edital'
+                        : null
+            };
+            const hasWeight = hasSubjectExamWeight(nextSubject);
             const { error } = await supabase
                 .from('subjects')
                 .update({
-                    exam_weight_questions: subject.exam_weight_questions ?? null,
-                    exam_weight_points: subject.exam_weight_points ?? null,
-                    exam_weight_percentage: subject.exam_weight_percentage ?? null,
-                    exam_weight_raw: hasWeight ? subject.exam_weight_raw || 'Informado manualmente pelo aluno na edição do edital' : null
+                    exam_weight_questions: nextSubject.exam_weight_questions,
+                    exam_weight_points: nextSubject.exam_weight_points,
+                    exam_weight_percentage: nextSubject.exam_weight_percentage,
+                    exam_weight_raw: hasWeight ? nextSubject.exam_weight_raw : null
                 } as any)
                 .eq('id', subjectId);
 
             if (error) throw error;
+            setLocalSubjects(prev => prev.map(item => item.id === subjectId ? nextSubject : item));
+            setEditingWeightSubjectId(null);
+            setWeightSavedSubjectId(subjectId);
+            setWeightDraft({ questions: '', points: '' });
             hasPendingSync.current = true;
             setSyncStatus('saved');
         } catch (err) {
             setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'editSubjectWeight', userMessage: 'Erro ao salvar peso da matéria.' });
         }
-    }, [localSubjects]);
+    }, [localSubjects, weightDraft]);
 
     // ── Excluir tópico — pede confirmação inline primeiro ─────────────────
     const handleRequestDeleteTopic = useCallback((topicId: string) => {
@@ -818,43 +879,43 @@ export const EditalSubjectsModal = ({
 
     const handleConfirmDeleteTopic = useCallback(async (topicId: string, subjectId: string) => {
         setConfirmDeleteTopicId(null);
-        // Otimismo: move para lista de inativos na UI imediatamente
+        // Otimismo: remove da lista ativa imediatamente
         const topicToDeactivate = localSubjects
             .find(s => s.id === subjectId)?.topics.find(t => t.id === topicId);
 
-        if (topicToDeactivate) {
-            setInactiveTopics(prev => ({
-                ...prev,
-                [subjectId]: [...(prev[subjectId] || []), topicToDeactivate]
-            }));
-        }
         setLocalSubjects(prev => prev.map(s =>
             s.id === subjectId ? { ...s, topics: s.topics.filter(t => t.id !== topicId) } : s
         ));
         setSyncStatus('saving');
         try {
-            // Soft Delete: marca como inativo em vez de excluir permanentemente
+            // 1. Limpeza profunda: remover histórico de revisão
+            const { error: histErr } = await supabase
+                .from('topic_review_history')
+                .delete()
+                .eq('topic_id', topicId);
+
+            if (histErr) {
+                console.error('Erro ao excluir histórico do tópico:', histErr);
+            }
+
+            // 2. Delete: excluir permanentemente (hard delete)
             const { error } = await supabase
                 .from('topics')
-                .update({ is_active: false, deleted_at: new Date().toISOString() } as any)
+                .delete()
                 .eq('id', topicId);
             if (error) throw error;
             hasPendingSync.current = true;
             setSyncStatus('saved');
-            toast.success('Tópico movido para a lixeira.', { duration: 2000 });
+            toast.success(`Tópico "${topicToDeactivate?.name || 'selecionado'}" excluído permanentemente.`, { duration: 3000 });
         } catch (err) {
             // Reverte otimismo
             if (topicToDeactivate) {
                 setLocalSubjects(prev => prev.map(s =>
                     s.id === subjectId ? { ...s, topics: [...s.topics, topicToDeactivate] } : s
                 ));
-                setInactiveTopics(prev => ({
-                    ...prev,
-                    [subjectId]: (prev[subjectId] || []).filter(t => t.id !== topicId)
-                }));
             }
             setSyncStatus('error');
-            errorService.report(err, { module: 'EditalSubjectsModal', action: 'softDeleteTopic', userMessage: 'Erro ao mover tópico para lixeira.' });
+            errorService.report(err, { module: 'EditalSubjectsModal', action: 'hardDeleteTopic', userMessage: 'Erro ao excluir tópico.' });
         }
     }, [localSubjects]);
 
@@ -875,7 +936,7 @@ export const EditalSubjectsModal = ({
         try {
             const { error } = await supabase
                 .from('topics')
-                .update({ is_active: true, deleted_at: null } as any)
+                .update({ is_active: true } as any)
                 .eq('id', topicId);
             if (error) throw error;
             hasPendingSync.current = true;
@@ -939,8 +1000,8 @@ export const EditalSubjectsModal = ({
                     className="relative w-full max-w-5xl bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
                 >
                     {/* ── Header ── */}
-                    <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
-                        <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-6 py-4 dark:border-white/5">
+                        <div className="flex min-w-0 items-start gap-3">
                             {initialExpandedSubjectId && (
                                 <button
                                     onClick={onBack ? handleBack : handleClose}
@@ -950,255 +1011,322 @@ export const EditalSubjectsModal = ({
                                     <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
                                 </button>
                             )}
-                            <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-                                <GraduationCap className="text-primary" size={18} />
+                            <div className="hidden lg:flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                <GraduationCap className="h-[18px] w-[18px]" />
                             </div>
-                            <div className="min-w-0">
-                                <div className="flex flex-col min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                            <Database size={12} className="text-primary/80 shrink-0" />
-                                            <span className="text-sm font-black text-primary uppercase tracking-wider truncate max-w-[400px]">
-                                                {initialExpandedSubjectId ? (
-                                                    <span className="flex items-center gap-2">
-                                                        <span className="opacity-40 hover:opacity-100 cursor-pointer transition-opacity" onClick={handleClose}>EDITAIS</span>
-                                                        <span className="opacity-20">/</span>
-                                                        <span>{selectedEdital.name}</span>
-                                                    </span>
-                                                ) : selectedEdital.name}
-                                            </span>
-                                        </div>
-
-                                        {selectedEdital.sourceId ? (
-                                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
-                                                <Database size={8} className="text-sky-400" />
-                                                <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">SISTEMA</span>
-                                            </div>
-                                        ) : selectedEdital.isImported ? (
-                                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20 shrink-0">
-                                                <Sparkles size={8} className="text-purple-400" />
-                                                <span className="text-[8px] font-black text-purple-400 uppercase tracking-widest">IA</span>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-500/10 border border-zinc-500/20 shrink-0">
-                                                <FileText size={8} className="text-zinc-400" />
-                                                <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">MANUAL</span>
-                                            </div>
-                                        )}
-                                        
-                                        {/* Status de Sincronização */}
-                                        <div className="flex items-center gap-1.5 shrink-0">
-                                            <div className="w-px h-3 bg-white/10 mx-1" />
+                            <div className="min-w-0 flex-1 lg:pt-2">
+                                <div className="flex min-w-0 flex-col gap-1">
+                                    <div className="flex min-w-0 items-start gap-1.5">
+                                        <GraduationCap size={11} className="lg:hidden shrink-0 text-primary mt-[3px]" />
+                                        <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                            <h2 className="line-clamp-2 min-w-0 basis-full text-sm font-black uppercase tracking-tight text-content-main [overflow-wrap:anywhere] sm:basis-auto sm:line-clamp-1">
+                                                {selectedEdital.year ? `${selectedEdital.year} - ` : ''}{displayOrgan}
+                                            </h2>
                                             {syncStatus === 'saving' && (
-                                                <div className="flex items-center gap-1.5">
+                                                <span className="inline-flex shrink-0 items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-primary/70">
                                                     <Loader2 size={10} className="animate-spin text-primary" />
-                                                    <span className="text-[9px] font-bold text-primary/70 uppercase tracking-widest">Salvando...</span>
-                                                </div>
+                                                    Salvando...
+                                                </span>
                                             )}
                                             {syncStatus === 'saved' && (
-                                                <div className="flex items-center gap-1.5">
-                                                    <CheckCircle2 size={10} className="text-emerald-500" />
-                                                    <span className="text-[9px] font-bold text-emerald-500/70 uppercase tracking-widest">Sincronizado</span>
-                                                </div>
+                                                <span className="inline-flex shrink-0 items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-success">
+                                                    <CheckCircle2 size={10} />
+                                                    Sincronizado
+                                                </span>
                                             )}
                                         </div>
                                     </div>
 
-                                    {(selectedEdital.position || selectedEdital.year) && (
-                                        <span className="text-[10px] font-bold text-content-muted uppercase tracking-widest truncate mt-0.5">
-                                            {[selectedEdital.position, selectedEdital.year].filter(Boolean).join(' • ')}
-                                        </span>
+                                    {displayPosition && (
+                                        <p className={`flex min-w-0 items-center gap-1.5 truncate text-content-muted ${editalHeaderPositionTypography}`}>
+                                            <BriefcaseBusiness size={11} className="shrink-0 text-warning" />
+                                            <span className="truncate">{displayPosition}</span>
+                                        </p>
                                     )}
+                                    {selectedEdital.examBoard && (
+                                        <p className={`flex min-w-0 items-center gap-1.5 truncate text-content-muted ${editalHeaderExamBoardTypography}`}>
+                                            <GraduationCap size={11} className="shrink-0 text-incidence" />
+                                            <span className="truncate">{selectedEdital.examBoard}</span>
+                                        </p>
+                                    )}
+                                    <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-medium text-content-muted">
+                                        <BookOpen size={11} className="shrink-0 text-primary" />
+                                        {localSubjects.length} {localSubjects.length === 1 ? 'matéria' : 'matérias'} • {totalTopics} {totalTopics === 1 ? 'tópico' : 'tópicos'}
+                                        <span className={`inline-flex shrink-0 items-center gap-0.5 rounded border px-1 py-px ${editalHeaderBadgeTypography} ${sourceBadge.className}`}>
+                                            <SourceBadgeIcon size={8} />
+                                            {sourceBadge.label}
+                                        </span>
+                                    </p>
                                 </div>
-                                <p className="text-[11px] text-content-muted mt-0.5">
-                                    {localSubjects.length} {localSubjects.length === 1 ? 'matéria' : 'matérias'} e {totalTopics} {totalTopics === 1 ? 'tópico' : 'tópicos'}
-                                </p>
                             </div>
                         </div>
                         <button
                             onClick={handleClose}
-                            className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-100 shrink-0 ml-3"
+                            className="ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary/70 text-content-muted transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive dark:border-white/5 dark:bg-white/5"
+                            aria-label="Fechar"
                         >
                             <X size={16} />
                         </button>
                     </div>
 
 
-                    {/* ── Filtro e Controles (topo) ── */}
-                    <div className="px-6 pt-4 pb-2 shrink-0 flex items-center gap-3">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-muted pointer-events-none" size={14} />
-                            <input
-                                type="text"
-                                placeholder="Filtrar matérias e tópicos..."
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full h-9 bg-zinc-800/60 border border-white/5 rounded-xl pl-9 pr-9 text-xs outline-none ring-0 focus:border-primary/30 transition-colors text-content-main placeholder:text-content-muted/50"
-                            />
-                            {searchQuery && (
-                                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-zinc-100">
-                                    <X size={13} />
-                                </button>
-                            )}
-                        </div>
-                        <button
-                            onClick={() => {
-                                const isAllExpanded = filteredSubjects.length > 0 && expandedIds.length === filteredSubjects.length;
-                                if (isAllExpanded) setExpandedIds([]);
-                                else setExpandedIds(filteredSubjects.map(s => s.id));
-                            }}
-                            className="px-4 h-9 flex items-center justify-center gap-2 text-[10px] font-bold text-content-muted hover:text-zinc-100 bg-zinc-800/60 hover:bg-zinc-800 border border-white/5 rounded-xl transition-all uppercase tracking-widest whitespace-nowrap"
-                        >
-                            {filteredSubjects.length > 0 && expandedIds.length === filteredSubjects.length ? (
-                                <>
-                                    <ChevronUp size={14} className="text-primary" />
-                                    Recolher Tudo
-                                </>
-                            ) : (
-                                <>
-                                    <ChevronsUpDown size={14} className="text-primary" />
-                                    Expandir Tudo
-                                </>
-                            )}
-                        </button>
-                    </div>
-
-                    {/* ── Input nova matéria (TODOS os editais) ── */}
-                    <div className="px-6 pb-6 pt-2 shrink-0 space-y-3">
-                        {/* Modo IA */}
-                        {showIaAdd ? (
-                                <div className="glow-card p-4 rounded-2xl border border-primary/30 bg-zinc-800/30">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <Sparkles size={16} className="text-primary" />
-                                            <span className="text-xs font-bold text-primary uppercase tracking-wider">Adicionar com IA</span>
-                                        </div>
-                                        <button
-                                            onClick={() => { setShowIaAdd(false); setIaSubjectName(''); setIaInputText(''); setIaStage('input'); }}
-                                            className="p-1 hover:bg-white/5 rounded transition-colors text-content-muted hover:text-zinc-100"
-                                        >
-                                            <X size={14} />
-                                        </button>
+                    {/* ── Filtro e ações ── */}
+                    <div className="shrink-0 space-y-3 border-b border-border px-6 py-4 dark:border-white/5">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                            <div className="relative min-w-0 flex-1">
+                                <input
+                                    type="text"
+                                    placeholder="Filtrar matérias e tópicos..."
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    className="h-9 w-full rounded-xl border border-border bg-secondary/70 pl-3 pr-8 text-xs text-content-main outline-none transition-colors placeholder:text-content-muted/50 focus:border-primary/30 dark:border-white/5 dark:bg-zinc-800/60"
+                                />
+                                {searchQuery ? (
+                                    <button onClick={() => setSearchQuery('')} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-content-muted hover:text-foreground dark:hover:text-zinc-100 rounded hover:bg-white/5">
+                                        <X size={14} />
+                                    </button>
+                                ) : (
+                                    <div className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-content-muted pointer-events-none">
+                                        <Search size={14} />
                                     </div>
+                                )}
+                            </div>
 
-                                    {iaStage === 'input' && (
-                                        <div className="space-y-3">
+                            <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap md:items-center md:justify-start">
+                                {isEditable ? (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                setShowManualAdd(prev => !prev);
+                                                setShowIaAdd(false);
+                                                setIaOverflowVisible(false);
+                                                setShowIaSubjectSuggestions(false);
+                                            }}
+                                            className={`app-button-secondary flex h-9 w-full items-center justify-center gap-2 px-3 text-xs font-bold transition-colors md:w-auto ${showManualAdd ? 'ring-2 ring-primary/30 bg-secondary/80 dark:bg-white/10' : ''
+                                                }`}
+                                        >
+                                            <BookPlus size={14} className="text-primary" />
+                                            Nova Matéria
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowIaAdd(prev => {
+                                                    const next = !prev;
+                                                    if (!next) {
+                                                        setIaOverflowVisible(false);
+                                                        setShowIaSubjectSuggestions(false);
+                                                    }
+                                                    return next;
+                                                });
+                                                setShowManualAdd(false);
+                                            }}
+                                            className={`app-button-secondary flex h-9 w-full items-center justify-center gap-2 px-3 text-xs font-bold transition-colors md:w-auto ${showIaAdd ? 'ring-2 ring-primary/30 bg-secondary/80 dark:bg-white/10' : ''
+                                                }`}
+                                        >
+                                            <BookPlus size={14} className="text-primary" />
+                                            Adicionar em Lote
+                                        </button>
+                                    </>
+                                ) : (
+                                    <div className="col-span-2 flex h-9 items-center gap-2 rounded-xl border border-warning/20 bg-warning/10 px-3 text-[10px] font-bold uppercase tracking-widest text-warning">
+                                        <AlertTriangle size={14} />
+                                        Edital protegido
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <AnimatePresence initial={false}>
+                            {showManualAdd && isEditable && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0, y: -4 }}
+                                    animate={{ opacity: 1, height: 'auto', y: 0 }}
+                                    exit={{ opacity: 0, height: 0, y: -4 }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="flex flex-col gap-2 rounded-2xl border border-border bg-secondary/40 p-3 dark:border-white/5 dark:bg-white/[0.03] sm:flex-row sm:items-center">
+                                        <div className="relative min-w-0 flex-1">
+                                            <BookPlus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
                                             <input
                                                 type="text"
-                                                placeholder="Nome da matéria (ex: Português)"
-                                                value={iaSubjectName}
-                                                onChange={e => setIaSubjectName(e.target.value.toUpperCase())}
-                                                className="w-full h-9 bg-zinc-950/50 border border-white/10 rounded-xl px-3 text-xs focus:outline-none focus:border-primary/50 transition-all text-content-main placeholder:text-content-muted/40"
+                                                placeholder="Nome da matéria"
+                                                value={newSubjectName}
+                                                onChange={e => setNewSubjectName(e.target.value.toUpperCase())}
+                                                onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
+                                                className="h-9 w-full rounded-xl border border-border bg-background/80 py-1.5 pl-9 pr-3 text-xs text-content-main outline-none transition-colors placeholder:text-content-muted/40 focus:border-primary/30 dark:border-white/5 dark:bg-zinc-950/50"
+                                                ref={input => input && setTimeout(() => input.focus(), 50)}
                                             />
-                                            <textarea
-                                                placeholder="Cole aqui APENAS os tópicos da matéria (sem nome da matéria)..."
-                                                value={iaInputText}
-                                                onChange={e => setIaInputText(e.target.value)}
-                                                rows={4}
-                                                className="w-full bg-zinc-950/50 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:border-primary/50 transition-all text-content-main placeholder:text-content-muted/40 resize-none"
-                                            />
-                                            <div className="flex justify-end">
-                                                <button
-                                                    onClick={handleIaProcess}
-                                                    disabled={!iaSubjectName.trim() || !iaInputText.trim() || isProcessingIa}
-                                                    className="flex items-center gap-2 px-4 h-9 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all"
-                                                >
-                                                    {isProcessingIa ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                                                    <span>PROCESSAR</span>
-                                                </button>
-                                            </div>
                                         </div>
-                                    )}
-
-                                    {iaStage === 'processing' && (
-                                        <div className="py-8 flex flex-col items-center justify-center text-center">
-                                            <Loader2 size={24} className="animate-spin text-primary mb-3" />
-                                            <p className="text-xs text-content-main font-medium">Processando com IA...</p>
-                                            <p className="text-[10px] text-content-muted mt-1">Extraindo tópicos automaticamente</p>
-                                        </div>
-                                    )}
-
-                                    {iaStage === 'review' && aiResult.length > 0 && (
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-xs font-bold text-content-main">{iaSubjectName}</span>
-                                                <span className="text-[10px] text-content-muted">{aiResult[0].topics.length} tópicos encontrados</span>
-                                            </div>
-                                            <div className="max-h-48 overflow-y-auto space-y-1 bg-zinc-900/50 rounded-lg p-2 border border-white/5">
-                                                {aiResult[0].topics.map((topic, idx) => (
-                                                    <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5">
-                                                        <span className="text-[9px] font-bold text-content-muted w-4">{idx + 1}.</span>
-                                                        <span className="text-xs text-content-main flex-1 break-words">{topic.name}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <button
-                                                    onClick={() => { setIaStage('input'); setAiResult([]); }}
-                                                    className="px-3 h-8 text-[10px] font-bold text-content-muted hover:text-zinc-100 bg-white/5 hover:bg-white/10 rounded-lg transition-all"
-                                                >
-                                                    VOLTAR
-                                                </button>
-                                                <button
-                                                    onClick={handleIaConfirm}
-                                                    disabled={isSavingSubject}
-                                                    className="flex items-center gap-2 px-4 h-8 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white text-[10px] font-black rounded-xl transition-all"
-                                                >
-                                                    {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                                                    <span>ADICIONAR</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                /* Modo Manual */
-                                isEditable ? (
-                                    <div className="flex items-center gap-3 self-start">
-                                        <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20 flex-1 self-center">
-                                            <div className="relative flex-1">
-                                                <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Nome da matéria (ex: Português)"
-                                                    value={newSubjectName}
-                                                    onChange={e => setNewSubjectName(e.target.value.toUpperCase())}
-                                                    onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
-                                                    className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:border-primary/30 transition-all text-content-main placeholder:text-content-muted/40"
-                                                />
-                                            </div>
-                                            
-                                            <button
-                                                onClick={handleSaveSubject}
-                                                disabled={!newSubjectName.trim() || isSavingSubject}
-                                                className="flex items-center gap-2 px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black rounded-xl transition-all shadow-lg shadow-emerald-500/20 shrink-0"
-                                            >
-                                                {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                                                <span className="hidden xs:inline uppercase tracking-widest">SALVAR</span>
-                                            </button>
-                                        </div>
-                                        
                                         <button
-                                            onClick={() => setShowIaAdd(true)}
-                                            className="flex items-center gap-2 px-4 h-9 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary text-[10px] font-bold rounded-xl transition-all shrink-0"
+                                            onClick={handleSaveSubject}
+                                            disabled={!newSubjectName.trim() || isSavingSubject}
+                                            className="app-button-success flex h-9 items-center justify-center gap-2 px-4 text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed"
                                         >
-                                            <Sparkles size={14} />
-                                            <span className="whitespace-nowrap">Gerar com IA</span>
+                                            {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                                            Adicionar
                                         </button>
                                     </div>
-                                ) : (
-                                    <div className="px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-2 self-start mb-2">
-                                        <AlertTriangle size={14} className="text-amber-500" />
-                                        <span className="text-[10px] font-bold text-amber-500/80 uppercase tracking-widest">
-                                            Edital do sistema - Conteúdo protegido
-                                        </span>
-                                    </div>
-                                )
+                                </motion.div>
                             )}
-                        </div>
+
+                            {showIaAdd && isEditable && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0, y: -4 }}
+                                    animate={{ opacity: 1, height: 'auto', y: 0 }}
+                                    exit={{ opacity: 0, height: 0, y: -4 }}
+                                    className={showIaAdd && iaOverflowVisible ? "overflow-visible" : "overflow-hidden"}
+                                    onAnimationComplete={() => {
+                                        if (showIaAdd) {
+                                            setIaOverflowVisible(true);
+                                        }
+                                    }}
+                                >
+                                    <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                                        <div className="mb-3 flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2">
+                                                <BookPlus size={16} className="text-primary" />
+                                                <span className="text-xs font-bold uppercase tracking-wider text-primary">Adicionar tópicos em lote</span>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setShowIaAdd(false);
+                                                    setIaOverflowVisible(false);
+                                                    setShowIaSubjectSuggestions(false);
+                                                    setIaSubjectName('');
+                                                    setIaInputText('');
+                                                    setIaStage('input');
+                                                }}
+                                                className="rounded-lg p-1 text-content-muted transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+
+                                        {iaStage === 'input' && (
+                                            <div className="space-y-3">
+                                                <div className="relative w-full" ref={iaSuggestionsRef}>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Nome da matéria (digite para buscar ou criar nova)"
+                                                        value={iaSubjectName}
+                                                        onChange={e => {
+                                                            setIaSubjectName(e.target.value.toUpperCase());
+                                                            setShowIaSubjectSuggestions(true);
+                                                        }}
+                                                        onFocus={() => setShowIaSubjectSuggestions(true)}
+                                                        onKeyDown={handleIaSubjectKeyDown}
+                                                        className="h-9 w-full rounded-xl border border-border bg-background/80 px-3 text-[11px] text-content-main outline-none transition-colors placeholder:text-[10px] placeholder:text-content-muted/40 focus:border-primary/50 sm:text-xs sm:placeholder:text-xs dark:border-white/10 dark:bg-zinc-950/50"
+                                                    />
+
+                                                    {/* Dropdown de sugestões customizado premium */}
+                                                    {showIaSubjectSuggestions && (
+                                                        <>
+                                                            {iaSubjectSuggestions.length > 0 ? (
+                                                                <div className="absolute left-0 right-0 top-full z-[100] mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-zinc-900/95 no-scrollbar">
+                                                                    {iaSubjectSuggestions.map((s, idx) => {
+                                                                        const isFocused = idx === focusedSuggestionIndex;
+                                                                        const isSelected = s.name === iaSubjectName.trim();
+                                                                        return (
+                                                                            <button
+                                                                                key={s.id}
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    advanceToBulkTopics(s.name);
+                                                                                }}
+                                                                                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors ${isFocused
+                                                                                        ? 'bg-primary/15 text-primary font-semibold'
+                                                                                        : isSelected
+                                                                                            ? 'bg-primary/10 text-primary font-medium'
+                                                                                            : 'text-content-main hover:bg-white/5'
+                                                                                    }`}
+                                                                            >
+                                                                                <span>{s.name}</span>
+                                                                                {isSelected && <Check size={12} className="text-primary" />}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            ) : (
+                                                                iaSubjectName.trim() !== '' && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => advanceToBulkTopics(iaSubjectName.trim())}
+                                                                        className="absolute left-0 right-0 top-full z-[100] mt-1 rounded-xl border border-border bg-popover p-2.5 text-left text-xs text-content-muted/80 shadow-2xl backdrop-blur-md transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-content-main dark:border-white/10 dark:bg-zinc-900/95"
+                                                                    >
+                                                                        Usar matéria nova: <span className="font-semibold text-primary">"{iaSubjectName}"</span>
+                                                                    </button>
+                                                                )
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <textarea
+                                                        ref={iaTopicsInputRef}
+                                                        placeholder={`Ex.: Crase; Pontuação; Concordância verbal\n\nOu um por linha:\nCrase\nPontuação\nConcordância verbal`}
+                                                        value={iaInputText}
+                                                        onChange={e => setIaInputText(e.target.value)}
+                                                        onFocus={() => setShowIaSubjectSuggestions(false)}
+                                                        rows={7}
+                                                        className="min-h-[154px] w-full resize-y rounded-xl border border-border bg-background/80 p-3 text-[11px] text-content-main outline-none transition-colors placeholder:text-[10px] placeholder:leading-[1.35] placeholder:text-content-muted/40 focus:border-primary/50 sm:text-xs sm:placeholder:text-xs dark:border-white/10 dark:bg-zinc-950/50"
+                                                    />
+                                                    <p className="pl-1 text-[9px] leading-snug text-content-muted sm:text-[10px]">
+                                                        Pode colar tudo na mesma linha separado por ponto e vírgula (;) ou colocar um tópico em cada linha.
+                                                    </p>
+                                                </div>
+                                                <div className="flex justify-end">
+                                                    <button
+                                                        onClick={handleBulkPreview}
+                                                        disabled={!canPreviewBulkTopics}
+                                                        className="app-button-primary flex h-9 items-center gap-2 px-4 text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed"
+                                                    >
+                                                        <Check size={12} />
+                                                        Revisar tópicos
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {iaStage === 'review' && aiResult.length > 0 && (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-content-main">{iaSubjectName}</span>
+                                                    <span className="text-[10px] text-content-muted">{aiResult[0].topics.length} tópicos encontrados</span>
+                                                </div>
+                                                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border bg-background/60 p-2 dark:border-white/5 dark:bg-zinc-900/50">
+                                                    {aiResult[0].topics.map((topic, idx) => (
+                                                        <div key={idx} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-secondary/70 dark:hover:bg-white/5">
+                                                            <span className="w-4 text-[9px] font-bold text-content-muted">{idx + 1}.</span>
+                                                            <span className="flex-1 break-words text-xs text-content-main">{topic.name}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="flex justify-between gap-2">
+                                                    <button
+                                                        onClick={() => { setIaStage('input'); setAiResult([]); }}
+                                                        className="app-button-secondary h-8 px-3 text-[10px] font-bold uppercase tracking-widest"
+                                                    >
+                                                        Voltar
+                                                    </button>
+                                                    <button
+                                                        onClick={handleIaConfirm}
+                                                        disabled={isSavingSubject}
+                                                        className="app-button-success flex h-8 items-center gap-2 px-4 text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed"
+                                                    >
+                                                        {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                                        Adicionar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
 
                     {/* ── Lista de matérias ── */}
-                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 no-scrollbar">
+                    <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4 no-scrollbar sm:px-6">
                         {filteredSubjects.length === 0 ? (
                             <div className="py-20 flex flex-col items-center text-center">
                                 <div className="w-16 h-16 bg-zinc-800/50 rounded-full flex items-center justify-center mb-4 border border-white/5 shadow-inner">
@@ -1208,483 +1336,395 @@ export const EditalSubjectsModal = ({
                                     {searchQuery ? 'Nenhum resultado' : 'Edital sem matérias'}
                                 </h3>
                                 <p className="text-xs text-content-muted/60 max-w-[280px] leading-relaxed">
-                                    {searchQuery 
-                                        ? `Não encontramos nada para "${searchQuery}". Tente outro termo.` 
-                                        : edital.isImported 
-                                            ? 'Este edital do sistema está aguardando a inserção de conteúdos pela nossa equipe.' 
+                                    {searchQuery
+                                        ? `Não encontramos nada para "${searchQuery}". Tente outro termo.`
+                                        : edital.isImported
+                                            ? 'Este edital do sistema está aguardando a inserção de conteúdos pela nossa equipe.'
                                             : 'Você ainda não adicionou nenhuma matéria. Use o campo acima para começar seu edital manual!'}
                                 </p>
                             </div>
                         ) : (
-                            filteredSubjects.map((subject, index) => {
-                                const progress = getProgress(subject);
-                                const isExpanded = expandedIds.includes(subject.id);
-                                const isTemp = subject.id.startsWith('tmp_');
-                                const isPendingDelete = confirmDeleteSubjectId === subject.id;
-
-                                return (
-                                    <div key={subject.id} className={`flex flex-col mb-3 group transition-all relative overflow-hidden glow-card rounded-[24px] border border-white/5
-                                        ${isTemp ? 'opacity-60 cursor-default' : ''}
-                                        ${isPendingDelete ? 'border-red-500/30 opacity-70' : ''}`}>
-                                        
-                                        {/* ── Confirmação inline de exclusão ── */}
-                                        <AnimatePresence>
-                                            {isPendingDelete && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, height: 0 }}
-                                                    animate={{ opacity: 1, height: 'auto' }}
-                                                    exit={{ opacity: 0, height: 0 }}
-                                                    className="overflow-hidden bg-red-500/10"
-                                                >
-                                                    <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-red-500/20">
-                                                        <div className="flex items-center gap-2 min-w-0">
-                                                            <AlertTriangle size={14} className="text-red-400 shrink-0" />
-                                                            <p className="text-xs text-red-300 font-medium truncate">
-                                                                Excluir <strong>"{subject.name}"</strong> e todos os tópicos?
-                                                            </p>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <button
-                                                                onClick={() => setConfirmDeleteSubjectId(null)}
-                                                                className="px-3 h-7 text-[10px] font-bold text-content-muted hover:text-zinc-100 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
-                                                            >
-                                                                Cancelar
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleConfirmDeleteSubject(subject.id, subject.name)}
-                                                                className="px-3 h-7 text-[10px] font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-all"
-                                                            >
-                                                                Excluir
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-
-                                        {/* ── Card da matéria ── */}
-                                        <div
-                                            id={`subject-card-${subject.id}`}
-                                            onClick={() => !isTemp && !isPendingDelete && toggleExpand(subject.id)}
-                                            className={`px-6 py-4 flex items-center justify-between cursor-pointer bg-background ${isExpanded ? 'border-b border-white/5' : ''} relative z-10`}
+                            <>
+                                <div className="flex items-center justify-between gap-3 px-1 pb-1">
+                                    <h3 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-content-muted">
+                                        <BookOpen size={11} className="shrink-0 text-primary" />
+                                        Conteúdo do Edital
+                                    </h3>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                const isAllExpanded = filteredSubjects.length > 0 && expandedIds.length === filteredSubjects.length;
+                                                if (isAllExpanded) setExpandedIds([]);
+                                                else setExpandedIds(filteredSubjects.map(s => s.id));
+                                            }}
+                                            className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary/55 px-2 text-[9px] font-black uppercase tracking-[0.12em] text-content-muted transition-colors hover:text-foreground dark:border-white/5 dark:bg-white/[0.04] dark:hover:text-zinc-100"
                                         >
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                {isTemp ? (
-                                                    <Loader2 size={14} className="animate-spin text-content-muted shrink-0" />
-                                                ) : (
-                                                    <GripVertical size={14} className="text-content-muted shrink-0" />
-                                                )}
-                                                <div className="flex flex-col min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        {editingSubjectId === subject.id ? (
-                                                            <div className="flex items-center gap-1">
-                                                                <input
-                                                                    type="text"
-                                                                    value={editingSubjectName}
-                                                                    onChange={e => setEditingSubjectName(e.target.value.toUpperCase())}
-                                                                    onKeyDown={e => {
-                                                                        if (e.key === 'Enter') handleSaveSubjectEdit();
-                                                                        if (e.key === 'Escape') setEditingSubjectId(null);
-                                                                        e.stopPropagation();
-                                                                    }}
-                                                                    onClick={e => e.stopPropagation()}
-                                                                    className="h-7 text-xs px-2 w-full bg-zinc-950 border border-primary/30 rounded outline-none ring-0 text-white font-black uppercase tracking-widest"
-                                                                    autoFocus
-                                                                />
-                                                                <button onClick={e => { e.stopPropagation(); handleSaveSubjectEdit(); }} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded"><Check size={14} /></button>
-                                                                <button onClick={e => { e.stopPropagation(); setEditingSubjectId(null); }} className="p-1 text-content-muted hover:bg-white/5 rounded"><X size={14} /></button>
-                                                            </div>
-                                                        ) : (
-                                                            <span 
-                                                                className={`text-xs font-black uppercase tracking-widest text-primary/80 truncate ${isEditable ? 'hover:text-primary transition-colors' : ''}`}
-                                                                onClick={(e) => {
-                                                                    if (isEditable) {
-                                                                        e.stopPropagation();
-                                                                        setEditingSubjectId(subject.id);
-                                                                        setEditingSubjectName(subject.name);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                {subject.name}
-                                                            </span>
-                                                        )}
-                                                        <span className="text-[10px] text-content-muted font-semibold tabular-nums ml-2">
-                                                            {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
-                                                        </span>
-                                                        {hasSubjectExamWeight(subject) && (
-                                                            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-1.5 py-0.5">
-                                                                {getSubjectExamWeightLabel(subject)}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {!isTemp && (
-                                                <div className="flex items-center gap-1 shrink-0">
-                                                    {/* Progresso circular */}
-                                                    <div className="hidden sm:flex items-center justify-center relative w-8 h-8 rounded-full bg-zinc-900 border border-white/5 mr-1 overflow-hidden shadow-sm">
-                                                        <svg className="w-full h-full -rotate-90 p-1" viewBox="0 0 100 100" shapeRendering="geometricPrecision">
-                                                            <circle 
-                                                                className="text-white/5" 
-                                                                strokeWidth="10" 
-                                                                stroke="currentColor" 
-                                                                fill="transparent" 
-                                                                r="42" 
-                                                                cx="50" 
-                                                                cy="50" 
-                                                            />
-                                                            <circle 
-                                                                className="text-primary transition-all duration-1000 ease-out" 
-                                                                strokeWidth="10" 
-                                                                strokeDasharray={`${(progress / 100) * 263.89}, 263.89`}
-                                                                strokeLinecap="round" 
-                                                                stroke="currentColor" 
-                                                                fill="transparent" 
-                                                                r="42" 
-                                                                cx="50" 
-                                                                cy="50" 
-                                                            />
-                                                        </svg>
-                                                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-content-main tabular-nums leading-none tracking-tighter">{progress}%</span>
-                                                    </div>
-
-
-                                                    {/* Anotações */}
-                                                    <button
-                                                        onClick={e => {
-                                                            e.stopPropagation();
-                                                            setNotesModal({ isOpen: true, subjectId: subject.id, subjectName: subject.name });
-                                                        }}
-                                                        title="Anotações"
-                                                        className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-primary"
-                                                    >
-                                                        <FileText size={14} />
-                                                    </button>
-
-                                                    {/* Botão principal: toggle (importado) ou excluir (manual) */}
-                                                    {/* Botão de Visibilidade (Apenas para Importados: Sistema ou IA) */}
-                                                    {(selectedEdital.sourceId || edital.isImported) && (
-                                                        <button
-                                                            onClick={e => {
-                                                                e.stopPropagation();
-                                                                handleToggleSubjectActive(subject.id, subject.name);
-                                                            }}
-                                                            title={localActiveIds.includes(subject.id) ? 'Ocultar do Ciclo de Estudos' : 'Mostrar no Ciclo de Estudos'}
-                                                            className={`p-1.5 rounded-lg transition-all
-                                                                ${localActiveIds.includes(subject.id)
-                                                                    ? 'text-content-muted hover:text-amber-400 hover:bg-amber-500/10'
-                                                                    : 'text-amber-400 bg-amber-500/10 opacity-100'
-                                                                } ${!localActiveIds.includes(subject.id) ? '' : 'sm:opacity-0 group-hover:opacity-100'}`}
-                                                        >
-                                                            {localActiveIds.includes(subject.id)
-                                                                ? <Eye size={14} />
-                                                                : <EyeOff size={14} />
-                                                            }
-                                                        </button>
-                                                    )}
-
-                                                    {/* Botão de Excluir (IA ou Manual - Não Sistema) */}
-                                                    {isEditable && (
-                                                        <button
-                                                            onClick={e => {
-                                                                e.stopPropagation();
-                                                                setConfirmDeleteSubjectId(prev => prev === subject.id ? null : subject.id);
-                                                            }}
-                                                            title="Excluir matéria permanentemente"
-                                                            className={`p-1.5 rounded-lg transition-all sm:opacity-0 group-hover:opacity-100
-                                                                ${isPendingDelete ? 'text-red-400 bg-red-500/10 opacity-100' : 'text-content-muted hover:text-red-500 hover:bg-red-500/10'}`}
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    )}
-
-                                                    <div className="w-px h-4 bg-white/5 mx-0.5" />
-
-                                                    {/* Expand */}
-                                                    <button
-                                                        onClick={e => { e.stopPropagation(); toggleExpand(subject.id); }}
-                                                        className={`p-1.5 hover:bg-primary/10 rounded-lg transition-all text-content-muted hover:text-primary ${isExpanded ? 'rotate-180 text-primary' : ''}`}
-                                                    >
-                                                        <ChevronDown size={15} />
-                                                    </button>
-                                                </div>
+                                            {filteredSubjects.length > 0 && expandedIds.length === filteredSubjects.length ? (
+                                                <>
+                                                    <ChevronUp size={12} className="text-primary" />
+                                                    Recolher
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <ChevronsUpDown size={12} className="text-primary" />
+                                                    Expandir
+                                                </>
                                             )}
+                                        </button>
+                                    </div>
+                                </div>
+                                {filteredSubjects.map((subject) => {
+                                    const progress = getProgress(subject);
+                                    const isExpanded = expandedIds.includes(subject.id);
+                                    const isTemp = subject.id.startsWith('tmp_');
+                                    const isPendingDelete = confirmDeleteSubjectId === subject.id;
+                                    const isEditingWeight = editingWeightSubjectId === subject.id;
+                                    const hasJustSavedWeight = weightSavedSubjectId === subject.id;
 
-                                        </div>
+                                    return (
+                                        <div key={subject.id} className={`group relative flex flex-col overflow-hidden rounded-2xl border-y border-x-0 sm:border sm:rounded-2xl app-cycle-subject transition-all
+                                        ${isTemp ? 'opacity-60 cursor-default' : ''}
+                                        `}>
 
-                                        {/* ── Conteúdo expandido ── */}
-                                        <AnimatePresence initial={false}>
-                                            {isExpanded && !isTemp && (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    transition={{ duration: 0.18 }}
-                                                    className="overflow-hidden"
-                                                    onClick={e => e.stopPropagation()}
-                                                >
-                                                    <div className="flex flex-col">
-                                                        <div className="px-4 py-3 border-b border-white/5">
-                                                            <div className="rounded-xl border border-white/5 bg-white/[0.03] overflow-hidden">
-                                                                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-white/5">
-                                                                    <div>
-                                                                        <p className="text-[9px] font-black uppercase tracking-[0.16em] text-content-muted">Peso da prova</p>
-                                                                        <p className="text-[10px] text-content-muted">Pontos representam o total da matéria. Confira no edital.</p>
-                                                                    </div>
-                                                                    <span className="hidden h-7 w-px bg-white/10 sm:block" aria-hidden="true" />
-                                                                    <span className="text-[8px] font-black uppercase tracking-[0.14em] text-content-muted border border-white/10 rounded-md px-1.5 py-0.5">
-                                                                        Opcional
-                                                                    </span>
+                                            {/* ── Card da matéria ── */}
+                                            <div
+                                                id={`subject-card-${subject.id}`}
+                                                onClick={() => !isTemp && !isPendingDelete && !isEditingWeight && !hasJustSavedWeight && toggleExpand(subject.id)}
+                                                className={`relative z-10 flex cursor-pointer items-center justify-between gap-3 px-4 py-3 ${isExpanded ? 'border-b border-border dark:border-white/5' : ''}`}
+                                            >
+                                                {hasJustSavedWeight && !isEditingWeight ? (
+                                                    <div
+                                                        className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-success/20 bg-success/10 px-2.5 py-1.5 text-success"
+                                                        onClick={event => event.stopPropagation()}
+                                                    >
+                                                        <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-[10px] font-semibold">
+                                                            <Check size={12} strokeWidth={3} />
+                                                            Peso atualizado
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setWeightSavedSubjectId(null)}
+                                                            className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-success/70 transition-colors hover:bg-success/15 hover:text-success"
+                                                            aria-label="Fechar confirmação de peso"
+                                                        >
+                                                            <X size={11} />
+                                                        </button>
+                                                    </div>
+                                                ) : isEditingWeight ? (
+                                                    <div
+                                                        className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3.25rem] items-end gap-1 rounded-lg border border-warning/25 bg-warning/10 px-1.5 py-1"
+                                                        onClick={event => event.stopPropagation()}
+                                                    >
+                                                        <label className="min-w-0">
+                                                            <span className="mb-0.5 block truncate text-[8px] font-semibold uppercase leading-none text-content-muted">
+                                                                Questões
+                                                            </span>
+                                                            <input
+                                                                value={weightDraft.questions}
+                                                                onChange={event => setWeightDraft(prev => ({ ...prev, questions: event.target.value }))}
+                                                                placeholder="0"
+                                                                inputMode="decimal"
+                                                                aria-label="Quantidade de questões da matéria"
+                                                                className="app-field app-type-control h-6 w-full min-w-0 px-1.5 text-[10px] backdrop-blur placeholder:text-content-muted/60"
+                                                            />
+                                                        </label>
+                                                        <label className="min-w-0">
+                                                            <span className="mb-0.5 block truncate text-[8px] font-semibold uppercase leading-none text-content-muted">
+                                                                Pontos
+                                                            </span>
+                                                            <input
+                                                                value={weightDraft.points}
+                                                                onChange={event => setWeightDraft(prev => ({ ...prev, points: event.target.value }))}
+                                                                placeholder="0"
+                                                                inputMode="decimal"
+                                                                aria-label="Quantidade de pontos da matéria"
+                                                                className="app-field app-type-control h-6 w-full min-w-0 px-1.5 text-[10px] backdrop-blur placeholder:text-content-muted/60"
+                                                            />
+                                                        </label>
+                                                        <div className="flex min-w-0 items-end justify-end gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleSaveSubjectWeight(subject.id)}
+                                                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+                                                                aria-label="Salvar peso da matéria"
+                                                            >
+                                                                <Check size={11} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleCancelWeightEdit}
+                                                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-input bg-control text-content-muted transition-colors hover:bg-control-hover hover:text-control-foreground"
+                                                                aria-label="Cancelar edição de peso"
+                                                            >
+                                                                <X size={11} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex min-w-0 items-center gap-3">
+                                                            {isTemp && (
+                                                                <Loader2 size={14} className="animate-spin text-content-muted shrink-0" />
+                                                            )}
+                                                            <div className="flex min-w-0 flex-col gap-1">
+                                                                <div className="flex min-w-0">
+                                                                    {editingSubjectId === subject.id ? (
+                                                                        <div className="flex min-w-0 items-center gap-1">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={editingSubjectName}
+                                                                                onChange={e => setEditingSubjectName(e.target.value.toUpperCase())}
+                                                                                onKeyDown={e => {
+                                                                                    if (e.key === 'Enter') handleSaveSubjectEdit();
+                                                                                    if (e.key === 'Escape') setEditingSubjectId(null);
+                                                                                    e.stopPropagation();
+                                                                                }}
+                                                                                onClick={e => e.stopPropagation()}
+                                                                                className="h-7 w-full rounded border border-primary/30 bg-background px-2 text-xs font-black uppercase tracking-wide text-content-main outline-none ring-0 dark:bg-zinc-950"
+                                                                                autoFocus
+                                                                            />
+                                                                            <button onClick={e => { e.stopPropagation(); handleSaveSubjectEdit(); }} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded"><Check size={14} /></button>
+                                                                            <button onClick={e => { e.stopPropagation(); setEditingSubjectId(null); }} className="p-1 text-content-muted hover:bg-white/5 rounded"><X size={14} /></button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span
+                                                                            className={`line-clamp-2 min-w-0 text-xs font-black uppercase tracking-wide text-content-main [overflow-wrap:anywhere] ${isEditable ? 'hover:text-primary transition-colors' : ''}`}
+                                                                            onClick={(e) => {
+                                                                                if (isEditable) {
+                                                                                    e.stopPropagation();
+                                                                                    setEditingSubjectId(subject.id);
+                                                                                    setEditingSubjectName(subject.name);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            {subject.name}
+                                                                        </span>
+                                                                    )}
                                                                 </div>
-                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
-                                                                    <label className="space-y-1">
-                                                                        <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Questões</span>
-                                                                        <input
-                                                                            type="text"
-                                                                            inputMode="numeric"
-                                                                            min="0"
-                                                                            value={formatExamWeightInputValue(subject.exam_weight_questions)}
-                                                                            onChange={e => updateSubjectWeightLocal(subject.id, 'exam_weight_questions', e.target.value)}
-                                                                            onBlur={() => handleSaveSubjectWeight(subject.id)}
-                                                                            onKeyDown={e => { if (e.key === 'Enter') handleSaveSubjectWeight(subject.id); }}
-                                                                            disabled={!isEditable}
-                                                                            className="w-full h-9 px-3 bg-black/30 border border-white/5 rounded-lg text-[12px] font-bold text-content-main outline-none disabled:opacity-60 focus:border-primary/30 transition-colors"
-                                                                            placeholder="Ex.: 10"
-                                                                        />
-                                                                    </label>
-                                                                    <label className="space-y-1">
-                                                                        <span className="block text-[8px] font-black text-content-muted uppercase tracking-[0.14em]">Pontos</span>
-                                                                        <input
-                                                                            type="text"
-                                                                            inputMode="decimal"
-                                                                            min="0"
-                                                                            step="0.01"
-                                                                            value={formatExamWeightInputValue(subject.exam_weight_points)}
-                                                                            onChange={e => updateSubjectWeightLocal(subject.id, 'exam_weight_points', e.target.value)}
-                                                                            onBlur={() => handleSaveSubjectWeight(subject.id)}
-                                                                            onKeyDown={e => { if (e.key === 'Enter') handleSaveSubjectWeight(subject.id); }}
-                                                                            disabled={!isEditable}
-                                                                            className="w-full h-9 px-3 bg-black/30 border border-white/5 rounded-lg text-[12px] font-bold text-content-main outline-none disabled:opacity-60 focus:border-primary/30 transition-colors"
-                                                                            placeholder="Ex.: 20"
-                                                                        />
-                                                                    </label>
-                                                                    {subject.exam_weight_raw && (
-                                                                        <p className="sm:col-span-2 text-[10px] text-content-muted leading-relaxed border-t border-white/5 pt-2">
-                                                                            {subject.exam_weight_raw.includes('Informado manualmente')
-                                                                                ? 'Peso informado manualmente.'
-                                                                                : `Evidência: ${subject.exam_weight_raw}`}
-                                                                        </p>
-                                                                    )}
-                                                                    {getSubjectExamWeightLine(subject, examWeightTotals) && (
-                                                                        <p className="sm:col-span-2 text-[10px] font-semibold text-emerald-300 leading-relaxed">
-                                                                            {getSubjectExamWeightLine(subject, examWeightTotals)}
-                                                                        </p>
-                                                                    )}
-                                                                    <p className="sm:col-span-2 text-[10px] text-amber-300/90 leading-relaxed">
-                                                                        {getSubjectExamWeightReviewMessage(subject)}
-                                                                    </p>
+                                                                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                                                                    <span className="flex items-center text-[10px] font-semibold text-content-muted">
+                                                                        <span className="w-[3ch] text-right tabular-nums inline-block mr-1">{subject.topics.length}</span>
+                                                                        <span className="w-[40px]">{subject.topics.length === 1 ? 'tópico' : 'tópicos'}</span>
+                                                                    </span>
+                                                                    <div className="h-2.5 w-[1px] bg-border dark:bg-white/10" />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleStartWeightEdit(subject);
+                                                                        }}
+                                                                        disabled={!isEditable}
+                                                                        className={`inline-flex min-h-5 max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold leading-none transition-colors disabled:cursor-default ${hasSubjectExamWeight(subject)
+                                                                                ? 'text-success hover:bg-success/10'
+                                                                                : 'border border-border bg-secondary/60 text-content-muted hover:border-primary/25 hover:text-primary dark:border-white/5 dark:bg-white/[0.04]'
+                                                                            }`}
+                                                                    >
+                                                                        <Gauge size={11} />
+                                                                        <span className="truncate">
+                                                                            {hasSubjectExamWeight(subject)
+                                                                                ? getSubjectExamWeightLine(subject, examWeightTotals)
+                                                                                : 'Peso'}
+                                                                        </span>
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         </div>
-
-                                                        {/* Input "Novo tópico..." (IA ou MANUAL) */}
-                                                        {isEditable && (
-                                                            <div className="relative px-4 py-3 border-b border-white/5">
-                                                                <input
-                                                                    type="text"
-                                                                    placeholder="Novo tópico..."
-                                                                    value={newTopicTexts[subject.id] || ''}
-                                                                    onChange={e => {
-                                                                        const val = e.target.value;
-                                                                        const formatted = val.charAt(0).toUpperCase() + val.slice(1);
-                                                                        setNewTopicTexts(prev => ({ ...prev, [subject.id]: formatted }));
-                                                                    }}
-                                                                    onKeyDown={e => { if (e.key === 'Enter') handleSaveNewTopic(subject.id); }}
-                                                                    className="w-full bg-white/5 border border-white/5 rounded-lg py-2 px-3 pr-8 text-xs outline-none ring-0 focus:border-primary/30 transition-colors text-content-main placeholder:text-content-muted/50"
-                                                                />
+                                                        {!isTemp && (
+                                                            <div className="flex shrink-0 items-center gap-1">
+                                                                <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary/50 dark:bg-white/[0.04] border border-border/50 dark:border-white/5 mr-1">
+                                                                    <div className={`w-1.5 h-1.5 rounded-full ${progress === 100 ? 'bg-success' : progress > 0 ? 'bg-primary' : 'bg-content-muted/40'}`} />
+                                                                    <span className="text-[9px] font-black tabular-nums tracking-tighter text-content-main">{progress}%</span>
+                                                                </div>
                                                                 <button
-                                                                    onClick={() => handleSaveNewTopic(subject.id)}
-                                                                    disabled={savingTopics[subject.id] || !newTopicTexts[subject.id]?.trim()}
-                                                                    className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-primary/10 text-primary rounded hover:bg-primary/20 transition-all disabled:opacity-40"
+                                                                    onClick={e => { e.stopPropagation(); toggleExpand(subject.id); }}
+                                                                    className={`rounded-lg p-1.5 text-content-muted transition-all hover:bg-primary/10 hover:text-primary ${isExpanded ? 'rotate-180 text-primary' : ''}`}
+                                                                    aria-label={isExpanded ? 'Recolher matéria' : 'Expandir matéria'}
                                                                 >
-                                                                    {savingTopics[subject.id] ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
+                                                                    <ChevronDown size={15} />
                                                                 </button>
                                                             </div>
                                                         )}
+                                                    </>
+                                                )}
+                                            </div>
 
-                                                        {/* Tópicos */}
-                                                        {subject.topics.length === 0 ? (
-                                                            <p className="text-center text-[10px] text-content-muted uppercase font-bold tracking-widest py-4">
-                                                                Nenhum tópico
-                                                            </p>
-                                                        ) : (
-                                                            <div className="flex flex-col">
-                                                                {subject.topics.map((topic, idx) => {
-                                                                    const status = getTopicStatus(topic);
-                                                                    const isTmpTopic = topic.id.startsWith('tmp_');
-                                                                    return (
-                                                                        <div
-                                                                            key={topic.id}
-                                                                            className={`flex items-center justify-between px-4 py-2.5 border-b border-white/5 last:border-b-0 hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors group/topic ${isTmpTopic ? 'opacity-50' : ''}`}
-                                                                        >
-                                                                            <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                                            {/* ── Conteúdo expandido ── */}
+                                            <AnimatePresence initial={false}>
+                                                {isExpanded && !isTemp && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        transition={{ duration: 0.18 }}
+                                                        className="overflow-hidden bg-zinc-50/50 dark:bg-black/20 shadow-inner"
+                                                        onClick={e => e.stopPropagation()}
+                                                    >
+                                                        <div className="flex flex-col">
+                                                            {/* Input "Novo tópico..." (lote ou manual) */}
+                                                            {isEditable && (
+                                                                <div className="relative px-4 py-3 border-b border-white/5">
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Novo tópico..."
+                                                                        value={newTopicTexts[subject.id] || ''}
+                                                                        onChange={e => {
+                                                                            const val = e.target.value;
+                                                                            const formatted = val.charAt(0).toUpperCase() + val.slice(1);
+                                                                            setNewTopicTexts(prev => ({ ...prev, [subject.id]: formatted }));
+                                                                        }}
+                                                                        onKeyDown={e => { if (e.key === 'Enter') handleSaveNewTopic(subject.id); }}
+                                                                        className="w-full bg-white/5 border border-white/5 rounded-lg py-2 px-3 pr-8 text-xs outline-none ring-0 focus:border-primary/30 transition-colors text-content-main placeholder:text-content-muted/50"
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => handleSaveNewTopic(subject.id)}
+                                                                        disabled={savingTopics[subject.id] || !newTopicTexts[subject.id]?.trim()}
+                                                                        className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-primary/10 text-primary rounded hover:bg-primary/20 transition-all disabled:opacity-40"
+                                                                    >
+                                                                        {savingTopics[subject.id] ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
+                                                                    </button>
+                                                                </div>
+                                                            )}
 
-                                                                                <div className="shrink-0">
-                                                                                    {isTmpTopic
-                                                                                        ? <Loader2 size={13} className="animate-spin text-primary/50" />
-                                                                                        : topic.completed
-                                                                                            ? <CheckCircle2 size={14} className="fill-green-900/40 text-green-500" />
-                                                                                            : <Circle size={14} className="text-content-muted" />
-                                                                                    }
-                                                                                </div>
-
-                                                                                {!isTmpTopic && isEditable && editingTopicId === topic.id ? (
-                                                                                    <div className="flex items-center gap-1 flex-1">
-                                                                                        <input
-                                                                                            type="text"
-                                                                                            value={editingTopicName}
-                                                                                            onChange={e => setEditingTopicName(e.target.value)}
-                                                                                            onKeyDown={e => {
-                                                                                                if (e.key === 'Enter') handleSaveTopicEdit();
-                                                                                                if (e.key === 'Escape') setEditingTopicId(null);
-                                                                                                e.stopPropagation();
-                                                                                            }}
-                                                                                            className="h-6 text-xs px-2 w-full bg-zinc-800 border border-primary/30 rounded outline-none ring-0 text-white"
-                                                                                            autoFocus
-                                                                                        />
-                                                                                        <button onClick={handleSaveTopicEdit} className="p-0.5 text-emerald-500 hover:bg-emerald-500/10 rounded"><Check size={13} /></button>
-                                                                                        <button onClick={() => setEditingTopicId(null)} className="p-0.5 text-content-muted hover:bg-white/5 rounded"><X size={13} /></button>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div
-                                                                                        className={`flex flex-col flex-1 min-w-0 ${isTmpTopic || !isEditable ? '' : 'cursor-text group-hover/topic:text-primary transition-colors'}`}
-                                                                                        onClick={() => {
-                                                                                            if (!isTmpTopic && isEditable) { setEditingTopicId(topic.id); setEditingTopicName(topic.name); }
-                                                                                        }}
-                                                                                    >
-                                                                                        <span className={`text-xs font-medium ${topic.completed ? 'text-content-muted line-through' : 'text-content-main'}`}>
-                                                                                            {topic.name}
-                                                                                        </span>
-                                                                                        {!isTmpTopic && (
-                                                                                            <span className={`text-[8px] font-black uppercase tracking-widest ${status.color}`}>
-                                                                                                {status.label}
+                                                            {/* Tópicos */}
+                                                            {subject.topics.length === 0 ? (
+                                                                <p className="text-center text-[10px] text-content-muted uppercase font-bold tracking-widest py-4">
+                                                                    Nenhum tópico
+                                                                </p>
+                                                            ) : (
+                                                                <div className="flex flex-col">
+                                                                    {subject.topics.map((topic, idx) => {
+                                                                        const status = getTopicStatus(topic);
+                                                                        const isTmpTopic = topic.id.startsWith('tmp_');
+                                                                        return (
+                                                                            <div
+                                                                                key={topic.id}
+                                                                                className={`flex items-center justify-between px-4 py-2.5 border-b border-white/5 last:border-b-0 app-cycle-topic-row transition-colors group/topic ${isTmpTopic ? 'opacity-50' : ''}`}
+                                                                            >
+                                                                                <div className="flex flex-col flex-1 min-w-0 pr-2 gap-0.5 justify-center">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        {isTmpTopic && <Loader2 size={13} className="animate-spin text-primary/50 shrink-0" />}
+                                                                                        {!isTmpTopic && isEditable && editingTopicId === topic.id ? (
+                                                                                            <div className="flex items-center gap-1 flex-1">
+                                                                                                <input
+                                                                                                    type="text"
+                                                                                                    value={editingTopicName}
+                                                                                                    onChange={e => setEditingTopicName(e.target.value)}
+                                                                                                    onKeyDown={e => {
+                                                                                                        if (e.key === 'Enter') handleSaveTopicEdit();
+                                                                                                        if (e.key === 'Escape') setEditingTopicId(null);
+                                                                                                        e.stopPropagation();
+                                                                                                    }}
+                                                                                                    className="h-6 text-[11px] px-2 w-full bg-zinc-800 border border-primary/30 rounded outline-none ring-0 text-white"
+                                                                                                    autoFocus
+                                                                                                />
+                                                                                                <button onClick={handleSaveTopicEdit} className="p-0.5 text-emerald-500 hover:bg-emerald-500/10 rounded"><Check size={13} /></button>
+                                                                                                <button onClick={() => setEditingTopicId(null)} className="p-0.5 text-content-muted hover:bg-white/5 rounded"><X size={13} /></button>
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <span
+                                                                                                title={topic.name}
+                                                                                                className={`text-xs font-medium w-full text-left line-clamp-2 [word-break:break-word] ${isTmpTopic || !isEditable ? '' : 'cursor-text group-hover/topic:text-primary transition-colors'} ${topic.completed ? 'text-content-muted line-through' : 'text-content-main'}`}
+                                                                                                onClick={(e) => {
+                                                                                                    if (!isTmpTopic && isEditable) {
+                                                                                                        e.stopPropagation();
+                                                                                                        setEditingTopicId(topic.id);
+                                                                                                        setEditingTopicName(topic.name);
+                                                                                                    }
+                                                                                                }}
+                                                                                            >
+                                                                                                {topic.name}
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
-                                                                                )}
-                                                                            </div>
+                                                                                    {!isTmpTopic && typeof topic.total_volume === 'number' && topic.total_volume > 0 && (
+                                                                                        <div className="flex items-center pl-[2px]">
+                                                                                            <span className="text-[9px] font-bold tracking-widest uppercase text-content-muted/70 flex items-center gap-1">
+                                                                                                <BarChart2 size={10} className="text-primary/70" />
+                                                                                                Incidência: {topic.total_volume} {topic.total_volume === 1 ? 'questão' : 'questões'}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
 
-                                                                            {!isTmpTopic && isEditable && (
-                                                                                confirmDeleteTopicId === topic.id ? (
-                                                                                    // Confirmação inline no tópico
-                                                                                    <div className="flex items-center gap-1 shrink-0">
-                                                                                        <span className="text-[9px] text-red-400 font-bold mr-1">Excluir?</span>
-                                                                                        <button
-                                                                                            onClick={() => setConfirmDeleteTopicId(null)}
-                                                                                            className="px-1.5 h-5 text-[9px] font-bold text-content-muted bg-white/5 hover:bg-white/10 rounded transition-all"
-                                                                                        >
-                                                                                            Não
-                                                                                        </button>
-                                                                                        <button
-                                                                                            onClick={() => handleConfirmDeleteTopic(topic.id, subject.id)}
-                                                                                            className="px-1.5 h-5 text-[9px] font-bold text-white bg-red-500 hover:bg-red-600 rounded transition-all"
-                                                                                        >
-                                                                                            Sim
-                                                                                        </button>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <button
-                                                                                        onClick={() => handleRequestDeleteTopic(topic.id)}
-                                                                                        className="opacity-0 group-hover/topic:opacity-100 p-1 hover:bg-red-500/10 rounded text-content-muted hover:text-red-500 transition-all shrink-0"
-                                                                                    >
-                                                                                        <Trash2 size={12} />
-                                                                                    </button>
-                                                                                )
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        )}
-
-                                                        {/* ── Seção de Tópicos Inativados (Lixeira) ── */}
-                                                        {(() => {
-                                                            const subjectInactive = (inactiveTopics[subject.id] || []).filter(t => 
-                                                                !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase())
-                                                            );
-                                                            if (subjectInactive.length === 0) return null;
-                                                            const isShowingInactive = showInactiveIds.includes(subject.id);
-                                                            return (
-                                                                <div className="border-t border-white/5">
-                                                                    <button
-                                                                        onClick={() => setShowInactiveIds(prev =>
-                                                                            isShowingInactive
-                                                                                ? prev.filter(id => id !== subject.id)
-                                                                                : [...prev, subject.id]
-                                                                        )}
-                                                                        className="flex items-center gap-1.5 w-full text-left px-4 py-2 hover:bg-white/[0.02] transition-colors group/trash"
-                                                                    >
-                                                                        <Trash2 size={11} className="text-zinc-500 group-hover/trash:text-zinc-300 transition-colors" />
-                                                                        <span className="text-[9px] font-bold text-zinc-500 group-hover/trash:text-zinc-300 uppercase tracking-widest transition-colors">
-                                                                            Lixeira ({subjectInactive.length})
-                                                                        </span>
-                                                                        <ChevronDown size={10} className={`ml-auto text-zinc-600 transition-transform ${isShowingInactive ? 'rotate-180' : ''}`} />
-                                                                    </button>
-                                                                    <AnimatePresence initial={false}>
-                                                                        {isShowingInactive && (
-                                                                            <motion.div
-                                                                                initial={{ height: 0, opacity: 0 }}
-                                                                                animate={{ height: 'auto', opacity: 1 }}
-                                                                                exit={{ height: 0, opacity: 0 }}
-                                                                                transition={{ duration: 0.15 }}
-                                                                                className="overflow-hidden"
-                                                                            >
-                                                                                <div className="flex flex-col">
-                                                                                    {subjectInactive.map(inactiveTopic => (
-                                                                                        <div
-                                                                                            key={inactiveTopic.id}
-                                                                                            className="flex items-center justify-between px-4 py-2 border-t border-white/5 bg-zinc-800/20 opacity-60 hover:opacity-80 transition-opacity group/inactive"
-                                                                                        >
-                                                                                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                                                                <Trash2 size={11} className="text-zinc-600 shrink-0" />
-                                                                                                <span className="text-[11px] text-zinc-400 line-through truncate">{inactiveTopic.name}</span>
-                                                                                            </div>
+                                                                                {!isTmpTopic && isEditable && editingTopicId !== topic.id && (
+                                                                                    confirmDeleteTopicId === topic.id ? (
+                                                                                        // Confirmação inline no tópico
+                                                                                        <div className="flex items-center gap-1 shrink-0">
+                                                                                            <span className="text-[9px] text-red-400 font-bold mr-1">Excluir?</span>
                                                                                             <button
-                                                                                                onClick={() => handleRestoreTopic(inactiveTopic.id, subject.id)}
-                                                                                                title="Restaurar tópico"
-                                                                                                className="px-2 h-5 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded transition-all opacity-0 group-hover/inactive:opacity-100 shrink-0"
+                                                                                                onClick={() => setConfirmDeleteTopicId(null)}
+                                                                                                className="px-1.5 h-5 text-[9px] font-bold text-content-muted bg-white/5 hover:bg-white/10 rounded transition-all"
                                                                                             >
-                                                                                                Restaurar
+                                                                                                Não
+                                                                                            </button>
+                                                                                            <button
+                                                                                                onClick={() => handleConfirmDeleteTopic(topic.id, subject.id)}
+                                                                                                className="px-1.5 h-5 text-[9px] font-bold text-white bg-red-500 hover:bg-red-600 rounded transition-all"
+                                                                                            >
+                                                                                                Sim
                                                                                             </button>
                                                                                         </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </motion.div>
-                                                                        )}
-                                                                    </AnimatePresence>
+                                                                                    ) : (
+                                                                                        <button
+                                                                                            onClick={() => handleRequestDeleteTopic(topic.id)}
+                                                                                            className="opacity-100 md:opacity-0 md:group-hover/topic:opacity-100 p-1 hover:bg-red-500/10 rounded text-content-muted hover:text-red-500 transition-all shrink-0"
+                                                                                        >
+                                                                                            <Trash2 size={12} />
+                                                                                        </button>
+                                                                                    )
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
                                                                 </div>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                );
-                            })
+                                                            )}
+
+                                                            {/* Lixeira removida conforme solicitado (hard delete apenas) */}
+
+                                                            {isEditable && (
+                                                                <div className="flex justify-end border-t border-border px-4 py-2 dark:border-white/5">
+                                                                    {confirmDeleteSubjectId === subject.id ? (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-[10px] text-red-400 font-bold mr-1">Excluir matéria?</span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setConfirmDeleteSubjectId(null)}
+                                                                                className="px-2 h-6 text-[10px] font-bold text-content-muted bg-white/5 hover:bg-white/10 rounded transition-all"
+                                                                            >
+                                                                                Não
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleConfirmDeleteSubject(subject.id, subject.name)}
+                                                                                className="px-2 h-6 text-[10px] font-bold text-white bg-red-500 hover:bg-red-600 rounded transition-all"
+                                                                            >
+                                                                                Sim
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setConfirmDeleteSubjectId(prev => prev === subject.id ? null : subject.id)}
+                                                                            className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[10px] font-bold text-content-muted transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                                                        >
+                                                                            <Trash2 size={12} />
+                                                                            Excluir matéria
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    );
+                                })}
+                            </>
                         )}
                     </div>
                 </motion.div>
             </div>
-
-            {/* Modal de anotações */}
-            <SubjectNotesModal
-                isOpen={notesModal.isOpen}
-                onClose={() => setNotesModal(prev => ({ ...prev, isOpen: false }))}
-                subjectId={notesModal.subjectId}
-                subjectName={notesModal.subjectName}
-            />
 
             {/* Confirmação de troca de edital */}
             <AnimatePresence>
