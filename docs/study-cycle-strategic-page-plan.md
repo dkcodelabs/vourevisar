@@ -65,11 +65,19 @@ Este plano e a referencia de implementacao da pagina Ciclo de Estudos. A pagina 
 - [x] Redesenhar `/dashboard` como painel de decisao, priorizando: atrasos, proxima acao, fila curta, ritmo ate a prova e evolucao.
 - [x] Usar a fila real de revisoes e a ordem salva do ciclo, sem reordenar materias automaticamente.
 - [x] Mostrar concurso carregado no ciclo, data/dias para a prova e estados honestos quando ciclo ou data estiverem ausentes.
+- [x] Refinar o primeiro card do Painel: nome do concurso como titulo, cargo abaixo, sem rotulo `Concurso ativo` e sem botao redundante de detalhes; mostrador orbital usa arco apenas como moldura visual e nunca como porcentagem inventada. Quando o nome salvo ja termina com o mesmo cargo, remover apenas essa repeticao visual, preservando os dados originais. Em mobile e tablet, mostrador e tres indicadores formam uma faixa compacta de quatro colunas com tipografia proporcional; no desktop, permanecem em uma composicao horizontal ampla. Validado em sessao autenticada em 390x844, 768x900 e 1280x720, dark/light, sem overflow horizontal; indicador de revisoes atrasadas manteve navegacao para `/revisoes`.
+  - [x] Reaproveitar a linguagem visual de `Meus Editais` no cabecalho, com icones de concurso e cargo, capitalizar rotulos operacionais e restringir o conteudo interno do mostrador pequeno para nao ultrapassar o circulo.
+  - [ ] Aguardar validacao visual do usuario para este ultimo ajuste, conforme pedido de nao executar nova rodada de testes.
 - [x] Criar `Melhor proxima acao` com justificativa baseada no estado real da revisao/ciclo e acesso direto ao fluxo correspondente.
+  - [x] Refinar a composicao para reduzir altura e peso visual: recomendacao, base cientifica e acoes permanecem visiveis; justificativas ficam em coluna compacta no desktop e disclosure no mobile.
 - [x] Criar fila unica por prioridade para revisoes atrasadas, revisoes de hoje e proximo topico do ciclo.
+  - [x] Refinar `Hoje, em ordem` como lista operacional continua, sem cards altos por item, mantendo prioridade, topico, materia, prazo e acao na mesma linha.
 - [x] Criar lembretes operacionais com inclusao inline, data e conclusao por checkbox.
 - [x] Criar trajetoria com periodos de 7, 14 e 30 dias, detalhe clicavel por dia, progresso do edital e distribuicao real de dificuldade.
-- [x] Validar visualmente o Painel em desktop e mobile, dark e light, sem overflow horizontal e sem erros relevantes no console.
+  - [x] Reaproximar a trajetoria do conceito visual aprovado: grafico de barras com dia/data, legenda e tooltip detalhado; progresso em anel com legenda; dificuldade em aneis; painel unico com divisorias e sem cards aninhados.
+  - [x] Refinar `Ritmo ate a prova` com anel contextual, topicos/revisoes e ritmos diarios reais, sem exibir porcentagem de ritmo inventada.
+- [ ] Adicionar ao Painel um `Mapa de cobranca` com dados persistidos de `topics.incidence_level`, distribuicao baixa/media/alta apenas entre topicos analisados, cobertura honesta do edital e cruzamento acionavel de alta cobranca com revisao atrasada, topico nao iniciado e topico em revisao. Implementacao concluida antes de `Sua trajetoria`: violeta representa apenas incidencia, vermelho atraso, ambar primeiro contato pendente, azul acompanhamento e CTA primario; as linhas zeradas sao omitidas, prioridades levam para Revisoes/Ciclo e a tipografia permanece compacta com simplificacao dos CTAs em telas menores. Pendente apenas validacao visual do usuario, conforme pedido de nao rodar testes nesta rodada.
+- [x] Validar visualmente o Painel em desktop, tablet e mobile, dark e light, sem overflow horizontal e sem erros relevantes no console.
 - [ ] Definir a apresentacao quando o ciclo tiver mais de um edital ativo; a primeira versao usa o primeiro edital retornado pelo ciclo como contexto principal.
 - [ ] Levar os cards antigos que o usuario deseja preservar para `/reveal-cards` antes de remover definitivamente componentes legados do repositorio.
 
@@ -320,11 +328,12 @@ Nao mostrar nesta secao:
 ### Regra de produto
 
 - [x] Incidencia deve ser sinal visual, nao regra obrigatoria de ordem.
-- [x] Enquanto o motor de nota ainda esta em validacao, nao mostrar baixa/media nem score numerico para o aluno.
-- [x] Mostrar para o aluno apenas destaque de `Cobrança alta` quando houver sinal bruto alto.
-- [ ] Quando o motor de questoes/cobranca estiver consolidado, reavaliar exibicao de baixa/media e score mais detalhado.
+- [x] Mostrar baixa/media/alta apenas quando o topico possuir `incidence_level` persistido; nao inferir faixa diretamente do volume bruto na UI.
+- [x] Manter o score numerico fora da interface do aluno enquanto o motor estiver em validacao; usar apenas a faixa qualitativa persistida.
+- [x] Reavaliacao concluida em 2026-06-20: baixa/media/alta podem ser exibidas para topicos processados e classificados, mantendo a nota detalhada apenas no banco/auditoria.
 - [x] Quando nao existir dado, nao mostrar badge de incidencia na linha do topico.
-- [x] Quando existir dado, mostrar apenas o volume numerico do topico.
+- [x] Quando existir classificacao persistida, mostrar a faixa qualitativa; manter volume bruto restrito ao painel operacional/auditoria.
+- [x] Corrigir a regressao no modal de materias do edital: removida a contagem de `questoes` baseada em `topics.total_volume`; o modal agora usa `topics.incidence_level` e exibe apenas cobranca baixa/media/alta quando o nivel existir.
 - [x] Nao exigir finalizar 100% a IA de incidencia antes de melhorar a pagina.
 - [x] Preparar a pagina para receber dados melhores depois sem refatoracao grande.
 
@@ -762,7 +771,7 @@ Pagina atual de referencia: `/admin/importancia-prova`.
   - [x] Converter para score normalizado em faixa 1-5 dentro da materia/edital.
   - [x] Comparar topicos da mesma materia/edital entre si, nao numeros absolutos entre materias diferentes.
   - [x] Salvar `raw_volume`, `normalized_score`, `rank_percentile`, `score_confidence` e contexto da analise em `topics.incidence_context`.
-  - [ ] Criar backfill para recalcular score dos topicos ja analisados antes da versao `2026-06-04-normalized-incidence-score`.
+  - [x] Criar backfill para recalcular score dos topicos ja analisados antes da versao `2026-06-04-normalized-incidence-score`. Migracao `persist_topic_incidence_level` aplicada em 2026-06-20: 16/16 topicos ativos com volume receberam `incidence_score` e `incidence_level`.
   - [x] Reduzir custo por topico no worker: limitar a ate 3 termos, ate 3 buscas Google por topico e parada antecipada quando houver sinal forte.
   - [x] Validar em lote real se o novo limite preserva qualidade de busca e reduz o custo medio por topico.
     - Resultado: custo caiu para 3 buscas por topico, mas a primeira versao ficou restritiva demais e gerou `Sinal 0` em topicos provavelmente cobrados.
@@ -967,6 +976,7 @@ Antes da rodada final de layout, a pagina de ciclo esta funcionalmente consolida
     - [x] Ajustar o cabecalho do modal `Ver Matérias`: mostrar nome do concurso em destaque, cargo com icone, banca com icone, contagem de materias/topicos e badge de origem (`Copia Catalogo`, `Copia IA`, `Manual`) compondo o mesmo cabecalho. Manter sync status discreto no topo e nao mexer na lista/fluxos internos do modal.
       - [x] Refinamento responsivo do cabecalho: em mobile/tablet, o icone principal fica pequeno e alinhado ao nome do concurso; em desktop, mantém o bloco maior. Cargo e banca mantem icones pequenos com cores especificas, banca deixa de usar texto azul, e origem (`Copia IA`/equivalentes) passa a aparecer apos a contagem de materias e topicos.
     - [x] Refinar o modal `Ver Matérias` sem criar abstracao global: titulo do edital em cor de conteudo, botao fechar com hover destrutivo, toolbar responsiva com busca, expandir/recolher, criacao manual recolhida e `Adicionar em lote`; lista com cabecalho proprio; linha de materia mais compacta, sem drag/olho/anotacao como acoes primarias; peso da prova seguindo a mesma anatomia da Fila do Ciclo, com metadado clicavel, editor compacto substituindo a propria linha e confirmacao verde inline apos salvar; exclusao de materia rebaixada para acao secundaria dentro da materia expandida. Validado com lint/build.
+    - [ ] Evoluir o modal `Ver Matérias` para acabamento premium e responsivo: implementada sheet ancorada nas laterais e no rodape no mobile; celular em paisagem usa toda a largura e apenas 8px de respiro superior; tablet touch em retrato/paisagem usa painel quase em tela cheia com 16px laterais; desktop recebe dialog centralizado com a largura anterior limitada diretamente por `max-w-5xl` (1024px), evitando que a utilidade `w-full` prevaleca e estique o painel em monitores ultrawide. A distincao combina largura, altura e tipo de ponteiro, com protecao adicional por largura a partir de 1280px para monitores que reportem o ponteiro incorretamente. Aplicados `dvh`, safe area, bloqueio de scroll da pagina, `Esc`, semantica de dialog, toolbar rolavel quando o teclado reduz a altura, controles maiores, menos microtexto e cores semanticas em busca, criacao, edição, tópicos e exclusoes. O degrade sutil do cabecalho foi mantido; backdrop e modal passaram a ser renderizados por portal diretamente no `body`, fora da árvore da pagina `Meus Editais`. O backdrop preto ocupa uma camada fixa independente com `100dvh`/largura da viewport e o fundo raiz fica preto durante a abertura, impedindo recorte pela altura, scroll ou contêiner da pagina. Contagem, separador e peso foram alinhados com distancia simetrica; percentuais de peso passaram a exibir valor inteiro arredondado (`33%`), cobertos por teste. Falta validar visualmente em navegador autenticado nos tamanhos 375px, celular paisagem, tablet retrato/paisagem, desktop e ultrawide, em temas claro/escuro; a conexão do Browser falhou na tentativa anterior.
   - [ ] Redesenhar o mini `Mapa do edital` na rodada visual posterior: trocar caixas grandes com pouca informacao por composicao mais refinada, com icones e micro-metricas em linha quando couber, evitando duas linhas para dados pequenos e evitando card dentro de card. Primeira aplicacao feita no modo verticalizado com `app-gradient-panel`, micro-metricas e superficies com blur; falta validacao visual real em tablet/mobile antes de marcar como concluido.
 
 As partes pesadas ficam para depois: motor definitivo de cobranca/incidencia, automacao/Cron, flashcards/questoes globais e relatorios avancados.

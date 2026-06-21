@@ -53,6 +53,9 @@ export interface Topic {
   edital_id?: string;
   origin_id?: string;
   total_volume?: number | null;
+  incidence_score?: number | null;
+  incidence_level?: 'low' | 'medium' | 'high' | null;
+  incidence_context?: Record<string, unknown> | null;
 }
 
 export interface Subject {

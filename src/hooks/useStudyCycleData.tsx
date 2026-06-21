@@ -113,6 +113,7 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
     position: topic.position,
     reviewCount: topic.reviewCount ?? topic.review_count ?? 0,
     totalVolume: topic.total_volume ?? null,
+    incidenceLevel: topic.incidence_level ?? null,
     lastSearchContext: topic.last_search_context ?? null,
     strategicIncidence: getTopicStrategicIncidence({
       totalVolume: topic.total_volume ?? null
@@ -188,7 +189,7 @@ export const useStudyCycleData = () => {
     if (!user) return;
 
     try {
-      const cacheKey = `subjects_cache_${user.id}_v2`;
+      const cacheKey = `subjects_cache_${user.id}_v3`;
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try {
@@ -206,7 +207,7 @@ export const useStudyCycleData = () => {
       const [subjectsRes, editaisRes] = await Promise.all([
         supabase
           .from('subjects')
-          .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position, total_volume, last_search_context)`)
+          .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position, total_volume, incidence_level, last_search_context)`)
           .eq('user_id', user.id)
           .eq('topics.is_active', true)
           .order('priority', { ascending: true })

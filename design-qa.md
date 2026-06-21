@@ -1,30 +1,49 @@
 # Dashboard Design QA
 
-## Referencias
+## Alvo
 
-- Faixa superior com concurso ativo, dias para a prova e contadores acionaveis.
-- Card premium de melhor proxima acao com justificativa profissional.
-- Fila operacional curta para atrasos, revisoes do dia e primeiro contato.
-- Card de ritmo com calculo transparente e aviso de cobertura de cobranca.
-- Lembretes com inclusao inline e conclusao por checkbox.
-- Trajetoria com atividade por periodo, progresso e mapa de dificuldade.
+- Rota: `/dashboard`
+- Estado: usuario autenticado, ciclo e data da prova definidos, tema dark como comparacao principal.
+- Viewports: 1440x1000, 1280x900, 768x900 e 390x844.
+- Fontes visuais:
+  - `/var/folders/40/mn199y7s087_9422tlhc7ks80000gn/T/codex-clipboard-040cf1ec-4084-4a66-aab8-66f94630b4d3.png`
+  - `/var/folders/40/mn199y7s087_9422tlhc7ks80000gn/T/codex-clipboard-f1e94b39-2cc4-4621-b755-41abd30979e2.png`
+  - `/var/folders/40/mn199y7s087_9422tlhc7ks80000gn/T/codex-clipboard-ac4a260b-80f1-4e9f-938e-e35f33a5daff.png`
+  - `/var/folders/40/mn199y7s087_9422tlhc7ks80000gn/T/codex-clipboard-8cc1bf0c-e9eb-463d-b437-46394a3a29c2.png`
+  - `/var/folders/40/mn199y7s087_9422tlhc7ks80000gn/T/codex-clipboard-a444d898-af35-46f4-b38d-869e9198b33b.png`
+- Implementacao:
+  - `/tmp/vourevisar-dashboard-redesign-dark-desktop.png`
+  - `/tmp/vourevisar-dashboard-tooltip.png`
+  - `/tmp/vourevisar-dashboard-redesign-mobile-top-final2.png`
+  - `/tmp/vourevisar-dashboard-redesign-mobile-trajectory-final2.png`
+- Comparacao conjunta: `/tmp/vourevisar-dashboard-comparison.png`
 
-## Comparacao final
+## Comparacao
 
-| Prioridade | Diferenca encontrada | Correcao |
-| --- | --- | --- |
-| P0 | Nenhuma. | Nao aplicavel. |
-| P1 | O indicador visual `No ritmo` usava uma porcentagem sem formula validada. | Removido e substituido por dias restantes e ritmos diarios calculados. |
-| P1 | Periodos de 14/30 dias exibiam somente os ultimos sete dias. | O grafico agora renderiza todos os dias do periodo com rolagem interna. |
-| P2 | Nome longo do edital e topico prioritario deixavam a primeira dobra alta demais. | Tipografia e proporcoes foram compactadas, preservando o nome completo. |
-| P2 | Rotulos do grafico se sobrepunham em mobile e no periodo de 14 dias. | Valores e datas ganharam formato compacto; detalhe completo permanece no clique. |
-| P2 | Havia controles com aparencia de acao sem comportamento correspondente. | `Entenda` ganhou explicacao real; controles decorativos sem destino foram removidos. |
-| P3 | O mobile usa cards empilhados, enquanto as referencias principais sao desktop. | Desvio intencional para manter leitura, toque e hierarquia em 390px. |
+- Tipografia: titulos e numeros recuperaram hierarquia compacta; textos operacionais usam pesos menores e nomes longos continuam legiveis.
+- Espacamento: `Melhor proxima acao` e `Hoje, em ordem` perderam altura e caixas internas desnecessarias. Mobile usa disclosure para a justificativa.
+- Cores: tokens semanticos existentes foram preservados. Azul identifica acao/dado, verde cobertura suficiente, ambar ritmo baixo e vermelho atraso.
+- Graficos: atividade usa barras proporcionais, dia da semana, data, valor, legenda e tooltip detalhado. Progresso e dificuldade usam aneis com legenda direta.
+- Conteudo: todos os valores continuam vindo do modelo real. O card de ritmo nao exibe porcentagem inventada.
+- Responsividade: sem overflow horizontal nos viewports verificados. Sete dias cabem sem rolagem; 14/30 dias mantem rolagem interna.
+- Interacoes: disclosure mobile abriu corretamente; alternancia para 14 dias atualizou o grafico; tooltip mostrou estudo, revisao, questoes e acesso ao detalhe.
+
+## Patches Desta Rodada
+
+- Ritmo reorganizado em anel contextual, quatro metricas e aviso compacto.
+- Progresso convertido em anel com legenda e total.
+- Atividade reconstruida com Recharts e tooltip premium.
+- Melhor proxima acao compactada, mantendo base cientifica e justificativas.
+- Fila diaria convertida em lista continua, com prazo e acao na mesma linha.
+- Trajetoria passou a ser um painel unico com divisorias, sem cards aninhados.
+
+## Pendencias
+
+- O teste existente `getChargeCoverageState > returns partial when only some topics have analyzed charge volume` falha porque o estado atual retorna `none`. A falha nao foi causada por esta rodada visual e precisa ser tratada no recorte de incidencia/cobranca.
+- O build continua emitindo o aviso conhecido de bundle principal acima de 500 kB.
 
 ## Resultado
 
-- Desktop 1280x720: aprovado, sem overflow horizontal.
-- Mobile 390x844: aprovado, sem overflow horizontal.
-- Dark e light: aprovados.
-- Console: sem erros ou avisos relevantes na rota.
-- Interacoes verificadas: explicacao do ritmo, troca 7/14 dias, detalhe do dia e captura inline de lembrete sem persistir dado de teste.
+Nao restaram diferencas P0, P1 ou P2 na comparacao visual. Diferencas de numeros e cores das barras decorrem dos dados reais do aluno, nao de desvio do layout.
+
+final result: passed

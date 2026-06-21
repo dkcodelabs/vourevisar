@@ -1789,6 +1789,12 @@ export type Database = {
           edital_id: string | null
           first_studied_at: string | null
           id: string
+          incidence_applied_at: string | null
+          incidence_catalog_id: string | null
+          incidence_context: Json
+          incidence_level: string | null
+          incidence_score: number | null
+          incidence_source: string | null
           is_active: boolean | null
           is_hidden: boolean | null
           is_marked_for_review: boolean | null
@@ -1827,6 +1833,12 @@ export type Database = {
           edital_id?: string | null
           first_studied_at?: string | null
           id?: string
+          incidence_applied_at?: string | null
+          incidence_catalog_id?: string | null
+          incidence_context?: Json
+          incidence_level?: string | null
+          incidence_score?: number | null
+          incidence_source?: string | null
           is_active?: boolean | null
           is_hidden?: boolean | null
           is_marked_for_review?: boolean | null
@@ -1865,6 +1877,12 @@ export type Database = {
           edital_id?: string | null
           first_studied_at?: string | null
           id?: string
+          incidence_applied_at?: string | null
+          incidence_catalog_id?: string | null
+          incidence_context?: Json
+          incidence_level?: string | null
+          incidence_score?: number | null
+          incidence_source?: string | null
           is_active?: boolean | null
           is_hidden?: boolean | null
           is_marked_for_review?: boolean | null

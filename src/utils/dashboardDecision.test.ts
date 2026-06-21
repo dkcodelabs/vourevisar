@@ -5,6 +5,7 @@ import {
   buildNextBestAction,
   buildProgressSummary,
   getChargeCoverageState,
+  getDashboardEditalIdentity,
   getDifficultySummary,
   getNextCycleActions,
   splitReviewsByDueDate,
@@ -42,6 +43,33 @@ const cycleSubject = (overrides: Partial<DashboardCycleSubject> = {}): Dashboard
     },
   ],
   ...overrides,
+});
+
+describe('getDashboardEditalIdentity', () => {
+  it('keeps the contest name and position in separate fields', () => {
+    expect(
+      getDashboardEditalIdentity({
+        name: 'TRF 4 - Concurso Público',
+        organ: 'TRF 4',
+        position: 'Analista Judiciário',
+      }),
+    ).toEqual({
+      editalName: 'TRF 4 - Concurso Público',
+      position: 'Analista Judiciário',
+    });
+  });
+
+  it('removes a repeated position suffix from the contest name', () => {
+    expect(
+      getDashboardEditalIdentity({
+        name: 'POLICIA MILITAR DO ESPIRITO SANTO - PRAÇA COMBATENTE',
+        position: 'PRAÇA COMBATENTE',
+      }),
+    ).toEqual({
+      editalName: 'POLICIA MILITAR DO ESPIRITO SANTO',
+      position: 'PRAÇA COMBATENTE',
+    });
+  });
 });
 
 describe('splitReviewsByDueDate', () => {
@@ -112,11 +140,11 @@ describe('getNextCycleActions', () => {
 });
 
 describe('getChargeCoverageState', () => {
-  it('returns none when no topic has analyzed charge volume', () => {
+  it('returns none when no topic has persisted charge level', () => {
     expect(getChargeCoverageState([cycleSubject()])).toBe('none');
   });
 
-  it('returns partial when only some topics have analyzed charge volume', () => {
+  it('returns partial when only some topics have persisted charge level', () => {
     expect(
       getChargeCoverageState([
         cycleSubject({
@@ -130,6 +158,7 @@ describe('getChargeCoverageState', () => {
               reviewCount: 0,
               completed: false,
               totalVolume: 20,
+              incidenceLevel: 'high',
             },
             {
               id: 'topic-b',
