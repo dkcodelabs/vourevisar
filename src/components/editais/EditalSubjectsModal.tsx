@@ -6,6 +6,7 @@
  * - Inputs sem ring/outline de foco
  */
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Plus, X, Trash2, Check, BookOpen, GraduationCap,
@@ -32,6 +33,7 @@ import {
     resolveBulkSubjectName
 } from '@/utils/subjectSearch';
 import { parseBulkTopics, shouldAdvanceToBulkTopics } from '@/utils/bulkTopicParser';
+import { getIncidenceLevelLabel } from '@/utils/topicIncidenceLevel';
 import {
     editalHeaderBadgeTypography,
     editalHeaderExamBoardTypography,
@@ -349,6 +351,39 @@ export const EditalSubjectsModal = ({
         handleClose();
         onBack?.();
     }, [handleClose, onBack]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const previousOverflow = document.body.style.overflow;
+        const previousTransform = document.body.style.transform;
+        const previousRootBackground = document.documentElement.style.backgroundColor;
+        document.body.style.overflow = 'hidden';
+        document.body.style.transform = 'none';
+        document.documentElement.style.backgroundColor = '#000000';
+
+        const handleModalKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            if (showIaSubjectSuggestions) {
+                setShowIaSubjectSuggestions(false);
+                return;
+            }
+            if (showSwitchConfirm) {
+                setShowSwitchConfirm(false);
+                setPendingEditalSwitch(null);
+                return;
+            }
+            handleClose();
+        };
+
+        document.addEventListener('keydown', handleModalKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.body.style.transform = previousTransform;
+            document.documentElement.style.backgroundColor = previousRootBackground;
+            document.removeEventListener('keydown', handleModalKeyDown);
+        };
+    }, [handleClose, isOpen, showIaSubjectSuggestions, showSwitchConfirm]);
 
     // ── Preparar prévia local ────────────────────────────────────────────────
     const handleBulkPreview = useCallback(() => {
@@ -984,34 +1019,37 @@ export const EditalSubjectsModal = ({
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                {/* Backdrop */}
-                <motion.div
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    onClick={handleClose}
-                    className="absolute inset-0 bg-black/80 backdrop-blur-md"
-                />
-
+            <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={handleClose}
+                className="fixed inset-0 z-[100] h-[100dvh] w-screen bg-black/80 backdrop-blur-md"
+                aria-hidden="true"
+            />
+            <div className="edital-subjects-positioner pointer-events-none fixed inset-0 z-[101] flex h-[100dvh] w-screen justify-center">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="relative w-full max-w-5xl bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
+                    className="edital-subjects-panel pointer-events-auto relative flex w-full max-w-5xl flex-col overflow-hidden border border-border bg-modal pb-[env(safe-area-inset-bottom)] shadow-[0_-18px_60px_rgba(0,0,0,0.28)]"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="edital-subjects-modal-title"
                 >
+                    <div className="pointer-events-none absolute inset-x-10 top-0 z-20 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
                     {/* ── Header ── */}
-                    <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-6 py-4 dark:border-white/5">
+                    <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-border bg-gradient-to-br from-primary/[0.07] via-transparent to-incidence/[0.04] px-4 py-4 sm:gap-4 sm:px-6">
                         <div className="flex min-w-0 items-start gap-3">
                             {initialExpandedSubjectId && (
                                 <button
                                     onClick={onBack ? handleBack : handleClose}
-                                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 transition-all text-primary shrink-0 -ml-1 group"
+                                    className="group -ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-all hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 lg:h-10 lg:w-10"
                                     title={onBack ? "Voltar para Ciclo de Estudos" : "Voltar para Matérias"}
                                 >
                                     <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
                                 </button>
                             )}
-                            <div className="hidden lg:flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary lg:flex">
                                 <GraduationCap className="h-[18px] w-[18px]" />
                             </div>
                             <div className="min-w-0 flex-1 lg:pt-2">
@@ -1019,17 +1057,17 @@ export const EditalSubjectsModal = ({
                                     <div className="flex min-w-0 items-start gap-1.5">
                                         <GraduationCap size={11} className="lg:hidden shrink-0 text-primary mt-[3px]" />
                                         <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                            <h2 className="line-clamp-2 min-w-0 basis-full text-sm font-black uppercase tracking-tight text-content-main [overflow-wrap:anywhere] sm:basis-auto sm:line-clamp-1">
+                                            <h2 id="edital-subjects-modal-title" className="line-clamp-2 min-w-0 basis-full text-sm font-black uppercase tracking-tight text-content-main [overflow-wrap:anywhere] lg:basis-auto lg:line-clamp-1">
                                                 {selectedEdital.year ? `${selectedEdital.year} - ` : ''}{displayOrgan}
                                             </h2>
                                             {syncStatus === 'saving' && (
-                                                <span className="inline-flex shrink-0 items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-primary/70">
+                                                <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold text-primary/75">
                                                     <Loader2 size={10} className="animate-spin text-primary" />
                                                     Salvando...
                                                 </span>
                                             )}
                                             {syncStatus === 'saved' && (
-                                                <span className="inline-flex shrink-0 items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-success">
+                                                <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold text-success">
                                                     <CheckCircle2 size={10} />
                                                     Sincronizado
                                                 </span>
@@ -1062,7 +1100,7 @@ export const EditalSubjectsModal = ({
                         </div>
                         <button
                             onClick={handleClose}
-                            className="ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary/70 text-content-muted transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive dark:border-white/5 dark:bg-white/5"
+                            className="ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-destructive/15 bg-destructive/[0.06] text-content-muted transition-colors hover:border-destructive/35 hover:bg-destructive/12 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40 lg:h-10 lg:w-10"
                             aria-label="Fechar"
                         >
                             <X size={16} />
@@ -1071,7 +1109,7 @@ export const EditalSubjectsModal = ({
 
 
                     {/* ── Filtro e ações ── */}
-                    <div className="shrink-0 space-y-3 border-b border-border px-6 py-4 dark:border-white/5">
+                    <div className="max-h-[58dvh] shrink-0 overscroll-contain space-y-3 overflow-y-auto border-b border-border bg-surface/45 px-4 py-3 no-scrollbar sm:max-h-[60dvh] sm:px-6 sm:py-4 lg:max-h-none lg:overflow-visible">
                         <div className="flex flex-col gap-3 md:flex-row md:items-center">
                             <div className="relative min-w-0 flex-1">
                                 <input
@@ -1079,14 +1117,14 @@ export const EditalSubjectsModal = ({
                                     placeholder="Filtrar matérias e tópicos..."
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
-                                    className="h-9 w-full rounded-xl border border-border bg-secondary/70 pl-3 pr-8 text-xs text-content-main outline-none transition-colors placeholder:text-content-muted/50 focus:border-primary/30 dark:border-white/5 dark:bg-zinc-800/60"
+                                    className="h-11 w-full rounded-xl border border-border-strong/70 bg-control pl-3 pr-11 text-base text-content-main outline-none transition-colors placeholder:text-content-muted/55 focus:border-primary/45 focus:ring-2 focus:ring-primary/10 sm:text-sm lg:h-10"
                                 />
                                 {searchQuery ? (
-                                    <button onClick={() => setSearchQuery('')} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-content-muted hover:text-foreground dark:hover:text-zinc-100 rounded hover:bg-white/5">
+                                    <button onClick={() => setSearchQuery('')} className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-xl text-content-muted transition-colors hover:bg-secondary hover:text-content-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:h-10 lg:w-10" aria-label="Limpar busca">
                                         <X size={14} />
                                     </button>
                                 ) : (
-                                    <div className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-content-muted pointer-events-none">
+                                    <div className="pointer-events-none absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-content-muted lg:h-10 lg:w-10">
                                         <Search size={14} />
                                     </div>
                                 )}
@@ -1102,7 +1140,7 @@ export const EditalSubjectsModal = ({
                                                 setIaOverflowVisible(false);
                                                 setShowIaSubjectSuggestions(false);
                                             }}
-                                            className={`app-button-secondary flex h-9 w-full items-center justify-center gap-2 px-3 text-xs font-bold transition-colors md:w-auto ${showManualAdd ? 'ring-2 ring-primary/30 bg-secondary/80 dark:bg-white/10' : ''
+                                            className={`flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.08] px-4 text-xs font-bold text-primary transition-colors hover:border-primary/40 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:w-auto lg:h-10 ${showManualAdd ? 'border-primary/45 bg-primary/15 ring-2 ring-primary/20' : ''
                                                 }`}
                                         >
                                             <BookPlus size={14} className="text-primary" />
@@ -1120,7 +1158,7 @@ export const EditalSubjectsModal = ({
                                                 });
                                                 setShowManualAdd(false);
                                             }}
-                                            className={`app-button-secondary flex h-9 w-full items-center justify-center gap-2 px-3 text-xs font-bold transition-colors md:w-auto ${showIaAdd ? 'ring-2 ring-primary/30 bg-secondary/80 dark:bg-white/10' : ''
+                                            className={`app-button-secondary flex h-11 w-full items-center justify-center gap-2 px-4 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:w-auto lg:h-10 ${showIaAdd ? 'ring-2 ring-primary/30 bg-secondary/80' : ''
                                                 }`}
                                         >
                                             <BookPlus size={14} className="text-primary" />
@@ -1128,7 +1166,7 @@ export const EditalSubjectsModal = ({
                                         </button>
                                     </>
                                 ) : (
-                                    <div className="col-span-2 flex h-9 items-center gap-2 rounded-xl border border-warning/20 bg-warning/10 px-3 text-[10px] font-bold uppercase tracking-widest text-warning">
+                                    <div className="col-span-2 flex h-11 items-center gap-2 rounded-xl border border-warning/20 bg-warning/10 px-3 text-[11px] font-bold text-warning lg:h-10">
                                         <AlertTriangle size={14} />
                                         Edital protegido
                                     </div>
@@ -1144,7 +1182,7 @@ export const EditalSubjectsModal = ({
                                     exit={{ opacity: 0, height: 0, y: -4 }}
                                     className="overflow-hidden"
                                 >
-                                    <div className="flex flex-col gap-2 rounded-2xl border border-border bg-secondary/40 p-3 dark:border-white/5 dark:bg-white/[0.03] sm:flex-row sm:items-center">
+                                    <div className="flex flex-col gap-2 rounded-2xl border border-border bg-secondary/40 p-3 sm:flex-row sm:items-center">
                                         <div className="relative min-w-0 flex-1">
                                             <BookPlus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
                                             <input
@@ -1153,14 +1191,14 @@ export const EditalSubjectsModal = ({
                                                 value={newSubjectName}
                                                 onChange={e => setNewSubjectName(e.target.value.toUpperCase())}
                                                 onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
-                                                className="h-9 w-full rounded-xl border border-border bg-background/80 py-1.5 pl-9 pr-3 text-xs text-content-main outline-none transition-colors placeholder:text-content-muted/40 focus:border-primary/30 dark:border-white/5 dark:bg-zinc-950/50"
+                                                className="h-11 w-full rounded-xl border border-border bg-control py-1.5 pl-9 pr-3 text-base text-content-main outline-none transition-colors placeholder:text-content-muted/55 focus:border-primary/45 focus:ring-2 focus:ring-primary/10 sm:text-sm lg:h-10"
                                                 ref={input => input && setTimeout(() => input.focus(), 50)}
                                             />
                                         </div>
                                         <button
                                             onClick={handleSaveSubject}
                                             disabled={!newSubjectName.trim() || isSavingSubject}
-                                            className="app-button-success flex h-9 items-center justify-center gap-2 px-4 text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed"
+                                            className="app-button-success flex h-11 items-center justify-center gap-2 px-4 text-[11px] font-bold disabled:cursor-not-allowed lg:h-10"
                                         >
                                             {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                                             Adicionar
@@ -1215,14 +1253,14 @@ export const EditalSubjectsModal = ({
                                                         }}
                                                         onFocus={() => setShowIaSubjectSuggestions(true)}
                                                         onKeyDown={handleIaSubjectKeyDown}
-                                                        className="h-9 w-full rounded-xl border border-border bg-background/80 px-3 text-[11px] text-content-main outline-none transition-colors placeholder:text-[10px] placeholder:text-content-muted/40 focus:border-primary/50 sm:text-xs sm:placeholder:text-xs dark:border-white/10 dark:bg-zinc-950/50"
+                                                        className="h-11 w-full rounded-xl border border-border bg-control px-3 text-base text-content-main outline-none transition-colors placeholder:text-[13px] placeholder:text-content-muted/55 focus:border-primary/45 focus:ring-2 focus:ring-primary/10 sm:text-sm lg:h-10"
                                                     />
 
                                                     {/* Dropdown de sugestões customizado premium */}
                                                     {showIaSubjectSuggestions && (
                                                         <>
                                                             {iaSubjectSuggestions.length > 0 ? (
-                                                                <div className="absolute left-0 right-0 top-full z-[100] mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-zinc-900/95 no-scrollbar">
+                                                                <div className="absolute left-0 right-0 top-full z-[100] mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-md no-scrollbar">
                                                                     {iaSubjectSuggestions.map((s, idx) => {
                                                                         const isFocused = idx === focusedSuggestionIndex;
                                                                         const isSelected = s.name === iaSubjectName.trim();
@@ -1237,7 +1275,7 @@ export const EditalSubjectsModal = ({
                                                                                         ? 'bg-primary/15 text-primary font-semibold'
                                                                                         : isSelected
                                                                                             ? 'bg-primary/10 text-primary font-medium'
-                                                                                            : 'text-content-main hover:bg-white/5'
+                                                                                            : 'text-content-main hover:bg-secondary'
                                                                                     }`}
                                                                             >
                                                                                 <span>{s.name}</span>
@@ -1251,7 +1289,7 @@ export const EditalSubjectsModal = ({
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => advanceToBulkTopics(iaSubjectName.trim())}
-                                                                        className="absolute left-0 right-0 top-full z-[100] mt-1 rounded-xl border border-border bg-popover p-2.5 text-left text-xs text-content-muted/80 shadow-2xl backdrop-blur-md transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-content-main dark:border-white/10 dark:bg-zinc-900/95"
+                                                                        className="absolute left-0 right-0 top-full z-[100] mt-1 rounded-xl border border-border bg-popover/95 p-3 text-left text-xs text-content-muted shadow-2xl backdrop-blur-md transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-content-main"
                                                                     >
                                                                         Usar matéria nova: <span className="font-semibold text-primary">"{iaSubjectName}"</span>
                                                                     </button>
@@ -1268,9 +1306,9 @@ export const EditalSubjectsModal = ({
                                                         onChange={e => setIaInputText(e.target.value)}
                                                         onFocus={() => setShowIaSubjectSuggestions(false)}
                                                         rows={7}
-                                                        className="min-h-[154px] w-full resize-y rounded-xl border border-border bg-background/80 p-3 text-[11px] text-content-main outline-none transition-colors placeholder:text-[10px] placeholder:leading-[1.35] placeholder:text-content-muted/40 focus:border-primary/50 sm:text-xs sm:placeholder:text-xs dark:border-white/10 dark:bg-zinc-950/50"
+                                                        className="min-h-[168px] w-full resize-y rounded-xl border border-border bg-control p-3 text-sm leading-relaxed text-content-main outline-none transition-colors placeholder:text-[13px] placeholder:leading-[1.4] placeholder:text-content-muted/55 focus:border-primary/45 focus:ring-2 focus:ring-primary/10"
                                                     />
-                                                    <p className="pl-1 text-[9px] leading-snug text-content-muted sm:text-[10px]">
+                                                    <p className="pl-1 text-[11px] leading-relaxed text-content-muted">
                                                         Pode colar tudo na mesma linha separado por ponto e vírgula (;) ou colocar um tópico em cada linha.
                                                     </p>
                                                 </div>
@@ -1278,7 +1316,7 @@ export const EditalSubjectsModal = ({
                                                     <button
                                                         onClick={handleBulkPreview}
                                                         disabled={!canPreviewBulkTopics}
-                                                        className="app-button-primary flex h-9 items-center gap-2 px-4 text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed"
+                                                        className="app-button-primary flex h-11 items-center gap-2 px-4 text-[11px] font-bold disabled:cursor-not-allowed lg:h-10"
                                                     >
                                                         <Check size={12} />
                                                         Revisar tópicos
@@ -1291,12 +1329,12 @@ export const EditalSubjectsModal = ({
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-xs font-bold text-content-main">{iaSubjectName}</span>
-                                                    <span className="text-[10px] text-content-muted">{aiResult[0].topics.length} tópicos encontrados</span>
+                                                    <span className="text-[11px] text-content-muted">{aiResult[0].topics.length} tópicos encontrados</span>
                                                 </div>
-                                                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border bg-background/60 p-2 dark:border-white/5 dark:bg-zinc-900/50">
+                                                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border bg-background/60 p-2">
                                                     {aiResult[0].topics.map((topic, idx) => (
-                                                        <div key={idx} className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-secondary/70 dark:hover:bg-white/5">
-                                                            <span className="w-4 text-[9px] font-bold text-content-muted">{idx + 1}.</span>
+                                                        <div key={idx} className="flex items-center gap-2 rounded px-2 py-2 hover:bg-secondary/70">
+                                                            <span className="w-4 text-[10px] font-bold text-content-muted">{idx + 1}.</span>
                                                             <span className="flex-1 break-words text-xs text-content-main">{topic.name}</span>
                                                         </div>
                                                     ))}
@@ -1304,14 +1342,14 @@ export const EditalSubjectsModal = ({
                                                 <div className="flex justify-between gap-2">
                                                     <button
                                                         onClick={() => { setIaStage('input'); setAiResult([]); }}
-                                                        className="app-button-secondary h-8 px-3 text-[10px] font-bold uppercase tracking-widest"
+                                                        className="app-button-secondary h-10 px-3 text-[11px] font-bold"
                                                     >
                                                         Voltar
                                                     </button>
                                                     <button
                                                         onClick={handleIaConfirm}
                                                         disabled={isSavingSubject}
-                                                        className="app-button-success flex h-8 items-center gap-2 px-4 text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed"
+                                                        className="app-button-success flex h-10 items-center gap-2 px-4 text-[11px] font-bold disabled:cursor-not-allowed"
                                                     >
                                                         {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                                                         Adicionar
@@ -1326,10 +1364,10 @@ export const EditalSubjectsModal = ({
                     </div>
 
                     {/* ── Lista de matérias ── */}
-                    <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4 no-scrollbar sm:px-6">
+                    <div className="flex-1 overscroll-contain space-y-3 overflow-y-auto bg-background/25 px-3 py-4 no-scrollbar sm:px-6">
                         {filteredSubjects.length === 0 ? (
                             <div className="py-20 flex flex-col items-center text-center">
-                                <div className="w-16 h-16 bg-zinc-800/50 rounded-full flex items-center justify-center mb-4 border border-white/5 shadow-inner">
+                                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-border bg-secondary/60 shadow-inner">
                                     <BookOpen size={28} className="text-content-muted/40" />
                                 </div>
                                 <h3 className="text-base font-bold text-content-main mb-2">
@@ -1346,7 +1384,7 @@ export const EditalSubjectsModal = ({
                         ) : (
                             <>
                                 <div className="flex items-center justify-between gap-3 px-1 pb-1">
-                                    <h3 className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-content-muted">
+                                    <h3 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-content-muted">
                                         <BookOpen size={11} className="shrink-0 text-primary" />
                                         Conteúdo do Edital
                                     </h3>
@@ -1357,7 +1395,7 @@ export const EditalSubjectsModal = ({
                                                 if (isAllExpanded) setExpandedIds([]);
                                                 else setExpandedIds(filteredSubjects.map(s => s.id));
                                             }}
-                                            className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary/55 px-2 text-[9px] font-black uppercase tracking-[0.12em] text-content-muted transition-colors hover:text-foreground dark:border-white/5 dark:bg-white/[0.04] dark:hover:text-zinc-100"
+                                            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-border bg-secondary/55 px-3 text-[10px] font-extrabold uppercase tracking-[0.10em] text-content-muted transition-colors hover:border-primary/25 hover:bg-primary/[0.07] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:h-9"
                                         >
                                             {filteredSubjects.length > 0 && expandedIds.length === filteredSubjects.length ? (
                                                 <>
@@ -1382,7 +1420,7 @@ export const EditalSubjectsModal = ({
                                     const hasJustSavedWeight = weightSavedSubjectId === subject.id;
 
                                     return (
-                                        <div key={subject.id} className={`group relative flex flex-col overflow-hidden rounded-2xl border-y border-x-0 sm:border sm:rounded-2xl app-cycle-subject transition-all
+                                        <div key={subject.id} className={`group relative flex flex-col overflow-hidden rounded-2xl border app-cycle-subject transition-all
                                         ${isTemp ? 'opacity-60 cursor-default' : ''}
                                         `}>
 
@@ -1404,7 +1442,7 @@ export const EditalSubjectsModal = ({
                                                         <button
                                                             type="button"
                                                             onClick={() => setWeightSavedSubjectId(null)}
-                                                            className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-success/70 transition-colors hover:bg-success/15 hover:text-success"
+                                                            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-success/70 transition-colors hover:bg-success/15 hover:text-success focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success/40"
                                                             aria-label="Fechar confirmação de peso"
                                                         >
                                                             <X size={11} />
@@ -1412,11 +1450,11 @@ export const EditalSubjectsModal = ({
                                                     </div>
                                                 ) : isEditingWeight ? (
                                                     <div
-                                                        className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3.25rem] items-end gap-1 rounded-lg border border-warning/25 bg-warning/10 px-1.5 py-1"
+                                                        className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5rem] items-end gap-2 rounded-xl border border-warning/25 bg-warning/10 p-2"
                                                         onClick={event => event.stopPropagation()}
                                                     >
                                                         <label className="min-w-0">
-                                                            <span className="mb-0.5 block truncate text-[8px] font-semibold uppercase leading-none text-content-muted">
+                                                            <span className="mb-1 block truncate text-[10px] font-semibold text-content-muted">
                                                                 Questões
                                                             </span>
                                                             <input
@@ -1425,11 +1463,11 @@ export const EditalSubjectsModal = ({
                                                                 placeholder="0"
                                                                 inputMode="decimal"
                                                                 aria-label="Quantidade de questões da matéria"
-                                                                className="app-field app-type-control h-6 w-full min-w-0 px-1.5 text-[10px] backdrop-blur placeholder:text-content-muted/60"
+                                                                className="app-field app-type-control h-10 w-full min-w-0 px-2 text-sm backdrop-blur placeholder:text-content-muted/60"
                                                             />
                                                         </label>
                                                         <label className="min-w-0">
-                                                            <span className="mb-0.5 block truncate text-[8px] font-semibold uppercase leading-none text-content-muted">
+                                                            <span className="mb-1 block truncate text-[10px] font-semibold text-content-muted">
                                                                 Pontos
                                                             </span>
                                                             <input
@@ -1438,14 +1476,14 @@ export const EditalSubjectsModal = ({
                                                                 placeholder="0"
                                                                 inputMode="decimal"
                                                                 aria-label="Quantidade de pontos da matéria"
-                                                                className="app-field app-type-control h-6 w-full min-w-0 px-1.5 text-[10px] backdrop-blur placeholder:text-content-muted/60"
+                                                                className="app-field app-type-control h-10 w-full min-w-0 px-2 text-sm backdrop-blur placeholder:text-content-muted/60"
                                                             />
                                                         </label>
                                                         <div className="flex min-w-0 items-end justify-end gap-1">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleSaveSubjectWeight(subject.id)}
-                                                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+                                                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                                                 aria-label="Salvar peso da matéria"
                                                             >
                                                                 <Check size={11} />
@@ -1453,7 +1491,7 @@ export const EditalSubjectsModal = ({
                                                             <button
                                                                 type="button"
                                                                 onClick={handleCancelWeightEdit}
-                                                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-input bg-control text-content-muted transition-colors hover:bg-control-hover hover:text-control-foreground"
+                                                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-input bg-control text-content-muted transition-colors hover:bg-control-hover hover:text-control-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                                                 aria-label="Cancelar edição de peso"
                                                             >
                                                                 <X size={11} />
@@ -1480,11 +1518,11 @@ export const EditalSubjectsModal = ({
                                                                                     e.stopPropagation();
                                                                                 }}
                                                                                 onClick={e => e.stopPropagation()}
-                                                                                className="h-7 w-full rounded border border-primary/30 bg-background px-2 text-xs font-black uppercase tracking-wide text-content-main outline-none ring-0 dark:bg-zinc-950"
+                                                                                className="h-10 w-full rounded-lg border border-primary/35 bg-control px-3 text-sm font-bold uppercase tracking-wide text-content-main outline-none focus:ring-2 focus:ring-primary/15"
                                                                                 autoFocus
                                                                             />
-                                                                            <button onClick={e => { e.stopPropagation(); handleSaveSubjectEdit(); }} className="p-1 text-emerald-500 hover:bg-emerald-500/10 rounded"><Check size={14} /></button>
-                                                                            <button onClick={e => { e.stopPropagation(); setEditingSubjectId(null); }} className="p-1 text-content-muted hover:bg-white/5 rounded"><X size={14} /></button>
+                                                                            <button onClick={e => { e.stopPropagation(); handleSaveSubjectEdit(); }} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-success transition-colors hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success/40" aria-label="Salvar nome da matéria"><Check size={14} /></button>
+                                                                            <button onClick={e => { e.stopPropagation(); setEditingSubjectId(null); }} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-secondary hover:text-content-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label="Cancelar edição da matéria"><X size={14} /></button>
                                                                         </div>
                                                                     ) : (
                                                                         <span
@@ -1506,7 +1544,7 @@ export const EditalSubjectsModal = ({
                                                                         <span className="w-[3ch] text-right tabular-nums inline-block mr-1">{subject.topics.length}</span>
                                                                         <span className="w-[40px]">{subject.topics.length === 1 ? 'tópico' : 'tópicos'}</span>
                                                                     </span>
-                                                                    <div className="h-2.5 w-[1px] bg-border dark:bg-white/10" />
+                                                                    <div className="h-2.5 w-px bg-border" />
                                                                     <button
                                                                         type="button"
                                                                         onClick={(e) => {
@@ -1514,9 +1552,9 @@ export const EditalSubjectsModal = ({
                                                                             handleStartWeightEdit(subject);
                                                                         }}
                                                                         disabled={!isEditable}
-                                                                        className={`inline-flex min-h-5 max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold leading-none transition-colors disabled:cursor-default ${hasSubjectExamWeight(subject)
+                                                                        className={`inline-flex min-h-8 max-w-full items-center gap-1 rounded-lg py-1 pl-0 pr-2 text-[10px] font-bold leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default ${hasSubjectExamWeight(subject)
                                                                                 ? 'text-success hover:bg-success/10'
-                                                                                : 'border border-border bg-secondary/60 text-content-muted hover:border-primary/25 hover:text-primary dark:border-white/5 dark:bg-white/[0.04]'
+                                                                                : 'text-content-muted hover:text-primary'
                                                                             }`}
                                                                     >
                                                                         <Gauge size={11} />
@@ -1531,13 +1569,13 @@ export const EditalSubjectsModal = ({
                                                         </div>
                                                         {!isTemp && (
                                                             <div className="flex shrink-0 items-center gap-1">
-                                                                <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary/50 dark:bg-white/[0.04] border border-border/50 dark:border-white/5 mr-1">
+                                                                <div className="mr-1 hidden items-center gap-1.5 rounded-lg border border-border/50 bg-secondary/50 px-2 py-1.5 sm:flex">
                                                                     <div className={`w-1.5 h-1.5 rounded-full ${progress === 100 ? 'bg-success' : progress > 0 ? 'bg-primary' : 'bg-content-muted/40'}`} />
-                                                                    <span className="text-[9px] font-black tabular-nums tracking-tighter text-content-main">{progress}%</span>
+                                                                    <span className="text-[10px] font-black tabular-nums tracking-tighter text-content-main">{progress}%</span>
                                                                 </div>
                                                                 <button
                                                                     onClick={e => { e.stopPropagation(); toggleExpand(subject.id); }}
-                                                                    className={`rounded-lg p-1.5 text-content-muted transition-all hover:bg-primary/10 hover:text-primary ${isExpanded ? 'rotate-180 text-primary' : ''}`}
+                                                                    className={`flex h-11 w-11 items-center justify-center rounded-xl text-content-muted transition-all hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:h-9 lg:w-9 ${isExpanded ? 'rotate-180 text-primary' : ''}`}
                                                                     aria-label={isExpanded ? 'Recolher matéria' : 'Expandir matéria'}
                                                                 >
                                                                     <ChevronDown size={15} />
@@ -1556,13 +1594,13 @@ export const EditalSubjectsModal = ({
                                                         animate={{ height: 'auto', opacity: 1 }}
                                                         exit={{ height: 0, opacity: 0 }}
                                                         transition={{ duration: 0.18 }}
-                                                        className="overflow-hidden bg-zinc-50/50 dark:bg-black/20 shadow-inner"
+                                                        className="overflow-hidden bg-background/55 shadow-inner"
                                                         onClick={e => e.stopPropagation()}
                                                     >
                                                         <div className="flex flex-col">
                                                             {/* Input "Novo tópico..." (lote ou manual) */}
                                                             {isEditable && (
-                                                                <div className="relative px-4 py-3 border-b border-white/5">
+                                                                <div className="relative border-b border-border px-3 py-3 sm:px-4">
                                                                     <input
                                                                         type="text"
                                                                         placeholder="Novo tópico..."
@@ -1573,12 +1611,13 @@ export const EditalSubjectsModal = ({
                                                                             setNewTopicTexts(prev => ({ ...prev, [subject.id]: formatted }));
                                                                         }}
                                                                         onKeyDown={e => { if (e.key === 'Enter') handleSaveNewTopic(subject.id); }}
-                                                                        className="w-full bg-white/5 border border-white/5 rounded-lg py-2 px-3 pr-8 text-xs outline-none ring-0 focus:border-primary/30 transition-colors text-content-main placeholder:text-content-muted/50"
+                                                                        className="h-11 w-full rounded-xl border border-border bg-control px-3 pr-12 text-base text-content-main outline-none transition-colors placeholder:text-content-muted/55 focus:border-primary/45 focus:ring-2 focus:ring-primary/10 sm:text-sm lg:h-10"
                                                                     />
                                                                     <button
                                                                         onClick={() => handleSaveNewTopic(subject.id)}
                                                                         disabled={savingTopics[subject.id] || !newTopicTexts[subject.id]?.trim()}
-                                                                        className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center bg-primary/10 text-primary rounded hover:bg-primary/20 transition-all disabled:opacity-40"
+                                                                        className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-40 sm:right-4 lg:h-10 lg:w-10"
+                                                                        aria-label="Adicionar tópico"
                                                                     >
                                                                         {savingTopics[subject.id] ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
                                                                     </button>
@@ -1587,8 +1626,8 @@ export const EditalSubjectsModal = ({
 
                                                             {/* Tópicos */}
                                                             {subject.topics.length === 0 ? (
-                                                                <p className="text-center text-[10px] text-content-muted uppercase font-bold tracking-widest py-4">
-                                                                    Nenhum tópico
+                                                                <p className="py-3 text-center text-xs font-medium text-content-muted">
+                                                                    Nenhum tópico adicionado
                                                                 </p>
                                                             ) : (
                                                                 <div className="flex flex-col">
@@ -1598,7 +1637,7 @@ export const EditalSubjectsModal = ({
                                                                         return (
                                                                             <div
                                                                                 key={topic.id}
-                                                                                className={`flex items-center justify-between px-4 py-2.5 border-b border-white/5 last:border-b-0 app-cycle-topic-row transition-colors group/topic ${isTmpTopic ? 'opacity-50' : ''}`}
+                                                                                className={`group/topic flex min-h-12 items-center justify-between border-b border-border px-3 py-3 transition-colors last:border-b-0 sm:px-4 app-cycle-topic-row ${isTmpTopic ? 'opacity-50' : ''}`}
                                                                             >
                                                                                 <div className="flex flex-col flex-1 min-w-0 pr-2 gap-0.5 justify-center">
                                                                                     <div className="flex items-center gap-2">
@@ -1614,16 +1653,16 @@ export const EditalSubjectsModal = ({
                                                                                                         if (e.key === 'Escape') setEditingTopicId(null);
                                                                                                         e.stopPropagation();
                                                                                                     }}
-                                                                                                    className="h-6 text-[11px] px-2 w-full bg-zinc-800 border border-primary/30 rounded outline-none ring-0 text-white"
+                                                                                                    className="h-10 w-full rounded-lg border border-primary/35 bg-control px-3 text-[13px] text-content-main outline-none focus:ring-2 focus:ring-primary/15"
                                                                                                     autoFocus
                                                                                                 />
-                                                                                                <button onClick={handleSaveTopicEdit} className="p-0.5 text-emerald-500 hover:bg-emerald-500/10 rounded"><Check size={13} /></button>
-                                                                                                <button onClick={() => setEditingTopicId(null)} className="p-0.5 text-content-muted hover:bg-white/5 rounded"><X size={13} /></button>
+                                                                                                <button onClick={handleSaveTopicEdit} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-success transition-colors hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success/40" aria-label="Salvar nome do tópico"><Check size={14} /></button>
+                                                                                                <button onClick={() => setEditingTopicId(null)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-secondary hover:text-content-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label="Cancelar edição do tópico"><X size={14} /></button>
                                                                                             </div>
                                                                                         ) : (
                                                                                             <span
                                                                                                 title={topic.name}
-                                                                                                className={`text-xs font-medium w-full text-left line-clamp-2 [word-break:break-word] ${isTmpTopic || !isEditable ? '' : 'cursor-text group-hover/topic:text-primary transition-colors'} ${topic.completed ? 'text-content-muted line-through' : 'text-content-main'}`}
+                                                                                                className={`w-full text-left text-[13px] font-medium leading-relaxed line-clamp-2 [word-break:break-word] ${isTmpTopic || !isEditable ? '' : 'cursor-text group-hover/topic:text-primary transition-colors'} ${topic.completed ? 'text-content-muted line-through' : 'text-content-main'}`}
                                                                                                 onClick={(e) => {
                                                                                                     if (!isTmpTopic && isEditable) {
                                                                                                         e.stopPropagation();
@@ -1636,11 +1675,11 @@ export const EditalSubjectsModal = ({
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
-                                                                                    {!isTmpTopic && typeof topic.total_volume === 'number' && topic.total_volume > 0 && (
+                                                                                    {!isTmpTopic && getIncidenceLevelLabel(topic.incidence_level) && (
                                                                                         <div className="flex items-center pl-[2px]">
                                                                                             <span className="text-[9px] font-bold tracking-widest uppercase text-content-muted/70 flex items-center gap-1">
                                                                                                 <BarChart2 size={10} className="text-primary/70" />
-                                                                                                Incidência: {topic.total_volume} {topic.total_volume === 1 ? 'questão' : 'questões'}
+                                                                                                {getIncidenceLevelLabel(topic.incidence_level)}
                                                                                             </span>
                                                                                         </div>
                                                                                     )}
@@ -1650,16 +1689,16 @@ export const EditalSubjectsModal = ({
                                                                                     confirmDeleteTopicId === topic.id ? (
                                                                                         // Confirmação inline no tópico
                                                                                         <div className="flex items-center gap-1 shrink-0">
-                                                                                            <span className="text-[9px] text-red-400 font-bold mr-1">Excluir?</span>
+                                                                                            <span className="mr-1 text-[11px] font-bold text-destructive">Excluir?</span>
                                                                                             <button
                                                                                                 onClick={() => setConfirmDeleteTopicId(null)}
-                                                                                                className="px-1.5 h-5 text-[9px] font-bold text-content-muted bg-white/5 hover:bg-white/10 rounded transition-all"
+                                                                                                className="h-9 rounded-lg bg-secondary px-2.5 text-[11px] font-bold text-content-muted transition-colors hover:bg-secondary/80 hover:text-content-main"
                                                                                             >
                                                                                                 Não
                                                                                             </button>
                                                                                             <button
                                                                                                 onClick={() => handleConfirmDeleteTopic(topic.id, subject.id)}
-                                                                                                className="px-1.5 h-5 text-[9px] font-bold text-white bg-red-500 hover:bg-red-600 rounded transition-all"
+                                                                                                className="h-9 rounded-lg bg-destructive px-2.5 text-[11px] font-bold text-destructive-foreground transition-colors hover:bg-destructive/85"
                                                                                             >
                                                                                                 Sim
                                                                                             </button>
@@ -1667,7 +1706,8 @@ export const EditalSubjectsModal = ({
                                                                                     ) : (
                                                                                         <button
                                                                                             onClick={() => handleRequestDeleteTopic(topic.id)}
-                                                                                            className="opacity-100 md:opacity-0 md:group-hover/topic:opacity-100 p-1 hover:bg-red-500/10 rounded text-content-muted hover:text-red-500 transition-all shrink-0"
+                                                                                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-content-muted transition-all hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40 md:h-9 md:w-9 md:opacity-0 md:group-hover/topic:opacity-100"
+                                                                                            aria-label={`Excluir tópico ${topic.name}`}
                                                                                         >
                                                                                             <Trash2 size={12} />
                                                                                         </button>
@@ -1682,21 +1722,21 @@ export const EditalSubjectsModal = ({
                                                             {/* Lixeira removida conforme solicitado (hard delete apenas) */}
 
                                                             {isEditable && (
-                                                                <div className="flex justify-end border-t border-border px-4 py-2 dark:border-white/5">
+                                                                <div className="flex justify-end border-t border-border px-3 py-2.5 sm:px-4">
                                                                     {confirmDeleteSubjectId === subject.id ? (
                                                                         <div className="flex items-center gap-2">
-                                                                            <span className="text-[10px] text-red-400 font-bold mr-1">Excluir matéria?</span>
+                                                                            <span className="mr-1 text-[11px] font-bold text-destructive">Excluir matéria?</span>
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => setConfirmDeleteSubjectId(null)}
-                                                                                className="px-2 h-6 text-[10px] font-bold text-content-muted bg-white/5 hover:bg-white/10 rounded transition-all"
+                                                                                className="h-9 rounded-lg bg-secondary px-3 text-[11px] font-bold text-content-muted transition-colors hover:bg-secondary/80 hover:text-content-main"
                                                                             >
                                                                                 Não
                                                                             </button>
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => handleConfirmDeleteSubject(subject.id, subject.name)}
-                                                                                className="px-2 h-6 text-[10px] font-bold text-white bg-red-500 hover:bg-red-600 rounded transition-all"
+                                                                                className="h-9 rounded-lg bg-destructive px-3 text-[11px] font-bold text-destructive-foreground transition-colors hover:bg-destructive/85"
                                                                             >
                                                                                 Sim
                                                                             </button>
@@ -1705,7 +1745,7 @@ export const EditalSubjectsModal = ({
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setConfirmDeleteSubjectId(prev => prev === subject.id ? null : subject.id)}
-                                                                            className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[10px] font-bold text-content-muted transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                                                            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-destructive/[0.05] px-3 text-[11px] font-bold text-destructive/80 transition-colors hover:bg-destructive/12 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40 lg:h-9"
                                                                         >
                                                                             <Trash2 size={12} />
                                                                             Excluir matéria
@@ -1734,13 +1774,13 @@ export const EditalSubjectsModal = ({
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                            className="absolute inset-0 bg-overlay/80 backdrop-blur-md"
                         />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-md bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] p-8 shadow-2xl flex flex-col gap-6"
+                            className="relative flex w-full max-w-md flex-col gap-6 rounded-[28px] border border-border bg-modal p-6 shadow-2xl sm:p-8"
                         >
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
@@ -1759,13 +1799,13 @@ export const EditalSubjectsModal = ({
                             <div className="flex gap-3">
                                 <button
                                     onClick={cancelEditalSwitch}
-                                    className="flex-1 px-4 py-2.5 text-xs font-bold text-content-muted bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-all"
+                                    className="app-button-secondary h-11 flex-1 px-4 text-xs font-bold transition-colors"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     onClick={confirmEditalSwitch}
-                                    className="flex-1 px-4 py-2.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all"
+                                    className="h-11 flex-1 rounded-xl bg-destructive px-4 text-xs font-bold text-destructive-foreground transition-colors hover:bg-destructive/85"
                                 >
                                     Descartar e Trocar
                                 </button>
@@ -1774,6 +1814,7 @@ export const EditalSubjectsModal = ({
                     </div>
                 )}
             </AnimatePresence>
-        </>
+        </>,
+        document.body
     );
 };

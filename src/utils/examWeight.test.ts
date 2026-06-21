@@ -32,7 +32,17 @@ describe('examWeight', () => {
       exam_weight_points: 0.75,
     }, totals);
 
-    expect(label).toBe('6 questões · 0,75 ponto · 7,5% da prova');
+    expect(label).toBe('6 questões · 0,75 ponto · 8% da prova');
+  });
+
+  it('displays the percentage as a rounded whole number', () => {
+    const label = getSubjectExamWeightLine({
+      exam_weight_questions: 10,
+      exam_weight_points: 20,
+      exam_weight_percentage: 33.333333,
+    });
+
+    expect(label).toBe('10 questões · 20 pontos · 33% da prova');
   });
 
   it('can avoid derived percentage when only question count is available', () => {
@@ -69,7 +79,7 @@ describe('examWeight', () => {
       exam_weight_percentage: 12.5,
     }, undefined, { derivePercentageFromQuestions: false, derivePercentageFromPoints: false });
 
-    expect(label).toBe('10 questões · 10 pontos · 12,5% da prova');
+    expect(label).toBe('10 questões · 10 pontos · 13% da prova');
   });
 
   it('prefers total points for effective ordering weight', () => {

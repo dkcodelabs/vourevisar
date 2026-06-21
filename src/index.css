@@ -187,6 +187,61 @@
 
 @layer components {
 
+  /*
+   * Touch devices use a sheet; only desktop-class pointers use a centered
+   * dialog. Width alone would misclassify phones in landscape.
+   */
+  .edital-subjects-positioner {
+    align-items: flex-end;
+    padding: 0.75rem 0 0;
+  }
+
+  .edital-subjects-panel {
+    height: calc(100dvh - 0.75rem);
+    max-height: calc(100dvh - 0.75rem);
+    border-radius: 1.75rem 1.75rem 0 0;
+  }
+
+  @media (max-height: 540px) {
+    .edital-subjects-positioner {
+      padding-top: 0.5rem;
+    }
+
+    .edital-subjects-panel {
+      height: calc(100dvh - 0.5rem);
+      max-height: calc(100dvh - 0.5rem);
+      border-radius: 1.5rem 1.5rem 0 0;
+    }
+  }
+
+  @media (min-width: 768px) and (min-height: 541px) {
+    .edital-subjects-positioner {
+      padding: 1rem 1rem 0;
+    }
+
+    .edital-subjects-panel {
+      height: calc(100dvh - 1rem);
+      max-height: calc(100dvh - 1rem);
+      border-radius: 1.875rem 1.875rem 0 0;
+    }
+  }
+
+  @media (min-width: 1024px) and (hover: hover) and (pointer: fine),
+    (min-width: 1280px) {
+    .edital-subjects-positioner {
+      align-items: center;
+      padding: 1.5rem;
+    }
+
+    .edital-subjects-panel {
+      height: auto;
+      max-height: 88dvh;
+      border-radius: 2rem;
+      padding-bottom: 0;
+      box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.45);
+    }
+  }
+
   /* Design System Reference Classes */
   .glass-card {
     @apply bg-card/70 backdrop-blur-2xl border transition-colors duration-300;

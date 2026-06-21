@@ -24,6 +24,11 @@ const formatNumber = (value: number) =>
     maximumFractionDigits: 3,
   }).format(value);
 
+const formatPercentage = (value: number) =>
+  new Intl.NumberFormat('pt-BR', {
+    maximumFractionDigits: 0,
+  }).format(value);
+
 export const formatExamWeightInputValue = (value?: number | null) =>
   hasNumber(value) ? formatNumber(value) : '';
 
@@ -88,7 +93,7 @@ export const getSubjectExamWeightLabel = (subject: SubjectExamWeight) => {
   }
 
   if (hasNumber(subject.exam_weight_percentage)) {
-    parts.push(`${formatNumber(subject.exam_weight_percentage)}% da prova`);
+    parts.push(`${formatPercentage(subject.exam_weight_percentage)}% da prova`);
   }
 
   return parts.length ? parts.join(' · ') : 'Sem peso informado';
@@ -153,7 +158,7 @@ export const getSubjectExamWeightLine = (
     return baseLabel;
   }
 
-  return `${baseLabel} · ${formatNumber(percentage)}% da prova`;
+  return `${baseLabel} · ${formatPercentage(percentage)}% da prova`;
 };
 
 export const getSubjectExamWeightReviewMessage = (subject: SubjectExamWeight) => {

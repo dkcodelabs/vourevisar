@@ -2,6 +2,7 @@ import 'https://deno.land/x/xhr@0.1.0/mod.ts';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import md5 from 'https://esm.sh/crypto-js@4.2.0/md5';
+import { getIncidenceLevelFromScore, type TopicIncidenceLevel } from './incidenceScore.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,6 +76,7 @@ type AnalysisContext = {
 type IncidenceScoreMetadata = {
   raw_volume: number;
   normalized_score: number;
+  incidence_level: TopicIncidenceLevel;
   rank_percentile: number | null;
   score_label: string;
   score_scope: string;
@@ -740,9 +742,11 @@ const normalizeIncidenceScoresForSubject = async (
       ? null
       : Number(((lessCount + Math.max(0, equalCount - 1) / 2) / (rows.length - 1)).toFixed(4));
     const score = getScoreFromPercentile(percentile, row.total_volume, minVolume, maxVolume);
+    const incidenceLevel = getIncidenceLevelFromScore(score);
     const metadata: IncidenceScoreMetadata = {
       raw_volume: row.total_volume,
       normalized_score: score,
+      incidence_level: incidenceLevel,
       rank_percentile: percentile,
       score_label: getScoreLabel(score),
       score_scope: 'subject_edital',
@@ -754,6 +758,8 @@ const normalizeIncidenceScoresForSubject = async (
     scoreByTopic[row.id] = metadata;
 
     await updateTopicOrThrow(supabase, row.id, {
+      incidence_score: score,
+      incidence_level: incidenceLevel,
       incidence_context: {
         ...row.incidence_context,
         ...metadata,
@@ -1204,6 +1210,8 @@ serve(async (req) => {
             await updateTopicOrThrow(supabase, topic.id, {
               last_trend_check_at: now,
               total_volume: catalogMatch.total_volume,
+              incidence_score: null,
+              incidence_level: null,
               incidence_catalog_id: catalogMatch.id,
               incidence_source: 'catalog',
               incidence_applied_at: now,
@@ -1263,6 +1271,8 @@ serve(async (req) => {
             await updateTopicOrThrow(supabase, topic.id, {
               last_trend_check_at: new Date().toISOString(),
               total_volume: 0,
+              incidence_score: null,
+              incidence_level: null,
               skip_reason: validation.reason,
               status: 'skipped',
               is_skipped: true,
@@ -1344,6 +1354,8 @@ serve(async (req) => {
           await updateTopicOrThrow(supabase, topic.id, {
             last_trend_check_at: now,
             total_volume: incidence.totalVolume,
+            incidence_score: null,
+            incidence_level: null,
             skip_reason: incidence.totalVolume > 0 ? 'Processado com sucesso' : 'Volume 0 na busca atual',
             status: incidence.totalVolume > 0 ? 'processed' : 'no_volume',
             is_skipped: false,
@@ -1393,6 +1405,8 @@ serve(async (req) => {
             incidence_source: null,
             incidence_applied_at: null,
             incidence_catalog_id: null,
+            incidence_score: null,
+            incidence_level: null,
             incidence_context: {
               source: 'error',
               reason: message,

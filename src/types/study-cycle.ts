@@ -36,6 +36,8 @@ export interface StudyCycleTopic {
   hardReviewCount?: number;
   /** Volume/importância calculado pelo módulo de incidência quando disponível */
   totalVolume?: number | null;
+  /** Faixa persistida de cobrança na prova quando o tópico já foi analisado */
+  incidenceLevel?: 'low' | 'medium' | 'high' | null;
   /** Contexto da última análise de incidência quando disponível */
   lastSearchContext?: string | null;
   strategicIncidence?: {

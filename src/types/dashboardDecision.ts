@@ -64,6 +64,7 @@ export interface DashboardCycleTopic {
   nextReview?: string | null;
   difficultyLevel?: number | null;
   totalVolume?: number | null;
+  incidenceLevel?: 'low' | 'medium' | 'high' | null;
 }
 
 export interface DashboardCycleSubject {
@@ -78,6 +79,7 @@ export type ChargeCoverageState = 'none' | 'partial' | 'sufficient';
 
 export interface DashboardExamContext {
   editalName: string | null;
+  position: string | null;
   editalId?: string;
   examDate: string | null;
   daysRemaining: number | null;
@@ -128,6 +130,23 @@ export interface DashboardDifficultySummary {
   totalRated: number;
 }
 
+export interface DashboardChargePriority {
+  count: number;
+  topicId: string | null;
+}
+
+export interface DashboardChargeSummary {
+  low: number;
+  medium: number;
+  high: number;
+  analyzedTopics: number;
+  totalTopics: number;
+  unanalyzedTopics: number;
+  highOverdue: DashboardChargePriority;
+  highUnstarted: DashboardChargePriority;
+  highInReview: DashboardChargePriority;
+}
+
 export interface DashboardProgressSummary {
   startedTopics: number;
   inProgressTopics: number;
@@ -147,6 +166,7 @@ export interface DashboardDecisionModel {
   reminders: DashboardReminder[];
   activityDays: DashboardActivityDay[];
   chargeCoverage: ChargeCoverageState;
+  chargeSummary: DashboardChargeSummary;
   difficultySummary: DashboardDifficultySummary;
   progressSummary: DashboardProgressSummary;
   totals: {

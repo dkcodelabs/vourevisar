@@ -14,6 +14,8 @@ import {
   buildNextBestAction,
   buildProgressSummary,
   getChargeCoverageState,
+  getChargeSummary,
+  getDashboardEditalIdentity,
   getDifficultySummary,
   getNextCycleActions,
   getStrategicHighChargeActions,
@@ -26,12 +28,6 @@ import type {
   DashboardReminder,
   DashboardReviewTopic,
 } from '@/types/dashboardDecision';
-
-const formatEditalName = (edital?: { name: string; organ?: string | null; position?: string | null }) => {
-  if (!edital) return null;
-  const parts = [edital.organ, edital.position].filter(Boolean);
-  return parts.length > 0 ? parts.join(' - ') : edital.name.split('-').join(' • ');
-};
 
 const toLocalDate = (date: string) => (date.length === 10 ? parseISO(date) : new Date(date));
 
@@ -167,6 +163,7 @@ export const useDashboardDecisionModel = () => {
           difficultyLevel:
             topic.difficulty === 'EASY' ? 1 : topic.difficulty === 'HARD' ? 3 : topic.difficulty === 'MEDIUM' ? 2 : null,
           totalVolume: topic.totalVolume ?? null,
+          incidenceLevel: topic.incidenceLevel ?? null,
         })),
       })),
     [cycleData.studyCycleSubjects],
@@ -189,6 +186,7 @@ export const useDashboardDecisionModel = () => {
   const cycleActions = useMemo(() => getNextCycleActions(dashboardSubjects, 3), [dashboardSubjects]);
   const strategicActions = useMemo(() => getStrategicHighChargeActions(dashboardSubjects, 2), [dashboardSubjects]);
   const chargeCoverage = useMemo(() => getChargeCoverageState(dashboardSubjects), [dashboardSubjects]);
+  const chargeSummary = useMemo(() => getChargeSummary(dashboardSubjects), [dashboardSubjects]);
   const difficultySummary = useMemo(() => getDifficultySummary(dashboardSubjects), [dashboardSubjects]);
   const progressSummary = useMemo(() => buildProgressSummary(dashboardSubjects), [dashboardSubjects]);
 
@@ -324,6 +322,7 @@ export const useDashboardDecisionModel = () => {
   );
 
   const daysRemaining = pace.daysRemaining;
+  const editalIdentity = getDashboardEditalIdentity(activeEdital);
   const examState = !hasActiveCycle
     ? 'missing_cycle'
     : !examDate
@@ -336,7 +335,7 @@ export const useDashboardDecisionModel = () => {
     isLoading: reviewsData.isLoading || cycleData.isLoading || isEditaisLoading || isRemindersLoading || isActivityLoading,
     error: reviewsData.error,
     examContext: {
-      editalName: formatEditalName(activeEdital),
+      ...editalIdentity,
       editalId: activeEdital?.id,
       examDate,
       daysRemaining,
@@ -349,6 +348,7 @@ export const useDashboardDecisionModel = () => {
     reminders,
     activityDays,
     chargeCoverage,
+    chargeSummary,
     difficultySummary,
     progressSummary,
     totals: {

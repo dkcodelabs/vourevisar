@@ -4,6 +4,7 @@ import type {
   DashboardAction,
   DashboardCycleSubject,
   DashboardCycleTopic,
+  DashboardChargeSummary,
   DashboardDifficultySummary,
   DashboardPace,
   DashboardProgressSummary,
@@ -17,6 +18,27 @@ export interface ReviewBuckets {
 }
 
 const dayKey = (date: Date) => format(startOfDay(date), 'yyyy-MM-dd');
+
+export function getDashboardEditalIdentity(edital?: { name: string; position?: string | null }) {
+  const originalName = edital?.name?.trim() || null;
+  const position = edital?.position?.trim() || null;
+
+  if (!originalName || !position) {
+    return {
+      editalName: originalName,
+      position,
+    };
+  }
+
+  const escapedPosition = position.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const repeatedPosition = new RegExp(`\\s*(?:[-–—:•|]\\s*)${escapedPosition}\\s*$`, 'iu');
+  const editalName = originalName.replace(repeatedPosition, '').trim() || originalName;
+
+  return {
+    editalName,
+    position,
+  };
+}
 
 export const isTopicStarted = (topic: DashboardCycleTopic) =>
   Boolean(topic.firstStudiedAt) || Boolean(topic.reviewCount && topic.reviewCount > 0);
@@ -93,11 +115,57 @@ export function getChargeCoverageState(subjects: DashboardCycleSubject[]): Charg
   const topics = subjects.flatMap((subject) => subject.topics);
   if (topics.length === 0) return 'none';
 
-  const analyzed = topics.filter((topic) => typeof topic.totalVolume === 'number' && topic.totalVolume > 0).length;
+  const analyzed = topics.filter(
+    (topic) => topic.incidenceLevel === 'low' || topic.incidenceLevel === 'medium' || topic.incidenceLevel === 'high',
+  ).length;
   if (analyzed === 0) return 'none';
 
   const coverage = analyzed / topics.length;
   return coverage >= 0.7 ? 'sufficient' : 'partial';
+}
+
+export function getChargeSummary(
+  subjects: DashboardCycleSubject[],
+  today = new Date(),
+): DashboardChargeSummary {
+  const topics = subjects.flatMap((subject) => subject.topics);
+  const analyzedTopics = topics.filter(
+    (topic) => topic.incidenceLevel === 'low' || topic.incidenceLevel === 'medium' || topic.incidenceLevel === 'high',
+  );
+  const highTopics = analyzedTopics.filter((topic) => topic.incidenceLevel === 'high');
+  const todayKey = dayKey(today);
+  const isOverdue = (topic: DashboardCycleTopic) => {
+    if (!topic.nextReview || topic.completed || !isTopicStarted(topic)) return false;
+    const dueDate = new Date(topic.nextReview);
+    if (Number.isNaN(dueDate.getTime())) return false;
+    return dayKey(dueDate) < todayKey;
+  };
+  const highOverdueTopics = highTopics.filter(isOverdue);
+  const highUnstartedTopics = highTopics.filter((topic) => !topic.completed && !isTopicStarted(topic));
+  const highInReviewTopics = highTopics.filter(
+    (topic) => !topic.completed && isTopicStarted(topic) && !isOverdue(topic),
+  );
+
+  return {
+    low: analyzedTopics.filter((topic) => topic.incidenceLevel === 'low').length,
+    medium: analyzedTopics.filter((topic) => topic.incidenceLevel === 'medium').length,
+    high: highTopics.length,
+    analyzedTopics: analyzedTopics.length,
+    totalTopics: topics.length,
+    unanalyzedTopics: Math.max(0, topics.length - analyzedTopics.length),
+    highOverdue: {
+      count: highOverdueTopics.length,
+      topicId: highOverdueTopics[0]?.id ?? null,
+    },
+    highUnstarted: {
+      count: highUnstartedTopics.length,
+      topicId: highUnstartedTopics[0]?.id ?? null,
+    },
+    highInReview: {
+      count: highInReviewTopics.length,
+      topicId: highInReviewTopics[0]?.id ?? null,
+    },
+  };
 }
 
 export function getStrategicHighChargeActions(subjects: DashboardCycleSubject[], limit = 2): DashboardAction[] {
@@ -107,7 +175,7 @@ export function getStrategicHighChargeActions(subjects: DashboardCycleSubject[],
   return subjects
     .flatMap((subject) =>
       subject.topics
-        .filter((topic) => !topic.completed && !isTopicStarted(topic) && typeof topic.totalVolume === 'number' && topic.totalVolume > 0)
+        .filter((topic) => !topic.completed && !isTopicStarted(topic) && topic.incidenceLevel === 'high')
         .map((topic) => ({
           subject,
           topic,
