@@ -1,16 +1,23 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
-import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { useStudySessionTracking } from './useStudySessionTracking';
 import { useCycleState } from './useCycleState';
-import { calculateNextReview, formatDateForDB, describeCalculation } from '@/utils/calculateNextReview';
+import {
+  calculateNextReview,
+  COMPLETION_CONTACT_COUNT,
+  describeCalculation,
+  formatDateForDB,
+  type ReviewIncidenceLevel,
+} from '@/utils/calculateNextReview';
 import { Topic } from '@/types';
 import { registerDualProgress, findSiblingTopicIds } from '@/services/cycleMergeService';
 import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
+import { fetchTopicExamDate, getOverdueDays } from '@/services/topicReviewScheduleService';
+import { getReviewStage } from '@/utils/reviewStage';
 
 export const useTopicReview = () => {
   const { user } = useAuth();
@@ -75,11 +82,11 @@ export const useTopicReview = () => {
       const nextReviewCount = currentReviewCount + 1;
       let reviewStage = '';
 
-      // Determinar verbalização do estágio para exibição na UI
+      // Determinar verbalização da sessão que será concluída.
       if (currentReviewCount === 0) {
         reviewStage = 'Primeiro Contato';
       } else {
-        reviewStage = `Revisão Adaptativa #${currentReviewCount}`;
+        reviewStage = `Revisão ${currentReviewCount}`;
       }
 
       // Buscar informações da matéria
@@ -102,7 +109,7 @@ export const useTopicReview = () => {
         currentDifficulty: topic.difficulty_level ? Number(topic.difficulty_level) : null,
         reviewStage,
         reviewCount: nextReviewCount,
-        isCompleting: false, // O novo sistema é perpétuo/infinito, finalização é manual se desejado no futuro.
+        isCompleting: nextReviewCount >= COMPLETION_CONTACT_COUNT,
         duration,
         strategicIncidenceLabel: strategicIncidence.showToStudent ? strategicIncidence.label : null,
         strategicIncidenceDescription: strategicIncidence.showToStudent
@@ -151,18 +158,10 @@ export const useTopicReview = () => {
         }
       }
 
-      // Buscar configurações do usuário (incluindo data_prova)
-      const { data: settings, error: settingsError } = await supabase
-        .from('user_settings')
-        .select('data_prova_meta')
-        .eq('user_id', user.id)
-        .single();
-
-      if (settingsError) throw settingsError;
-
-      const examDate = (settings as Record<string, unknown>)?.data_prova_meta
-        ? new Date((settings as Record<string, unknown>).data_prova_meta + 'T00:00:00')
-        : null;
+      // A prova pertence ao edital do tópico. Sem data publicada, o motor segue
+      // a janela adaptativa normal e não inventa um horizonte.
+      const topicEditalId = topic.edital_id || topic.origin_id || null;
+      const examDate = await fetchTopicExamDate(topicEditalId, user.id);
 
       const newReviewCount = topic.review_count + 1;
 
@@ -197,7 +196,12 @@ export const useTopicReview = () => {
         }
       }
 
-      // Aplicar o algoritmo Ebbinghaus Adaptativo
+      const incidenceLevel = ['low', 'medium', 'high'].includes(String(topic.incidence_level))
+        ? topic.incidence_level as ReviewIncidenceLevel
+        : null;
+      const overdueDays = getOverdueDays(topic.next_review, new Date());
+
+      // Aplicar o programa adaptativo de quatro revisões.
       const stability = topic.memory_stability || 0;
       const currentInt = topic.current_interval || 0;
 
@@ -206,6 +210,8 @@ export const useTopicReview = () => {
         difficulty: numericDifficulty,
         examDate,
         trendDelta,
+        overdueDays,
+        incidenceLevel,
         metrics: {
           memoryStability: stability,
           currentInterval: currentInt,
@@ -215,11 +221,11 @@ export const useTopicReview = () => {
 
       console.log('🔵 SRS Calculation:', describeCalculation(calcResult));
 
-      const reviewStage = newReviewCount === 1 ? 'Primeiro Contato' : `Revisão Adaptativa #${newReviewCount}`;
-      const nextReview = formatDateForDB(calcResult.nextReviewDate);
-
-      // Se alcançou o máximo do ciclo unificado (8 revisões)
-      const isCycleCompleted = newReviewCount >= 8;
+      const reviewStage = getReviewStage(newReviewCount);
+      const nextReview = calcResult.nextReviewDate
+        ? formatDateForDB(calcResult.nextReviewDate)
+        : null;
+      const isCycleCompleted = calcResult.isProgramCompleted;
 
       // Preparar dados para atualização na tabela `topics`
       const now = new Date().toISOString();
@@ -229,7 +235,7 @@ export const useTopicReview = () => {
         review_stage: reviewStage,
         completed: isCycleCompleted,
         last_reviewed_at: now,
-        // Novos campos SRS Ebbinghaus
+        // Métricas do programa adaptativo
         memory_stability: calcResult.newMemoryStability,
         current_interval: calcResult.newInterval,
         // ---
@@ -359,7 +365,12 @@ export const useTopicReview = () => {
         detail: { source: 'topicReview', type: 'topicReview', topicId, reviewStage, completed: isCycleCompleted, timestamp: Date.now() }
       }));
 
-      toastManager.success('Revisão adaptativa registrada!', { duration: 3000, id: 'review-success' });
+      toastManager.success(
+        isCycleCompleted
+          ? 'Programa de revisões concluído para este tópico!'
+          : 'Revisão adaptativa registrada!',
+        { duration: 3000, id: 'review-success' },
+      );
 
     } catch (error) {
       console.error('❌ Erro ao registrar revisão:', error);

@@ -14,10 +14,14 @@ import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { EditalCard } from '@/components/editais/EditalCard';
 import { EditalSubjectsModal } from '@/components/editais/EditalSubjectsModal';
+import { CycleMergeComparison } from '@/components/editais/CycleMergeComparison';
+import { buildIndividualCycleMap } from '@/components/editais/cycleMergeComparisonModel';
+import { buildCycleMergeSources, buildCycleNameCandidates, buildCycleOriginSources } from '@/components/editais/cycleMergeNaming';
 import { SyncReviewModal } from '@/components/editais/SyncReviewModal';
 import { EditEditalModal } from '@/components/editais/EditEditalModal'; // Added
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import { MergeSuggestionCard, CompactMergeSuggestionList } from '@/components/subjects/MergeSuggestionCard';
+import { Input } from '@/components/ui/input';
 import { Subject } from '@/types';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
@@ -34,6 +38,8 @@ import {
     PendingSuggestion
 } from '@/services/cycleMergeService';
 import { mergeService } from '@/services/mergeService';
+import { recalculatePendingReviewsForEdital } from '@/services/topicReviewScheduleService';
+import { unloadEditalFromCycle } from '@/services/cycleUnloadService';
 import {
     CycleUnificationMap,
     HybridMergeResult,
@@ -204,6 +210,8 @@ const Editais = () => {
     const [isAnalyzingTopics, setIsAnalyzingTopics] = useState(false);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [isMerging, setIsMerging] = useState(false);
+    const [isSavingCycleName, setIsSavingCycleName] = useState(false);
+    const [cycleNameDraft, setCycleNameDraft] = useState('');
     const [mergePhase, setMergePhase] = useState<'exact' | 'ai' | 'finalizing'>('exact');
     const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
     const [removalProgress, setRemovalProgress] = useState<{ editalId: string, message: string, percentage: number } | null>(null);
@@ -403,12 +411,34 @@ const Editais = () => {
                 .eq('id', id);
 
             if (error) throw error;
-            toast.success('Edital atualizado com sucesso!');
+
+            if (user?.id) {
+                try {
+                    await toast.promise(
+                        recalculatePendingReviewsForEdital({
+                            editalId: id,
+                            userId: user.id,
+                            examDate: updates.exam_date || null,
+                        }),
+                        {
+                            loading: 'Recalculando o plano de revisões…',
+                            success: result => result.adjustedCount > 0
+                                ? `Edital atualizado. ${result.adjustedCount} ${result.adjustedCount === 1 ? 'revisão foi ajustada' : 'revisões foram ajustadas'} à data da prova.`
+                                : 'Edital atualizado. Seu plano de revisões já está adequado.',
+                            error: 'Edital salvo, mas não foi possível recalcular as revisões agora.',
+                        },
+                    );
+                } catch (recalculationError) {
+                    console.warn('[Editais] Falha ao recalcular revisões após atualizar a prova:', recalculationError);
+                }
+            } else {
+                toast.success('Edital atualizado com sucesso!');
+            }
             await fetchEditais();
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'save', userMessage: 'Erro ao salvar alterações.' });
         }
-    }, [fetchEditais]);
+    }, [fetchEditais, user?.id]);
 
     const [searchParams] = useSearchParams();
     const highlightedSourceId = searchParams.get('sourceId');
@@ -889,90 +919,15 @@ const Editais = () => {
         }
     }, [user?.id, processingId, discardPendingMerge]);
 
-    const handleUnloadCycle = useCallback(async (edital: UserEdital) => {
-        if (!user) return;
+    const handleUnloadCycle = useCallback(async (edital: UserEdital): Promise<boolean> => {
+        if (!user || processingId === edital.id) return false;
         setProcessingId(edital.id);
 
-        // Garante que subjectIds seja um array de strings
-        const subjectIds = Array.isArray(edital.subjectIds)
-            ? edital.subjectIds.filter(id => typeof id === 'string' && id.length > 0)
-            : [];
-
-        console.log('[Editais] handleUnloadCycle:', { editalId: edital.id, name: edital.name, subjectIds });
-
         try {
-            // ─── 1. Sincronizar Ciclo e Gerenciar Unificações Orfãs ───
-            // Substitui IDs removidos por sobreviventes se houver mesclagem. 
-            // Garante que o edital que FICA no ciclo mantenha suas matérias.
-            await mergeService.syncCycleAfterRemoval(user.id, edital.id);
-
-            // ─── 2. Limpeza Profunda de Mesclagens (Garante que o ícone de tesoura suma) ───
-            await mergeService.cleanupMergesAfterEditalRemoval(user.id, edital.id, (p) => {
-                setRemovalProgress({ editalId: edital.id, ...p });
+            const { cycleDeleted } = await unloadEditalFromCycle({
+                userId: user.id,
+                editalId: edital.id,
             });
-
-            // ─── 3. Atualizar o unification_map (Remover referências ao edital que está saindo) ───
-            const { data: updatedCycle } = await supabase
-                .from('user_cycles')
-                .select('unification_map')
-                .eq('user_id', user.id)
-                .maybeSingle();
-
-            if (updatedCycle?.unification_map) {
-                let newUnificationMap = updatedCycle.unification_map as any;
-                const subjectIdsToRemove = new Set(edital.subjectIds);
-
-                newUnificationMap = {
-                    ...newUnificationMap,
-                    editalIds: (newUnificationMap.editalIds || []).filter((id: string) => id !== edital.id),
-                    unifiedSubjects: (newUnificationMap.unifiedSubjects || []).map((u: any) => ({
-                        ...u,
-                        originalSubjectIds: u.originalSubjectIds.filter((id: string) => !subjectIdsToRemove.has(id))
-                    })).filter((u: any) => u.originalSubjectIds.length > 0)
-                };
-
-                if (newUnificationMap.editalIds.length === 0) newUnificationMap = null;
-
-                await supabase
-                    .from('user_cycles')
-                    .update({ unification_map: newUnificationMap })
-                    .eq('user_id', user.id);
-            }
-
-            // ─── 4. Resetar campos SRS nos tópicos (Remove da página de Revisões) ───
-            if (edital.subjectIds && edital.subjectIds.length > 0) {
-                await supabase
-                    .from('topics')
-                    .update({
-                        next_review: null,
-                        review_stage: '0',
-                        memory_stability: 0,
-                        review_count: 0,
-                        first_studied_at: null,
-                        last_reviewed_at: null,
-                        completed: false,
-                        current_interval: null
-                    } as any)
-                    .in('subject_id', subjectIds);
-
-                // ─── 5. Purgar logs de estudo e histórico de revisão PARA ESTE EDITAL ───
-                await (supabase as any).from('study_sessions').delete().eq('edital_id', edital.id);
-                await (supabase as any).from('topic_review_history').delete().eq('edital_id', edital.id);
-            }
-
-            // ─── 6. ATOMIC UNLOAD: Atualizar edital + deletar ciclo se último ───
-            const { data: rpcResult, error: rpcErr } = await supabase.rpc('atomic_cycle_unload_or_delete', {
-                p_user_id: user.id,
-                p_edital_id: edital.id
-            });
-
-            if (rpcErr) throw rpcErr;
-            if (rpcResult && (rpcResult as any).ok === false) throw new Error((rpcResult as any).error);
-
-            const cycleWasDeleted = (rpcResult as any)?.cycle_deleted === true;
-            console.log('[Editais] Unload atômico:', { cycleWasDeleted, result: rpcResult });
-
-            // ─── 7. Invalidar rascunhos (O baseline do ciclo mudou) ───
             await discardPendingMerge('all');
 
             setEditais(prev => prev.map(e =>
@@ -981,20 +936,22 @@ const Editais = () => {
                     : e
             ));
 
-            const msg = cycleWasDeleted
+            const msg = cycleDeleted
                 ? `"${edital.name}" removido. Ciclo de estudos encerrado (sem editais ativos).`
                 : `"${edital.name}" removido do ciclo.`;
             toast.success(msg);
             window.dispatchEvent(new CustomEvent('cycleUpdated'));
             window.dispatchEvent(new CustomEvent('subjectUpdated'));
             refreshData();
+            return true;
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'unloadCycle', userMessage: 'Erro ao remover edital do ciclo.' });
+            return false;
         } finally {
             setProcessingId(null);
             setRemovalProgress(null);
         }
-    }, [user, refreshData, discardPendingMerge]);
+    }, [user, processingId, refreshData, discardPendingMerge]);
 
     const handleLoadCycle = useCallback(async (edital: UserEdital) => {
         if (!user) return;
@@ -1060,19 +1017,11 @@ const Editais = () => {
             // Detecção por Nome: Se alguma matéria do novo edital tem o mesmo nome de algo no ciclo
             const hasNameConflict = currentEditalSubjects.some(s => namesInCycle.has(s.name.toLowerCase().trim()));
 
-            // Adicionar editais que possuem matérias no ciclo
-            for (const e of editais) {
-                if (e.id === edital.id) continue;
-                const hasCommonId = e.subjectIds.some(id => expandedExistingIds.has(id));
-                const hasCommonName = e.subjectIds.some(id => {
-                    const s = subjects.find(sub => sub.id === id);
-                    return s && namesInCycle.has(s.name.toLowerCase().trim());
-                });
-
-                if (hasCommonId || hasCommonName) {
-                    origins.push(e);
-                }
-            }
+            origins.push(...buildCycleOriginSources({
+                editais,
+                selectedEditalId: edital.id,
+                cycleSubjectIds: realExistingIdsInCycle,
+            }));
 
             // Verificar matérias que não pertencem a nenhum dos editais identificados (Manuais ou Órfãs)
             const coveredIds = new Set(origins.flatMap(o => (o as any).isManual ? [] : (o as UserEdital).subjectIds || []));
@@ -1113,11 +1062,46 @@ const Editais = () => {
         return [...new Set([...cycleConflict.existingIds, ...cycleConflict.edital.subjectIds])];
     }, [cycleConflict]);
 
+    const cycleMergeSources = useMemo(() => {
+        if (!cycleConflict.edital) return [];
+        return buildCycleMergeSources(cycleConflict.currentOrigins, cycleConflict.edital);
+    }, [cycleConflict.currentOrigins, cycleConflict.edital]);
+
+    const cycleNameCandidates = useMemo(
+        () => buildCycleNameCandidates(cycleMergeSources),
+        [cycleMergeSources],
+    );
+
+    const successCycleStats = useMemo(() => {
+        const subjectIds = cycleConflict.action === 'replace'
+            ? (cycleConflict.edital?.subjectIds || [])
+            : (finalPreviewIds.length > 0 ? finalPreviewIds : (cycleConflict.edital?.subjectIds || []));
+        const topics = subjectIds.reduce((acc, sid) => {
+            const subject = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
+            return acc + (subject?.topics?.length || 0);
+        }, 0);
+
+        return {
+            subjects: subjectIds.length,
+            topics,
+        };
+    }, [cycleConflict.action, cycleConflict.edital?.subjectIds, finalPreviewIds, loadedEditalSubjects, subjects]);
+
+    useEffect(() => {
+        if (cycleConflict.step !== 'success') return;
+        setCycleNameDraft(current => current.trim() || cycleNameCandidates[0] || cycleConflict.edital?.name || 'Ciclo de estudos');
+    }, [cycleConflict.edital?.name, cycleConflict.step, cycleNameCandidates]);
+
     const handleHybridPreview = useCallback(async () => {
         if (!cycleConflict.edital || !user) return;
 
         // OTIMIZAÇÃO: Se já temos o resultado da mesclagem híbrida, não reprocessamos
-        if (cycleConflict.hybridResult && cycleConflict.step === 'select') {
+        if (
+            cycleConflict.hybridResult
+            && cycleConflict.topicMergeResult
+            && cycleConflict.unificationMap
+            && cycleConflict.step === 'select'
+        ) {
             setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'merge' }));
             return;
         }
@@ -1150,15 +1134,28 @@ const Editais = () => {
                 (prog) => setProcessingProgress(prog)
             );
 
+            setIsAnalyzingTopics(true);
+            setProcessingProgress({ message: 'Comparando matérias e tópicos...', percentage: 55 });
+            const topicResult = await performFullTopicMerge(
+                result.unificationMap,
+                subjects,
+                true,
+                user.id,
+                undefined,
+                prog => setProcessingProgress(prog),
+                setMergePhase,
+            );
+            const completeUnificationMap = applyTopicMergeToMap(result.unificationMap, topicResult);
+
             const newState = {
                 step: 'preview' as const,
                 action: 'merge' as const,
                 hybridResult: result,
-                unificationMap: result.unificationMap,
+                unificationMap: completeUnificationMap,
                 finalSubjectIds: result.finalSubjectIds,
                 aiStatus: result.stats.aiStatus,
                 subjectDisplayNameOverrides: {},
-                topicMergeResult: undefined,
+                topicMergeResult: topicResult,
             };
 
             setCycleConflict(prev => ({
@@ -1176,14 +1173,17 @@ const Editais = () => {
             if (result.stats.aiStatus === 'error') {
                 toastGate.notifyError('IA Indisponível no momento. A mesclagem usará apenas nomes idênticos.', 'IA-03', { severity: 'medium' });
             }
+
+            await loadPendingSuggestions();
         } catch (err) {
             errorService.report(err, { module: 'cycle', action: 'merge_preview', userMessage: 'Erro ao gerar prévia da mesclagem via IA.' });
             setProcessingProgress(null);
         } finally {
             setIsMerging(false);
+            setIsAnalyzingTopics(false);
             setProcessingProgress(null);
         }
-    }, [cycleConflict, subjects, editais, user, savePendingMerge]);
+    }, [cycleConflict, subjects, editais, user, savePendingMerge, loadPendingSuggestions]);
 
     const handleTopicPreview = useCallback(async (useAI: boolean) => {
         if (!cycleConflict.unificationMap) return;
@@ -1251,20 +1251,36 @@ const Editais = () => {
         }
     }, [cycleConflict, subjects, savePendingMerge, user?.id, loadPendingSuggestions]);
 
-    const handleCycleConflictAction = useCallback(async (action: 'replace' | 'merge' | 'hybrid') => {
+    const handleCycleConflictAction = useCallback(async (
+        action: 'replace' | 'merge' | 'hybrid',
+        organizationMode: 'individual' | 'unified' = 'unified',
+    ) => {
         if (!cycleConflict.edital || !user) return;
         const edital = cycleConflict.edital;
         setProcessingId(edital.id);
-        // Apply topic merge results into the unification map if available 
-        // IMPORTANTE: Só usamos o resultado de tópicos se a ação for chamada explicitamente a partir do ultimo passo (topic-preview)
-        let currentUnificationMap = cycleConflict.unificationMap;
-        if (cycleConflict.step === 'topic-preview' && cycleConflict.topicMergeResult && cycleConflict.unificationMap) {
+
+        const individualSubjectIds = [...new Set([...cycleConflict.existingIds, ...edital.subjectIds])];
+        let currentUnificationMap: CycleUnificationMap | undefined = organizationMode === 'individual'
+            ? buildIndividualCycleMap(
+                cycleConflict.existingIds,
+                edital.subjectIds,
+                [
+                    ...cycleConflict.currentOrigins.flatMap(origin => ('id' in origin ? [origin.id] : [])),
+                    edital.id,
+                ],
+            )
+            : cycleConflict.unificationMap;
+
+        if (organizationMode === 'unified' && cycleConflict.topicMergeResult && cycleConflict.unificationMap) {
             currentUnificationMap = applyTopicMergeToMap(cycleConflict.unificationMap, cycleConflict.topicMergeResult);
         }
 
         setIsMerging(true);
         setMergePhase('finalizing');
-        setProcessingProgress({ message: 'Preparando unificação...', percentage: 5 });
+        setProcessingProgress({
+            message: organizationMode === 'individual' ? 'Adicionando itens ao ciclo...' : 'Preparando unificação...',
+            percentage: 5,
+        });
 
         try {
             let finalIdsToLoad: string[] = [];
@@ -1286,7 +1302,9 @@ const Editais = () => {
             } else {
                 // Se já temos o mapa calculado da prévia, usamos (agora já atualizado pelos tópicos logo acima). Senão (fallback), calculamos.
                 let unificationMap = currentUnificationMap || cycleConflict.hybridResult?.unificationMap;
-                let finalSubjectIdsFromMap = cycleConflict.finalSubjectIds || cycleConflict.hybridResult?.finalSubjectIds;
+                let finalSubjectIdsFromMap = organizationMode === 'individual'
+                    ? individualSubjectIds
+                    : cycleConflict.finalSubjectIds || cycleConflict.hybridResult?.finalSubjectIds;
                 let result: HybridMergeResult | null = cycleConflict.hybridResult || null;
 
                 if (!unificationMap || !finalSubjectIdsFromMap) {
@@ -1358,6 +1376,7 @@ const Editais = () => {
 
             if (rpcError) throw rpcError;
             if (rpcData && (rpcData as any).ok === false) throw new Error((rpcData as any).error);
+            const resumedReviewCount = Number((rpcData as { resumed_reviews?: number } | null)?.resumed_reviews || 0);
 
             // Sincronizar estado local de editais para evitar disparidade na UI
             setEditais(prev => prev.map(e => {
@@ -1368,11 +1387,20 @@ const Editais = () => {
 
             // Notificações e Transição de Tela
             if (action === 'replace') {
-                toast.success(`Ciclo substituído com sucesso por "${edital.name}".`);
+                toast.success(
+                    resumedReviewCount > 0
+                        ? `Ciclo substituído por "${edital.name}". A agenda de revisão foi retomada em ${resumedReviewCount} ${resumedReviewCount === 1 ? 'tópico' : 'tópicos'} após a pausa.`
+                        : `Ciclo substituído com sucesso por "${edital.name}".`,
+                );
             } else {
                 const currentStats = cycleConflict.hybridResult?.stats;
                 const totalNew = currentStats ? (currentStats.totalSubjectsInCycle - cycleConflict.existingIds.length) : 0;
-                toast.success(`Mesclagem concluída! ${totalNew > 0 ? `${totalNew} nova(s) matéria(s) adicionadas.` : 'Estrutura atualizada.'}`);
+                const resumedMessage = resumedReviewCount > 0
+                    ? ` A agenda de revisão foi retomada em ${resumedReviewCount} ${resumedReviewCount === 1 ? 'tópico' : 'tópicos'} após a pausa.`
+                    : '';
+                toast.success(organizationMode === 'individual'
+                    ? `Edital adicionado ao ciclo com matérias e tópicos individuais.${resumedMessage}`
+                    : `Mesclagem concluída! ${totalNew > 0 ? `${totalNew} nova(s) matéria(s) adicionadas.` : 'Estrutura atualizada.'}${resumedMessage}`);
             }
 
             // Se a ação foi concluída com sucesso, descartar persistência
@@ -1384,7 +1412,7 @@ const Editais = () => {
             window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'merge_completed' } }));
 
             // Mudar para tela de sucesso em vez de fechar
-            setCycleConflict(prev => ({ ...prev, step: 'success', wasTopicMerged: prev.step === 'topic-preview' }));
+            setCycleConflict(prev => ({ ...prev, step: 'success', wasTopicMerged: organizationMode === 'unified' }));
 
             // Atualizar dados em background
             await fetchEditais();
@@ -1397,6 +1425,61 @@ const Editais = () => {
             setProcessingProgress(null);
         }
     }, [cycleConflict, editais, fetchEditais, refreshData, user, subjects, discardPendingMerge, persistPhysicalSoftMerge, saveUnificationMap]);
+
+    const handleGoToCycleAfterSuccess = useCallback(async () => {
+        if (!user?.id) return;
+
+        const cleanCycleName = cycleNameDraft.trim() || cycleNameCandidates[0] || cycleConflict.edital?.name || 'Ciclo de estudos';
+        setIsSavingCycleName(true);
+
+        try {
+            const { error } = await supabase
+                .from('user_cycles')
+                .update({
+                    name: cleanCycleName.slice(0, 160),
+                    atualizado_em: new Date().toISOString(),
+                })
+                .eq('user_id', user.id);
+
+            if (error) throw error;
+
+            setCycleConflict({
+                isOpen: false,
+                edital: null,
+                existingIds: [],
+                currentOrigins: [],
+                step: 'select',
+                action: null,
+                showIASuggestionsOnly: false,
+            });
+            setCycleNameDraft('');
+            navigate('/ciclo-estudos');
+        } catch (err) {
+            errorService.report(err, {
+                module: 'cycle',
+                action: 'rename_after_merge',
+                userMessage: 'Não foi possível salvar o nome do ciclo.',
+            });
+        } finally {
+            setIsSavingCycleName(false);
+        }
+    }, [cycleConflict.edital?.name, cycleNameCandidates, cycleNameDraft, navigate, user?.id]);
+
+    const closeCycleConflictModal = useCallback(() => {
+        if ((isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success') return;
+
+        setCycleConflict({
+            isOpen: false,
+            edital: null,
+            existingIds: [],
+            currentOrigins: [],
+            step: 'select',
+            action: null,
+            showIASuggestionsOnly: false,
+        });
+        setCycleNameDraft('');
+        setIsRecoveringMerge(false);
+    }, [cycleConflict.step, isAnalyzingTopics, isMerging]);
 
     /**
      * Importação de edital: cria matérias e tópicos REAIS no Supabase,
@@ -2247,7 +2330,7 @@ const Editais = () => {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative flex w-full max-w-md flex-col gap-6 rounded-[32px] border border-border bg-modal-background p-8 text-modal-foreground shadow-2xl dark:border-white/[0.08]"
+                            className="relative flex w-full max-w-md flex-col gap-6 rounded-[32px] border border-border bg-modal p-8 text-modal-foreground shadow-2xl dark:border-white/[0.08]"
                         >
                             <div className="flex items-center gap-4">
                                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-destructive/10">
@@ -2325,22 +2408,30 @@ const Editais = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setUnloadConfirm({ isOpen: false, edital: null })}
+                            onClick={() => {
+                                if (processingId !== unloadConfirm.edital?.id) {
+                                    setUnloadConfirm({ isOpen: false, edital: null });
+                                }
+                            }}
                             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative w-full max-w-md rounded-[32px] border border-border bg-modal-background p-8 text-modal-foreground shadow-2xl dark:border-white/[0.08]"
+                            role="alertdialog"
+                            aria-modal="true"
+                            aria-labelledby="unload-cycle-title"
+                            aria-describedby="unload-cycle-description"
+                            className="relative w-full max-w-md rounded-[32px] border border-border bg-modal p-8 text-modal-foreground shadow-2xl dark:border-white/[0.08]"
                         >
                             <div className="flex items-center gap-4 mb-6">
                                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-warning/10">
                                     <Unlink className="text-warning" size={22} />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-semibold text-content-main tracking-tight">Remover do Ciclo</h3>
-                                    <p className="text-xs text-content-muted mt-0.5">
+                                    <h3 id="unload-cycle-title" className="text-base font-semibold text-content-main tracking-tight">Remover edital do ciclo?</h3>
+                                    <p id="unload-cycle-description" className="text-xs text-content-muted mt-0.5">
                                         As matérias deste edital deixarão de aparecer no seu ciclo de estudos.
                                     </p>
                                 </div>
@@ -2358,15 +2449,31 @@ const Editais = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex gap-3">
+                            <div className="grid grid-cols-2 gap-3">
                                 <button
-                                    onClick={() => {
-                                        handleUnloadCycle(unloadConfirm.edital!);
-                                        setUnloadConfirm({ isOpen: false, edital: null });
-                                    }}
-                                    className="app-button-warning flex flex-1 items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-widest transition-colors"
+                                    type="button"
+                                    autoFocus
+                                    onClick={() => setUnloadConfirm({ isOpen: false, edital: null })}
+                                    disabled={processingId === unloadConfirm.edital.id}
+                                    className="app-button-secondary flex min-h-11 items-center justify-center px-4 text-xs font-bold uppercase tracking-widest transition-colors disabled:cursor-not-allowed"
                                 >
-                                    Remover
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        const removed = await handleUnloadCycle(unloadConfirm.edital!);
+                                        if (removed) setUnloadConfirm({ isOpen: false, edital: null });
+                                    }}
+                                    disabled={processingId === unloadConfirm.edital.id}
+                                    className="app-button-warning flex min-h-11 items-center justify-center gap-2 px-4 text-xs font-bold uppercase tracking-widest transition-colors disabled:cursor-not-allowed"
+                                >
+                                    {processingId === unloadConfirm.edital.id ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" />
+                                            Removendo
+                                        </>
+                                    ) : 'Remover'}
                                 </button>
                             </div>
                         </motion.div>
@@ -2378,23 +2485,18 @@ const Editais = () => {
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            onClick={() => {
-                                if (!isMerging && cycleConflict.step !== 'success') {
-                                    setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
-                                    setIsRecoveringMerge(false);
-                                }
-                            }}
+                            onClick={closeCycleConflictModal}
                             className="absolute inset-0 bg-background/78 backdrop-blur-md"
                         />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            className="relative flex min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-border bg-modal-background shadow-2xl shadow-black/35 dark:border-white/[0.08]" style={{ maxHeight: 'calc(100dvh - 32px)' }}
+                            className={`relative flex min-h-0 w-full flex-col overflow-hidden rounded-[28px] border border-border bg-modal shadow-2xl shadow-black/35 dark:border-white/[0.08] ${cycleConflict.step === 'success' ? 'max-w-3xl' : 'max-w-5xl'}`} style={{ maxHeight: 'calc(100dvh - 32px)' }}
                         >
                             {/* Efeito de Profundidade Sutil */}
                             <div className="absolute inset-0 pointer-events-none border border-white/[0.03] rounded-[32px]" />
                             {/* Overlay de Processamento com IA */}
-                            {(isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success' && (
+                            {isAnalyzingTopics && cycleConflict.step !== 'success' && (
                                 <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-background/90 backdrop-blur-md animate-in fade-in duration-300 rounded-[28px]">
                                     <div className="flex flex-col items-center gap-6 text-center max-w-[280px]">
                                         <div className="relative">
@@ -2436,7 +2538,7 @@ const Editais = () => {
                             )}
 
                             {/* Header - Espaçamento Interno Lateral 2cm (px-8), Vertical 1cm (py-4) */}
-                            <div className="sticky top-0 z-[60] flex shrink-0 items-start justify-between border-b border-border bg-modal-background px-6 pb-4 pt-4 md:px-8">
+                            <div className="sticky top-0 z-[60] flex shrink-0 items-start justify-between border-b border-border bg-modal px-6 pb-4 pt-4 md:px-8">
                                 <div className="flex flex-col gap-1.5 focus:outline-none">
                                     <div className="flex items-center gap-3">
                                         {/* Navegação Rápida < > */}
@@ -2457,9 +2559,8 @@ const Editais = () => {
                                                 <button
                                                     onClick={() => {
                                                         if (cycleConflict.step === 'select') handleHybridPreview();
-                                                        else if (cycleConflict.step === 'preview') handleTopicPreview(true);
                                                     }}
-                                                    disabled={cycleConflict.step === 'topic-preview' || (cycleConflict.step === 'select' && isMerging) || isAnalyzingTopics}
+                                                    disabled={cycleConflict.step !== 'select' || isMerging || isAnalyzingTopics}
                                                     className="p-1.5 hover:bg-white/10 dark:hover:bg-white/10 disabled:opacity-20 rounded-md transition-all text-content-muted hover:text-foreground active:scale-95"
                                                     title="Próximo"
                                                 >
@@ -2470,16 +2571,12 @@ const Editais = () => {
 
                                         <div className="flex items-center gap-2.5">
                                             <div className="flex items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
-                                                {cycleConflict.step === 'success' ? '2/2' :
-                                                 cycleConflict.existingIds.length === 0 ? '1/2' :
-                                                 cycleConflict.action === 'replace' ? (cycleConflict.step === 'select' ? '1/2' : '2/2') :
-                                                 cycleConflict.step === 'select' ? '1/3' :
-                                                 cycleConflict.step === 'preview' ? '2/3' : '3/3'}
+                                                {cycleConflict.step === 'select' ? '1/2' : '2/2'}
                                             </div>
                                             <h2 className="text-[14px] font-black text-foreground uppercase tracking-tight">
                                                 {cycleConflict.step === 'success' ? 'Ciclo de Estudos' :
                                                  cycleConflict.step === 'select' ? 'Carregar Edital' :
-                                                 cycleConflict.step === 'preview' ? (cycleConflict.existingIds.length === 0 ? 'Carregar Edital' : 'Preview Mescla Matérias') :
+                                                 cycleConflict.step === 'preview' ? (cycleConflict.existingIds.length === 0 ? 'Carregar Edital' : 'Escolher Organização') :
                                                  cycleConflict.step === 'topic-preview' ? 'Preview Mescla Matérias e Tópicos' :
                                                  'Ciclo de Estudos'}
                                             </h2>
@@ -2488,24 +2585,44 @@ const Editais = () => {
 
                                     <p className="text-[11px] font-medium text-content-muted leading-relaxed whitespace-normal md:whitespace-nowrap">
                                         {cycleConflict.step === 'select' ? 'Escolha como deseja adicionar o novo edital ao seu planejamento.' :
-                                         (cycleConflict.step === 'preview' || cycleConflict.step === 'topic-preview') ? 'As matérias com mesmo nome serão unificadas para preservar seu progresso.' :
+                                         cycleConflict.step === 'preview' ? 'Compare como o mesmo ciclo ficará antes de escolher.' :
+                                         cycleConflict.step === 'topic-preview' ? 'Confira a organização de matérias e tópicos.' :
                                          'Seu planejamento foi atualizado com sucesso.'}
                                     </p>
                                 </div>
 
                                 <button
-                                    onClick={() => {
-                                        if (!isMerging && !isAnalyzingTopics && cycleConflict.step !== 'success') {
-                                            setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false });
-                                            setIsRecoveringMerge(false);
-                                        }
-                                    }}
-                                    disabled={isMerging || isAnalyzingTopics || cycleConflict.step === 'success'}
+                                    onClick={closeCycleConflictModal}
+                                    disabled={(isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success'}
                                     className="p-2 hover:bg-secondary dark:hover:bg-white/5 rounded-xl transition-colors text-content-muted flex-shrink-0"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
+
+                            {isMerging && !isAnalyzingTopics && cycleConflict.step !== 'success' && (
+                                <div className="shrink-0 border-b border-success/15 bg-success/[0.055] px-6 py-2 md:px-8">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <Loader2 size={13} className="shrink-0 animate-spin text-success" />
+                                            <span className="truncate text-[10px] font-bold text-success">
+                                                {processingProgress?.message || 'Atualizando ciclo...'}
+                                            </span>
+                                        </div>
+                                        {typeof processingProgress?.percentage === 'number' && (
+                                            <span className="shrink-0 text-[9px] font-black tabular-nums text-success/80">
+                                                {Math.round(processingProgress.percentage)}%
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-success/10">
+                                        <div
+                                            className={`h-full rounded-full bg-success transition-all duration-300 ease-out ${typeof processingProgress?.percentage === 'number' ? '' : 'w-1/2 animate-pulse'}`}
+                                            style={typeof processingProgress?.percentage === 'number' ? { width: `${processingProgress.percentage}%` } : undefined}
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Área de Conteúdo - Lateral 2cm, Vertical 1cm */}
                             <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto custom-scrollbar px-6 pb-4 pt-4 md:px-8">
@@ -2569,22 +2686,22 @@ const Editais = () => {
                                                 if (originSubjects.length === 0) return null;
 
                                                 return (
-                                                    <div key={i} className="p-4 rounded-xl bg-[#101E2B] border border-[#1E3A52] space-y-4">
+                                                    <div key={i} className="rounded-xl border border-primary/20 bg-primary/10 p-4 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
-                                                                <div className="w-1.5 h-4 bg-[#0284C7] rounded-full" />
+                                                                <div className="h-4 w-1.5 rounded-full bg-primary" />
                                                                 <span className="text-[13px] font-black text-foreground uppercase tracking-tight">{origin.name}</span>
                                                             </div>
-                                                            <span className="text-[10px] font-bold text-[#38BDF8] bg-[#0284C7]/20 px-2.5 py-1 rounded-full border border-[#0284C7]/20">
+                                                            <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
                                                                 {originSubjects.length} matérias
                                                             </span>
                                                         </div>
 
-                                                        <div className="flex flex-wrap gap-2">
+                                                        <div className="mt-4 flex flex-wrap gap-2">
                                                             {originSubjects.map(s => (
-                                                                <div key={s.id} className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-[#192734] border border-[#1E3A52]/50 hover:bg-[#192734]/80 transition-colors group">
-                                                                    <BookOpen size={10} className="text-[#0284C7]" />
-                                                                    <span className="text-[10px] font-bold text-sky-100 truncate leading-none">{s.name}</span>
+                                                                <div key={s.id} className="group flex items-center gap-2 rounded-lg border border-primary/15 bg-background/45 px-3 py-1.5 transition-colors hover:border-primary/30 hover:bg-primary/10">
+                                                                    <BookOpen size={10} className="text-primary" />
+                                                                    <span className="truncate text-[10px] font-bold leading-none text-foreground/90">{s.name}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -2603,17 +2720,17 @@ const Editais = () => {
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => setCycleConflict(prev => ({ ...prev, showDetailedPreview: !prev.showDetailedPreview }))}
-                                                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-secondary/80 border border-border/70 text-[9px] font-black text-content-muted uppercase tracking-wider hover:border-emerald-500/30 hover:bg-emerald-500/[0.06] hover:text-emerald-400 transition-all"
+                                                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-secondary/80 px-2.5 text-[9px] font-black uppercase tracking-wider text-content-muted transition-all hover:border-primary/30 hover:bg-primary/10 hover:text-primary active:scale-[0.98]"
                                                 >
                                                     {cycleConflict.showDetailedPreview ? <ChevronUp size={10} /> : <Eye size={10} />}
                                                     {cycleConflict.showDetailedPreview ? 'Recolher' : 'Ver Tópicos'}
                                                 </button>
                                             </div>
                                         </div>
-                                        <div className="p-4 rounded-xl bg-secondary/50 dark:bg-white/[0.03] border border-border/70 dark:border-white/[0.06] space-y-4">
+                                        <div className="space-y-4 rounded-xl border border-border/70 bg-secondary/45 p-4 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)] dark:border-white/[0.06] dark:bg-white/[0.03]">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-4 bg-[#10B981] rounded-full" />
+                                                    <div className="h-4 w-1.5 rounded-full bg-success" />
                                                     <span className="text-sm font-black text-foreground uppercase tracking-tight">{cycleConflict.edital.name}</span>
                                                 </div>
                                             </div>
@@ -2624,13 +2741,13 @@ const Editais = () => {
                                                         const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
                                                         if (!s) return null;
                                                         return (
-                                                            <div key={sid} className="p-3 rounded-xl bg-background/40 dark:bg-black/10 border border-border/70 dark:border-white/[0.06] space-y-2.5 group transition-all hover:border-emerald-500/25 hover:bg-emerald-500/[0.04]">
+                                                            <div key={sid} className="group space-y-2.5 rounded-xl border border-border/70 bg-background/40 p-3 transition-all hover:border-success/25 hover:bg-success/[0.04] dark:border-white/[0.06] dark:bg-black/10">
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex items-center gap-2">
-                                                                        <div className="w-1 h-3 bg-[#10B981] rounded-full" />
-                                                                        <span className="text-xs font-black text-[#6EE7B7] uppercase tracking-wider truncate">{s.name}</span>
+                                                                        <div className="h-3 w-1 rounded-full bg-success" />
+                                                                        <span className="truncate text-xs font-black uppercase tracking-wider text-success">{s.name}</span>
                                                                     </div>
-                                                                    <span className="text-[8px] font-black text-[#34D399]/50 uppercase tracking-widest">
+                                                                    <span className="text-[8px] font-black uppercase tracking-widest text-success/55">
                                                                         {s.topics?.length || 0} tópicos
                                                                     </span>
                                                                 </div>
@@ -2638,7 +2755,7 @@ const Editais = () => {
                                                                 <div className="grid grid-cols-1 gap-1.5 pl-3 border-l border-border/70 dark:border-white/[0.06]">
                                                                     {sortTopicsByLeadingNumberWhenComplete(s.topics || []).map(t => (
                                                                         <div key={t.id} className="flex items-center gap-2 text-[11px] text-content-muted/75">
-                                                                            <div className="w-0.5 h-0.5 rounded-full bg-[#10B981]/40" />
+                                                                            <div className="h-0.5 w-0.5 rounded-full bg-success/40" />
                                                                             <span className="truncate leading-none">{t.name}</span>
                                                                         </div>
                                                                     ))}
@@ -2653,15 +2770,15 @@ const Editais = () => {
                                                         const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
                                                         if (!s) return null;
                                                         return (
-                                                            <div key={sid} className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-background/40 dark:bg-black/10 border border-border/70 dark:border-white/[0.06] transition-all hover:border-emerald-500/25 hover:bg-emerald-500/[0.04] group">
-                                                                <BookOpen size={10} className="text-[#10B981]" />
-                                                                <span className="text-[11px] font-bold text-[#6EE7B7] truncate leading-none">{s.name}</span>
+                                                            <div key={sid} className="group flex items-center gap-2 rounded-lg border border-border/70 bg-background/40 px-3 py-1.5 transition-all hover:border-success/25 hover:bg-success/[0.04] dark:border-white/[0.06] dark:bg-black/10">
+                                                                <BookOpen size={10} className="text-success" />
+                                                                <span className="truncate text-[11px] font-bold leading-none text-success">{s.name}</span>
                                                             </div>
                                                         );
                                                     })}
                                                     {cycleConflict.edital.subjectIds.length > 15 && (
-                                                        <div className="flex items-center justify-center px-4 py-2 rounded-none bg-background/40 dark:bg-black/10 border border-border/70 dark:border-white/[0.06] border-dashed">
-                                                            <span className="text-[10px] font-black text-[#34D399]/50 uppercase tracking-widest leading-none">+{cycleConflict.edital.subjectIds.length - 15}</span>
+                                                        <div className="flex items-center justify-center rounded-lg border border-dashed border-border/70 bg-background/40 px-4 py-2 dark:border-white/[0.06] dark:bg-black/10">
+                                                            <span className="text-[10px] font-black uppercase leading-none tracking-widest text-success/55">+{cycleConflict.edital.subjectIds.length - 15}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -2670,8 +2787,21 @@ const Editais = () => {
                                     </div>
                                 )}
 
-                                {/* Seção: Resultado (Preview) - SÓ MOSTRA SE FOR PREVIEW */}
-                                {cycleConflict.step === 'preview' && (
+                                {cycleConflict.step === 'preview' && cycleConflict.action === 'merge' && cycleConflict.unificationMap && (
+                                    <CycleMergeComparison
+                                        subjects={subjects}
+                                        unificationMap={cycleConflict.unificationMap}
+                                        editalName={cycleConflict.edital?.name || 'Edital selecionado'}
+                                        position={cycleConflict.edital?.position}
+                                        editalSources={cycleMergeSources}
+                                        disabled={isMerging || isAnalyzingTopics || processingId === cycleConflict.edital?.id}
+                                        onKeepIndividual={() => handleCycleConflictAction('merge', 'individual')}
+                                        onUnify={() => handleCycleConflictAction('merge', 'unified')}
+                                    />
+                                )}
+
+                                {/* Preview legado usado somente pelo caminho de substituição. */}
+                                {cycleConflict.step === 'preview' && cycleConflict.action === 'replace' && (
                                     <div className="space-y-2.5 py-2">
 
 
@@ -2894,59 +3024,104 @@ const Editais = () => {
 
                                     {/* Seção: Sucesso (Resumo) */}
                                     {cycleConflict.step === 'success' && (
-                                        <div className="flex flex-col items-center gap-5 py-2 animate-in zoom-in-95 duration-500 w-full">
-                                            <div className="flex flex-col items-center justify-center gap-3 text-center w-full">
-                                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-success/20 bg-success/10">
-                                                    <CheckCircle2 size={24} className="text-success" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <h4 className="text-2xl font-black text-foreground uppercase tracking-tight">
-                                                        Ciclo gerado com sucesso!
-                                                    </h4>
-                                                    <p className="text-sm text-content-muted font-medium">
-                                                        Seu ambiente de planejamento foi atualizado.
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="w-full rounded-2xl p-4 border border-border/70 dark:border-white/[0.06] bg-secondary/50 dark:bg-white/[0.03] space-y-4">
-                                                {cycleConflict.existingIds.length > 0 && cycleConflict.action === 'replace' && (
-                                                    <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/10 p-3 text-primary">
-                                                        <Info size={14} className="shrink-0 mt-0.5" />
-                                                        <p className="text-[11px] font-medium leading-relaxed text-foreground/90">
-                                                            O ciclo anterior foi desativado e sua nova trilha de estudos está pronta para execução.
-                                                        </p>
+                                        <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 py-1 animate-in fade-in duration-200">
+                                            <div className="overflow-hidden rounded-[24px] border border-success/20 bg-gradient-to-br from-success/12 via-secondary/55 to-primary/8 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
+                                                <div className="flex items-start gap-3 border-b border-success/15 px-4 py-4">
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-success/25 bg-success/12">
+                                                        <CheckCircle2 size={20} className="text-success" />
                                                     </div>
-                                                )}
-
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="h-4 w-1.5 rounded-full bg-success" />
-                                                        <h5 className="text-sm font-black text-foreground uppercase tracking-tight leading-tight">
-                                                            {cycleConflict.edital?.name}
-                                                        </h5>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                        <div className="bg-background/40 dark:bg-black/10 rounded-xl p-4 border border-border/70 dark:border-white/[0.06]">
-                                                            <span className="text-[9px] text-content-muted uppercase font-black tracking-widest block mb-2">
-                                                                Total de Matérias
-                                                            </span>
-                                                            <span className="text-3xl font-black text-foreground">
-                                                                {cycleConflict.edital?.subjectIds.length || 0}
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <h4 className="text-base font-black uppercase tracking-tight text-foreground">
+                                                                Ciclo atualizado
+                                                            </h4>
+                                                            <span className="rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-success">
+                                                                Pronto
                                                             </span>
                                                         </div>
+                                                        <p className="mt-1 text-xs font-medium leading-relaxed text-content-muted">
+                                                            Os editais reais continuam vinculados. Ajuste apenas o apelido que aparece no seu planejamento.
+                                                        </p>
+                                                    </div>
+                                                </div>
 
-                                                        <div className="bg-background/40 dark:bg-black/10 rounded-xl p-4 border border-border/70 dark:border-white/[0.06]">
-                                                            <span className="text-[9px] text-content-muted uppercase font-black tracking-widest block mb-2">
-                                                                Total de Tópicos
+                                                <div className="space-y-3 p-4">
+                                                    {cycleConflict.existingIds.length > 0 && cycleConflict.action === 'replace' && (
+                                                        <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/10 p-3 text-primary">
+                                                            <Info size={14} className="mt-0.5 shrink-0" />
+                                                            <p className="text-[11px] font-medium leading-relaxed text-foreground/90">
+                                                                O ciclo anterior foi desativado e sua nova trilha de estudos está pronta para execução.
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+                                                        <div className="rounded-2xl border border-border/70 bg-background/35 p-3">
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                Editais no ciclo
                                                             </span>
-                                                            <span className="text-3xl font-black text-foreground">
-                                                                {cycleConflict.edital?.subjectIds.reduce((acc, sid) => {
-                                                                    const s = loadedEditalSubjects.find(subj => subj.id === sid) || subjects.find(subj => subj.id === sid);
-                                                                    return acc + (s?.topics?.length || 0);
-                                                                }, 0) || 0}
-                                                            </span>
+                                                            <div className="mt-2 flex flex-col gap-1.5">
+                                                                {cycleMergeSources.map(source => (
+                                                                    <button
+                                                                        key={source.id}
+                                                                        type="button"
+                                                                        onClick={() => setCycleNameDraft(source.name)}
+                                                                        className="flex min-w-0 items-center rounded-xl border border-border/60 bg-secondary/45 px-3 py-2 text-left transition-colors hover:border-primary/35 hover:bg-secondary/65"
+                                                                        aria-label={`Usar ${source.name} como apelido do ciclo`}
+                                                                    >
+                                                                        <span className="min-w-0">
+                                                                            <span className="block truncate text-[11px] font-black uppercase tracking-tight text-foreground">
+                                                                                {source.name}
+                                                                            </span>
+                                                                            {source.position && (
+                                                                                <span className="mt-0.5 block truncate text-[9px] font-bold uppercase tracking-[0.08em] text-content-muted">
+                                                                                    {source.position}
+                                                                                </span>
+                                                                            )}
+                                                                        </span>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-3">
+                                                            <div className="rounded-2xl border border-border/70 bg-background/35 p-3">
+                                                                <label htmlFor="cycle-name-draft" className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                    Apelido do ciclo
+                                                                </label>
+                                                                <Input
+                                                                    id="cycle-name-draft"
+                                                                    value={cycleNameDraft}
+                                                                    onChange={event => setCycleNameDraft(event.target.value)}
+                                                                    maxLength={160}
+                                                                    aria-describedby="cycle-name-help"
+                                                                    placeholder="Ex: PCES + PMES"
+                                                                    className="mt-2 h-10 border-border/70 bg-modal text-xs font-bold"
+                                                                />
+                                                                <p id="cycle-name-help" className="mt-2 text-[10px] font-medium leading-relaxed text-content-muted">
+                                                                    Clique em um edital à esquerda para preencher, ou personalize.
+                                                                </p>
+                                                            </div>
+
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div className="rounded-xl border border-primary/15 bg-primary/10 px-3 py-2">
+                                                                    <span className="block text-[8px] font-black uppercase tracking-widest text-primary/80">
+                                                                        Matérias
+                                                                    </span>
+                                                                    <span className="mt-0.5 block text-xl font-black text-foreground">
+                                                                        {successCycleStats.subjects}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="rounded-xl border border-success/15 bg-success/10 px-3 py-2">
+                                                                    <span className="block text-[8px] font-black uppercase tracking-widest text-success/80">
+                                                                        Tópicos
+                                                                    </span>
+                                                                    <span className="mt-0.5 block text-xl font-black text-foreground">
+                                                                        {successCycleStats.topics}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2958,7 +3133,7 @@ const Editais = () => {
                             </div>
 
                             {/* Rodapé - Lateral 2cm, Vertical 1cm */}
-                            <div className="shrink-0 border-t border-border bg-modal-background/95 px-6 py-2.5 backdrop-blur-xl md:px-8">
+                            <div className={`${cycleConflict.step === 'preview' && cycleConflict.action === 'merge' ? 'hidden' : ''} shrink-0 border-t border-border bg-modal/95 px-6 py-2.5 backdrop-blur-xl md:px-8`}>
                                 {cycleConflict.step === 'select' ? (
                                     cycleConflict.existingIds.length === 0 ? (
                                         <div className="flex items-center justify-between gap-4">
@@ -2997,27 +3172,32 @@ const Editais = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center justify-end gap-3">
-                                            <button
-                                                onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }))}
-                                                className="group flex h-10 w-[172px] items-center justify-center gap-2.5 rounded-xl border border-destructive/25 bg-destructive/10 text-center transition-colors hover:bg-destructive/15 active:scale-[0.98] disabled:opacity-50"
-                                            >
-                                                <RefreshCw size={16} className="text-destructive" />
-                                                <div className="flex flex-col items-start text-left">
-                                                    <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider text-destructive">SUBSTITUIR</span>
-                                                    <span className="text-[9px] font-bold leading-none text-destructive/70">Começar do zero</span>
-                                                </div>
-                                            </button>
+                                                <button
+                                                    onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }))}
+                                                    className="group flex h-10 items-center justify-center gap-2.5 rounded-xl border border-destructive/45 bg-modal px-3 text-center text-destructive shadow-sm shadow-black/10 transition-all hover:border-destructive hover:bg-destructive hover:text-destructive-foreground active:scale-[0.98] disabled:opacity-50 dark:border-white/70"
+                                                >
+                                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive transition-colors group-hover:border-destructive-foreground/25 group-hover:bg-destructive-foreground/10 group-hover:text-destructive-foreground">
+                                                        <RefreshCw size={14} />
+                                                    </span>
+                                                    <div className="flex flex-col items-start text-left">
+                                                        <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider text-destructive transition-colors group-hover:text-destructive-foreground">SUBSTITUIR</span>
+                                                        <span className="text-[9px] font-bold leading-none text-content-muted transition-colors group-hover:text-destructive-foreground/85">Começar do zero</span>
+                                                    </div>
+                                                </button>
 
-                                            <button
-                                                onClick={handleHybridPreview}
-                                                disabled={isMerging}
-                                                className="app-button-success group flex h-10 w-[172px] items-center justify-center gap-2.5 text-center transition-colors disabled:cursor-not-allowed"
-                                            >
-                                                <div className="flex flex-col items-start text-left">
-                                                    <span className="text-[11px] font-black uppercase tracking-wider leading-none mb-0.5">MESCLAR</span>
-                                                    <span className="text-[9px] font-bold leading-none text-success-foreground/80">Manter progresso</span>
-                                                </div>
-                                            </button>
+                                                <button
+                                                    onClick={handleHybridPreview}
+                                                    disabled={isMerging}
+                                                    className="group flex h-10 items-center justify-center gap-2.5 rounded-xl border border-success/45 bg-modal px-3 text-center text-success shadow-sm shadow-black/10 transition-all hover:border-success hover:bg-success hover:text-success-foreground active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/70"
+                                                >
+                                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success transition-colors group-hover:border-success-foreground/25 group-hover:bg-success-foreground/10 group-hover:text-success-foreground">
+                                                        <CheckCircle2 size={14} />
+                                                    </span>
+                                                    <div className="flex flex-col items-start text-left">
+                                                        <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider text-success transition-colors group-hover:text-success-foreground">MESCLAR</span>
+                                                        <span className="text-[9px] font-bold leading-none text-content-muted transition-colors group-hover:text-success-foreground/85">Ver como o ciclo ficará</span>
+                                                    </div>
+                                                </button>
                                             </div>
                                         </div>
                                     )
@@ -3085,13 +3265,12 @@ const Editais = () => {
                                     </div>
                                 ) : cycleConflict.step === 'success' ? (
                                     <button
-                                        onClick={() => {
-                                            setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false });
-                                            navigate('/ciclo-estudos');
-                                        }}
-                                        className="app-button-primary h-10 w-full text-xs font-black uppercase tracking-widest transition-colors"
+                                        onClick={handleGoToCycleAfterSuccess}
+                                        disabled={isSavingCycleName}
+                                        className="app-button-primary ml-auto flex h-10 min-w-[230px] items-center justify-center gap-2 px-5 text-[11px] font-black uppercase tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        IR PARA O CICLO DE ESTUDOS ➔
+                                        {isSavingCycleName && <Loader2 size={15} className="animate-spin" />}
+                                        ABRIR CICLO ➔
                                     </button>
                                 ) : null}
                             </div>

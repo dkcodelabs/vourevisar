@@ -34,6 +34,7 @@ import {
 } from '@/utils/subjectSearch';
 import { parseBulkTopics, shouldAdvanceToBulkTopics } from '@/utils/bulkTopicParser';
 import { getIncidenceLevelLabel } from '@/utils/topicIncidenceLevel';
+import { subjectNameSchema } from '@/lib/validation';
 import {
     editalHeaderBadgeTypography,
     editalHeaderExamBoardTypography,
@@ -156,7 +157,9 @@ export const EditalSubjectsModal = ({
     const [showManualAdd, setShowManualAdd] = useState(false);
     const [newSubjectName, setNewSubjectName] = useState('');
     const [isSavingSubject, setIsSavingSubject] = useState(false);
+    const manualSubjectInputRef = useRef<HTMLInputElement>(null);
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
+    const [focusedSubjectId, setFocusedSubjectId] = useState<string | null>(null);
     const [newTopicTexts, setNewTopicTexts] = useState<Record<string, string>>({});
     const [savingTopics, setSavingTopics] = useState<Record<string, boolean>>({});
     const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
@@ -174,6 +177,28 @@ export const EditalSubjectsModal = ({
     const [editingWeightSubjectId, setEditingWeightSubjectId] = useState<string | null>(null);
     const [weightSavedSubjectId, setWeightSavedSubjectId] = useState<string | null>(null);
     const [weightDraft, setWeightDraft] = useState({ questions: '', points: '' });
+
+    const focusSubject = useCallback((subjectId: string) => {
+        setSearchQuery('');
+        setExpandedIds([subjectId]);
+        setFocusedSubjectId(subjectId);
+    }, []);
+
+    useEffect(() => {
+        if (!focusedSubjectId) return;
+
+        const focusTimer = window.setTimeout(() => {
+            const subjectCard = document.getElementById(`subject-card-${focusedSubjectId}`);
+            subjectCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            subjectCard?.focus({ preventScroll: true });
+        }, 160);
+        const clearTimer = window.setTimeout(() => setFocusedSubjectId(null), 1800);
+
+        return () => {
+            window.clearTimeout(focusTimer);
+            window.clearTimeout(clearTimer);
+        };
+    }, [focusedSubjectId]);
 
     // Limpa o status de "Sincronizado" após alguns segundos para feedback dinâmico
     useEffect(() => {
@@ -401,7 +426,12 @@ export const EditalSubjectsModal = ({
         if (!user || !iaSubjectName.trim()) return;
 
         setIsSavingSubject(true);
+        let createdSubjectId: string | null = null;
+        let editalLinked = false;
+        let targetSubjectId: string | null = null;
         try {
+            await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
             const selectedTopics = aiResult
                 .filter(s => s.selected)
                 .flatMap(s => s.topics.filter(t => t.selected))
@@ -427,6 +457,7 @@ export const EditalSubjectsModal = ({
                 // Add topics to existing subject (in 'topics' table)
                 const existingTopicNames = new Set(existingSubject.topics.map(t => t.name.toLowerCase()));
                 const newTopics = selectedTopics.filter(t => !existingTopicNames.has(t.name.toLowerCase()));
+                let persistedTopics: Topic[] = [];
 
                 if (newTopics.length > 0) {
                     const topicsToInsert = newTopics.map((t, idx) => ({
@@ -439,21 +470,31 @@ export const EditalSubjectsModal = ({
                         position: existingSubject.topics.length + idx
                     }));
 
-                    const { error: insertErr } = await supabase
+                    const { data: insertedTopics, error: insertErr } = await supabase
                         .from('topics')
-                        .insert(topicsToInsert);
+                        .insert(topicsToInsert)
+                        .select();
 
                     if (insertErr) throw insertErr;
+                    if (!insertedTopics || insertedTopics.length !== topicsToInsert.length) {
+                        throw new Error('O banco não confirmou todos os tópicos adicionados.');
+                    }
+                    persistedTopics = (insertedTopics || []).map(topic => ({
+                        ...topic,
+                        reviewCount: topic.review_count ?? 0,
+                        subtopics: []
+                    })) as Topic[];
                 }
 
                 const updatedSubjects = localSubjects.map(s => {
                     if (s.id === existingSubject.id) {
-                        return { ...s, topics: [...s.topics, ...newTopics] };
+                        return { ...s, topics: [...s.topics, ...persistedTopics] };
                     }
                     return s;
                 });
 
                 setLocalSubjects(updatedSubjects);
+                targetSubjectId = existingSubject.id;
                 hasPendingSync.current = true;
                 setSyncStatus('saved');
             } else {
@@ -470,8 +511,10 @@ export const EditalSubjectsModal = ({
                     .single();
 
                 if (createErr) throw createErr;
+                createdSubjectId = created.id;
 
                 // Insert topics into 'topics' table
+                let persistedTopics: Topic[] = [];
                 if (selectedTopics.length > 0) {
                     const topicsToInsert = selectedTopics.map((t, idx) => ({
                         subject_id: created.id,
@@ -483,25 +526,37 @@ export const EditalSubjectsModal = ({
                         position: idx
                     }));
 
-                    const { error: insertErr } = await supabase
+                    const { data: insertedTopics, error: insertErr } = await supabase
                         .from('topics')
-                        .insert(topicsToInsert);
+                        .insert(topicsToInsert)
+                        .select();
 
                     if (insertErr) throw insertErr;
+                    if (!insertedTopics || insertedTopics.length !== topicsToInsert.length) {
+                        throw new Error('O banco não confirmou todos os tópicos adicionados.');
+                    }
+                    persistedTopics = (insertedTopics || []).map(topic => ({
+                        ...topic,
+                        reviewCount: topic.review_count ?? 0,
+                        subtopics: []
+                    })) as Topic[];
                 }
 
                 const newSubjectIds = [...localEditalIds, created.id];
-                const newSubjectWithTopics = { ...created, topics: selectedTopics } as Subject;
+                const newSubjectWithTopics = { ...created, topics: persistedTopics } as Subject;
                 setLocalSubjects([...localSubjects, newSubjectWithTopics]);
                 setLocalEditalIds(newSubjectIds);
+                targetSubjectId = created.id;
 
-                await editaisTable()
+                const { error: editalUpdateError } = await editaisTable()
                     .update({
                         subject_ids: newSubjectIds,
                         active_subject_ids: newSubjectIds,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', edital.id);
+                if (editalUpdateError) throw editalUpdateError;
+                editalLinked = true;
 
                 hasPendingSync.current = true;
                 setSyncStatus('saved');
@@ -515,10 +570,18 @@ export const EditalSubjectsModal = ({
             setIaInputText('');
             setIaStage('input');
             setAiResult([]);
+            if (targetSubjectId) focusSubject(targetSubjectId);
 
-            toast.success('Matéria adicionada com sucesso!');
+            toast.success('Tópicos salvos com sucesso!');
 
         } catch (error: unknown) {
+            if (createdSubjectId && !editalLinked) {
+                const { error: rollbackError } = await supabase
+                    .from('subjects')
+                    .delete()
+                    .eq('id', createdSubjectId);
+                if (rollbackError) console.error('Erro ao desfazer matéria do lote:', rollbackError);
+            }
             console.error('Erro ao salvar:', error);
             errorService.report(error instanceof Error ? error : new Error(String(error)), {
                 module: 'EditalSubjectsModal',
@@ -528,7 +591,7 @@ export const EditalSubjectsModal = ({
         } finally {
             setIsSavingSubject(false);
         }
-    }, [user, iaSubjectName, aiResult, localSubjects, localEditalIds, edital, selectedEdital.id, onUpdate]);
+    }, [user, iaSubjectName, aiResult, localSubjects, localEditalIds, edital, selectedEdital.id, onUpdate, focusSubject]);
 
     // ── Derivados ─────────────────────────────────────────────────────────
     const filteredSubjects = useMemo(() => {
@@ -590,60 +653,106 @@ export const EditalSubjectsModal = ({
 
     // ── Salvar nova matéria ───────────────────────────────────────────────
     const handleSaveSubject = useCallback(async () => {
-        const name = newSubjectName.trim().toUpperCase();
-        if (!name || !user || isSavingSubject) return;
-        if (localSubjects.find(s => s.name.toLowerCase() === name.toLowerCase())) {
-            errorService.report(new Error('Duplicate subject'), {
+        if (!user || isSavingSubject) return;
+
+        const normalizedNames = newSubjectName
+            .split(';')
+            .map(name => name.trim().toUpperCase())
+            .filter(Boolean);
+        if (normalizedNames.length === 0) return;
+
+        const uniqueNames = Array.from(new Set(normalizedNames));
+        const invalidName = uniqueNames.find(name => !subjectNameSchema.safeParse(name).success);
+        if (invalidName) {
+            const validation = subjectNameSchema.safeParse(invalidName);
+            const message = validation.success ? 'Nome de matéria inválido.' : validation.error.issues[0]?.message;
+            errorService.report(new Error('Invalid subject name'), {
                 module: 'EditalSubjectsModal', action: 'saveSubject',
-                userMessage: `A matéria "${name}" já existe neste edital.`
+                userMessage: `Não foi possível adicionar "${invalidName}": ${message}`
             });
             return;
         }
-        setIsSavingSubject(true);
-        const placeholderId = tmpId();
-        const placeholder: Subject = {
-            id: placeholderId, name, status: 'Nova', topics: [],
-            order: localSubjects.length, created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(), notes: null, user_id: user.id,
-        } as unknown as Subject;
 
-        setLocalSubjects(prev => [...prev, placeholder]);
-        setExpandedIds(prev => [...prev, placeholderId]);
-        setNewSubjectName('');
+        const existingNames = new Set(localSubjects.map(subject => subject.name.trim().toUpperCase()));
+        const namesToCreate = uniqueNames.filter(name => !existingNames.has(name));
+        const ignoredCount = normalizedNames.length - namesToCreate.length;
+
+        if (namesToCreate.length === 0) {
+            errorService.report(new Error('Duplicate subjects'), {
+                module: 'EditalSubjectsModal', action: 'saveSubject',
+                userMessage: 'Todas as matérias informadas já existem neste edital.'
+            });
+            return;
+        }
+
+        setIsSavingSubject(true);
+        const placeholders = namesToCreate.map((name, index) => ({
+            id: tmpId(), name, status: 'Nova', topics: [],
+            order: localSubjects.length + index, created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(), notes: null, user_id: user.id,
+        } as unknown as Subject));
+        const placeholderIds = new Set(placeholders.map(subject => subject.id));
+
+        setLocalSubjects(prev => [...prev, ...placeholders]);
         setSyncStatus('saving');
+        let persistedSubjectIds: string[] = [];
 
         try {
-            const { data: newSubj, error: subjErr } = await supabase
-                .from('subjects').insert({
+            const { data: createdSubjects, error: subjErr } = await supabase
+                .from('subjects').insert(namesToCreate.map(name => ({
                     user_id: user.id,
                     name,
                     status: 'Nova',
                     edital_id: edital.id
-                })
-                .select('id').single();
+                })))
+                .select('id, name');
             if (subjErr) throw subjErr;
+            persistedSubjectIds = createdSubjects?.map(subject => subject.id) || [];
+            if (!createdSubjects || createdSubjects.length !== namesToCreate.length) {
+                throw new Error('O banco não retornou todas as matérias criadas.');
+            }
 
-            const updatedIds = [...localEditalIds, newSubj.id];
+            const createdIds = createdSubjects.map(subject => subject.id);
+            const updatedIds = [...localEditalIds, ...createdIds];
             const { error: edErr } = await editaisTable().update({ subject_ids: updatedIds }).eq('id', edital.id);
             if (edErr) throw edErr;
 
-            setLocalSubjects(prev => prev.map(s => s.id === placeholderId ? { ...s, id: newSubj.id } : s));
-            setExpandedIds([newSubj.id]);
-            setShowManualAdd(false);
+            const createdByName = new Map(createdSubjects.map(subject => [subject.name.trim().toUpperCase(), subject.id]));
+            setLocalSubjects(prev => prev.map(subject => {
+                if (!placeholderIds.has(subject.id)) return subject;
+                return { ...subject, id: createdByName.get(subject.name.trim().toUpperCase()) || subject.id };
+            }));
+            focusSubject(createdIds[0]);
             setLocalEditalIds(updatedIds);
             onUpdate({ ...edital, subjectIds: updatedIds });
             hasPendingSync.current = true;
             setSyncStatus('saved');
-            toast.success(`Matéria "${name}" criada!`);
+            setNewSubjectName('');
+            requestAnimationFrame(() => manualSubjectInputRef.current?.focus());
+
+            const createdMessage = namesToCreate.length === 1
+                ? `Matéria "${namesToCreate[0]}" criada!`
+                : `${namesToCreate.length} matérias criadas!`;
+            const ignoredMessage = ignoredCount > 0
+                ? ` ${ignoredCount} ${ignoredCount === 1 ? 'duplicada foi ignorada' : 'duplicadas foram ignoradas'}.`
+                : '';
+            toast.success(`${createdMessage}${ignoredMessage}`);
         } catch (err) {
-            setLocalSubjects(prev => prev.filter(s => s.id !== placeholderId));
-            setExpandedIds(prev => prev.filter(id => id !== placeholderId));
+            if (persistedSubjectIds.length > 0) {
+                const { error: rollbackError } = await supabase
+                    .from('subjects')
+                    .delete()
+                    .in('id', persistedSubjectIds);
+                if (rollbackError) console.error('Erro ao desfazer matérias não vinculadas:', rollbackError);
+            }
+            setLocalSubjects(prev => prev.filter(subject => !placeholderIds.has(subject.id)));
+            setExpandedIds(prev => prev.filter(id => !placeholderIds.has(id)));
             setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'saveSubject', userMessage: 'Erro ao criar matéria.' });
         } finally {
             setIsSavingSubject(false);
         }
-    }, [newSubjectName, user, isSavingSubject, localSubjects, localEditalIds, edital, onUpdate]);
+    }, [newSubjectName, user, isSavingSubject, localSubjects, localEditalIds, edital, onUpdate, focusSubject]);
 
     // ── Excluir matéria permanentemente (só editais manuais) ──────────────
     const handleConfirmDeleteSubject = useCallback(async (subjectId: string, subjectName: string) => {
@@ -1187,12 +1296,12 @@ export const EditalSubjectsModal = ({
                                             <BookPlus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
                                             <input
                                                 type="text"
-                                                placeholder="Nome da matéria"
+                                                placeholder="Nome da matéria ou várias separadas por ;"
                                                 value={newSubjectName}
                                                 onChange={e => setNewSubjectName(e.target.value.toUpperCase())}
                                                 onKeyDown={e => { if (e.key === 'Enter') handleSaveSubject(); }}
                                                 className="h-11 w-full rounded-xl border border-border bg-control py-1.5 pl-9 pr-3 text-base text-content-main outline-none transition-colors placeholder:text-content-muted/55 focus:border-primary/45 focus:ring-2 focus:ring-primary/10 sm:text-sm lg:h-10"
-                                                ref={input => input && setTimeout(() => input.focus(), 50)}
+                                                ref={manualSubjectInputRef}
                                             />
                                         </div>
                                         <button
@@ -1227,6 +1336,7 @@ export const EditalSubjectsModal = ({
                                             </div>
                                             <button
                                                 onClick={() => {
+                                                    if (isSavingSubject) return;
                                                     setShowIaAdd(false);
                                                     setIaOverflowVisible(false);
                                                     setShowIaSubjectSuggestions(false);
@@ -1234,13 +1344,25 @@ export const EditalSubjectsModal = ({
                                                     setIaInputText('');
                                                     setIaStage('input');
                                                 }}
-                                                className="rounded-lg p-1 text-content-muted transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                                disabled={isSavingSubject}
+                                                className="rounded-lg p-1 text-content-muted transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                                                aria-label="Fechar inclusão em lote"
                                             >
                                                 <X size={14} />
                                             </button>
                                         </div>
 
-                                        {iaStage === 'input' && (
+                                        {isSavingSubject ? (
+                                            <div className="flex min-h-[250px] flex-col items-center justify-center gap-4 rounded-xl border border-primary/15 bg-background/35 px-6 text-center" aria-live="polite">
+                                                <span className="grid size-12 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-lg shadow-primary/10">
+                                                    <Loader2 size={22} className="animate-spin" />
+                                                </span>
+                                                <div>
+                                                    <p className="text-sm font-bold text-content-main">Salvando matéria e tópicos...</p>
+                                                    <p className="mt-1 text-[11px] text-content-muted">Aguarde a confirmação antes de fechar.</p>
+                                                </div>
+                                            </div>
+                                        ) : iaStage === 'input' ? (
                                             <div className="space-y-3">
                                                 <div className="relative w-full" ref={iaSuggestionsRef}>
                                                     <input
@@ -1319,13 +1441,13 @@ export const EditalSubjectsModal = ({
                                                         className="app-button-primary flex h-11 items-center gap-2 px-4 text-[11px] font-bold disabled:cursor-not-allowed lg:h-10"
                                                     >
                                                         <Check size={12} />
-                                                        Revisar tópicos
+                                                        Conferir tópicos
                                                     </button>
                                                 </div>
                                             </div>
-                                        )}
+                                        ) : null}
 
-                                        {iaStage === 'review' && aiResult.length > 0 && (
+                                        {!isSavingSubject && iaStage === 'review' && aiResult.length > 0 && (
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-xs font-bold text-content-main">{iaSubjectName}</span>
@@ -1342,6 +1464,7 @@ export const EditalSubjectsModal = ({
                                                 <div className="flex justify-between gap-2">
                                                     <button
                                                         onClick={() => { setIaStage('input'); setAiResult([]); }}
+                                                        disabled={isSavingSubject}
                                                         className="app-button-secondary h-10 px-3 text-[11px] font-bold"
                                                     >
                                                         Voltar
@@ -1352,7 +1475,7 @@ export const EditalSubjectsModal = ({
                                                         className="app-button-success flex h-10 items-center gap-2 px-4 text-[11px] font-bold disabled:cursor-not-allowed"
                                                     >
                                                         {isSavingSubject ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                                                        Adicionar
+                                                        Salvar tópicos
                                                     </button>
                                                 </div>
                                             </div>
@@ -1422,13 +1545,15 @@ export const EditalSubjectsModal = ({
                                     return (
                                         <div key={subject.id} className={`group relative flex flex-col overflow-hidden rounded-2xl border app-cycle-subject transition-all
                                         ${isTemp ? 'opacity-60 cursor-default' : ''}
+                                        ${focusedSubjectId === subject.id ? 'ring-2 ring-primary/55 shadow-lg shadow-primary/10' : ''}
                                         `}>
 
                                             {/* ── Card da matéria ── */}
                                             <div
                                                 id={`subject-card-${subject.id}`}
+                                                tabIndex={-1}
                                                 onClick={() => !isTemp && !isPendingDelete && !isEditingWeight && !hasJustSavedWeight && toggleExpand(subject.id)}
-                                                className={`relative z-10 flex cursor-pointer items-center justify-between gap-3 px-4 py-3 ${isExpanded ? 'border-b border-border dark:border-white/5' : ''}`}
+                                                className={`relative z-10 flex cursor-pointer items-center justify-between gap-3 px-4 py-3 outline-none ${isExpanded ? 'border-b border-border dark:border-white/5' : ''}`}
                                             >
                                                 {hasJustSavedWeight && !isEditingWeight ? (
                                                     <div

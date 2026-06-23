@@ -9,6 +9,7 @@ import { RevisionItem } from '@/types/revision';
 interface RevisoesChartsWrapperProps {
     isVisible: boolean;
     stats: any; // Using any for stats to match flexibility, but could be typed strictly if needed
+    studyTopics: Array<{ first_studied_at: string | null }>;
     topics: RevisionItem[];
     reviewData: any[];
     subjects: any[];
@@ -18,6 +19,7 @@ interface RevisoesChartsWrapperProps {
 export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
     isVisible,
     stats,
+    studyTopics,
     topics,
     reviewData,
     subjects,
@@ -73,7 +75,7 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
                 </div>
                 {/* Chart */}
                 <div className="flex-1 flex items-end min-w-0">
-                    <ReviewsTrendChart topics={topics as unknown as Array<{ first_studied_at: string | null;[key: string]: any }>} reviewData={reviewData || []} viewMode={trendViewMode} />
+                    <ReviewsTrendChart topics={studyTopics} reviewData={reviewData || []} viewMode={trendViewMode} />
                 </div>
                 {/* Footer */}
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">

@@ -220,6 +220,9 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
 
       setIsLoading(true);
       try {
+        const activeCycleSubjectIds =
+          filter.type === 'cycle' && Array.isArray(userCycle?.ciclo_atual) ? (userCycle.ciclo_atual as string[]) : [];
+
         // Determinar ID do ciclo para filtragem
         const effectiveCycleId = filter.type === 'cycle' 
           ? (filter.id || userCycle?.id) 
@@ -233,6 +236,9 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
 
         if (filter.type === 'cycle' && effectiveCycleId) {
           sessionsQuery = sessionsQuery.eq('cycle_id', effectiveCycleId);
+          if (activeCycleSubjectIds.length > 0) {
+            sessionsQuery = sessionsQuery.in('subject_id', activeCycleSubjectIds);
+          }
         } else if (filter.type === 'edital' && filter.id) {
           sessionsQuery = sessionsQuery.eq('edital_id', filter.id);
         } else {
@@ -250,16 +256,17 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
           .maybeSingle();
 
         // Carregar sessões do pomodoro
-        let pomodoroQuery = supabase
-          .from('pomodoro_sessions')
-          .select('*')
-          .eq('user_id', user.id);
-
-        if (filter.type === 'all') {
-          pomodoroQuery = pomodoroQuery.gte('date', format(subDays(new Date(), 30), 'yyyy-MM-dd'));
-        }
-        
-        const { data: pomodoroData } = await pomodoroQuery.order('date', { ascending: false });
+        const pomodoroData =
+          filter.type === 'all'
+            ? (
+                await supabase
+                  .from('pomodoro_sessions')
+                  .select('*')
+                  .eq('user_id', user.id)
+                  .gte('date', format(subDays(new Date(), 30), 'yyyy-MM-dd'))
+                  .order('date', { ascending: false })
+              ).data
+            : [];
 
         // Transformar dados do banco para o formato esperado
         const transformedSessions = (sessionsData || []).map((session: any) => ({

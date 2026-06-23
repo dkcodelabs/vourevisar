@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfDay } from 'date-fns';
 import { SRS_THRESHOLDS, LearningStatus } from '@/utils/calculateNextReview';
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
 
 interface Topic {
   id: string;
@@ -82,7 +83,7 @@ export const useReviewsData = () => {
   const [recoveryReason, setRecoveryReason] = useState<'ABSENCE' | 'BACKLOG' | null>(null);
 
   const { data: topics, isLoading, error, refetch } = useQuery({
-    queryKey: ['topics'],
+    queryKey: ['topics', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
@@ -277,15 +278,8 @@ export const useReviewsData = () => {
 
   const { delayedTopics, todayTopics, futureTopics, completedTopics, consolidatedTopics, totalPendingCount } = filteredTopics.reduce(
     (acc, topic) => {
-      // Remover a lógica de "concluído" manual = completed status.
-      // E agora enviar todos do grupo "Dominando" e completados para "consolidatedTopics".
-      if (topic.learningStatus === 'Dominando') {
-        acc.consolidatedTopics.push(topic);
-        return acc;
-      }
-
-      // Retro-compatibilidade: Alguns topicos antigos podem estar marcados localmente como completos
-      if (topic.completed || topic.review_stage === 'Concluído') {
+      // Estabilidade alta pode indicar "Dominando", mas não encerra o programa.
+      if (isReviewProgramCompleted(topic)) {
         acc.consolidatedTopics.push(topic);
         return acc;
       }
@@ -366,6 +360,7 @@ export const useReviewsData = () => {
   const suggestedDailyReviews = focusTopics.length;
 
   return {
+    allTopics: topics || [],
     topics: filteredTopics,
     isLoading,
     error,

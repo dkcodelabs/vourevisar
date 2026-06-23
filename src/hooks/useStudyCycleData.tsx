@@ -5,8 +5,9 @@ import { useTopicReview } from '@/hooks/useTopicReview';
 import { useDailySubjectsWithViews } from '@/hooks/useDailySubjectsWithViews';
 import { useMergeData } from '@/hooks/useMergeData';
 import { registerDualProgress } from '@/services/cycleMergeService';
-import { SubjectStatus, ReviewInterval, Difficulty } from '@/types/study-cycle';
+import { SubjectStatus, ReviewInterval } from '@/types/study-cycle';
 import { cleanCycle } from '@/utils/cycleUtils';
+import { mapDifficultyLevel, mapDifficultyToNumericLevel } from '@/utils/topicDifficulty';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
 import type { Subject, Topic, UserCycle, UserEdital } from '@/types';
 import {
@@ -64,30 +65,6 @@ const mapReviewStageToInterval = (reviewStage?: string, completed?: boolean, rev
   return ReviewInterval.NOT_STARTED;
 };
 
-const mapDifficultyLevel = (level?: number | string): Difficulty => {
-  if (typeof level === 'number') {
-    switch (level) {
-      case 1:
-        return Difficulty.EASY;
-      case 2:
-        return Difficulty.MEDIUM;
-      case 3:
-        return Difficulty.HARD;
-      default:
-        return Difficulty.MEDIUM;
-    }
-  }
-
-  switch (level) {
-    case 'easy':
-      return Difficulty.EASY;
-    case 'hard':
-      return Difficulty.HARD;
-    default:
-      return Difficulty.MEDIUM;
-  }
-};
-
 const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
   const nextReviewRaw = topic.next_review;
   const lastReviewedAtRaw = topic.last_reviewed_at;
@@ -142,17 +119,6 @@ const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
     }),
     explorationPercentage: getSubjectExplorationPercentage(mappedTopics)
   };
-};
-
-const mapDifficultyToLevel = (difficulty: Difficulty): number => {
-  switch (difficulty) {
-    case Difficulty.EASY:
-      return 1;
-    case Difficulty.HARD:
-      return 3;
-    default:
-      return 2;
-  }
 };
 
 export const useStudyCycleData = () => {
@@ -494,7 +460,7 @@ export const useStudyCycleData = () => {
       const updatePayload: any = {};
       if (updatedData.notes !== undefined) updatePayload.notes = { content: updatedData.notes };
       if (updatedData.difficulty !== undefined) {
-        updatePayload.difficulty_level = mapDifficultyToLevel(updatedData.difficulty);
+        updatePayload.difficulty_level = mapDifficultyToNumericLevel(updatedData.difficulty);
         updatePayload.difficulty_set_at = new Date();
       }
       if (updatedData.subTopics !== undefined) updatePayload.subtopics = updatedData.subTopics;

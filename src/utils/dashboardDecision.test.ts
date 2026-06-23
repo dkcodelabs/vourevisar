@@ -5,14 +5,83 @@ import {
   buildNextBestAction,
   buildProgressSummary,
   getChargeCoverageState,
+  getDashboardActivitySelection,
   getDashboardEditalIdentity,
+  getPaceBannerAction,
+  formatPaceRequirement,
+  formatPaceValue,
   getDifficultySummary,
   getNextCycleActions,
+  normalizeReminderDate,
   splitReviewsByDueDate,
 } from './dashboardDecision';
-import type { DashboardCycleSubject, DashboardReviewTopic } from '@/types/dashboardDecision';
+import type { DashboardActivityDay, DashboardCycleSubject, DashboardReviewTopic } from '@/types/dashboardDecision';
 
 const today = new Date('2026-06-19T12:00:00.000Z');
+
+describe('normalizeReminderDate', () => {
+  it('preserves the selected civil date when Supabase returns a UTC timestamp', () => {
+    expect(normalizeReminderDate('2026-06-21T00:00:00+00:00')).toBe('2026-06-21');
+  });
+
+  it('keeps date-only values and null unchanged', () => {
+    expect(normalizeReminderDate('2026-06-21')).toBe('2026-06-21');
+    expect(normalizeReminderDate(null)).toBeNull();
+  });
+});
+
+describe('getPaceBannerAction', () => {
+  it('keeps a valid pace banner informational', () => {
+    expect(getPaceBannerAction('ready')).toBeNull();
+  });
+
+  it('routes missing and expired exam dates to edital management', () => {
+    expect(getPaceBannerAction('missing_exam_date')).toEqual({
+      label: 'Definir data da prova',
+      href: '/meus-editais',
+    });
+    expect(getPaceBannerAction('exam_date_past')).toEqual({
+      label: 'Atualizar data da prova',
+      href: '/meus-editais',
+    });
+  });
+
+  it('routes a missing cycle to cycle setup', () => {
+    expect(getPaceBannerAction('missing_cycle')).toEqual({
+      label: 'Abrir Ciclo de Estudos',
+      href: '/ciclo-estudos',
+    });
+  });
+});
+
+describe('formatPaceRequirement', () => {
+  it('shows sub-daily requirements as a natural cadence', () => {
+    expect(formatPaceRequirement(3 / 121)).toEqual({ value: '1', cadence: 'a cada 40 dias' });
+    expect(formatPaceRequirement(10 / 121)).toEqual({ value: '1', cadence: 'a cada 12 dias' });
+  });
+
+  it('keeps requirements of at least one as a daily rate', () => {
+    expect(formatPaceRequirement(1)).toEqual({ value: '1', cadence: 'por dia' });
+    expect(formatPaceRequirement(1.5)).toEqual({ value: '1,5', cadence: 'por dia' });
+  });
+
+  it('keeps the unavailable state honest', () => {
+    expect(formatPaceRequirement(null)).toEqual({ value: '--', cadence: '' });
+  });
+});
+
+describe('formatPaceValue', () => {
+  it('shows sub-daily averages as a natural cadence', () => {
+    expect(formatPaceValue(0.6)).toBe('1 a cada 2 dias');
+    expect(formatPaceValue(0.1)).toBe('1 a cada 10 dias');
+  });
+
+  it('keeps daily and null values readable', () => {
+    expect(formatPaceValue(1)).toBe('1,0/dia');
+    expect(formatPaceValue(1.5)).toBe('1,5/dia');
+    expect(formatPaceValue(null)).toBe('--');
+  });
+});
 
 const reviewTopic = (overrides: Partial<DashboardReviewTopic> = {}): DashboardReviewTopic => ({
   id: 'topic-review-1',
@@ -285,6 +354,21 @@ describe('buildDashboardPace', () => {
       pendingReviews: 10,
     });
   });
+
+  it('preserves sub-daily precision instead of rounding a real requirement to zero', () => {
+    const pace = buildDashboardPace({
+      examDate: '2026-10-20',
+      today: new Date('2026-06-21T12:00:00-03:00'),
+      totalUnstartedTopics: 3,
+      overdueReviews: 10,
+      todayReviews: 0,
+      futureReviewsInWindow: 0,
+      hasActiveCycle: true,
+    });
+
+    expect(pace.newTopicsPerDay).toBeCloseTo(3 / 121, 4);
+    expect(pace.reviewsPerDay).toBeCloseTo(10 / 121, 4);
+  });
 });
 
 describe('study trajectory summaries', () => {
@@ -321,5 +405,95 @@ describe('study trajectory summaries', () => {
       totalTopics: 3,
       editalProgressPercentage: 67,
     });
+  });
+});
+
+describe('getDashboardActivitySelection', () => {
+  const activityDay = (
+    date: string,
+    entries: DashboardActivityDay['entries'] = [],
+  ): DashboardActivityDay => ({
+    date,
+    studiedCount: entries.filter((entry) => entry.type === 'study').length,
+    reviewedCount: entries.filter((entry) => entry.type === 'review').length,
+    questionsCount: entries.filter((entry) => entry.type === 'questions').length,
+    totalDurationMinutes: entries.reduce((total, entry) => total + entry.durationMinutes, 0),
+    difficultyAverage: null,
+    entries,
+  });
+
+  it('opens the current day by default even when an earlier day has activity', () => {
+    const selection = getDashboardActivitySelection([
+      activityDay('2026-06-18', [
+        {
+          id: 'study-1',
+          topicId: 'topic-1',
+          topicName: 'Interpretação de Textos',
+          subjectName: 'Língua Portuguesa',
+          durationMinutes: 55,
+          reviewedAt: '2026-06-18T10:00:00.000Z',
+          type: 'study',
+        },
+        {
+          id: 'review-1',
+          topicId: 'topic-2',
+          topicName: 'ADI e ADC',
+          subjectName: 'Direito Constitucional',
+          durationMinutes: 30,
+          reviewedAt: '2026-06-18T12:00:00.000Z',
+          type: 'review',
+        },
+      ]),
+      activityDay('2026-06-19'),
+    ]);
+
+    expect(selection.day?.date).toBe('2026-06-19');
+    expect(selection.studies).toEqual([]);
+    expect(selection.reviews).toEqual([]);
+  });
+
+  it('returns an empty detail when the selected day has no activity', () => {
+    const selection = getDashboardActivitySelection(
+      [
+        activityDay('2026-06-18', [
+          {
+            id: 'study-1',
+            topicId: 'topic-1',
+            topicName: 'Interpretação de Textos',
+            durationMinutes: 55,
+            reviewedAt: '2026-06-18T10:00:00.000Z',
+            type: 'study',
+          },
+        ]),
+        activityDay('2026-06-19'),
+      ],
+      '2026-06-19',
+    );
+
+    expect(selection.day?.date).toBe('2026-06-19');
+    expect(selection.studies).toEqual([]);
+    expect(selection.reviews).toEqual([]);
+  });
+
+  it('keeps the period summary active when no day is selected', () => {
+    const selection = getDashboardActivitySelection(
+      [
+        activityDay('2026-06-18', [
+          {
+            id: 'study-1',
+            topicId: 'topic-1',
+            topicName: 'Interpretação de Textos',
+            durationMinutes: 55,
+            reviewedAt: '2026-06-18T10:00:00.000Z',
+            type: 'study',
+          },
+        ]),
+      ],
+      null,
+    );
+
+    expect(selection.day).toBeNull();
+    expect(selection.studies).toEqual([]);
+    expect(selection.reviews).toEqual([]);
   });
 });

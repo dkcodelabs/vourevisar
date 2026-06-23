@@ -11,16 +11,17 @@ import { useApp } from '@/contexts/AppContext';
 
 import { useReviewsData } from '@/hooks/useReviewsData';
 import { useTopicReview } from '@/hooks/useTopicReview';
-import { useUserSettings } from '@/hooks/useUserSettings';
 import { useTimer } from '@/contexts/TimerContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useMergeData } from '@/hooks/useMergeData';
 import { getCanonicalSubjectName, getCanonicalTopicName } from '@/services/cycleMergeService';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
+import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
 
 
 import { RevisionItem, RevisionStatus } from '@/types/revision';
-import { ReviewProfile } from '@/types/study';
+import { PROGRAMMED_REVIEW_COUNT } from '@/utils/calculateNextReview';
+import { getProgrammedReviewsCompleted, isReviewProgramCompleted } from '@/utils/reviewStage';
 
 import { RevisoesHeader } from '@/components/revisoes/RevisoesHeader';
 import { RevisoesChartsWrapper } from '@/components/revisoes/RevisoesChartsWrapper';
@@ -67,6 +68,7 @@ export const Revisoes = () => {
   } = useTopicReview();
 
   const {
+    allTopics,
     topics,
     isLoading,
     refetch,
@@ -88,25 +90,24 @@ export const Revisoes = () => {
     suggestedDailyReviews
   } = useReviewsData();
 
-  const { settings, getProfileInfo } = useUserSettings();
-  const profileInfo = getProfileInfo();
-  const userProfile = profileInfo?.profile || ReviewProfile.INTERMEDIATE;
-  const maxReviews = profileInfo?.maxReviews || 3;
+  const maxReviews = PROGRAMMED_REVIEW_COUNT;
+  const activeTopicScope = useMemo(
+    () =>
+      buildActiveTopicScope(
+        (allTopics || []).map((topic) => ({
+          id: topic.subject_id,
+          topics: [{ id: topic.id }],
+        })),
+      ),
+    [allTopics],
+  );
 
   const { data: reviewData, refetch: refetchHistory } = useQuery({
-    queryKey: ['reviews-page-history', user?.id],
+    queryKey: ['reviews-page-history', user?.id, activeTopicScope.scopeKey],
     queryFn: async () => {
       try {
         if (!user) throw new Error('User not authenticated');
-        const { data: subjectsData, error: subjectsError } = await supabase
-          .from('subjects')
-          .select('id')
-          .eq('user_id', user.id);
-
-        if (subjectsError) throw subjectsError;
-        if (!subjectsData || subjectsData.length === 0) return [];
-
-        const userSubjectIds = subjectsData.map(s => s.id);
+        if (!activeTopicScope.hasScopedData) return [];
 
         // @ts-expect-error Tipagem global intencional para compatibilidade
         const response = await (supabase as any)
@@ -115,12 +116,12 @@ export const Revisoes = () => {
           id, topic_id, review_stage, reviewed_at,
           topics!inner (id, name, subject_id)
         `)
-          .in('topics.subject_id', userSubjectIds)
-          // Order by review_date or reviewed_at
+          .eq('user_id', user.id)
+          .in('topic_id', activeTopicScope.activeTopicIds)
           .order('reviewed_at', { ascending: false });
 
         if (response.error) throw response.error;
-        return response.data?.map((review: any) => ({
+        return filterHistoryRowsByActiveTopicIds(response.data || [], activeTopicScope.activeTopicIds).map((review: any) => ({
           id: review.id,
           topic_id: review.topic_id,
           review_stage: review.review_stage,
@@ -215,9 +216,11 @@ export const Revisoes = () => {
     const mapTopicToItem = (topic: any): RevisionItem => {
       const subject = subjects.find(s => s.id === topic.subject_id);
       const rawCount = topic.reviewCount || topic.review_count || 0;
-      const reviewCount = topic.completed || topic.review_stage === 'Concluído'
-        ? maxReviews
-        : Math.min(Math.max(1, rawCount), maxReviews);
+      const programCompleted = isReviewProgramCompleted(topic);
+      const reviewCount = getProgrammedReviewsCompleted(
+        rawCount,
+        programCompleted,
+      );
 
       const rawSubjectName = subject?.name || 'Desconhecida';
       const canonicalSubjectName = getCanonicalSubjectName(topic.subject_id, rawSubjectName, dynamicUnificationMap);
@@ -227,7 +230,7 @@ export const Revisoes = () => {
       let status = RevisionStatus.UNSTARTED;
       const isActuallyStarted = (topic.review_count || 0) > 0;
 
-      if (topic.learningStatus === 'Dominando' || topic.completed || topic.review_stage === 'Concluído') {
+      if (programCompleted) {
         status = RevisionStatus.CONSOLIDATED;
       } else if (topic.next_review && isActuallyStarted) {
         const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
@@ -344,7 +347,7 @@ export const Revisoes = () => {
         let target: ViewTab = 'FOCUS';
         const isActuallyStarted = (raw.review_count || 0) > 0;
         
-        if (raw.completed || raw.review_stage === 'Concluído' || raw.learningStatus === 'Dominando') {
+        if (isReviewProgramCompleted(raw)) {
           target = 'COMPLETED';
         } else if (!isActuallyStarted) {
           target = 'ALL';
@@ -537,6 +540,7 @@ export const Revisoes = () => {
             <RevisoesChartsWrapper
               isVisible={!headerCardsCollapsed}
               stats={stats}
+              studyTopics={allTopics}
               topics={items}
               reviewData={reviewData || []}
               subjects={subjects}
@@ -706,7 +710,7 @@ export const Revisoes = () => {
       <SpacedRepetitionInfoModal
         isOpen={isInfoModalOpen}
         onClose={() => setIsInfoModalOpen(false)}
-        hasExamDate={!!settings?.data_prova_meta}
+        hasExamDate={editaisData.some(edital => Boolean(edital.exam_date))}
       />
     </div>
   );

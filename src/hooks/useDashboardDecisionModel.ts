@@ -18,8 +18,10 @@ import {
   getDashboardEditalIdentity,
   getDifficultySummary,
   getNextCycleActions,
+  normalizeReminderDate,
   getStrategicHighChargeActions,
 } from '@/utils/dashboardDecision';
+import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
 import { toastManager } from '@/utils/toastManager';
 import type {
   DashboardActivityDay,
@@ -168,6 +170,7 @@ export const useDashboardDecisionModel = () => {
       })),
     [cycleData.studyCycleSubjects],
   );
+  const activeTopicScope = useMemo(() => buildActiveTopicScope(dashboardSubjects), [dashboardSubjects]);
 
   const overdueReviews = useMemo(() => reviewsData.delayedTopics.map(toReviewTopic), [reviewsData.delayedTopics]);
   const todayReviews = useMemo(() => reviewsData.todayTopics.map(toReviewTopic), [reviewsData.todayTopics]);
@@ -196,20 +199,21 @@ export const useDashboardDecisionModel = () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('general_reminders')
-        .select('id, text, reminder_date, completed')
+        .select('id, text, reminder_date, completed, created_at, completed_at')
         .eq('user_id', user.id)
         .order('completed', { ascending: true })
         .order('reminder_date', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: false })
-        .limit(6);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       return (data || []).map((item) => ({
         id: item.id,
         text: item.text,
-        reminderDate: item.reminder_date,
+        reminderDate: normalizeReminderDate(item.reminder_date),
         completed: Boolean(item.completed),
+        createdAt: item.created_at,
+        completedAt: item.completed_at,
         href: '#lembretes',
       }));
     },
@@ -217,9 +221,10 @@ export const useDashboardDecisionModel = () => {
   });
 
   const { data: activityDays = [], isLoading: isActivityLoading } = useQuery({
-    queryKey: ['dashboard-activity-days', user?.id, activityRange],
+    queryKey: ['dashboard-activity-days', user?.id, activityRange, activeTopicScope.scopeKey],
     queryFn: async () => {
       if (!user?.id) return [];
+      if (!activeTopicScope.hasScopedData) return buildActivityDays([], activityRange);
       const start = startOfDay(subDays(new Date(), activityRange - 1)).toISOString();
       const end = addDays(startOfDay(new Date()), 1).toISOString();
 
@@ -242,14 +247,15 @@ export const useDashboardDecisionModel = () => {
           )
         `)
         .eq('user_id', user.id)
+        .in('topic_id', activeTopicScope.activeTopicIds)
         .gte('reviewed_at', start)
         .lt('reviewed_at', end)
         .order('reviewed_at', { ascending: true });
 
       if (error) throw error;
-      return buildActivityDays(data || [], activityRange);
+      return buildActivityDays(filterHistoryRowsByActiveTopicIds(data || [], activeTopicScope.activeTopicIds), activityRange);
     },
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id && hasActiveCycle),
   });
 
   const addReminder = useMutation({
@@ -282,6 +288,27 @@ export const useDashboardDecisionModel = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-reminders', user?.id] });
     },
     onError: () => toastManager.error('Não consegui atualizar o lembrete agora'),
+  });
+
+  const deleteReminder = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+
+      const { error } = await supabase
+        .from('general_reminders')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-reminders', user?.id] });
+      toastManager.success('Lembrete excluído definitivamente');
+    },
+    onError: () => toastManager.error('Não consegui excluir o lembrete agora'),
   });
 
   const pace = useMemo(
@@ -332,7 +359,7 @@ export const useDashboardDecisionModel = () => {
         : 'ready';
 
   const model: DashboardDecisionModel = {
-    isLoading: reviewsData.isLoading || cycleData.isLoading || isEditaisLoading || isRemindersLoading || isActivityLoading,
+    isLoading: reviewsData.isLoading || cycleData.isLoading || isEditaisLoading || isRemindersLoading || (hasActiveCycle && isActivityLoading),
     error: reviewsData.error,
     examContext: {
       ...editalIdentity,
@@ -346,7 +373,7 @@ export const useDashboardDecisionModel = () => {
     actionQueue,
     continueCycleItems: cycleActions,
     reminders,
-    activityDays,
+    activityDays: hasActiveCycle ? activityDays : [],
     chargeCoverage,
     chargeSummary,
     difficultySummary,
@@ -368,8 +395,10 @@ export const useDashboardDecisionModel = () => {
     setActivityRange,
     addReminder: (text: string, reminderDate: string | null) => addReminder.mutateAsync({ text, reminderDate }),
     toggleReminder: (id: string, completed: boolean) => toggleReminder.mutateAsync({ id, completed }),
+    deleteReminder: (id: string) => deleteReminder.mutateAsync(id),
     isAddingReminder: addReminder.isPending,
     navigateToAction: (href: string) => navigate(href),
     isTogglingReminder: toggleReminder.isPending,
+    isDeletingReminder: deleteReminder.isPending,
   };
 };

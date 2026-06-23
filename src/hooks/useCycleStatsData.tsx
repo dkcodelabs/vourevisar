@@ -85,66 +85,55 @@ export function useCycleStatsData(open: boolean) {
         ? (cycle.ciclo_atual as string[])
         : [];
 
-      // 3. Buscar nomes das matérias do ciclo
+      // 3. Buscar nomes das matérias e tópicos ativos do ciclo
       let allSubjects: { id: string; name: string }[] = [];
+      let activeTopicIds: string[] = [];
       if (cycloAtualIds.length > 0) {
-        const { data: subjectsData, error: subErr } = await supabase
-          .from('subjects')
-          .select('id, name')
-          .in('id', cycloAtualIds);
+        const [{ data: subjectsData, error: subErr }, { data: topicsData, error: topicsErr }] = await Promise.all([
+          supabase.from('subjects').select('id, name').in('id', cycloAtualIds),
+          supabase.from('topics').select('id').in('subject_id', cycloAtualIds).neq('is_active', false),
+        ]);
 
         if (subErr) throw subErr;
+        if (topicsErr) throw topicsErr;
+
         allSubjects = subjectsData ?? [];
-      }
-
-      // Fallback: se ciclo_atual vazio, buscar via topics com first_studied_at
-      if (allSubjects.length === 0) {
-        const { data: topicSubjects, error: tsErr } = await (supabase as any)
-          .from('topics')
-          .select('subject_id, subjects!inner(id, name)')
-          .not('first_studied_at', 'is', null)
-          .eq('subjects.is_visible' as any, true);
-
-        if (!tsErr && topicSubjects) {
-          const seen = new Set<string>();
-          topicSubjects.forEach((row: any) => {
-            if (row.subjects && !seen.has(row.subjects.id)) {
-              seen.add(row.subjects.id);
-              allSubjects.push({ id: row.subjects.id, name: row.subjects.name });
-            }
-          });
-        }
+        activeTopicIds = (topicsData ?? []).map((topic) => topic.id);
       }
 
       const totalSubjects = allSubjects.length;
 
       // 4. Histórico de revisões desde o início do ciclo
-      let reviewQuery = supabase
-        .from('topic_review_history')
-        .select(`
-          reviewed_at,
-          difficulty_numeric,
-          topic_id,
-          topics!inner(
-            id,
-            subject_id,
-            subjects!inner(id, name)
-          )
-        `)
-        .eq('user_id', user.id);
+      let reviews: any[] = [];
+      if (activeTopicIds.length > 0) {
+        let reviewQuery = supabase
+          .from('topic_review_history')
+          .select(`
+            reviewed_at,
+            difficulty_numeric,
+            topic_id,
+            topics!inner(
+              id,
+              subject_id,
+              subjects!inner(id, name)
+            )
+          `)
+          .eq('user_id', user.id)
+          .in('topic_id', activeTopicIds);
 
-      if (cycleStartDate) {
-        reviewQuery = reviewQuery.gte('reviewed_at', cycleStartDate);
+        if (cycleStartDate) {
+          reviewQuery = reviewQuery.gte('reviewed_at', cycleStartDate);
+        }
+
+        const { data: reviewsData, error: revErr } = await reviewQuery.order('reviewed_at', { ascending: true });
+        if (revErr) throw revErr;
+        reviews = reviewsData ?? [];
       }
-
-      const { data: reviews, error: revErr } = await reviewQuery.order('reviewed_at', { ascending: true });
-
-      if (revErr) throw revErr;
 
       // 5. Agrupar por matéria
       const subjectMap = new Map<string, SubjectCycleActivity>();
 
-      (reviews ?? []).forEach((rev: any) => {
+      reviews.forEach((rev: any) => {
         const subject = rev.topics?.subjects;
         if (!subject) return;
 
@@ -176,7 +165,7 @@ export function useCycleStatsData(open: boolean) {
 
       // 5b. Calcular tópicos distintos por matéria
       const topicsBySubject = new Map<string, Set<string>>();
-      (reviews ?? []).forEach((rev: any) => {
+      reviews.forEach((rev: any) => {
         const sid = rev.topics?.subjects?.id;
         const tid = rev.topic_id;
         if (!sid || !tid) return;

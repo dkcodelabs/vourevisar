@@ -102,6 +102,8 @@ export interface DashboardReminder {
   text: string;
   reminderDate: string | null;
   completed: boolean;
+  createdAt: string | null;
+  completedAt: string | null;
   href: string;
 }
 

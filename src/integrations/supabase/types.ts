@@ -692,6 +692,7 @@ export type Database = {
       general_reminders: {
         Row: {
           completed: boolean | null
+          completed_at: string | null
           created_at: string | null
           id: string
           reminder_date: string | null
@@ -701,6 +702,7 @@ export type Database = {
         }
         Insert: {
           completed?: boolean | null
+          completed_at?: string | null
           created_at?: string | null
           id?: string
           reminder_date?: string | null
@@ -710,6 +712,7 @@ export type Database = {
         }
         Update: {
           completed?: boolean | null
+          completed_at?: string | null
           created_at?: string | null
           id?: string
           reminder_date?: string | null
@@ -2018,6 +2021,7 @@ export type Database = {
           active_subject_ids: string[] | null
           category: string | null
           created_at: string
+          cycle_archived_at: string | null
           exam_board: string | null
           exam_date: string | null
           id: string
@@ -2038,6 +2042,7 @@ export type Database = {
           active_subject_ids?: string[] | null
           category?: string | null
           created_at?: string
+          cycle_archived_at?: string | null
           exam_board?: string | null
           exam_date?: string | null
           id?: string
@@ -2058,6 +2063,7 @@ export type Database = {
           active_subject_ids?: string[] | null
           category?: string | null
           created_at?: string
+          cycle_archived_at?: string | null
           exam_board?: string | null
           exam_date?: string | null
           id?: string
@@ -2500,6 +2506,10 @@ export type Database = {
           target_user_id: string
         }
         Returns: boolean
+      }
+      atomic_archive_edital_from_cycle: {
+        Args: { p_edital_id: string; p_user_id: string }
+        Returns: Json
       }
       atomic_cycle_load: {
         Args: {
