@@ -36,6 +36,7 @@ import { fetchTopicReviewStats } from '@/services/topicReviewService';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { mergeService } from '@/services/mergeService';
+import { unloadEditalFromCycle } from '@/services/cycleUnloadService';
 import { recordCycleStudyEvent, type CycleStudyEventType } from '@/services/cycleStudyEventsService';
 import { withTimeout } from '@/utils/withTimeout';
 import {
@@ -527,75 +528,31 @@ const Subjects = () => {
     fetchTopicReviewStats(allTopicIds).then(setTopicStats);
   }, [subjects]);
 
-  const handleUnloadCycle = async (editalId: string, editalName: string, subjectIdsRaw: string[]) => {
-    // Garante que subjectIds seja um array de strings, removendo objetos ou nulos acidentais
-    const subjectIds = Array.isArray(subjectIdsRaw) 
-      ? subjectIdsRaw.filter(id => typeof id === 'string' && id.length > 0)
-      : [];
-    if (!user) return;
+  const handleUnloadCycle = async (
+    editalId: string,
+    editalName: string,
+  ): Promise<boolean> => {
+    if (!user || unloadingEditalId === editalId) return false;
     setUnloadingEditalId(editalId);
     try {
-      await mergeService.syncCycleAfterRemoval(user.id, editalId);
-      await mergeService.cleanupMergesAfterEditalRemoval(user.id, editalId);
-
-      if (subjectIds.length > 0) {
-        const { error: resetError } = await supabase
-          .from('topics')
-          .update({
-            next_review: null,
-            review_count: 0,
-            review_stage: '0',
-            completed: false,
-            first_studied_at: null,
-            last_reviewed_at: null,
-            memory_stability: 0,
-            current_interval: null
-          } as any)
-          .in('subject_id', subjectIds);
-
-        if (resetError) throw resetError;
-
-        const { data: topicData, error: topicFetchError } = await supabase
-          .from('topics')
-          .select('id')
-          .in('subject_id', subjectIds);
-
-        if (topicFetchError) throw topicFetchError;
-
-        const topicIds = topicData?.map(t => t.id).filter(Boolean) || [];
-        if (topicIds.length > 0) {
-          await supabase
-            .from('topic_review_history')
-            .delete()
-            .in('topic_id', topicIds);
-        }
-
-        await (supabase as any)
-          .from('study_sessions')
-          .delete()
-          .eq('edital_id', editalId);
-      }
-
-      const { data: rpcResult, error: rpcErr } = await supabase.rpc('atomic_cycle_unload_or_delete', {
-        p_user_id: user.id,
-        p_edital_id: editalId
+      const { cycleDeleted } = await unloadEditalFromCycle({
+        userId: user.id,
+        editalId,
       });
-
-      if (rpcErr) throw rpcErr;
-      if (rpcResult && (rpcResult as any).ok === false) throw new Error((rpcResult as any).error);
 
       localStorage.removeItem(`user_cycle_cache_${user.id}`);
 
-      const cycleWasDeleted = (rpcResult as any)?.cycle_deleted === true;
-      toast.success(cycleWasDeleted
+      toast.success(cycleDeleted
         ? `"${editalName}" removido. Ciclo de estudos encerrado.`
         : `"${editalName}" removido do ciclo.`
       );
       window.dispatchEvent(new CustomEvent('subjectUpdated', { detail: { source: 'Subjects' } }));
       window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'unload', editalId } }));
       await refreshData();
+      return true;
     } catch (error) {
       errorService.report(error, { module: 'Subjects', action: 'unloadCycle', userMessage: 'Erro ao remover edital do ciclo.' });
+      return false;
     } finally {
       setUnloadingEditalId(null);
     }
@@ -4318,37 +4275,46 @@ const Subjects = () => {
 
           <AlertDialog 
             open={unloadConfirm.isOpen} 
-            onOpenChange={(open) => !open && setUnloadConfirm(prev => ({ ...prev, isOpen: false }))}
+            onOpenChange={(open) => {
+              if (!open && unloadingEditalId !== unloadConfirm.editalId) {
+                setUnloadConfirm(prev => ({ ...prev, isOpen: false }));
+              }
+            }}
           >
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Remover do Ciclo Ativo</AlertDialogTitle>
+                <AlertDialogTitle>Remover edital do ciclo?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Tem certeza que deseja remover o edital <strong>"{unloadConfirm.editalName}"</strong> do seu ciclo de estudos?
                   <br /><br />
-                  <div className="rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-warning">
-                    <p><strong>Atenção:</strong> o ciclo atual será reiniciado e o histórico de revisões dos tópicos deste edital será apagado.</p>
-                    <p className="mt-1">As matérias e tópicos cadastrados continuarão disponíveis fora do ciclo.</p>
+                  <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 text-sm text-primary">
+                    <p><strong>Informação importante:</strong> seu progresso, sessões de estudo e histórico de revisões serão preservados.</p>
+                    <p className="mt-1">As revisões ficam pausadas fora do ciclo e serão retomadas quando você carregar este edital novamente.</p>
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={unloadingEditalId === unloadConfirm.editalId}>Cancelar</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.preventDefault();
                     if (unloadConfirm.editalId) {
-                      handleUnloadCycle(unloadConfirm.editalId, unloadConfirm.editalName || '', unloadConfirm.subjectIds);
-                      setUnloadConfirm(prev => ({ ...prev, isOpen: false }));
+                      const removed = await handleUnloadCycle(
+                        unloadConfirm.editalId,
+                        unloadConfirm.editalName || '',
+                      );
+                      if (removed) {
+                        setUnloadConfirm(prev => ({ ...prev, isOpen: false }));
+                      }
                     }
                   }}
                   disabled={unloadingEditalId === unloadConfirm.editalId}
-                  className="app-danger-button flex items-center justify-center gap-2"
+                  className="app-button-warning flex items-center justify-center gap-2"
                 >
                   {unloadingEditalId === unloadConfirm.editalId ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <X className="w-4 h-4" />
+                    <Link2Off className="w-4 h-4" />
                   )}
                   Remover
                 </AlertDialogAction>

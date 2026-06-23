@@ -411,7 +411,7 @@ export async function performHybridMerge(
     const exactResult = performExactMerge(existingSubjects, newSubjects);
     
     onPhaseChange?.('ai');
-    onProgress?.({ message: 'Iniciando análise semântica com IA...', percentage: 60 });
+    onProgress?.({ message: 'Analisando equivalências semânticas com IA...' });
     const { results: semanticResults, status: aiStatus } = await performSemanticMerge(exactResult.matched, exactResult.unmatchedExisting, exactResult.unmatchedNew);
 
     const unificationMap = buildUnificationMap(

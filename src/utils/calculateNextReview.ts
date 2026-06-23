@@ -1,219 +1,239 @@
 /**
- * Calcula a próxima data de revisão com base num algoritmo de Repetição Espaçada (SRS), inspirado
- * no SM-2 e na curva original de Ebbinghaus, mas ajustado para os nossos perfis dinâmicos de aprendizado.
+ * Motor puro do programa adaptativo do vouRevisar.
+ *
+ * O primeiro contato é seguido por quatro revisões programadas. A dificuldade e
+ * os sinais reais escolhem a posição dentro de cada janela, mas nenhuma
+ * avaliação impede o avanço da etapa.
  */
-import { ReviewProfile, REVIEW_PROFILES } from '../types/study';
 
-const MARGEM_SEMANA_ZERO = 7; // Dias antes da prova em que blindamos o aluno
+const EXAM_PROTECTION_DAYS = 7;
 
-// Configuráveis para Status de Aprendizado (Podem ser calibrados conforme uso do motor)
+export const PROGRAMMED_REVIEW_COUNT = 4;
+export const COMPLETION_CONTACT_COUNT = PROGRAMMED_REVIEW_COUNT + 1;
+
 export const SRS_THRESHOLDS = {
-    STABILITY_LOW: 15,
-    STABILITY_MID: 45,
-    INTERVAL_LONG: 21, // Em dias
-    MIN_CONSISTENCY: 4 // Número mínimo de revisões para ser considerado consistente
+  STABILITY_LOW: 15,
+  STABILITY_MID: 45,
+  INTERVAL_LONG: 21,
+  MIN_CONSISTENCY: 4,
 };
 
 export type LearningStatus = 'Aprendendo' | 'Fixando' | 'Dominando';
+export type ReviewDifficulty = 1 | 2 | 3;
+export type ReviewIncidenceLevel = 'low' | 'medium' | 'high';
 
 export interface SRSMetrics {
-    /** Estabilidade da memória (0 até infinito). Representa a força do traço de memória. */
-    memoryStability: number;
-    /** O intervalo que estava valendo antes da revisão de hoje (em dias). */
-    currentInterval: number;
-    /** Número de vezes que o tópico já foi revisado (0 para primeiro contato finalizado). */
-    reviewCount: number;
+  memoryStability: number;
+  currentInterval: number;
+  /** Contatos já concluídos: 0 antes do primeiro contato; 1 antes da R1. */
+  reviewCount: number;
 }
 
 export interface CalculateNextReviewParams {
-    today: Date;
-    metrics: SRSMetrics;
-    /** Dificuldade marcada pelo aluno (1 = Fácil, 2 = Médio, 3 = Difícil). */
-    difficulty?: number;
-    examDate?: Date | null;
-    /** Delta de tendência calculado a partir do histórico recente. Positivo = piorando, negativo = melhorando. */
-    trendDelta?: number | null;
+  today: Date;
+  metrics: SRSMetrics;
+  /** 1 = Fácil, 2 = Médio, 3 = Difícil. Todas avançam a etapa. */
+  difficulty?: number;
+  examDate?: Date | null;
+  /** Positivo = dificuldade recente aumentando; negativo = diminuindo. */
+  trendDelta?: number | null;
+  /** Dias de atraso da revisão que acabou de ser concluída. */
+  overdueDays?: number;
+  /** Sinal estratégico do edital; não representa força de memória. */
+  incidenceLevel?: ReviewIncidenceLevel | null;
 }
 
 export interface CalculateNextReviewResult {
-    nextReviewDate: Date;
-
-    // Novas métricas de SRS calculadas que devem ser salvas no Topic
-    newMemoryStability: number;
-    newInterval: number;
-
-    // Tratamento de prova mantido
-    wasCompressed: boolean;
-    compressionReason?: 'limit_exceeded' | 'limit_passed';
+  nextReviewDate: Date | null;
+  newMemoryStability: number;
+  /** Intervalo efetivamente agendado. Zero quando o programa terminou. */
+  newInterval: number;
+  /** Dias até a data efetiva; pode ser menor quando a prova comprime a agenda. */
+  scheduledInterval: number;
+  isProgramCompleted: boolean;
+  wasCompressed: boolean;
+  compressionReason?: 'limit_exceeded' | 'limit_passed';
 }
 
-/**
- * Mapeamento do peso da resposta (Dificuldade).
- * No UI novo, 1 = Fácil, 2 = Médio, 3 = Difícil.
- */
-const DIFFICULTY_MULTIPLIER: Record<number, number> = {
-    1: 1.2,    // Fácil: Estabilidade cresce +20% extra
-    2: 1.0,    // Médio: Crescimento normal (100% do fator base)
-    3: 0.6,    // Difícil: Estabilidade "punição" -40%
-    4: 0.5,    // Fallback legado: tratar acima de 3 como muito difícil
-    5: 0.4
+interface ReviewWindow {
+  min: number;
+  middle: number;
+  max: number;
+}
+
+const REVIEW_WINDOWS: Record<number, ReviewWindow> = {
+  0: { min: 1, middle: 1, max: 1 },
+  1: { min: 5, middle: 7, max: 10 },
+  2: { min: 15, middle: 22, max: 30 },
+  3: { min: 60, middle: 75, max: 90 },
 };
 
-// Configuração Unificada do Motor Adaptativo
-const UNIFIED_PROFILE = {
-    initialStability: 3.0, 
-    baseGrowthFactor: 2.0, 
-    maxIntervalCap: 90,
-};
+function startOfDay(value: Date): Date {
+  const result = new Date(value);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function addDays(value: Date, days: number): Date {
+  const result = startOfDay(value);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function calendarDayDifference(later: Date, earlier: Date): number {
+  const utcLater = Date.UTC(later.getFullYear(), later.getMonth(), later.getDate());
+  const utcEarlier = Date.UTC(earlier.getFullYear(), earlier.getMonth(), earlier.getDate());
+  return Math.round((utcLater - utcEarlier) / 86_400_000);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeDifficulty(value?: number): ReviewDifficulty {
+  if (value == null || Number.isNaN(value)) return 2;
+  return clamp(Math.round(value), 1, 3) as ReviewDifficulty;
+}
+
+function getBaseInterval(window: ReviewWindow, difficulty: ReviewDifficulty): number {
+  if (difficulty === 1) return window.max;
+  if (difficulty === 3) return window.min;
+  return window.middle;
+}
+
+function getAdaptiveMultiplier(params: {
+  difficulty: ReviewDifficulty;
+  metrics: SRSMetrics;
+  trendDelta?: number | null;
+  overdueDays: number;
+  incidenceLevel?: ReviewIncidenceLevel | null;
+}): number {
+  const { difficulty, metrics, trendDelta, overdueDays, incidenceLevel } = params;
+  let multiplier = 1;
+
+  if (metrics.currentInterval > 0 && metrics.memoryStability > 0) {
+    const stabilityRatio = metrics.memoryStability / metrics.currentInterval;
+    if (stabilityRatio < 0.75) multiplier *= 0.95;
+    else if (stabilityRatio > 1.25) multiplier *= 1.05;
+  }
+
+  if (trendDelta != null) {
+    if (trendDelta >= 0.5) multiplier *= 0.9;
+    else if (trendDelta <= -0.5) multiplier *= 1.1;
+  }
+
+  if (overdueDays > 0) {
+    if (difficulty === 3) multiplier *= 0.95;
+    else if (difficulty === 1) multiplier *= 1.05;
+  }
+
+  // Incidência é prioridade estratégica: alta antecipa levemente; baixa permite
+  // o lado mais longo quando os sinais cognitivos não pedem urgência.
+  if (incidenceLevel === 'high') multiplier *= 0.9;
+  else if (incidenceLevel === 'low') multiplier *= 1.05;
+
+  return multiplier;
+}
+
+function updateMemoryStability(
+  memoryStability: number,
+  interval: number,
+  difficulty: ReviewDifficulty,
+): number {
+  const previous = Math.max(1, memoryStability || 1);
+  const difficultyFactor = difficulty === 1 ? 1.15 : difficulty === 3 ? 0.9 : 1.05;
+  const updated = (previous + interval * 0.25) * difficultyFactor;
+  return Number(clamp(updated, 1, 90).toFixed(2));
+}
 
 export function calculateNextReview(params: CalculateNextReviewParams): CalculateNextReviewResult {
-    const { today, metrics, difficulty = 2, examDate, trendDelta } = params;
+  const {
+    today,
+    metrics,
+    examDate = null,
+    trendDelta = null,
+    overdueDays = 0,
+    incidenceLevel = null,
+  } = params;
+  const difficulty = normalizeDifficulty(params.difficulty);
+  const todayStart = startOfDay(today);
 
-    // Multiplicador de tendência: ajuste fino baseado na trajetória cognitiva recente
-    let trendMultiplier = 1.0;
-    if (trendDelta != null) {
-        if (trendDelta >= 1.0) trendMultiplier = 0.9;      // Piora consistente → penalidade leve
-        else if (trendDelta <= -1.0) trendMultiplier = 1.1; // Melhora consistente → bônus leve
-    }
-
-    const todayStart = new Date(today);
-    todayStart.setHours(0, 0, 0, 0);
-
-    const config = UNIFIED_PROFILE;
-
-    // Extraindo dados para processamento
-    const { memoryStability, currentInterval, reviewCount } = metrics;
-
-    // Dificuldade informada, traduzida num multiplicador
-    const diffMult = DIFFICULTY_MULTIPLIER[difficulty] || 1.0;
-
-    let newInterval = 0;
-    let newMemoryStability = memoryStability;
-
-    // ==========================================
-    // FASE 1: COLD START (PRIMEIRA REVISÃO DE TODAS)
-    // Se o topic for novo (reviewCount == 0), a revisão VAI AGORA para sua primeira espaçada.
-    // A regra dita que o primeiro salto é FIXO em 24h para proteger o primeiro esquecimento abrupto.
-    // ==========================================
-    if (reviewCount === 0 || currentInterval === 0) {
-        newInterval = 1; // 24 horas fixas 
-        // A estabilidade inicial brota aqui a partir do cfg do perfil ajustado se ele achou super fácil ou não.
-        newMemoryStability = Math.max(0, config.initialStability * (diffMult >= 1 ? 1 : 0.8));
-    }
-    // ==========================================
-    // FASE 2: WARM UP (Segunda/Terceira Revisão)
-    // Para evitar que logo após 1 dia pule para 10 dias de uma vez no advanced,
-    // colocamos um limite de que o intervalo inicial não pode bater o initialStability imediatamente.
-    // ==========================================
-    else if (reviewCount === 1) {
-        // Saiu da revisão de "dia seguinte". 
-        // Em vez de só pegar 1 * growth, damos o primeiro pontapé para os dias bases como 3, 5, 7.
-        newMemoryStability = Math.max(0, memoryStability + (1.0 * diffMult * trendMultiplier)); // Cresce estabilidade c/ trend
-        const fallbackStart = config.initialStability * diffMult;
-
-        // Garante pelo menos 2 dias de intervalo, mas não mais que a estabilidade hard initial
-        newInterval = Math.max(2, fallbackStart);
-    }
-    // ==========================================
-    // FASE 3: MOTOR SRS PURO (Matéria Madura)
-    // ==========================================
-    else {
-        // Se a pessoa errar muito, a estabilidade cai. Se acertar, sobe.
-        // A taxa de subida é logarítmica ou atenuada levemente quanto mais alto ficar para não estourar (Ebbinghaus Flattening)
-        const stabilityGain = config.baseGrowthFactor * diffMult * trendMultiplier;
-
-        // Se cravou Difícil, punição não reduz para zero, mas corta o intervalo anterior
-        if (difficulty >= 3) {
-            newMemoryStability = Math.max(config.initialStability, memoryStability * diffMult);
-            // Piso mínimo de 2 dias após o primeiro contato: mesmo cortando pela metade repetidas
-            // vezes por dificuldade, o intervalo nunca cai abaixo de 2 dias.
-            newInterval = Math.max(2, currentInterval * 0.5); // Piso: 2 dias (Mínimo Floor Rule)
-        } else {
-            // Crescimento seguro de memória (c/ trend multiplier já incluso no stabilityGain)
-            newMemoryStability = memoryStability + stabilityGain;
-
-            // Intervalo = Estabilidade * (Ajuste). Na prática SRS, o intervalo atual se multiplica.
-            let nextTentativeInterval = currentInterval * (config.baseGrowthFactor * diffMult);
-
-            // Safety rule: Não pode crescer mais que ~2.5x o intervalo anterior (Soft Cap)
-            const maxSafetyMultiplier = 2.5;
-            if (nextTentativeInterval > currentInterval * maxSafetyMultiplier) {
-                nextTentativeInterval = currentInterval * maxSafetyMultiplier;
-            }
-
-            newInterval = nextTentativeInterval;
-        }
-    }
-
-    // Aplica o Hard Cap (Nunca passar de N dias definidos pelo Perfil, ex: 90 dias)
-    if (newInterval > config.maxIntervalCap) {
-        newInterval = config.maxIntervalCap;
-    }
-
-    // Arredonda para não gerar "2.445 dias".
-    // Piso global pós-arredondamento: 2 dias (válido para Fase 2 e Fase 3).
-    // A Fase 1 (Cold Start) já retornou 1 dia fixo antes de chegar aqui; este Math.max não a afeta.
-    const isFirstContact = (metrics.reviewCount === 0 || metrics.currentInterval === 0);
-    newInterval = isFirstContact ? 1 : Math.max(2, Math.round(newInterval));
-    newMemoryStability = Math.max(0, Number(newMemoryStability.toFixed(2))); // Limpa o float e garante >= 0
-
-    // 3. Calcular data tentativa base (Hoje + novo intervalo)
-    let tentativeDate = new Date(todayStart);
-    tentativeDate.setDate(tentativeDate.getDate() + newInterval);
-
-
-    // =====================================================
-    // TRATAMENTO DA PROVA (WEEK ZERO PROTECT)
-    // =====================================================
-    let wasCompressed = false;
-    let compressionReason: 'limit_exceeded' | 'limit_passed' | undefined;
-
-    if (examDate) {
-        const examDateStart = new Date(examDate);
-        examDateStart.setHours(0, 0, 0, 0);
-
-        const limitDate = new Date(examDateStart);
-        limitDate.setDate(limitDate.getDate() - MARGEM_SEMANA_ZERO);
-
-        const tomorrow = new Date(todayStart);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        if (tentativeDate > limitDate) {
-            wasCompressed = true;
-            // Se o limite já passou, agenda pra amanhã correndo. Senão, esmaga no limite.
-            if (limitDate <= todayStart) {
-                tentativeDate = tomorrow;
-                compressionReason = 'limit_passed';
-            } else {
-                tentativeDate = limitDate;
-                compressionReason = 'limit_exceeded';
-            }
-        }
-    }
-
+  if (metrics.reviewCount >= PROGRAMMED_REVIEW_COUNT) {
     return {
-        nextReviewDate: tentativeDate,
-        newMemoryStability,
-        newInterval,
-        wasCompressed,
-        compressionReason
+      nextReviewDate: null,
+      newMemoryStability: updateMemoryStability(
+        metrics.memoryStability,
+        metrics.currentInterval,
+        difficulty,
+      ),
+      newInterval: 0,
+      scheduledInterval: 0,
+      isProgramCompleted: true,
+      wasCompressed: false,
     };
+  }
+
+  const window = REVIEW_WINDOWS[metrics.reviewCount] ?? REVIEW_WINDOWS[3];
+  const baseInterval = getBaseInterval(window, difficulty);
+  const multiplier = metrics.reviewCount === 0
+    ? 1
+    : getAdaptiveMultiplier({
+      difficulty,
+      metrics,
+      trendDelta,
+      overdueDays: Math.max(0, overdueDays),
+      incidenceLevel,
+    });
+
+  const newInterval = clamp(Math.round(baseInterval * multiplier), window.min, window.max);
+  let nextReviewDate = addDays(todayStart, newInterval);
+  let scheduledInterval = newInterval;
+  let wasCompressed = false;
+  let compressionReason: CalculateNextReviewResult['compressionReason'];
+
+  if (examDate && !Number.isNaN(examDate.getTime())) {
+    const examStart = startOfDay(examDate);
+    const protectedLimit = addDays(examStart, -EXAM_PROTECTION_DAYS);
+
+    if (nextReviewDate > protectedLimit) {
+      wasCompressed = true;
+      if (protectedLimit <= todayStart) {
+        nextReviewDate = addDays(todayStart, 1);
+        compressionReason = 'limit_passed';
+      } else {
+        nextReviewDate = protectedLimit;
+        compressionReason = 'limit_exceeded';
+      }
+      scheduledInterval = Math.max(1, calendarDayDifference(nextReviewDate, todayStart));
+    }
+  }
+
+  return {
+    nextReviewDate,
+    newMemoryStability: updateMemoryStability(metrics.memoryStability, newInterval, difficulty),
+    newInterval,
+    scheduledInterval,
+    isProgramCompleted: false,
+    wasCompressed,
+    compressionReason,
+  };
 }
 
 export function formatDateForDB(date: Date): string {
-    return date.toISOString();
+  return date.toISOString();
 }
 
 export function describeCalculation(result: CalculateNextReviewResult): string {
-    const dateStr = result.nextReviewDate.toLocaleDateString('pt-BR');
+  if (result.isProgramCompleted || !result.nextReviewDate) {
+    return 'Programa automático concluído após quatro revisões.';
+  }
 
-    if (!result.wasCompressed) {
-        return `Revisão SRS agendada p/ ${dateStr} (+${result.newInterval} dias). Estabilidade da Memória: ${result.newMemoryStability}`;
-    }
-
-    if (result.compressionReason === 'limit_passed') {
-        return `⚠️ Limite da prova ignorou o SRS! Revisão de crise → ${dateStr}`;
-    }
-
-    return `📅 Revisão SRS comprimida pela Semana Zero → ${dateStr}`;
+  const dateStr = result.nextReviewDate.toLocaleDateString('pt-BR');
+  if (!result.wasCompressed) {
+    return `Revisão adaptativa agendada para ${dateStr} (+${result.scheduledInterval} dias).`;
+  }
+  if (result.compressionReason === 'limit_passed') {
+    return `Revisão antecipada para ${dateStr} porque a prova está próxima.`;
+  }
+  return `Revisão ajustada para ${dateStr}, antes da semana da prova.`;
 }

@@ -10,7 +10,9 @@ const Dashboard = () => {
     setActivityRange,
     addReminder,
     toggleReminder,
+    deleteReminder,
     isAddingReminder,
+    isDeletingReminder,
     navigateToAction,
   } = useDashboardDecisionModel();
 
@@ -41,7 +43,9 @@ const Dashboard = () => {
         onNavigate={navigateToAction}
         onAddReminder={addReminder}
         onToggleReminder={toggleReminder}
+        onDeleteReminder={deleteReminder}
         isAddingReminder={isAddingReminder}
+        isDeletingReminder={isDeletingReminder}
       />
     </div>
   );

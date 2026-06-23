@@ -2,6 +2,7 @@ import { differenceInCalendarDays, format, parseISO, startOfDay } from 'date-fns
 import type {
   ChargeCoverageState,
   DashboardAction,
+  DashboardActivityDay,
   DashboardCycleSubject,
   DashboardCycleTopic,
   DashboardChargeSummary,
@@ -10,6 +11,70 @@ import type {
   DashboardProgressSummary,
   DashboardReviewTopic,
 } from '@/types/dashboardDecision';
+
+export function normalizeReminderDate(value: string | null | undefined) {
+  if (!value) return null;
+  return value.slice(0, 10);
+}
+
+export function getPaceBannerAction(state: DashboardPace['state']) {
+  if (state === 'missing_exam_date') {
+    return { label: 'Definir data da prova', href: '/meus-editais' };
+  }
+  if (state === 'exam_date_past') {
+    return { label: 'Atualizar data da prova', href: '/meus-editais' };
+  }
+  if (state === 'missing_cycle') {
+    return { label: 'Abrir Ciclo de Estudos', href: '/ciclo-estudos' };
+  }
+  return null;
+}
+
+export function formatPaceRequirement(value: number | null) {
+  if (value === null) return { value: '--', cadence: '' };
+  if (value > 0 && value < 1) {
+    const intervalDays = Math.max(2, Math.round(1 / value));
+    return { value: '1', cadence: `a cada ${intervalDays} dias` };
+  }
+
+  return {
+    value: value.toLocaleString('pt-BR', { maximumFractionDigits: 1 }),
+    cadence: 'por dia',
+  };
+}
+
+export function formatPaceValue(value: number | null) {
+  if (value === null) return '--';
+  if (value > 0 && value < 1) {
+    const intervalDays = Math.max(2, Math.round(1 / value));
+    return `1 a cada ${intervalDays} dias`;
+  }
+
+  return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}/dia`;
+}
+
+export function getDashboardActivitySelection(days: DashboardActivityDay[], selectedDate?: string | null) {
+  if (selectedDate === null) {
+    return {
+      day: null,
+      studies: [],
+      reviews: [],
+    };
+  }
+
+  const selectedDay = selectedDate ? days.find((day) => day.date === selectedDate) : null;
+  const day =
+    selectedDay ??
+    days.at(-1) ??
+    null;
+  const entries = day?.entries ?? [];
+
+  return {
+    day,
+    studies: entries.filter((entry) => entry.type === 'study'),
+    reviews: entries.filter((entry) => entry.type === 'review'),
+  };
+}
 
 export interface ReviewBuckets {
   overdue: DashboardReviewTopic[];
@@ -384,8 +449,8 @@ export function buildDashboardPace(params: {
   return {
     state: 'ready',
     daysRemaining,
-    newTopicsPerDay: Number((params.totalUnstartedTopics / divisor).toFixed(1)),
-    reviewsPerDay: Number((pendingReviews / divisor).toFixed(1)),
+    newTopicsPerDay: params.totalUnstartedTopics / divisor,
+    reviewsPerDay: pendingReviews / divisor,
     unstartedTopics: params.totalUnstartedTopics,
     pendingReviews,
     futureReviewsInWindow: params.futureReviewsInWindow,

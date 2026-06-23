@@ -63,12 +63,12 @@ export const SpacedRepetitionInfoModal: React.FC<SpacedRepetitionInfoModalProps>
                                 <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
                                     <BookOpen className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                                 </div>
-                                <h3 className="font-semibold text-slate-800 dark:text-white">Curva do Esquecimento</h3>
+                                <h3 className="font-semibold text-slate-800 dark:text-white">Por que espaçar as revisões?</h3>
                             </div>
                             <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
-                                Estudos de <strong>Hermann Ebbinghaus (1885)</strong> comprovam que esquecemos ~70% do conteúdo em 24h
-                                se não revisarmos. A repetição espaçada combate isso revisando no momento ideal — quando a memória
-                                está prestes a enfraquecer, mas ainda é recuperável.
+                                A prática distribuída e a recuperação ativa favorecem retenção de longo prazo. Não existe um intervalo
+                                universal perfeito: o melhor espaçamento depende do horizonte de retenção e do desempenho real do aluno.
+                                Por isso, o vouRevisar usa quatro marcos e ajusta a próxima data após cada revisão concluída.
                             </p>
                         </div>
 
@@ -78,14 +78,14 @@ export const SpacedRepetitionInfoModal: React.FC<SpacedRepetitionInfoModalProps>
                                 <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                                     <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                 </div>
-                                <h3 className="font-semibold text-slate-800 dark:text-white">Intervalos Científicos</h3>
+                                <h3 className="font-semibold text-slate-800 dark:text-white">Quatro revisões programadas</h3>
                             </div>
-                            <div className="grid grid-cols-4 gap-3 mt-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
                                 {[
-                                    { label: '24h', desc: 'Consolida memória' },
-                                    { label: '7d', desc: 'Fortalece conexões' },
-                                    { label: '15d', desc: 'Médio prazo' },
-                                    { label: '30d', desc: 'Longo prazo' }
+                                    { label: 'Até 24h', desc: 'Revisão 1' },
+                                    { label: '7 dias', desc: 'Revisão 2' },
+                                    { label: '15–30d', desc: 'Revisão 3' },
+                                    { label: '60–90d', desc: 'Revisão 4' }
                                 ].map((item, i) => (
                                     <div key={i} className="text-center p-3 bg-white dark:bg-slate-700 rounded-lg shadow-sm">
                                         <span className="block text-lg font-bold text-indigo-600 dark:text-indigo-400">{item.label}</span>
@@ -93,6 +93,11 @@ export const SpacedRepetitionInfoModal: React.FC<SpacedRepetitionInfoModalProps>
                                     </div>
                                 ))}
                             </div>
+                            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                                <strong>Fácil, Médio e Difícil sempre avançam a etapa.</strong> A dificuldade, a estabilidade,
+                                o intervalo anterior, a tendência, o atraso e a cobrança do tópico escolhem o ponto mais adequado
+                                dentro da janela. As próximas datas não são previstas antes da revisão atual acontecer.
+                            </p>
                         </div>
 
                         {/* Seção 3: Modo com Data de Prova */}
@@ -109,7 +114,7 @@ export const SpacedRepetitionInfoModal: React.FC<SpacedRepetitionInfoModalProps>
                                 <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
                                     <div className="flex items-start gap-2">
                                         <Zap className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                                        <p><strong>Ajuste por Dificuldade:</strong> Tópicos difíceis são revisados 1-2 dias antes; tópicos fáceis, 1-2 dias depois.</p>
+                                        <p><strong>Ajuste por desempenho:</strong> a dificuldade e o histórico escolhem o lado mais curto ou mais longo da janela atual.</p>
                                     </div>
                                     <div className="flex items-start gap-2">
                                         <Sparkles className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" />
@@ -132,15 +137,15 @@ export const SpacedRepetitionInfoModal: React.FC<SpacedRepetitionInfoModalProps>
                                     </h3>
                                 </div>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    Suas revisões seguem os intervalos padrão. Para ativar otimizações inteligentes,
-                                    <strong> defina sua data de prova no Painel</strong>.
+                                    Suas revisões seguem normalmente as quatro janelas adaptativas. Quando a data for publicada,
+                                    <strong> informe-a no edital</strong>; o sistema recalculará somente as próximas revisões pendentes.
                                 </p>
                             </div>
                         )}
 
                         {/* Referências */}
                         <div className="text-xs text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-200 dark:border-slate-700">
-                            <strong>Referências:</strong> Ebbinghaus (1885), Cepeda et al. (2006), Wozniak - SuperMemo SM-2
+                            <strong>Referências:</strong> Cepeda et al. (2006, 2008) e Karpicke &amp; Roediger (2010).
                         </div>
                     </div>
                 </motion.div>

@@ -621,7 +621,7 @@ export const mergeService = {
     userId: string, 
     editalId: string,
     onProgress?: (progress: { message: string; percentage: number }) => void,
-    options: { emitEvents?: boolean } = {}
+    options: { emitEvents?: boolean; throwOnError?: boolean } = {}
   ): Promise<void> {
     console.log(`[mergeService] Iniciando limpeza de mesclagens para edital ${editalId}...`);
     
@@ -827,6 +827,7 @@ export const mergeService = {
       }
     } catch (err) {
       console.error('[mergeService] Erro na limpeza de mesclagens:', err);
+      if (options.throwOnError) throw err;
     }
   },
 
@@ -835,7 +836,11 @@ export const mergeService = {
    * Garante que se uma matéria unificada perdeu seu ID representante (que era do edital removido),
    * ela seja substituída por um ID remanescente do mesmo grupo de unificação.
    */
-  async syncCycleAfterRemoval(userId: string, editalId: string, options: { emitEvents?: boolean } = {}): Promise<void> {
+  async syncCycleAfterRemoval(
+    userId: string,
+    editalId: string,
+    options: { emitEvents?: boolean; throwOnError?: boolean } = {},
+  ): Promise<void> {
     try {
       console.log(`[mergeService] Iniciando sincronização do ciclo após remoção do edital ${editalId}...`);
       
@@ -948,6 +953,7 @@ export const mergeService = {
       }
     } catch (err) {
       console.error('[mergeService] Erro crítico ao sincronizar ciclo:', err);
+      if (options.throwOnError) throw err;
     }
   },
 
