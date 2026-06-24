@@ -1,5 +1,5 @@
 
-
+import { lazy, Suspense } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,37 +14,39 @@ import { StudentHubProvider } from "@/contexts/StudentHubContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RequireActiveSubscription } from "@/components/RequireActiveSubscription";
 import { AdminRoute } from "@/components/AdminRoute";
-import LandingPage from "@/pages/LandingPage";
-import Dashboard from "@/pages/Dashboard";
-import Subjects from "@/pages/Subjects";
-import Account from "@/pages/Account";
-import Statistics from "@/pages/Statistics";
-import NotFound from "@/pages/NotFound";
-import Login from "@/pages/Login";
-import ResetPassword from "@/pages/ResetPassword";
-import ConfirmEmail from "@/pages/ConfirmEmail";
-import Revisoes from "@/pages/Revisoes";
-import Editais from "@/pages/Editais";
-import Cadernos from "@/pages/Cadernos";
-import Planos from "@/pages/Planos";
-import RevealCardDemo from "@/components/ui/RevealCardDemo";
-import UserManagement from "@/pages/admin/UserManagement";
-import SubscriptionManagement from "@/pages/admin/SubscriptionManagement";
-import SystemErrors from "@/pages/admin/system/SystemErrors";
-import RolesManagement from "@/pages/admin/security/RolesManagement";
-import AuditLogs from "@/pages/admin/AuditLogs";
-import AdminFeedback from "@/pages/admin/AdminFeedback";
-import ToastSpamTest from "@/pages/admin/debug/ToastSpamTest";
-import TrendAnalysis from "@/pages/statistics/TrendAnalysis";
-import ImportanciaProvaAdmin from "@/pages/admin/TendenciaGUT";
-import AdminEditais from "@/pages/admin/AdminEditais";
-import PlanCouponManager from "@/pages/admin/PlanCouponManager";
-import AISettings from "@/pages/admin/AISettings";
-
 import { AuthCallback } from "@/components/AuthCallback";
-import { SimpleRoleTest } from "@/components/SimpleRoleTest";
 
 import { useBrowserCompatibility } from "@/hooks/useBrowserCompatibility";
+
+const LandingPage = lazy(() => import("@/pages/LandingPage"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Subjects = lazy(() => import("@/pages/Subjects"));
+const Account = lazy(() => import("@/pages/Account"));
+const Statistics = lazy(() => import("@/pages/Statistics"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Login = lazy(() => import("@/pages/Login"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const ConfirmEmail = lazy(() => import("@/pages/ConfirmEmail"));
+const Revisoes = lazy(() => import("@/pages/Revisoes"));
+const Editais = lazy(() => import("@/pages/Editais"));
+const Cadernos = lazy(() => import("@/pages/Cadernos"));
+const Planos = lazy(() => import("@/pages/Planos"));
+const RevealCardDemo = lazy(() => import("@/components/ui/RevealCardDemo"));
+const UserManagement = lazy(() => import("@/pages/admin/UserManagement"));
+const SubscriptionManagement = lazy(() => import("@/pages/admin/SubscriptionManagement"));
+const SystemErrors = lazy(() => import("@/pages/admin/system/SystemErrors"));
+const RolesManagement = lazy(() => import("@/pages/admin/security/RolesManagement"));
+const AuditLogs = lazy(() => import("@/pages/admin/AuditLogs"));
+const AdminFeedback = lazy(() => import("@/pages/admin/AdminFeedback"));
+const ToastSpamTest = lazy(() => import("@/pages/admin/debug/ToastSpamTest"));
+const TrendAnalysis = lazy(() => import("@/pages/statistics/TrendAnalysis"));
+const ImportanciaProvaAdmin = lazy(() => import("@/pages/admin/TendenciaGUT"));
+const AdminEditais = lazy(() => import("@/pages/admin/AdminEditais"));
+const PlanCouponManager = lazy(() => import("@/pages/admin/PlanCouponManager"));
+const AISettings = lazy(() => import("@/pages/admin/AISettings"));
+const SimpleRoleTest = lazy(() =>
+  import("@/components/SimpleRoleTest").then(module => ({ default: module.SimpleRoleTest }))
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +56,12 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+const PageFallback = () => (
+  <div className="flex min-h-screen items-center justify-center bg-background text-sm font-semibold text-content-muted">
+    Carregando...
+  </div>
+);
 
 const App = () => {
   // Apply browser compatibility fixes
@@ -83,55 +91,57 @@ const App = () => {
                       stacked={false}
                       toastClassName="!rounded-xl !shadow-lg !font-medium"
                     />
-                    <Routes>
-                      <Route path="/" element={<LandingPage />} />
-                      <Route path="/login" element={<Login />} />
-                      <Route path="/reset-password" element={<ResetPassword />} />
-                      <Route path="/confirm-email" element={<ConfirmEmail />} />
-                      <Route path="/auth/callback" element={<AuthCallback />} />
-                      <Route path="/*" element={<ProtectedRoute />}>
-                        <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
-                          <Route path="dashboard" element={<RequireActiveSubscription><Dashboard /></RequireActiveSubscription>} />
-                          <Route path="meus-editais" element={<RequireActiveSubscription><Editais /></RequireActiveSubscription>} />
-                          <Route path="estatisticas" element={<RequireActiveSubscription><Statistics /></RequireActiveSubscription>} />
-                          <Route path="materias" element={<Navigate to="/ciclo-estudos" replace />} />
-                          <Route path="materias/:subjectId" element={<Navigate to="/ciclo-estudos" replace />} />
-                          <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
-                          <Route path="topicos" element={<Navigate to="/ciclo-estudos" replace />} />
-                          <Route path="subjects" element={<Navigate to="/ciclo-estudos" replace />} />
-                          <Route path="revisoes" element={<RequireActiveSubscription><Revisoes /></RequireActiveSubscription>} />
-                          <Route path="ciclo-estudos" element={<RequireActiveSubscription><Subjects /></RequireActiveSubscription>} />
-                          <Route path="cadernos" element={<RequireActiveSubscription><Cadernos /></RequireActiveSubscription>} />
+                    <Suspense fallback={<PageFallback />}>
+                      <Routes>
+                        <Route path="/" element={<LandingPage />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/reset-password" element={<ResetPassword />} />
+                        <Route path="/confirm-email" element={<ConfirmEmail />} />
+                        <Route path="/auth/callback" element={<AuthCallback />} />
+                        <Route path="/*" element={<ProtectedRoute />}>
+                          <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
+                            <Route path="dashboard" element={<RequireActiveSubscription><Dashboard /></RequireActiveSubscription>} />
+                            <Route path="meus-editais" element={<RequireActiveSubscription><Editais /></RequireActiveSubscription>} />
+                            <Route path="estatisticas" element={<RequireActiveSubscription><Statistics /></RequireActiveSubscription>} />
+                            <Route path="materias" element={<Navigate to="/ciclo-estudos" replace />} />
+                            <Route path="materias/:subjectId" element={<Navigate to="/ciclo-estudos" replace />} />
+                            <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
+                            <Route path="topicos" element={<Navigate to="/ciclo-estudos" replace />} />
+                            <Route path="subjects" element={<Navigate to="/ciclo-estudos" replace />} />
+                            <Route path="revisoes" element={<RequireActiveSubscription><Revisoes /></RequireActiveSubscription>} />
+                            <Route path="ciclo-estudos" element={<RequireActiveSubscription><Subjects /></RequireActiveSubscription>} />
+                            <Route path="cadernos" element={<RequireActiveSubscription><Cadernos /></RequireActiveSubscription>} />
 
-                          {/* Admin Routes - Protected */}
-                          <Route element={<AdminRoute />}>
-                            <Route path="admin/users" element={<UserManagement />} />
-                            <Route path="admin/importancia-prova" element={<ImportanciaProvaAdmin />} />
-                            <Route path="admin/subscription" element={<SubscriptionManagement />} />
-                            <Route path="admin/security/roles" element={<RolesManagement />} />
-                            <Route path="admin/audit" element={<AuditLogs />} />
-                            <Route path="admin/system/errors" element={<SystemErrors />} />
-                            <Route path="admin/feedback" element={<AdminFeedback />} />
-                            <Route path="admin/editais" element={<AdminEditais />} />
-                            <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
-                            <Route path="admin/pricing" element={<PlanCouponManager />} />
-                            <Route path="admin/ai-settings" element={<AISettings />} />
+                            {/* Admin Routes - Protected */}
+                            <Route element={<AdminRoute />}>
+                              <Route path="admin/users" element={<UserManagement />} />
+                              <Route path="admin/importancia-prova" element={<ImportanciaProvaAdmin />} />
+                              <Route path="admin/subscription" element={<SubscriptionManagement />} />
+                              <Route path="admin/security/roles" element={<RolesManagement />} />
+                              <Route path="admin/audit" element={<AuditLogs />} />
+                              <Route path="admin/system/errors" element={<SystemErrors />} />
+                              <Route path="admin/feedback" element={<AdminFeedback />} />
+                              <Route path="admin/editais" element={<AdminEditais />} />
+                              <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
+                              <Route path="admin/pricing" element={<PlanCouponManager />} />
+                              <Route path="admin/ai-settings" element={<AISettings />} />
+                            </Route>
+
+                            {/* Statistics Routes */}
+                            <Route path="estatisticas/tendencia" element={<RequireActiveSubscription><TrendAnalysis /></RequireActiveSubscription>} />
+
+                            <Route path="test-roles" element={<SimpleRoleTest />} />
+                            <Route path="planos" element={<Planos />} />
+                            <Route path="conta" element={<Account />} />
+                            <Route path="perfil" element={<Navigate to="/conta?tab=perfil" replace />} />
+                            <Route path="configuracoes" element={<Navigate to="/conta?tab=configuracoes" replace />} />
+                            <Route path="reveal-cards" element={<RequireActiveSubscription><RevealCardDemo /></RequireActiveSubscription>} />
+
+                          </Route>
                         </Route>
-
-                          {/* Statistics Routes */}
-                          <Route path="estatisticas/tendencia" element={<RequireActiveSubscription><TrendAnalysis /></RequireActiveSubscription>} />
-
-                          <Route path="test-roles" element={<SimpleRoleTest />} />
-                          <Route path="planos" element={<Planos />} />
-                          <Route path="conta" element={<Account />} />
-                          <Route path="perfil" element={<Navigate to="/conta?tab=perfil" replace />} />
-                          <Route path="configuracoes" element={<Navigate to="/conta?tab=configuracoes" replace />} />
-                          <Route path="reveal-cards" element={<RequireActiveSubscription><RevealCardDemo /></RequireActiveSubscription>} />
-
-                        </Route>
-                      </Route>
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
                   </TimerProvider>
                 </AppProvider>
               </AuthProvider>
