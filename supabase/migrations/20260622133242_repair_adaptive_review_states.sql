@@ -7,7 +7,6 @@ set completed = false,
 where completed = true
   and review_count = 4
   and next_review is null;
-
 -- Tópicos iniciados sem agenda ficam disponíveis para uma revisão de
 -- calibração hoje. O motor voltará a produzir métricas após essa sessão real.
 update public.topics

@@ -1,0 +1,130 @@
+
+-- Primeiro remover a função com o nome de parâmetro antigo
+DROP FUNCTION IF EXISTS public.admin_purge_user(uuid);
+
+-- Recriar com o parâmetro p_target_user_id para evitar ambiguidade
+CREATE OR REPLACE FUNCTION public.admin_purge_user(p_target_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_caller_role text;
+  v_target_email text;
+BEGIN
+  -- 1. Verificar se o caller é admin ou owner
+  SELECT role INTO v_caller_role 
+  FROM public.user_roles 
+  WHERE user_id = auth.uid();
+  
+  IF v_caller_role IS NULL OR v_caller_role NOT IN ('owner', 'admin') THEN
+    RAISE EXCEPTION 'Permissão negada. Apenas administradores podem excluir usuários.';
+  END IF;
+
+  -- 2. Verificar se o alvo não é um usuário protegido
+  SELECT email INTO v_target_email 
+  FROM auth.users 
+  WHERE id = p_target_user_id;
+  
+  IF v_target_email IN ('vourevisar@gmail.com', 'darciliok@gmail.com') THEN
+    RAISE EXCEPTION 'Este usuário é protegido e não pode ser excluído.';
+  END IF;
+
+  -- 3. Impedir auto-exclusão
+  IF p_target_user_id = auth.uid() THEN
+    RAISE EXCEPTION 'Não é possível excluir sua própria conta.';
+  END IF;
+
+  -- 4. Deletar dados de TODAS as tabelas com user_id
+  
+  -- Ciclo v2
+  DELETE FROM public.cycle_study_logs WHERE user_id = p_target_user_id;
+  DELETE FROM public.cycle_subject_states WHERE user_id = p_target_user_id;
+  DELETE FROM public.cycle_rotations WHERE cycle_id IN (
+    SELECT id FROM public.study_cycles_v2 WHERE user_id = p_target_user_id
+  );
+  DELETE FROM public.study_cycles_v2 WHERE user_id = p_target_user_id;
+
+  -- Tópicos, Reviews e Question Attempts
+  DELETE FROM public.topic_review_history WHERE user_id = p_target_user_id;
+  DELETE FROM public.topic_merges WHERE user_id = p_target_user_id;
+  DELETE FROM public.question_attempts WHERE user_id = p_target_user_id;
+  
+  DELETE FROM public.topics WHERE subject_id IN (
+    SELECT id FROM public.subjects WHERE user_id = p_target_user_id
+  );
+  
+  -- Subjects
+  DELETE FROM public.subject_merges WHERE user_id = p_target_user_id;
+  DELETE FROM public.subject_relations WHERE user_id = p_target_user_id;
+  DELETE FROM public.pending_merge_suggestions WHERE user_id = p_target_user_id;
+  DELETE FROM public.subjects WHERE user_id = p_target_user_id;
+
+  -- Editais
+  DELETE FROM public.pending_ai_extractions WHERE user_id = p_target_user_id;
+  DELETE FROM public.edital_suggestions WHERE user_id = p_target_user_id;
+  DELETE FROM public.pending_cycle_merges WHERE user_id = p_target_user_id;
+  DELETE FROM public.user_editais WHERE user_id = p_target_user_id;
+
+  -- Legacy Cycle
+  DELETE FROM public.user_cycles WHERE user_id = p_target_user_id;
+
+  -- Sessões e Analytics
+  DELETE FROM public.study_sessions WHERE user_id = p_target_user_id;
+  DELETE FROM public.pomodoro_sessions WHERE user_id = p_target_user_id;
+  DELETE FROM public.active_study_timers WHERE user_id = p_target_user_id;
+  DELETE FROM public.user_study_analytics WHERE user_id = p_target_user_id;
+
+  -- Notas e Lembretes
+  DELETE FROM public.general_notes WHERE user_id = p_target_user_id;
+  DELETE FROM public.general_reminders WHERE user_id = p_target_user_id;
+
+  -- Notificações
+  DELETE FROM public.notifications WHERE user_id = p_target_user_id;
+  DELETE FROM public.user_notifications WHERE user_id = p_target_user_id;
+
+  -- Financeiro
+  DELETE FROM public.coupon_uses WHERE user_id = p_target_user_id;
+  DELETE FROM public.payment_history WHERE user_id = p_target_user_id;
+  DELETE FROM public.user_subscriptions WHERE user_id = p_target_user_id;
+
+  -- Logs e Eventos
+  DELETE FROM public.user_events WHERE user_id = p_target_user_id;
+  DELETE FROM public.api_usage WHERE user_id = p_target_user_id;
+
+  -- Community
+  DELETE FROM public.comments WHERE author_id = p_target_user_id;
+  DELETE FROM public.posts WHERE author_id = p_target_user_id;
+
+  -- Admin & Troubleshooting
+  DELETE FROM public.admin_error_events WHERE target_user_id = p_target_user_id;
+  DELETE FROM public.user_feedback_events WHERE actor_user_id = p_target_user_id;
+
+  -- Configurações e Roles
+  DELETE FROM public.user_settings WHERE user_id = p_target_user_id;
+  DELETE FROM public.user_roles WHERE user_id = p_target_user_id;
+  DELETE FROM public.organization_members WHERE user_id = p_target_user_id;
+  DELETE FROM public.user_difficulty_overview WHERE user_id = p_target_user_id;
+
+  -- Audit Log Final
+  INSERT INTO public.audit_logs (user_id, action, details)
+  VALUES (auth.uid(), 'admin_purge_user', jsonb_build_object(
+    'purged_user_id', p_target_user_id,
+    'purged_email', v_target_email,
+    'purged_at', now()
+  ));
+  
+  DELETE FROM public.audit_logs WHERE user_id = p_target_user_id;
+
+  -- Profile e Auth User
+  DELETE FROM public.profiles WHERE id = p_target_user_id;
+  DELETE FROM auth.users WHERE id = p_target_user_id;
+
+END;
+$$;
+
+-- Permissões
+REVOKE ALL ON FUNCTION public.admin_purge_user(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_purge_user(uuid) TO authenticated;
+;
