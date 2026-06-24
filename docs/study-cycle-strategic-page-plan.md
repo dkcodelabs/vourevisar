@@ -948,9 +948,9 @@ Decisao de produto: flashcards/questoes nao devem ser gerados automaticamente pa
 - [x] Remover alternancia de cor dos topicos que confundia com a cor da materia; linhas de topico usam superficie unica e separacao por borda/hover.
 - [x] Rodar `npm run lint`.
 - [x] Rodar `npm run build` se a mudanca for ampla.
-- [ ] Reduzir a divida de lint do projeto em recorte separado: em 2026-06-17, `npm run lint` terminou sem erros, mas com 671 warnings, principalmente `no-explicit-any` e dependencias ausentes de hooks. Nao misturar a limpeza global com a refatoracao visual da Ciclo; priorizar primeiro warnings nos arquivos tocados pela extracao de `Subjects.tsx`.
+- [ ] Reduzir a divida global de lint apenas no fechamento da aplicacao, quando os fluxos principais estiverem prontos: em 2026-06-23, `npm run lint` terminou sem erros, mas com 654 warnings, principalmente `no-explicit-any`, dependencias ausentes de hooks e alguns avisos de fast refresh/cleanup de refs. Nao misturar essa limpeza com polimento visual ou feature ativa. Fazer em fases: primeiro arquivos recentemente tocados, depois hooks com risco de estado obsoleto, depois services criticos (`mergeService`, `gutCalculator`, incidencia/catalogo), e por ultimo Edge Functions (`extract-edital`, `process-topic-incidence`) com testes/deploy separados.
 - [ ] Adicionar testes de componente/integracao para a pagina de ciclo durante a refatoracao de `Subjects.tsx`: hoje a cobertura automatizada do ciclo esta concentrada nos utilitarios estrategicos e nao protege renderizacao, interacoes da fila, modos responsivos e CTAs contra regressao.
-- [ ] Avaliar divisao de bundle em recorte proprio: em 2026-06-17, o build de producao gerou o chunk principal com cerca de 3,0 MB minificado (819,7 kB gzip) e alertou para chunks acima de 500 kB. Medir antes de alterar e evitar misturar otimizacao de carregamento com mudancas visuais.
+- [x] Avaliar e corrigir divisao de bundle em recorte proprio: em 2026-06-23, o `App.tsx` passou a lazy-load de paginas por rota, o import dinamico redundante de `gutCalculator` foi removido e o Vite recebeu `manualChunks` para vendors principais. `npm run build` passou sem aviso de chunk acima de 500 kB, sem warning de import misto e sem circular chunk.
 
 ## Riscos conhecidos
 

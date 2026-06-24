@@ -159,9 +159,6 @@ export function AutomationSimulator({
         const loadLast = async () => {
             await updateQuota()
 
-            const supabase = (await import('@/services/gutCalculator')).getSupabaseClient()
-            if (!supabase) return
-
             const { data } = await supabase
                 .from('topics')
                 .select(`
