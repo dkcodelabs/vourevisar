@@ -95,4 +95,4 @@ comment on column public.topics.incidence_score is
   'Nota normalizada de cobranca entre 1 e 5, comparada dentro da materia do edital.';
 
 comment on column public.topics.incidence_level is
-  'Faixa consultavel de cobranca: low, medium ou high.';
+  'Faixa consultavel de cobranca: low, medium ou high.';;

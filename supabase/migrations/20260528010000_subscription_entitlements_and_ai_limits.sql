@@ -58,7 +58,6 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
-
 CREATE OR REPLACE FUNCTION public.get_user_ai_limits(p_user_id uuid)
 RETURNS json
 LANGUAGE plpgsql
@@ -192,10 +191,8 @@ BEGIN
   );
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.get_user_ai_limits(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_user_ai_limits(uuid) TO authenticated, service_role;
-
 CREATE OR REPLACE FUNCTION public.get_subscription_info(check_user_id uuid DEFAULT NULL)
 RETURNS json
 LANGUAGE plpgsql
@@ -293,17 +290,14 @@ BEGIN
   );
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.get_subscription_info(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_subscription_info(uuid) TO authenticated, service_role;
-
 UPDATE public.plan_configs
 SET
   description = 'Acesso completo sem fidelidade, cancele quando quiser.',
   features = '["Acesso completo ao app", "5 extrações com IA por mês", "Catálogo e criação manual sem limite", "Suporte prioritário"]'::jsonb,
   updated_at = NOW()
 WHERE slug = 'monthly';
-
 UPDATE public.plan_configs
 SET
   description = 'Acesso completo por 12 meses, mais economia e mais créditos de IA.',
