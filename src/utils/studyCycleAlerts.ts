@@ -5,6 +5,7 @@ import {
   hasSubjectExamWeight,
 } from '@/utils/examWeight';
 import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
+import { getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
 
 type AlertTopic = {
   id: string;
@@ -19,6 +20,7 @@ type AlertTopic = {
   first_studied_at?: string | null;
   total_volume?: number | null;
   is_active?: boolean;
+  is_hidden?: boolean | null;
 };
 
 type AlertSubject = {
@@ -92,7 +94,7 @@ const isTopicStarted = (topic: AlertTopic) =>
   isTopicCompleted(topic);
 
 const activeTopics = (subject: AlertSubject) =>
-  subject.topics.filter(topic => topic.is_active !== false);
+  getVisibleCycleTopics(subject.topics);
 
 const formatPercent = (value: number) =>
   `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;

@@ -105,6 +105,7 @@ export interface UserCycle {
   id: string;
   user_id: string;
   name?: string | null;
+  exam_date?: string | null;
   status: 'active' | 'completed' | 'archived';
   ciclo_atual: string[];
   disciplinas_do_dia: string[];

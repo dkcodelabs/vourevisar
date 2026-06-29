@@ -69,6 +69,37 @@ export function normalizeText(text: string): string {
     .trim();
 }
 
+function singularizeSafeToken(token: string): string {
+  if (token.length <= 4 || !token.endsWith('s')) return token;
+  if (token.endsWith('oes')) return `${token.slice(0, -3)}ao`;
+  if (token.endsWith('ais')) return `${token.slice(0, -3)}al`;
+  if (token.endsWith('eis')) return `${token.slice(0, -3)}el`;
+  if (token.endsWith('is')) return `${token.slice(0, -2)}il`;
+  return token.slice(0, -1);
+}
+
+function normalizeSafeTopicName(name: string): string {
+  return normalizeText(name)
+    .split(' ')
+    .filter(Boolean)
+    .map(singularizeSafeToken)
+    .join(' ');
+}
+
+/**
+ * Deterministic guard for topic merge suggestions.
+ * Automatic topic merge only happens when names are equal after conservative
+ * normalization. AI suggestions that are merely semantic remain individual.
+ */
+export function isSafeSemanticTopicMerge(topicNames: string[]): boolean {
+  const validNames = topicNames.map(name => name.trim()).filter(Boolean);
+  if (validNames.length < 2) return false;
+
+  const normalized = validNames.map(normalizeSafeTopicName);
+  const first = normalized[0];
+  return Boolean(first) && normalized.every(name => name === first);
+}
+
 /**
  * Normalização robusta e agressiva:
  * 1. Remove acentos e caracteres especiais.
@@ -411,7 +442,7 @@ export async function performHybridMerge(
     const exactResult = performExactMerge(existingSubjects, newSubjects);
     
     onPhaseChange?.('ai');
-    onProgress?.({ message: 'Analisando equivalências semânticas com IA...' });
+    onProgress?.({ message: 'Analisando equivalências semânticas...' });
     const { results: semanticResults, status: aiStatus } = await performSemanticMerge(exactResult.matched, exactResult.unmatchedExisting, exactResult.unmatchedNew);
 
     const unificationMap = buildUnificationMap(
@@ -444,7 +475,10 @@ export async function performHybridMerge(
         semanticMatches: semanticResults.length, 
         standaloneSubjects: unificationMap.standaloneSubjectIds.length,
         totalSubjectsInCycle: finalSubjectIds.length,
-        aiStatus
+        aiStatus,
+        aiWarning: aiStatus === 'error'
+          ? 'A IA não conseguiu analisar equivalências entre matérias. Mantivemos apenas unificações seguras por nomes idênticos.'
+          : undefined,
       } 
     };
   } catch (err) {
@@ -457,7 +491,14 @@ export async function performHybridMerge(
         unifiedSubjects: [], createdAt: new Date().toISOString(), standaloneSubjectIds: allSubjectIds
       },
       finalSubjectIds: allSubjectIds,
-      stats: { exactMatches: 0, semanticMatches: 0, standaloneSubjects: allSubjectIds.length, totalSubjectsInCycle: allSubjectIds.length, aiStatus: 'error' }
+      stats: {
+        exactMatches: 0,
+        semanticMatches: 0,
+        standaloneSubjects: allSubjectIds.length,
+        totalSubjectsInCycle: allSubjectIds.length,
+        aiStatus: 'error',
+        aiWarning: 'A preparação inteligente falhou. Mantivemos o ciclo seguro, sem apagar matérias nem tópicos.',
+      }
     };
   }
 }
@@ -572,65 +613,69 @@ Retorne um JSON no formato: { "groups": [ { "originalTopicsToMerge": ["ID1", "ID
 
   const fullPrompt = basePrompt.replace('{{subject}}', subjectName) + `\n\nLista de Tópicos:\n${topicList}`;
 
-  try {
-    console.log(`[IA] Chamando agrupamento sequencial para: ${subjectName} (${topics.length} tópicos)`);
-    
-    const { data, error } = await supabase.functions.invoke('ai-handler', {
-      body: { 
-        action: 'generateContent', 
-        prompt: fullPrompt,
-        model: 'gemini-2.5-flash'
-      },
-    });
+  console.log(`[IA] Chamando agrupamento sequencial para: ${subjectName} (${topics.length} tópicos)`);
 
-    if (error) throw error;
-    if (!data?.success) throw new Error(data?.error || 'Erro desconhecido na Edge Function');
+  const { data, error } = await supabase.functions.invoke('ai-handler', {
+    body: {
+      action: 'generateContent',
+      prompt: fullPrompt,
+      model: 'gemini-2.5-flash'
+    },
+  });
 
-    const text = (data.text || '');
-    console.log(`[IA] Resposta bruta da IA (Topicos-Módulo 2) para "${subjectName}":`, text.substring(0, 100));
-    
-    interface AITopicGroup {
-      originalTopicIds?: string[];
-      originalTopicsToMerge?: string[];
-      suggestedName?: string;
-      suggestedTopicName?: string;
-    }
+  if (error) throw error;
+  if (!data?.success) throw new Error(data?.error || 'Erro desconhecido na Edge Function');
 
-    const parsed = extractJsonFromText(text) as { groups: AITopicGroup[] } | null;
-    
-    if (!parsed || !parsed.groups || !Array.isArray(parsed.groups)) return [];
+  const text = (data.text || '');
+  console.log(`[IA] Resposta bruta da IA (Topicos-Módulo 2) para "${subjectName}":`, text.substring(0, 100));
 
-    const mappings: UnifiedTopicMapping[] = [];
-    const usedTopicIds = new Set<string>();
-
-    for (const group of parsed.groups) {
-      const originalIds = group.originalTopicIds || group.originalTopicsToMerge || [];
-      const suggestedName = group.suggestedName || group.suggestedTopicName;
-
-      if (!originalIds.length || !suggestedName) continue;
-
-      // Filtrar IDs que realmente pertencem a esta matéria e não foram usados
-      const matchingTopics = topics.filter(t => originalIds.includes(t.id) && !usedTopicIds.has(t.id));
-
-      // Só criar mapeamento se houver pelo menos 2 tópicos para mesclar
-      if (matchingTopics.length >= 2) {
-        const sourceEditalIds = Array.from(new Set(matchingTopics.map(t => t.edital_id).filter(Boolean))) as string[];
-        mappings.push({
-          displayName: suggestedName,
-          originalTopicIds: matchingTopics.map(t => t.id),
-          originalSubjectIds: [...new Set(matchingTopics.map(t => t.subject_id))],
-          sourceEditalIds,
-          matchType: 'semantic'
-        });
-        matchingTopics.forEach(t => usedTopicIds.add(t.id));
-      }
-    }
-
-    return mappings;
-  } catch (e) {
-    console.error(`[IA] Erro na matéria ${subjectName}:`, e);
-    return [];
+  interface AITopicGroup {
+    originalTopicIds?: string[];
+    originalTopicsToMerge?: string[];
+    suggestedName?: string;
+    suggestedTopicName?: string;
   }
+
+  const parsed = extractJsonFromText(text) as { groups: AITopicGroup[] } | null;
+
+  if (!parsed || !parsed.groups || !Array.isArray(parsed.groups)) return [];
+
+  const mappings: UnifiedTopicMapping[] = [];
+  const usedTopicIds = new Set<string>();
+
+  for (const group of parsed.groups) {
+    const originalIds = group.originalTopicIds || group.originalTopicsToMerge || [];
+    const suggestedName = group.suggestedName || group.suggestedTopicName;
+
+    if (!originalIds.length || !suggestedName) continue;
+
+    // Filtrar IDs que realmente pertencem a esta matéria e não foram usados
+    const matchingTopics = topics.filter(t => originalIds.includes(t.id) && !usedTopicIds.has(t.id));
+
+    // Só criar mapeamento se houver pelo menos 2 tópicos para mesclar
+    if (matchingTopics.length >= 2) {
+      const topicNames = matchingTopics.map(t => t.name);
+      if (!isSafeSemanticTopicMerge(topicNames)) {
+        console.warn('[TopicMerge] Sugestão semântica bloqueada por regra segura:', {
+          suggestedName,
+          topicNames,
+        });
+        continue;
+      }
+
+      const sourceEditalIds = Array.from(new Set(matchingTopics.map(t => t.edital_id).filter(Boolean))) as string[];
+      mappings.push({
+        displayName: suggestedName,
+        originalTopicIds: matchingTopics.map(t => t.id),
+        originalSubjectIds: [...new Set(matchingTopics.map(t => t.subject_id))],
+        sourceEditalIds,
+        matchType: 'semantic'
+      });
+      matchingTopics.forEach(t => usedTopicIds.add(t.id));
+    }
+  }
+
+  return mappings;
 }
 
 export async function performFullTopicMerge(
@@ -644,6 +689,7 @@ export async function performFullTopicMerge(
 ): Promise<TopicMergePhaseResult> {
   const groups: TopicGroupResult[] = [];
   let overallAiError = false;
+  let aiErrorGroupCount = 0;
   
   onPhaseChange?.('exact');
   const pendingAISuggestions: Array<{
@@ -660,7 +706,9 @@ export async function performFullTopicMerge(
       const total = unificationMap.unifiedSubjects.length;
       const percentage = Math.round((current / total) * 100);
       onProgress({
-        message: `Processando tópicos: ${unified.displayName}...`,
+        message: total > 1
+          ? `Processando grupos de tópicos (${current} de ${total})...`
+          : 'Processando tópicos equivalentes...',
         current,
         total,
         percentage
@@ -742,9 +790,10 @@ export async function performFullTopicMerge(
           }
         });
       } catch (err) {
-        console.error(`[IA] Erro na matéria ${unified.displayName}:`, err);
+        console.warn(`[IA] Agrupamento por IA indisponível para ${unified.displayName}. Usando fallback determinístico.`, err);
         aiStatus = 'error';
         overallAiError = true;
+        aiErrorGroupCount += 1;
         // Fallback: Standalone
         unmatchedTopics.forEach(t => {
           aiMappings.push({
@@ -813,7 +862,15 @@ export async function performFullTopicMerge(
     }
   }
 
-  return { groups, overallAiStatus: overallAiError ? 'error' : (groups.some(g => g.aiUsed) ? 'success' : 'skipped') };
+  const overallAiStatus = overallAiError ? 'error' : (groups.some(g => g.aiUsed) ? 'success' : 'skipped');
+
+  return {
+    groups,
+    overallAiStatus,
+    aiWarning: overallAiError
+      ? `A IA não conseguiu analisar tópicos em ${aiErrorGroupCount} ${aiErrorGroupCount === 1 ? 'matéria' : 'matérias'}. Mantivemos a mesclagem segura apenas por nomes idênticos.`
+      : undefined,
+  };
 }
 
 export function applyTopicMergeToMap(unificationMap: CycleUnificationMap, result: TopicMergePhaseResult): CycleUnificationMap {
@@ -856,8 +913,8 @@ export async function persistPhysicalSoftMerge(unificationMap: CycleUnificationM
 }
 
 export function findSiblingTopicIds(completedTopicId: string, map: CycleUnificationMap | null): string[] {
-  if (!map) return [];
-  for (const s of map.unifiedSubjects) for (const tm of s.topicMappings) {
+  if (!map || !Array.isArray(map.unifiedSubjects)) return [];
+  for (const s of map.unifiedSubjects) for (const tm of s.topicMappings || []) {
     if (tm.originalTopicIds.includes(completedTopicId)) return tm.originalTopicIds.filter(id => id !== completedTopicId);
   }
   return [];
@@ -893,7 +950,7 @@ export async function registerDualProgress(id: string, data: Partial<Topic>, map
 }
 
 export function findSiblingSubjectIds(subjectId: string, map: CycleUnificationMap | null): string[] {
-  if (!map) return [];
+  if (!map || !Array.isArray(map.unifiedSubjects)) return [];
   for (const u of map.unifiedSubjects) {
     if (u.originalSubjectIds.includes(subjectId)) {
       return u.originalSubjectIds.filter(id => id !== subjectId);

@@ -46,10 +46,10 @@ describe('getPaceBannerAction', () => {
     });
   });
 
-  it('routes a missing cycle to cycle setup', () => {
+  it('routes a missing cycle to edital management', () => {
     expect(getPaceBannerAction('missing_cycle')).toEqual({
-      label: 'Abrir Ciclo de Estudos',
-      href: '/ciclo-estudos',
+      label: 'Carregar edital no ciclo',
+      href: '/meus-editais',
     });
   });
 });
@@ -247,6 +247,22 @@ describe('getChargeCoverageState', () => {
 });
 
 describe('buildNextBestAction', () => {
+  it('routes missing cycle setup to edital management', () => {
+    const action = buildNextBestAction({
+      overdueReviews: [],
+      todayReviews: [],
+      cycleActions: [],
+      strategicActions: [],
+      hasActiveCycle: false,
+    });
+
+    expect(action).toMatchObject({
+      kind: 'load_cycle',
+      primaryLabel: 'Ir para Meus Editais',
+      primaryHref: '/meus-editais',
+    });
+  });
+
   it('prioritizes overdue review before cycle topic', () => {
     const action = buildNextBestAction({
       overdueReviews: [reviewTopic({ id: 'overdue' })],

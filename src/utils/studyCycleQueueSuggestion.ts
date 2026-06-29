@@ -3,10 +3,12 @@ import {
   getSubjectExamWeightPercentage,
   hasSubjectExamWeight,
 } from '@/utils/examWeight';
+import { getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
 
 type QueueTopic = {
   id: string;
   is_active?: boolean;
+  is_hidden?: boolean | null;
   total_volume?: number | null;
   firstStudiedAt?: Date | string | null;
   first_studied_at?: string | null;
@@ -49,7 +51,7 @@ type GetStudyCycleQueueSuggestionInput = {
 };
 
 const activeTopics = (subject: QueueSubject) =>
-  subject.topics.filter(topic => topic.is_active !== false);
+  getVisibleCycleTopics(subject.topics);
 
 const isTopicCompleted = (topic: QueueTopic) =>
   topic.completed === true ||

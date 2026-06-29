@@ -33,11 +33,12 @@ interface PreviewColumnProps {
     description: string;
     expanded: boolean;
     isUnifiedResult: boolean;
+    sourceNameById: Map<string, string>;
     subjects: CycleMergeComparisonSubject[];
     title: string;
 }
 
-function PreviewColumn({ description, expanded, isUnifiedResult, subjects, title }: PreviewColumnProps) {
+function PreviewColumn({ description, expanded, isUnifiedResult, sourceNameById, subjects, title }: PreviewColumnProps) {
     const Icon = isUnifiedResult ? Merge : Layers3;
 
     return (
@@ -58,28 +59,42 @@ function PreviewColumn({ description, expanded, isUnifiedResult, subjects, title
             <div className="flex flex-1 flex-col gap-1.5 p-2 lg:max-h-[30rem] lg:overflow-y-auto">
                 {subjects.map(subject => {
                     const subjectTestId = `${isUnifiedResult ? 'unified' : 'individual'}-subject-${subject.id}`;
+                    const sourceLabel = subject.sourceEditalIds
+                        .map(sourceId => sourceNameById.get(sourceId))
+                        .filter((name): name is string => Boolean(name))
+                        .join(' + ') || 'Edital não identificado';
 
                     return (
-                    <div key={subject.id} data-testid={subjectTestId} className="overflow-hidden rounded-lg border border-border/60 bg-background/45">
+                    <div key={subject.id} data-testid={subjectTestId} className="shrink-0 overflow-hidden rounded-lg border border-border/60 bg-background/45">
                         <div
                             data-testid={isUnifiedResult && subject.isUnified ? `unified-subject-header-${subject.id}` : undefined}
                             className={subject.isUnified && isUnifiedResult
-                                ? 'flex w-full min-w-0 items-center gap-2 border-b border-success/20 bg-success/[0.07] px-2.5 py-1.5 text-left'
-                                : 'flex w-full min-w-0 items-center gap-2 px-2.5 py-1.5 text-left'}
+                                ? 'flex w-full min-w-0 items-start gap-2 border-b border-success/20 bg-success/[0.07] px-2.5 py-1.5 text-left'
+                                : 'flex w-full min-w-0 items-start gap-2 px-2.5 py-1.5 text-left'}
                         >
                             <BookOpen
                                 size={13}
                                 aria-hidden="true"
-                                className={subject.isUnified && isUnifiedResult ? 'shrink-0 text-success' : 'shrink-0 text-content-muted'}
+                                className={subject.isUnified && isUnifiedResult ? 'mt-0.5 shrink-0 text-success' : 'mt-0.5 shrink-0 text-content-muted'}
                             />
-                            <span className="truncate text-[11px] font-black uppercase tracking-[0.04em] text-foreground">
-                                {subject.name}
-                            </span>
-                            {subject.isUnified && isUnifiedResult && (
-                                <span className="ml-auto shrink-0 text-[9px] font-bold text-success/80">
-                                    {subject.sourceCount} origens
+                            <div className="min-w-0 flex-1">
+                                <span
+                                    data-testid={`${isUnifiedResult ? 'unified' : 'individual'}-subject-edital-${subject.id}`}
+                                    className="block break-words text-[8px] font-black uppercase leading-3 tracking-[0.1em] text-primary/75"
+                                >
+                                    {sourceLabel}
                                 </span>
-                            )}
+                                <div className="mt-0.5 flex min-w-0 items-start gap-2">
+                                    <span className="min-w-0 flex-1 break-words text-[11px] font-black uppercase leading-4 tracking-[0.04em] text-foreground">
+                                        {subject.name}
+                                    </span>
+                                    {subject.isUnified && isUnifiedResult && (
+                                        <span className="shrink-0 pt-0.5 text-[9px] font-bold text-success/80">
+                                            {subject.sourceCount} origens
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         {expanded && <div data-testid={`${isUnifiedResult ? 'unified' : 'individual'}-topics-${subject.id}`} className="flex flex-col gap-0.5 px-2 pb-1.5 pl-4 pt-0.5">
@@ -93,8 +108,8 @@ function PreviewColumn({ description, expanded, isUnifiedResult, subjects, title
                                 >
                                     <CornerDownRight size={10} aria-hidden="true" className="shrink-0 opacity-65" />
                                     <span className={topic.isUnified && isUnifiedResult
-                                        ? 'truncate text-[9.5px] font-semibold leading-3 text-success'
-                                        : 'truncate text-[9.5px] font-semibold leading-3'}
+                                        ? 'min-w-0 flex-1 break-words text-[10px] font-semibold leading-4 text-success [text-wrap:pretty]'
+                                        : 'min-w-0 flex-1 break-words text-[10px] font-semibold leading-4 text-foreground/75 [text-wrap:pretty]'}
                                     >
                                         {topic.name}
                                     </span>
@@ -137,6 +152,9 @@ export function CycleMergeComparison({
         }
         return [...byId.values()];
     }, [editalName, editalSources, position]);
+    const sourceNameById = useMemo(() => (
+        new Map(visibleSources.map(source => [source.id, source.name]))
+    ), [visibleSources]);
 
     return (
         <div className="space-y-3 py-1">
@@ -186,13 +204,14 @@ export function CycleMergeComparison({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div data-testid="cycle-merge-preview-grid" className="grid grid-cols-1 gap-3 pb-20 lg:grid-cols-2">
                 <PreviewColumn
                     title="Manter itens individuais"
                     description="Tudo fica junto no ciclo, mas nomes equivalentes continuam aparecendo como matérias e tópicos diferentes."
                     subjects={comparison.individualSubjects}
                     expanded={isExpanded}
                     isUnifiedResult={false}
+                    sourceNameById={sourceNameById}
                 />
                 <PreviewColumn
                     title="Unificar equivalentes"
@@ -200,6 +219,7 @@ export function CycleMergeComparison({
                     subjects={comparison.unifiedSubjects}
                     expanded={isExpanded}
                     isUnifiedResult
+                    sourceNameById={sourceNameById}
                 />
             </div>
 

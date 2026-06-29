@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCycleMergeSources, buildCycleNameCandidates, buildCycleOriginSources } from '@/components/editais/cycleMergeNaming';
+import {
+    buildCycleMergeSources,
+    buildCycleNameCandidates,
+    buildCycleOriginSources,
+    chooseDefaultCycleExamDate,
+} from '@/components/editais/cycleMergeNaming';
 
 describe('cycleMergeNaming', () => {
     it('builds unique edital sources and puts the combined cycle name first', () => {
@@ -41,5 +46,32 @@ describe('cycleMergeNaming', () => {
         expect(origins).toEqual([
             { id: 'pmes', name: 'PMES', subjectIds: ['subject-in-cycle'] },
         ]);
+    });
+
+    it('chooses the nearest valid future exam date for a composite cycle', () => {
+        const date = chooseDefaultCycleExamDate(
+            [
+                { examDate: '2026-10-20' },
+                { examDate: '2026-08-15' },
+                { examDate: 'invalid-date' },
+                { examDate: null },
+            ],
+            new Date('2026-06-26T12:00:00'),
+        );
+
+        expect(date).toBe('2026-08-15');
+    });
+
+    it('keeps the most recent past date when no future date exists', () => {
+        const date = chooseDefaultCycleExamDate(
+            [
+                { examDate: '2026-01-20' },
+                { examDate: '2026-03-15' },
+                { examDate: '2025-12-01' },
+            ],
+            new Date('2026-06-26T12:00:00'),
+        );
+
+        expect(date).toBe('2026-03-15');
     });
 });

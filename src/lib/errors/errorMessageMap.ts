@@ -16,6 +16,8 @@ export const errorMessageMap: Record<string, string> = {
 
     // Erros de Rede / Fetch
     'TypeError: Failed to fetch': 'Não foi possível conectar ao servidor. Verifique sua conexão.',
+    'Failed to send a request to the Edge Function': 'Não foi possível conectar ao servidor agora. Confira sua internet e tente novamente.',
+    'ERR_CERT_AUTHORITY_INVALID': 'Não consegui validar a conexão segura com o servidor. Desative VPN/proxy/antivírus com inspeção HTTPS ou tente outra rede.',
     'NetworkError': 'Erro de conexão. Tente novamente.',
     'AbortError': 'A requisição demorou muito e foi cancelada.',
 

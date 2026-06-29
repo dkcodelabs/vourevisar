@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { isVisibleCycleTopic } from '@/utils/studyCycleTopicVisibility';
 
 export interface SubjectCycleActivity {
   subjectId: string;
@@ -55,6 +56,19 @@ const EMPTY: CycleStatsData = {
   error: null,
 };
 
+type CycleReviewHistoryRow = {
+  reviewed_at: string;
+  difficulty_numeric: number | null;
+  topic_id: string | null;
+  topics:
+    | {
+        id: string;
+        subject_id: string;
+        subjects: { id: string; name: string } | null;
+      }
+    | null;
+};
+
 export function useCycleStatsData(open: boolean) {
   const { user } = useAuth();
   const [data, setData] = useState<CycleStatsData>(EMPTY);
@@ -91,20 +105,20 @@ export function useCycleStatsData(open: boolean) {
       if (cycloAtualIds.length > 0) {
         const [{ data: subjectsData, error: subErr }, { data: topicsData, error: topicsErr }] = await Promise.all([
           supabase.from('subjects').select('id, name').in('id', cycloAtualIds),
-          supabase.from('topics').select('id').in('subject_id', cycloAtualIds).neq('is_active', false),
+          supabase.from('topics').select('id, is_active, is_hidden').in('subject_id', cycloAtualIds),
         ]);
 
         if (subErr) throw subErr;
         if (topicsErr) throw topicsErr;
 
         allSubjects = subjectsData ?? [];
-        activeTopicIds = (topicsData ?? []).map((topic) => topic.id);
+        activeTopicIds = (topicsData ?? []).filter(isVisibleCycleTopic).map((topic) => topic.id);
       }
 
       const totalSubjects = allSubjects.length;
 
       // 4. Histórico de revisões desde o início do ciclo
-      let reviews: any[] = [];
+      let reviews: CycleReviewHistoryRow[] = [];
       if (activeTopicIds.length > 0) {
         let reviewQuery = supabase
           .from('topic_review_history')
@@ -127,13 +141,13 @@ export function useCycleStatsData(open: boolean) {
 
         const { data: reviewsData, error: revErr } = await reviewQuery.order('reviewed_at', { ascending: true });
         if (revErr) throw revErr;
-        reviews = reviewsData ?? [];
+        reviews = (reviewsData ?? []) as CycleReviewHistoryRow[];
       }
 
       // 5. Agrupar por matéria
       const subjectMap = new Map<string, SubjectCycleActivity>();
 
-      reviews.forEach((rev: any) => {
+      reviews.forEach((rev) => {
         const subject = rev.topics?.subjects;
         if (!subject) return;
 
@@ -165,7 +179,7 @@ export function useCycleStatsData(open: boolean) {
 
       // 5b. Calcular tópicos distintos por matéria
       const topicsBySubject = new Map<string, Set<string>>();
-      reviews.forEach((rev: any) => {
+      reviews.forEach((rev) => {
         const sid = rev.topics?.subjects?.id;
         const tid = rev.topic_id;
         if (!sid || !tid) return;
@@ -226,7 +240,7 @@ export function useCycleStatsData(open: boolean) {
         error: null,
       });
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[useCycleStatsData]', err);
       setData(prev => ({ ...prev, isLoading: false, error: 'Erro ao carregar estatísticas.' }));
     }

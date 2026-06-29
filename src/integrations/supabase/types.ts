@@ -1946,6 +1946,7 @@ export type Database = {
           ciclos_realizados: number | null
           created_at: string | null
           data_fim_ciclo: string | null
+          exam_date: string | null
           data_inicio_ciclo: string | null
           data_ultimo_reset: string | null
           disciplinas_do_dia: string[] | null
@@ -1968,6 +1969,7 @@ export type Database = {
           ciclos_realizados?: number | null
           created_at?: string | null
           data_fim_ciclo?: string | null
+          exam_date?: string | null
           data_inicio_ciclo?: string | null
           data_ultimo_reset?: string | null
           disciplinas_do_dia?: string[] | null
@@ -1990,6 +1992,7 @@ export type Database = {
           ciclos_realizados?: number | null
           created_at?: string | null
           data_fim_ciclo?: string | null
+          exam_date?: string | null
           data_inicio_ciclo?: string | null
           data_ultimo_reset?: string | null
           disciplinas_do_dia?: string[] | null
@@ -2513,6 +2516,8 @@ export type Database = {
       }
       atomic_cycle_load: {
         Args: {
+          p_cycle_name?: string | null
+          p_exam_date?: string | null
           p_mode: string
           p_new_edital_id: string
           p_new_subject_ids: string[]
@@ -2523,6 +2528,15 @@ export type Database = {
       }
       atomic_cycle_unload_or_delete: {
         Args: { p_edital_id: string; p_user_id: string }
+        Returns: Json
+      }
+      sync_topic_merge_progress: {
+        Args: {
+          p_history?: Json | null
+          p_progress: Json
+          p_topic_id: string
+          p_user_id: string
+        }
         Returns: Json
       }
       calculate_difficulty_points: {

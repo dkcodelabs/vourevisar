@@ -14,7 +14,7 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
-import { fetchTopicReviewStats } from './topicReviewService';
+import { fetchTopicReviewStudyMinutes, fetchTopicReviewStats } from './topicReviewService';
 
 describe('topicReviewService', () => {
   beforeEach(() => {
@@ -52,5 +52,23 @@ describe('topicReviewService', () => {
     const result = await fetchTopicReviewStats(ids);
 
     expect(result.get('topic-151')).toEqual({ reviewCount: 2, hardReviewCount: 1 });
+  });
+
+  it('sums study duration by topic from review history', async () => {
+    supabaseMock.inMock.mockResolvedValue({
+      data: [
+        { topic_id: 'topic-1', study_duration_minutes: 20 },
+        { topic_id: 'topic-1', study_duration_minutes: 15 },
+        { topic_id: 'topic-2', study_duration_minutes: null },
+        { topic_id: 'topic-2', study_duration_minutes: 30 },
+      ],
+      error: null,
+    });
+
+    const result = await fetchTopicReviewStudyMinutes(['topic-1', 'topic-2']);
+
+    expect(supabaseMock.selectMock).toHaveBeenCalledWith('topic_id, study_duration_minutes');
+    expect(result.get('topic-1')).toBe(35);
+    expect(result.get('topic-2')).toBe(30);
   });
 });

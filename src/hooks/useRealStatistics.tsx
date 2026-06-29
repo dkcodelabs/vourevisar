@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { supabase } from '@/integrations/supabase/client';
-import { 
+import {
   isToday, 
   isBefore, 
   isAfter, 
@@ -19,6 +19,8 @@ import {
   getHours
 } from 'date-fns';
 import { Subject, Topic } from '@/types';
+import { isVisibleCycleTopic, getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
+import { getStatisticsStudyTime } from '@/utils/statisticsStudyTime';
 
 export interface RealStatisticsData {
   // Visão Geral
@@ -163,8 +165,8 @@ interface UserAnalytics {
   maior_streak: number;
   total_sessoes: number;
   total_horas_estudadas: number;
-  materias_favoritas?: any;
-  produtividade_por_horario?: any;
+  materias_favoritas?: unknown;
+  produtividade_por_horario?: unknown;
   melhor_dia_semana: number;
   pior_dia_semana: number;
   horario_mais_produtivo: number;
@@ -178,6 +180,19 @@ interface PomodoroSession {
   total_minutes_studied: number;
 }
 
+type ReviewHistoryStudyRow = {
+  topic_id: string | null;
+  reviewed_at: string | null;
+  study_duration_minutes: number | null;
+  topics: { subject_id: string | null } | null;
+};
+
+type DifficultyTopicInsight = {
+  name: string;
+  difficulty: number;
+  subject: string;
+};
+
 export interface StatisticsFilter {
   type: 'all' | 'cycle' | 'edital';
   id?: string;
@@ -190,6 +205,9 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
   const [userAnalytics, setUserAnalytics] = useState<UserAnalytics | null>(null);
   const [pomodoroSessions, setPomodoroSessions] = useState<PomodoroSession[]>([]);
+  const [reviewHistoryStudyMinutes, setReviewHistoryStudyMinutes] = useState(0);
+  const [reviewHistoryStudyDates, setReviewHistoryStudyDates] = useState<string[]>([]);
+  const [reviewHistoryStudyMinutesBySubject, setReviewHistoryStudyMinutesBySubject] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
@@ -222,11 +240,25 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
       try {
         const activeCycleSubjectIds =
           filter.type === 'cycle' && Array.isArray(userCycle?.ciclo_atual) ? (userCycle.ciclo_atual as string[]) : [];
+        let activeCycleTopicIds: string[] = [];
 
         // Determinar ID do ciclo para filtragem
         const effectiveCycleId = filter.type === 'cycle' 
           ? (filter.id || userCycle?.id) 
           : null;
+
+        if (filter.type === 'cycle' && activeCycleSubjectIds.length > 0) {
+          const { data: topicScopeData, error: topicScopeError } = await supabase
+            .from('topics')
+            .select('id, is_active, is_hidden')
+            .in('subject_id', activeCycleSubjectIds);
+
+          if (topicScopeError) throw topicScopeError;
+
+          activeCycleTopicIds = (topicScopeData || [])
+            .filter(isVisibleCycleTopic)
+            .map(topic => topic.id);
+        }
 
         // Construir queries
         let sessionsQuery = supabase
@@ -247,6 +279,49 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
         }
 
         const { data: sessionsData } = await sessionsQuery.order('completed_at', { ascending: false });
+
+        let scopedReviewHistoryMinutes = 0;
+        const scopedReviewHistoryDates = new Set<string>();
+        const scopedReviewHistoryMinutesBySubject = new Map<string, number>();
+
+        if (filter.type === 'cycle' && activeCycleTopicIds.length > 0) {
+          let reviewHistoryQuery = supabase
+            .from('topic_review_history')
+            .select(`
+              topic_id,
+              reviewed_at,
+              study_duration_minutes,
+              topics!inner(subject_id)
+            `)
+            .eq('user_id', user.id)
+            .in('topic_id', activeCycleTopicIds);
+
+          if (userCycle?.data_inicio_ciclo) {
+            reviewHistoryQuery = reviewHistoryQuery.gte('reviewed_at', userCycle.data_inicio_ciclo);
+          }
+
+          const { data: reviewHistoryData, error: reviewHistoryError } = await reviewHistoryQuery;
+          if (reviewHistoryError) throw reviewHistoryError;
+
+          (reviewHistoryData as ReviewHistoryStudyRow[] | null || []).forEach((row) => {
+            const duration = Math.max(0, Number(row.study_duration_minutes || 0));
+            if (duration <= 0) return;
+
+            scopedReviewHistoryMinutes += duration;
+
+            if (row.reviewed_at) {
+              scopedReviewHistoryDates.add(format(startOfDay(new Date(row.reviewed_at)), 'yyyy-MM-dd'));
+            }
+
+            const subjectId = row.topics?.subject_id;
+            if (subjectId) {
+              scopedReviewHistoryMinutesBySubject.set(
+                subjectId,
+                (scopedReviewHistoryMinutesBySubject.get(subjectId) || 0) + duration,
+              );
+            }
+          });
+        }
 
         // Carregar analytics do usuário (Geral)
         const { data: analyticsData } = await supabase
@@ -269,7 +344,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
             : [];
 
         // Transformar dados do banco para o formato esperado
-        const transformedSessions = (sessionsData || []).map((session: any) => ({
+        const transformedSessions = (sessionsData as StudySession[] | null || []).map((session) => ({
           ...session,
           duration_minutes: session.duration_minutes || session.session_duration_minutes || 0,
           topics_studied: Array.isArray(session.topics_studied) ? session.topics_studied : []
@@ -278,11 +353,14 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
         setStudySessions(transformedSessions);
         setUserAnalytics(analyticsData as UserAnalytics);
         setPomodoroSessions((pomodoroData || []) as PomodoroSession[]);
+        setReviewHistoryStudyMinutes(scopedReviewHistoryMinutes);
+        setReviewHistoryStudyDates(Array.from(scopedReviewHistoryDates));
+        setReviewHistoryStudyMinutesBySubject(scopedReviewHistoryMinutesBySubject);
 
         // Calcular analytics se não existir
         if (!analyticsData && sessionsData && sessionsData.length > 0) {
           try {
-            await supabase.rpc('calculate_user_analytics' as any, { p_user_id: user.id });
+            await supabase.rpc('calculate_user_analytics', { p_user_id: user.id });
             
             // Recarregar analytics após cálculo
             const { data: newAnalyticsData } = await supabase
@@ -304,7 +382,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
     };
 
     loadRealData();
-  }, [user, filter.id, filter.type, userCycle?.id, refreshCounter]);
+  }, [user, filter.id, filter.type, userCycle?.id, userCycle?.ciclo_atual, userCycle?.data_inicio_ciclo, refreshCounter]);
 
   return useMemo(() => {
     const now = new Date();
@@ -313,9 +391,17 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
     const filteredSubjects = (() => {
       if (filter.type === 'cycle' && userCycle?.ciclo_atual) {
         const cycleIds = new Set(userCycle.ciclo_atual);
-        return subjects.filter(s => cycleIds.has(s.id));
+        return subjects
+          .filter(s => cycleIds.has(s.id))
+          .map(subject => ({
+            ...subject,
+            topics: getVisibleCycleTopics(subject.topics),
+          }));
       }
-      return subjects;
+      return subjects.map(subject => ({
+        ...subject,
+        topics: getVisibleCycleTopics(subject.topics),
+      }));
     })();
 
     // 0a. Recalcular progresso para os subjects filtrados
@@ -347,9 +433,19 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
       }, 0);
     }, 0);
     
-    const totalStudyTime = Math.max(totalStudyTimeFromSessions, totalStudyTimeFromPomodoro, estimatedTimeFromDifficulty);
+    const totalStudyTime = getStatisticsStudyTime({
+      sessionMinutes: totalStudyTimeFromSessions,
+      reviewHistoryMinutes: reviewHistoryStudyMinutes,
+      pomodoroMinutes: totalStudyTimeFromPomodoro,
+      estimatedMinutes: estimatedTimeFromDifficulty,
+      includePomodoro: filter.type === 'all',
+    });
     
-    const daysWithSessions = new Set(studySessions.map(s => s.study_date)).size;
+    const studyDays = new Set([
+      ...studySessions.map(s => s.study_date).filter(Boolean),
+      ...reviewHistoryStudyDates,
+    ]);
+    const daysWithSessions = studyDays.size;
     const averageDailyTime = daysWithSessions > 0 ? Math.round(totalStudyTime / daysWithSessions) : 0;
 
     const overview = {
@@ -400,6 +496,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
     const subjectPerformance = filteredSubjects
       .map((subject) => {
         const sessionData = subjectSessionsMap.get(subject.id) || { sessions: 0, totalTime: 0 };
+        const reviewHistoryTime = reviewHistoryStudyMinutesBySubject.get(subject.id) || 0;
         
         // Calcular tempo estimado baseado na dificuldade
         const estimatedTime = subject.topics.reduce((sum, topic) => {
@@ -429,7 +526,13 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
           completionPercentage: subject.topics.length > 0 
             ? Math.round((subject.topics.filter(t => t.completed).length / subject.topics.length) * 100)
             : 0,
-          studyTime: Math.max(sessionData.totalTime, estimatedTime),
+          studyTime: getStatisticsStudyTime({
+            sessionMinutes: sessionData.totalTime,
+            reviewHistoryMinutes: reviewHistoryTime,
+            pomodoroMinutes: 0,
+            estimatedMinutes: estimatedTime,
+            includePomodoro: false,
+          }),
           difficultyPoints,
           averageDifficulty: subject.topics.length > 0 
             ? subject.topics.reduce((sum, t) => sum + (typeof t.difficulty_level === 'number' ? t.difficulty_level : 2), 0) / subject.topics.length
@@ -572,8 +675,9 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
     const difficultyDistribution: { [key: string]: number } = { '1': 0, '2': 0, '3': 0, 'unrated': 0 };
     const completedDistribution: { [key: string]: number } = { '1': 0, '2': 0, '3': 0 };
     let totalDifficulty = 0, totalCompletedDifficulty = 0, totalPoints = 0, completedPoints = 0, estimatedTime = 0, completedTime = 0;
-    let hardestCompletedTopic = null, maxCompletedDifficulty = 0;
-    const easiestPendingTopics: any[] = [];
+    let hardestCompletedTopic: DifficultyTopicInsight | null = null;
+    let maxCompletedDifficulty = 0;
+    const easiestPendingTopics: DifficultyTopicInsight[] = [];
     
     allTopicsWithDifficulty.forEach(topic => {
       const difficulty = topic.difficulty_level;
@@ -631,5 +735,5 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
     };
 
     return { overview, spacedReviews, subjectPerformance, studyHabits, evolution, insights, difficultyStats };
-  }, [subjects, filter.id, filter.type, userCycle?.id, userCycle?.ciclo_atual, studySessions, userAnalytics, pomodoroSessions]);
+  }, [subjects, filter.type, userCycle?.ciclo_atual, studySessions, userAnalytics, pomodoroSessions, reviewHistoryStudyMinutes, reviewHistoryStudyDates, reviewHistoryStudyMinutesBySubject]);
 };

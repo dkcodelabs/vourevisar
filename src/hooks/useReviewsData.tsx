@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfDay } from 'date-fns';
 import { SRS_THRESHOLDS, LearningStatus } from '@/utils/calculateNextReview';
 import { isReviewProgramCompleted } from '@/utils/reviewStage';
+import { mergeService } from '@/services/mergeService';
+import { dedupeMergedReviewTopics, expandReviewSubjectScope } from '@/utils/reviewMergeScope';
 
 interface Topic {
   id: string;
@@ -28,6 +30,10 @@ interface Topic {
   current_interval?: number;
   learningStatus?: LearningStatus;
 }
+
+type TopicRow = Omit<Topic, 'subject_name' | 'learningStatus'> & {
+  notes?: unknown;
+};
 
 // Interface for export group
 export interface GroupedTopicStats {
@@ -87,13 +93,17 @@ export const useReviewsData = () => {
     queryFn: async () => {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
-      // 1. Buscar o ciclo ativo para filtrar as matérias
-      const { data: cycleData } = await supabase
-        .from('user_cycles')
-        .select('ciclo_atual')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
+      // 1. Buscar ciclo e merges ativos para montar o mesmo escopo visual da página Ciclo.
+      const [{ data: cycleData }, subjectMerges, topicMerges] = await Promise.all([
+        supabase
+          .from('user_cycles')
+          .select('ciclo_atual')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .maybeSingle(),
+        mergeService.getActiveSubjectMerges(user.id),
+        mergeService.getActiveTopicMerges(user.id),
+      ]);
 
       const activeSubjectIds = cycleData?.ciclo_atual || [];
 
@@ -101,7 +111,9 @@ export const useReviewsData = () => {
         return []; // Se não tem ciclo ativo, não tem revisões
       }
 
-      // 2. Buscar tópicos apenas das matérias do ciclo (só ativos — Soft Delete)
+      const reviewSubjectIds = expandReviewSubjectScope(activeSubjectIds, subjectMerges);
+
+      // 2. Buscar tópicos das matérias do ciclo, incluindo matérias equivalentes unificadas.
       const { data, error } = await supabase
         .from('topics')
         .select(`
@@ -125,13 +137,15 @@ export const useReviewsData = () => {
           )
         `)
         .eq('subjects.user_id', user.id)
-        .in('subject_id', activeSubjectIds)
+        .in('subject_id', reviewSubjectIds)
         .neq('is_active', false); // Ignora tópicos deletados logicamente
 
       if (error) throw error;
 
+      const reviewScopedTopics = dedupeMergedReviewTopics(data as TopicRow[], topicMerges);
+
       // Map to existing Topic structure and Sort locally
-      const mappedTopics = (data as any[]).map(topic => ({
+      const mappedTopics = reviewScopedTopics.map(topic => ({
         id: topic.id,
         name: topic.name,
         subject_id: topic.subject_id,

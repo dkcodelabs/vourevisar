@@ -37,3 +37,38 @@ export async function fetchTopicReviewStats(
 
   return map;
 }
+
+export async function fetchTopicReviewStudyMinutes(
+  topicIds: string[]
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (topicIds.length === 0) return map;
+
+  try {
+    const uniqueTopicIds = Array.from(new Set(topicIds.filter(Boolean)));
+    const chunkSize = 150;
+
+    for (let index = 0; index < uniqueTopicIds.length; index += chunkSize) {
+      const chunk = uniqueTopicIds.slice(index, index + chunkSize);
+      const { data, error } = await supabase
+        .from('topic_review_history')
+        .select('topic_id, study_duration_minutes')
+        .in('topic_id', chunk);
+
+      if (error || !data) {
+        console.warn('[topicReviewService] lote de tempo de estudo falhou:', error);
+        continue;
+      }
+
+      for (const row of data as { topic_id: string; study_duration_minutes: number | null }[]) {
+        const duration = Math.max(0, row.study_duration_minutes || 0);
+        if (duration <= 0) continue;
+        map.set(row.topic_id, (map.get(row.topic_id) || 0) + duration);
+      }
+    }
+  } catch (e) {
+    console.warn('[topicReviewService] fetchTopicReviewStudyMinutes falhou (não-bloqueante):', e);
+  }
+
+  return map;
+}

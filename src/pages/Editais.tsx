@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
     Plus, PlusCircle, Library, Trash2, Play, Eye, Clock,
     BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, Sparkles, Loader2,
-    AlertCircle, Info, GraduationCap, Database, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText
+    AlertCircle, Info, GraduationCap, Database, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText, PencilLine, ArrowRight, CalendarDays
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -16,15 +16,22 @@ import { EditalCard } from '@/components/editais/EditalCard';
 import { EditalSubjectsModal } from '@/components/editais/EditalSubjectsModal';
 import { CycleMergeComparison } from '@/components/editais/CycleMergeComparison';
 import { buildIndividualCycleMap } from '@/components/editais/cycleMergeComparisonModel';
-import { buildCycleMergeSources, buildCycleNameCandidates, buildCycleOriginSources } from '@/components/editais/cycleMergeNaming';
+import {
+    buildCycleMergeSources,
+    buildCycleNameCandidates,
+    buildCycleOriginSources,
+    chooseDefaultCycleExamDate,
+} from '@/components/editais/cycleMergeNaming';
 import { SyncReviewModal } from '@/components/editais/SyncReviewModal';
 import { EditEditalModal } from '@/components/editais/EditEditalModal'; // Added
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import { MergeSuggestionCard, CompactMergeSuggestionList } from '@/components/subjects/MergeSuggestionCard';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Subject } from '@/types';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
+import { cn } from '@/lib/utils';
 import { withTimeout } from '@/utils/withTimeout';
 import {
     performHybridMerge,
@@ -40,6 +47,7 @@ import {
 import { mergeService } from '@/services/mergeService';
 import { recalculatePendingReviewsForEdital } from '@/services/topicReviewScheduleService';
 import { unloadEditalFromCycle } from '@/services/cycleUnloadService';
+import { getPendingMergeForCycleLoad } from '@/utils/cycleLoadPendingMerge';
 import {
     CycleUnificationMap,
     HybridMergeResult,
@@ -95,6 +103,17 @@ const sanitizeExamDate = (dateStr?: string): string | null => {
     const time = new Date(`${trimmed}T00:00:00`).getTime();
     return Number.isNaN(time) ? null : trimmed;
 };
+
+const formatExamDateLabel = (dateStr?: string | null): string => {
+    if (!dateStr) return 'Sem data';
+    const date = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return 'Data inválida';
+    return date.toLocaleDateString('pt-BR');
+};
+
+const formatCycleSourceName = (name?: string | null): string => (
+    String(name || '').trim().replace(/\s+/g, ' ').toUpperCase()
+);
 
 const getLeadingTopicNumber = (name?: string | null): number[] | null => {
     const match = String(name || '').trim().match(/^(\d+(?:[.,]\d+)*)/);
@@ -212,6 +231,8 @@ const Editais = () => {
     const [isMerging, setIsMerging] = useState(false);
     const [isSavingCycleName, setIsSavingCycleName] = useState(false);
     const [cycleNameDraft, setCycleNameDraft] = useState('');
+    const [selectedCycleNameSourceIds, setSelectedCycleNameSourceIds] = useState<string[]>([]);
+    const [cycleExamDateDraft, setCycleExamDateDraft] = useState<string>('');
     const [mergePhase, setMergePhase] = useState<'exact' | 'ai' | 'finalizing'>('exact');
     const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
     const [removalProgress, setRemovalProgress] = useState<{ editalId: string, message: string, percentage: number } | null>(null);
@@ -325,6 +346,11 @@ const Editais = () => {
         }
     };
 
+    const hasCycleEditais = useMemo(
+        () => editais.some(edital => edital.mergedIntoCycle),
+        [editais],
+    );
+
     // ── Efeito para abrir modal baseado no estado de navegação ──
     useEffect(() => {
         // Usar uma flag temporária para evitar re-execução indesejada ao mudar o array de editais
@@ -352,12 +378,12 @@ const Editais = () => {
         }
 
         if (state.filterCycle) {
-            setFilterCycle(true);
+            setFilterCycle(hasCycleEditais);
         }
 
         // Limpa o estado imediatamente para não disparar novamente
         window.history.replaceState({}, document.title);
-    }, [location.state, editais.length > 0]); // Só re-executa se o estado mudar ou se os editais carregarem pela primeira vez
+    }, [location.state, editais.length, hasCycleEditais]); // Só re-executa se o estado mudar ou se os editais carregarem pela primeira vez
 
 
     // ── Fetch editais do Supabase ──
@@ -412,7 +438,7 @@ const Editais = () => {
 
             if (error) throw error;
 
-            if (user?.id) {
+            if (user?.id && updates.exam_date) {
                 try {
                     await toast.promise(
                         recalculatePendingReviewsForEdital({
@@ -431,8 +457,10 @@ const Editais = () => {
                 } catch (recalculationError) {
                     console.warn('[Editais] Falha ao recalcular revisões após atualizar a prova:', recalculationError);
                 }
-            } else {
+            } else if (updates.exam_date) {
                 toast.success('Edital atualizado com sucesso!');
+            } else {
+                toast.info('Edital atualizado sem data de prova. Revisões e métricas seguem sem ajuste por prova até você informar uma data.');
             }
             await fetchEditais();
         } catch (err) {
@@ -953,13 +981,13 @@ const Editais = () => {
         }
     }, [user, processingId, refreshData, discardPendingMerge]);
 
-    const handleLoadCycle = useCallback(async (edital: UserEdital) => {
+    const handleLoadCycle = useCallback(async (edital: UserEdital, options: { ignorePendingMerge?: boolean } = {}) => {
         if (!user) return;
         setProcessingId(edital.id);
 
         try {
             // Verificar se há uma mesclagem pendente para este edital
-            const pending = pendingMerges[edital.id];
+            const pending = getPendingMergeForCycleLoad(pendingMerges, edital.id, options);
 
             if (pending) {
                 setIsRecoveringMerge(true);
@@ -1052,6 +1080,15 @@ const Editais = () => {
         }
     }, [user, editais, subjects, pendingMerges]);
 
+    const handleDiscardRecoveredMerge = useCallback(async () => {
+        const edital = cycleConflict.edital;
+        if (!edital) return;
+
+        await discardPendingMerge(edital.id);
+        setIsRecoveringMerge(false);
+        await handleLoadCycle(edital, { ignorePendingMerge: true });
+    }, [cycleConflict.edital, discardPendingMerge, handleLoadCycle]);
+
 
     const finalPreviewIds = useMemo(() => {
         if (!cycleConflict.edital) return [];
@@ -1062,6 +1099,16 @@ const Editais = () => {
         return [...new Set([...cycleConflict.existingIds, ...cycleConflict.edital.subjectIds])];
     }, [cycleConflict]);
 
+    const replacePreviewSubjectIds = useMemo(
+        () => subjects.filter(subject => finalPreviewIds.includes(subject.id)).map(subject => subject.id),
+        [finalPreviewIds, subjects],
+    );
+
+    const areReplacePreviewSubjectsExpanded = useMemo(
+        () => replacePreviewSubjectIds.length > 0 && replacePreviewSubjectIds.every(id => expandedPreviewSubjects.has(id)),
+        [expandedPreviewSubjects, replacePreviewSubjectIds],
+    );
+
     const cycleMergeSources = useMemo(() => {
         if (!cycleConflict.edital) return [];
         return buildCycleMergeSources(cycleConflict.currentOrigins, cycleConflict.edital);
@@ -1071,6 +1118,41 @@ const Editais = () => {
         () => buildCycleNameCandidates(cycleMergeSources),
         [cycleMergeSources],
     );
+    const defaultCycleExamDate = useMemo(
+        () => chooseDefaultCycleExamDate(cycleMergeSources),
+        [cycleMergeSources],
+    );
+    const selectedCycleNameSourceIdSet = useMemo(
+        () => new Set(selectedCycleNameSourceIds),
+        [selectedCycleNameSourceIds],
+    );
+    const cycleExamDateOptions = useMemo(() => {
+        const byDate = new Map<string, { date: string; labels: string[] }>();
+
+        for (const source of cycleMergeSources) {
+            const date = sanitizeExamDate(source.examDate || undefined);
+            if (!date) continue;
+
+            const current = byDate.get(date) || { date, labels: [] };
+            current.labels.push(source.name);
+            byDate.set(date, current);
+        }
+
+        return [...byDate.values()];
+    }, [cycleMergeSources]);
+
+    const toggleCycleNameSource = useCallback((sourceId: string) => {
+        const nextIds = selectedCycleNameSourceIdSet.has(sourceId)
+            ? selectedCycleNameSourceIds.filter(id => id !== sourceId)
+            : [...selectedCycleNameSourceIds, sourceId];
+        const nextName = cycleMergeSources
+            .filter(source => nextIds.includes(source.id))
+            .map(source => formatCycleSourceName(source.name))
+            .join(' + ');
+
+        setSelectedCycleNameSourceIds(nextIds);
+        setCycleNameDraft(nextName);
+    }, [cycleMergeSources, selectedCycleNameSourceIdSet, selectedCycleNameSourceIds]);
 
     const successCycleStats = useMemo(() => {
         const subjectIds = cycleConflict.action === 'replace'
@@ -1089,8 +1171,17 @@ const Editais = () => {
 
     useEffect(() => {
         if (cycleConflict.step !== 'success') return;
-        setCycleNameDraft(current => current.trim() || cycleNameCandidates[0] || cycleConflict.edital?.name || 'Ciclo de estudos');
-    }, [cycleConflict.edital?.name, cycleConflict.step, cycleNameCandidates]);
+        if (cycleConflict.action === 'replace') {
+            setSelectedCycleNameSourceIds([]);
+            setCycleNameDraft(cycleConflict.edital?.name || 'Ciclo de estudos');
+            setCycleExamDateDraft(sanitizeExamDate(cycleConflict.edital?.examDate) || '');
+            return;
+        }
+
+        setSelectedCycleNameSourceIds(current => current.length > 0 ? current : cycleMergeSources.map(source => source.id));
+        setCycleNameDraft(current => current.trim() || cycleMergeSources.map(source => formatCycleSourceName(source.name)).join(' + ') || cycleNameCandidates[0] || cycleConflict.edital?.name || 'Ciclo de estudos');
+        setCycleExamDateDraft(current => sanitizeExamDate(current) || defaultCycleExamDate || '');
+    }, [cycleConflict.action, cycleConflict.edital?.examDate, cycleConflict.edital?.name, cycleConflict.step, cycleMergeSources, cycleNameCandidates, defaultCycleExamDate]);
 
     const handleHybridPreview = useCallback(async () => {
         if (!cycleConflict.edital || !user) return;
@@ -1108,7 +1199,7 @@ const Editais = () => {
 
         setIsMerging(true);
         setMergePhase('exact');
-        setProcessingProgress({ message: 'Unificando matérias...', percentage: 10 });
+        setProcessingProgress({ message: 'Comparando nomes e estrutura das matérias...', percentage: 10 });
         try {
             const edital = cycleConflict.edital;
             const existingSubs = subjects.filter(s => cycleConflict.existingIds.includes(s.id));
@@ -1135,7 +1226,7 @@ const Editais = () => {
             );
 
             setIsAnalyzingTopics(true);
-            setProcessingProgress({ message: 'Comparando matérias e tópicos...', percentage: 55 });
+            setProcessingProgress({ message: 'Processando tópicos equivalentes...', percentage: 55 });
             const topicResult = await performFullTopicMerge(
                 result.unificationMap,
                 subjects,
@@ -1171,7 +1262,10 @@ const Editais = () => {
             });
 
             if (result.stats.aiStatus === 'error') {
-                toastGate.notifyError('IA Indisponível no momento. A mesclagem usará apenas nomes idênticos.', 'IA-03', { severity: 'medium' });
+                toastGate.notifyError(result.stats.aiWarning || 'IA indisponível no momento. A mesclagem usará apenas nomes idênticos.', 'IA-03', { severity: 'medium' });
+            }
+            if (topicResult.overallAiStatus === 'error') {
+                toastGate.notifyError(topicResult.aiWarning || 'A IA não conseguiu analisar todos os tópicos. Usamos apenas mesclagem segura por nomes idênticos.', 'IA-TOPIC-MERGE-01', { severity: 'medium' });
             }
 
             await loadPendingSuggestions();
@@ -1196,7 +1290,7 @@ const Editais = () => {
 
         setIsAnalyzingTopics(true);
         setMergePhase('exact');
-        setProcessingProgress({ message: useAI ? 'Mesclando tópicos com IA...' : 'Organizando tópicos...', percentage: 0 });
+        setProcessingProgress({ message: useAI ? 'Mesclando tópicos equivalentes...' : 'Organizando tópicos...', percentage: 0 });
         try {
             // Apply current name overrides to map before topic analysis
             const overrides = cycleConflict.subjectDisplayNameOverrides || {};
@@ -1239,6 +1333,10 @@ const Editais = () => {
                     aiStatus: cycleConflict.aiStatus,
                     ...newState
                 });
+            }
+
+            if (topicResult.overallAiStatus === 'error') {
+                toastGate.notifyError(topicResult.aiWarning || 'A IA não conseguiu analisar todos os tópicos. Usamos apenas mesclagem segura por nomes idênticos.', 'IA-TOPIC-MERGE-02', { severity: 'medium' });
             }
 
             // Recarrega as sugestões para o estado local para exibir o switcher no modal
@@ -1298,7 +1396,7 @@ const Editais = () => {
                     .update({ data_prova_meta: null } as any)
                     .eq('user_id', user.id);
 
-                setProcessingProgress({ message: 'Iniciando substituição...', percentage: 20 });
+                setProcessingProgress({ message: 'Preparando substituição do ciclo...', percentage: 20 });
             } else {
                 // Se já temos o mapa calculado da prévia, usamos (agora já atualizado pelos tópicos logo acima). Senão (fallback), calculamos.
                 let unificationMap = currentUnificationMap || cycleConflict.hybridResult?.unificationMap;
@@ -1314,7 +1412,7 @@ const Editais = () => {
                         .filter(e => e.mergedIntoCycle && e.id !== edital.id)
                         .map(e => e.id);
 
-                    setProcessingProgress({ message: 'Unificando matérias...', percentage: 10 });
+                    setProcessingProgress({ message: 'Comparando nomes e estrutura das matérias...', percentage: 10 });
                     setIsMerging(true);
                     setMergePhase('exact');
 
@@ -1333,11 +1431,11 @@ const Editais = () => {
                 }
 
                 // 1. Aplicar unificação física (Soft Merge) no banco de dados
-                setProcessingProgress({ message: 'Salvando estrutura de matérias...', percentage: 30 });
+                setProcessingProgress({ message: 'Salvando organização do ciclo...', percentage: 30 });
                 await persistPhysicalSoftMerge(unificationMap);
 
                 // 2. Persistir o mapa de unificação no registro do ciclo (para UI)
-                setProcessingProgress({ message: 'Unificando tópicos no banco...', percentage: 60 });
+                setProcessingProgress({ message: 'Salvando informações do ciclo...', percentage: 60 });
                 await saveUnificationMap(user.id, unificationMap);
 
                 // 3. Salvar mesclagens nas tabelas dedicated (subject_merges e topic_merges)
@@ -1364,14 +1462,22 @@ const Editais = () => {
             }
 
             // ATOMIC LOAD: Garantir que o ciclo e o status do edital mudem juntos
-            setProcessingProgress({ message: 'Finalizando carga atômica...', percentage: 90 });
+            setProcessingProgress({ message: 'Salvando informações do ciclo...', percentage: 90 });
+            const defaultCycleName = action === 'replace'
+                ? edital.name
+                : cycleNameCandidates[0] || cycleMergeSources.map(source => formatCycleSourceName(source.name)).join(' + ') || edital.name || 'Ciclo de estudos';
+            const defaultRpcExamDate = action === 'replace'
+                ? sanitizeExamDate(edital.examDate)
+                : defaultCycleExamDate;
             
             const { data: rpcData, error: rpcError } = await supabase.rpc('atomic_cycle_load', {
                 p_user_id: user.id,
                 p_new_edital_id: edital.id,
                 p_new_subject_ids: finalIdsToLoad,
                 p_old_edital_ids: oldEditalIds,
-                p_mode: action === 'replace' ? 'replace' : 'merge'
+                p_mode: action === 'replace' ? 'replace' : 'merge',
+                p_cycle_name: defaultCycleName.slice(0, 160),
+                p_exam_date: defaultRpcExamDate,
             });
 
             if (rpcError) throw rpcError;
@@ -1411,12 +1517,19 @@ const Editais = () => {
             window.dispatchEvent(new CustomEvent('subjectUpdated'));
             window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'merge_completed' } }));
 
-            // Mudar para tela de sucesso em vez de fechar
-            setCycleConflict(prev => ({ ...prev, step: 'success', wasTopicMerged: organizationMode === 'unified' }));
+            if (action === 'replace') {
+                setCycleConflict(prev => ({ ...prev, step: 'success', action: 'replace', wasTopicMerged: false }));
+                setCycleNameDraft(defaultCycleName);
+                setCycleExamDateDraft(defaultRpcExamDate || '');
+                return;
+            }
 
-            // Atualizar dados em background
+            // Atualizar dados em background antes do passo final apenas quando existe mesclagem.
             await fetchEditais();
             await refreshData();
+
+            // Mesclagem de editais: aqui sim o aluno escolhe o nome do ciclo composto.
+            setCycleConflict(prev => ({ ...prev, step: 'success', wasTopicMerged: organizationMode === 'unified' }));
         } catch (err) {
             errorService.report(err, { module: 'cycle', action: 'conflict_resolution', userMessage: 'Erro ao processar ação no ciclo.' });
         } finally {
@@ -1424,12 +1537,30 @@ const Editais = () => {
             setIsMerging(false);
             setProcessingProgress(null);
         }
-    }, [cycleConflict, editais, fetchEditais, refreshData, user, subjects, discardPendingMerge, persistPhysicalSoftMerge, saveUnificationMap]);
+    }, [cycleConflict, editais, fetchEditais, refreshData, user, subjects, discardPendingMerge, persistPhysicalSoftMerge, saveUnificationMap, navigate, cycleNameCandidates, cycleMergeSources, defaultCycleExamDate]);
 
     const handleGoToCycleAfterSuccess = useCallback(async () => {
         if (!user?.id) return;
 
+        if (cycleConflict.action === 'replace') {
+            setCycleConflict({
+                isOpen: false,
+                edital: null,
+                existingIds: [],
+                currentOrigins: [],
+                step: 'select',
+                action: null,
+                showIASuggestionsOnly: false,
+            });
+            setCycleNameDraft('');
+            setSelectedCycleNameSourceIds([]);
+            setCycleExamDateDraft('');
+            navigate('/ciclo-estudos');
+            return;
+        }
+
         const cleanCycleName = cycleNameDraft.trim() || cycleNameCandidates[0] || cycleConflict.edital?.name || 'Ciclo de estudos';
+        const cleanCycleExamDate = sanitizeExamDate(cycleExamDateDraft) || null;
         setIsSavingCycleName(true);
 
         try {
@@ -1437,6 +1568,7 @@ const Editais = () => {
                 .from('user_cycles')
                 .update({
                     name: cleanCycleName.slice(0, 160),
+                    exam_date: cleanCycleExamDate,
                     atualizado_em: new Date().toISOString(),
                 })
                 .eq('user_id', user.id);
@@ -1453,6 +1585,8 @@ const Editais = () => {
                 showIASuggestionsOnly: false,
             });
             setCycleNameDraft('');
+            setSelectedCycleNameSourceIds([]);
+            setCycleExamDateDraft('');
             navigate('/ciclo-estudos');
         } catch (err) {
             errorService.report(err, {
@@ -1463,10 +1597,15 @@ const Editais = () => {
         } finally {
             setIsSavingCycleName(false);
         }
-    }, [cycleConflict.edital?.name, cycleNameCandidates, cycleNameDraft, navigate, user?.id]);
+    }, [cycleConflict.action, cycleConflict.edital?.name, cycleExamDateDraft, cycleNameCandidates, cycleNameDraft, navigate, user?.id]);
 
-    const closeCycleConflictModal = useCallback(() => {
+    const closeCycleConflictModal = useCallback((source: 'button' | 'backdrop' = 'button') => {
         if ((isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success') return;
+        if (cycleConflict.step === 'success' && cycleConflict.action !== 'replace') {
+            if (source === 'backdrop') return;
+            toast.info('Finalize o ciclo para salvar nome e data antes de fechar.');
+            return;
+        }
 
         setCycleConflict({
             isOpen: false,
@@ -1478,8 +1617,10 @@ const Editais = () => {
             showIASuggestionsOnly: false,
         });
         setCycleNameDraft('');
+        setSelectedCycleNameSourceIds([]);
+        setCycleExamDateDraft('');
         setIsRecoveringMerge(false);
-    }, [cycleConflict.step, isAnalyzingTopics, isMerging]);
+    }, [cycleConflict.action, cycleConflict.step, isAnalyzingTopics, isMerging]);
 
     /**
      * Importação de edital: cria matérias e tópicos REAIS no Supabase,
@@ -1886,7 +2027,7 @@ const Editais = () => {
         } catch (err) {
             console.error('[Sync Apply] ERRO:', err);
             errorService.report(err, { module: 'editais', action: 'sync-apply', userMessage: 'Erro ao aplicar atualizações.' });
-            toastGate.notifyError('Erro ao aplicar sincronização. Verifique o console para detalhes.', 'PAGES-EDITAIS-01', { severity: 'medium' });
+            toastGate.notifyError('Não consegui aplicar a sincronização agora. Tente novamente; se persistir, revise sua conexão ou o edital oficial.', 'PAGES-EDITAIS-01', { severity: 'medium' });
         } finally {
             setProcessingId(null);
             setSyncReview(prev => ({ ...prev, isOpen: false }));
@@ -2485,7 +2626,7 @@ const Editais = () => {
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            onClick={closeCycleConflictModal}
+                            onClick={() => closeCycleConflictModal('backdrop')}
                             className="absolute inset-0 bg-background/78 backdrop-blur-md"
                         />
                         <motion.div
@@ -2495,8 +2636,8 @@ const Editais = () => {
                         >
                             {/* Efeito de Profundidade Sutil */}
                             <div className="absolute inset-0 pointer-events-none border border-white/[0.03] rounded-[32px]" />
-                            {/* Overlay de Processamento com IA */}
-                            {isAnalyzingTopics && cycleConflict.step !== 'success' && (
+                            {/* Overlay de processamento */}
+                            {(isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success' && (
                                 <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-background/90 backdrop-blur-md animate-in fade-in duration-300 rounded-[28px]">
                                     <div className="flex flex-col items-center gap-6 text-center max-w-[280px]">
                                         <div className="relative">
@@ -2509,7 +2650,11 @@ const Editais = () => {
 
                                         <div className="space-y-3">
                                             <h3 className="text-base font-black text-foreground uppercase tracking-tight leading-tight">
-                                                {mergePhase === 'finalizing' ? 'Finalizando Mesclagem' : 'Processamento Inteligente'}
+                                                {mergePhase === 'exact'
+                                                    ? 'Análise semântica'
+                                                    : mergePhase === 'finalizing'
+                                                        ? 'Finalizando ciclo'
+                                                        : 'Processamento inteligente'}
                                             </h3>
                                             <div className="flex flex-col gap-2">
                                                 <p className="text-xs text-content-muted font-medium px-4">
@@ -2518,10 +2663,10 @@ const Editais = () => {
                                                 <div className="flex justify-center mt-1">
                                                     <span className="rounded-full border border-success/20 bg-success/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-success animate-pulse">
                                                         {mergePhase === 'exact'
-                                                            ? "Mapeamento Primário"
+                                                            ? "Comparando matérias"
                                                             : mergePhase === 'finalizing'
-                                                                ? "Gravando no Banco"
-                                                                : "IA em Ação"
+                                                                ? "Salvando informações"
+                                                                : "Cruzando tópicos"
                                                         }
                                                     </span>
                                                 </div>
@@ -2571,10 +2716,14 @@ const Editais = () => {
 
                                         <div className="flex items-center gap-2.5">
                                             <div className="flex items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
-                                                {cycleConflict.step === 'select' ? '1/2' : '2/2'}
+                                                {cycleConflict.step === 'select'
+                                                    ? (cycleConflict.existingIds.length === 0 ? '1/2' : '1/3')
+                                                    : cycleConflict.step === 'success'
+                                                        ? (cycleConflict.existingIds.length === 0 && cycleConflict.action === 'replace' ? '2/2' : '3/3')
+                                                        : '2/3'}
                                             </div>
                                             <h2 className="text-[14px] font-black text-foreground uppercase tracking-tight">
-                                                {cycleConflict.step === 'success' ? 'Ciclo de Estudos' :
+                                                {cycleConflict.step === 'success' ? 'Finalizar Ciclo' :
                                                  cycleConflict.step === 'select' ? 'Carregar Edital' :
                                                  cycleConflict.step === 'preview' ? (cycleConflict.existingIds.length === 0 ? 'Carregar Edital' : 'Escolher Organização') :
                                                  cycleConflict.step === 'topic-preview' ? 'Preview Mescla Matérias e Tópicos' :
@@ -2584,45 +2733,28 @@ const Editais = () => {
                                     </div>
 
                                     <p className="text-[11px] font-medium text-content-muted leading-relaxed whitespace-normal md:whitespace-nowrap">
-                                        {cycleConflict.step === 'select' ? 'Escolha como deseja adicionar o novo edital ao seu planejamento.' :
+                                        {cycleConflict.step === 'select' ? (
+                                            cycleConflict.existingIds.length === 0
+                                                ? 'Revise o edital selecionado antes de gerar o ciclo.'
+                                                : 'Escolha como deseja adicionar o novo edital ao seu planejamento.'
+                                        ) :
                                          cycleConflict.step === 'preview' ? 'Compare como o mesmo ciclo ficará antes de escolher.' :
                                          cycleConflict.step === 'topic-preview' ? 'Confira a organização de matérias e tópicos.' :
-                                         'Seu planejamento foi atualizado com sucesso.'}
+                                         cycleConflict.action === 'replace'
+                                            ? 'Seu ciclo foi gerado e está pronto para abrir.'
+                                            : 'Escolha a data e confirme o nome exibido no planejamento.'}
                                     </p>
                                 </div>
 
                                 <button
-                                    onClick={closeCycleConflictModal}
-                                    disabled={(isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success'}
-                                    className="p-2 hover:bg-secondary dark:hover:bg-white/5 rounded-xl transition-colors text-content-muted flex-shrink-0"
+                                    onClick={() => closeCycleConflictModal('button')}
+                                    disabled={(cycleConflict.step === 'success' && cycleConflict.action !== 'replace') || ((isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success')}
+                                    title={cycleConflict.step === 'success' && cycleConflict.action !== 'replace' ? 'Finalize o ciclo antes de fechar' : 'Fechar'}
+                                    className="p-2 hover:bg-secondary dark:hover:bg-white/5 rounded-xl transition-colors text-content-muted flex-shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
-
-                            {isMerging && !isAnalyzingTopics && cycleConflict.step !== 'success' && (
-                                <div className="shrink-0 border-b border-success/15 bg-success/[0.055] px-6 py-2 md:px-8">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            <Loader2 size={13} className="shrink-0 animate-spin text-success" />
-                                            <span className="truncate text-[10px] font-bold text-success">
-                                                {processingProgress?.message || 'Atualizando ciclo...'}
-                                            </span>
-                                        </div>
-                                        {typeof processingProgress?.percentage === 'number' && (
-                                            <span className="shrink-0 text-[9px] font-black tabular-nums text-success/80">
-                                                {Math.round(processingProgress.percentage)}%
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-success/10">
-                                        <div
-                                            className={`h-full rounded-full bg-success transition-all duration-300 ease-out ${typeof processingProgress?.percentage === 'number' ? '' : 'w-1/2 animate-pulse'}`}
-                                            style={typeof processingProgress?.percentage === 'number' ? { width: `${processingProgress.percentage}%` } : undefined}
-                                        />
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Área de Conteúdo - Lateral 2cm, Vertical 1cm */}
                             <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto custom-scrollbar px-6 pb-4 pt-4 md:px-8">
@@ -2647,16 +2779,51 @@ const Editais = () => {
                                             </div>
                                         </div>
                                         <button
-                                            onClick={() => {
-                                                if (cycleConflict.edital) discardPendingMerge(cycleConflict.edital.id);
-                                                setIsRecoveringMerge(false);
-                                                setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null });
-                                            }}
+                                            onClick={handleDiscardRecoveredMerge}
+                                            disabled={processingId === cycleConflict.edital?.id}
                                             className="app-button-warning flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold transition-colors"
                                         >
-                                            <Trash2 size={12} />
+                                            {processingId === cycleConflict.edital?.id ? (
+                                                <Loader2 size={12} className="animate-spin" />
+                                            ) : (
+                                                <Trash2 size={12} />
+                                            )}
                                             Descartar
                                         </button>
+                                    </motion.div>
+                                )}
+                                {cycleConflict.step !== 'success' && cycleConflict.topicMergeResult?.overallAiStatus === 'error' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="flex flex-shrink-0 items-start gap-3 rounded-2xl border border-warning/25 bg-warning/10 p-4 text-warning"
+                                    >
+                                        <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                                        <div className="min-w-0 space-y-1">
+                                            <p className="text-xs font-black uppercase tracking-widest">
+                                                IA de tópicos indisponível
+                                            </p>
+                                            <p className="text-[11px] font-medium leading-relaxed text-warning/85">
+                                                {cycleConflict.topicMergeResult.aiWarning || 'A análise semântica não foi concluída. Mantivemos somente unificações seguras por nomes idênticos.'}
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                )}
+                                {cycleConflict.step !== 'success' && cycleConflict.hybridResult?.stats.aiStatus === 'error' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="flex flex-shrink-0 items-start gap-3 rounded-2xl border border-warning/25 bg-warning/10 p-4 text-warning"
+                                    >
+                                        <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                                        <div className="min-w-0 space-y-1">
+                                            <p className="text-xs font-black uppercase tracking-widest">
+                                                IA de matérias indisponível
+                                            </p>
+                                            <p className="text-[11px] font-medium leading-relaxed text-warning/85">
+                                                {cycleConflict.hybridResult.stats.aiWarning || 'A análise semântica de matérias não foi concluída. Mantivemos somente unificações seguras por nomes idênticos.'}
+                                            </p>
+                                        </div>
                                     </motion.div>
                                 )}
 
@@ -2806,6 +2973,32 @@ const Editais = () => {
 
 
                                         <div className="relative p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-content-muted/5 space-y-4">
+                                            <div className="flex flex-col gap-3 rounded-2xl border border-destructive/15 bg-destructive/5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                                <div className="flex min-w-0 items-start gap-2.5">
+                                                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-destructive/10 text-destructive ring-1 ring-destructive/20">
+                                                        <RefreshCw size={14} />
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <p className="text-[11px] font-black uppercase tracking-wider text-foreground">
+                                                            Substituição do ciclo
+                                                        </p>
+                                                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-content-muted">
+                                                            O edital selecionado substituirá o ciclo atual. As matérias removidas saem do ciclo ativo, mas o histórico de estudos permanece salvo no edital original.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setExpandedPreviewSubjects(areReplacePreviewSubjectsExpanded ? new Set() : new Set(replacePreviewSubjectIds));
+                                                    }}
+                                                    className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-background/60 px-3 text-[10px] font-black uppercase tracking-wider text-content-muted transition-colors hover:border-destructive/25 hover:bg-destructive/8 hover:text-foreground"
+                                                    aria-label={areReplacePreviewSubjectsExpanded ? 'Recolher matérias da prévia' : 'Expandir matérias da prévia'}
+                                                >
+                                                    {areReplacePreviewSubjectsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                                    {areReplacePreviewSubjectsExpanded ? 'Recolher matérias' : 'Mostrar tópicos'}
+                                                </button>
+                                            </div>
                                             <div className="flex flex-col gap-2">
                                                 {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && cycleConflict.unificationMap ? (
                                                     [
@@ -2889,36 +3082,81 @@ const Editais = () => {
                                                     subjects.filter(s => finalPreviewIds.includes(s.id)).map(s => {
                                                         const isNew = cycleConflict.edital?.subjectIds.includes(s.id);
                                                         const isCurrent = cycleConflict.existingIds.includes(s.id);
+                                                        const isExpanded = expandedPreviewSubjects.has(s.id);
+                                                        const topics = s.topics || [];
 
                                                         let cardStyle = 'bg-white/5 border-white/5';
                                                         let badgeStyle = 'bg-white/5 text-content-muted/40 border-white/5';
+                                                        let iconStyle = 'bg-white/5 text-content-muted/40';
+                                                        let titleStyle = 'text-foreground';
                                                         let label = 'MANTIDO';
 
                                                         if (cycleConflict.action === 'replace') {
                                                             if (isNew && !isCurrent) {
                                                                 cardStyle = 'bg-emerald-500/[0.04] border-emerald-500/20';
                                                                 badgeStyle = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+                                                                iconStyle = 'bg-emerald-500/10 text-emerald-500';
                                                                 label = 'NOVO';
                                                             } else if (!isNew && isCurrent) {
-                                                                cardStyle = 'bg-red-500/[0.02] border-red-500/10 opacity-40 grayscale';
-                                                                badgeStyle = 'bg-red-500/10 text-red-500 border-red-500/20';
+                                                                cardStyle = 'bg-white/5 border-white/5';
+                                                                badgeStyle = 'bg-destructive/10 text-destructive border-destructive/20';
+                                                                titleStyle = 'text-content-muted';
                                                                 label = 'REMOVIDO';
                                                             }
                                                         }
 
                                                         return (
-                                                            <div key={s.id} className={`flex items-center justify-between gap-3 p-2.5 rounded-2xl border transition-all ${cardStyle}`}>
-                                                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                                    <div className="p-1.5 rounded-lg bg-white/5 text-content-muted/40 shrink-0">
-                                                                        <BookOpen size={12} />
+                                                            <div key={s.id} className={`overflow-hidden rounded-2xl border transition-all ${cardStyle}`}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => togglePreviewSubjectExpansion(s.id)}
+                                                                    className="flex w-full items-center justify-between gap-3 p-2.5 text-left"
+                                                                    aria-expanded={isExpanded}
+                                                                >
+                                                                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                                                                        <div className={`p-1.5 rounded-lg shrink-0 ${iconStyle}`}>
+                                                                            <BookOpen size={12} />
+                                                                        </div>
+                                                                        <span className={`truncate text-[11px] font-black uppercase tracking-wider ${titleStyle}`}>
+                                                                            {s.name}
+                                                                        </span>
                                                                     </div>
-                                                                    <span className="text-[11px] font-black text-foreground uppercase tracking-wider truncate">
-                                                                        {s.name}
-                                                                    </span>
-                                                                </div>
-                                                                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${badgeStyle}`}>
-                                                                    {label}
-                                                                </span>
+                                                                    <div className="flex shrink-0 items-center gap-2">
+                                                                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${badgeStyle}`}>
+                                                                            {label}
+                                                                        </span>
+                                                                        <span className="text-content-muted/35">
+                                                                            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                                                        </span>
+                                                                    </div>
+                                                                </button>
+                                                                <AnimatePresence>
+                                                                    {isExpanded && (
+                                                                        <motion.div
+                                                                            initial={{ height: 0, opacity: 0 }}
+                                                                            animate={{ height: 'auto', opacity: 1 }}
+                                                                            exit={{ height: 0, opacity: 0 }}
+                                                                            className="overflow-hidden"
+                                                                        >
+                                                                            <div className="border-t border-border/10 px-3 pb-3 pt-2">
+                                                                                {topics.length > 0 ? (
+                                                                                    <div className="grid gap-1.5">
+                                                                                        {topics.map(topic => (
+                                                                                            <div key={topic.id} className="flex items-start gap-2 rounded-xl bg-background/45 px-2.5 py-2 text-[10px] font-medium leading-snug text-content-muted ring-1 ring-border/30">
+                                                                                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-content-muted/35" />
+                                                                                                <span className="min-w-0 break-words">{topic.name}</span>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <p className="rounded-xl bg-background/45 px-2.5 py-2 text-[10px] font-medium text-content-muted ring-1 ring-border/30">
+                                                                                        Sem tópicos cadastrados nesta matéria.
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
+                                                                        </motion.div>
+                                                                    )}
+                                                                </AnimatePresence>
                                                             </div>
                                                         );
                                                     })
@@ -3024,28 +3262,38 @@ const Editais = () => {
 
                                     {/* Seção: Sucesso (Resumo) */}
                                     {cycleConflict.step === 'success' && (
-                                        <div className="mx-auto flex w-full max-w-[640px] flex-col gap-3 py-1 animate-in fade-in duration-200">
-                                            <div className="overflow-hidden rounded-[24px] border border-success/20 bg-gradient-to-br from-success/12 via-secondary/55 to-primary/8 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
-                                                <div className="flex items-start gap-3 border-b border-success/15 px-4 py-4">
-                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-success/25 bg-success/12">
-                                                        <CheckCircle2 size={20} className="text-success" />
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <h4 className="text-base font-black uppercase tracking-tight text-foreground">
-                                                                Ciclo atualizado
-                                                            </h4>
-                                                            <span className="rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-success">
-                                                                Pronto
-                                                            </span>
+                                        <div className="mx-auto flex w-full max-w-[680px] flex-col gap-3 py-1 animate-in fade-in duration-200">
+                                            <div className="rounded-[22px] bg-modal px-4 py-4 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.035)] dark:bg-modal/90 sm:px-5 sm:py-5">
+                                                <div className="flex flex-col gap-4">
+                                                    <div className="grid items-center gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+                                                        <div className="relative mx-auto aspect-square w-28 overflow-hidden rounded-2xl bg-background/60 shadow-inner shadow-black/10 ring-1 ring-border/50 sm:w-32 md:w-full">
+                                                            <img
+                                                                src="/images/study-cycle/cycle-generated-success.png"
+                                                                alt=""
+                                                                aria-hidden="true"
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                            <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/10" />
                                                         </div>
-                                                        <p className="mt-1 text-xs font-medium leading-relaxed text-content-muted">
-                                                            Os editais reais continuam vinculados. Ajuste apenas o apelido que aparece no seu planejamento.
-                                                        </p>
-                                                    </div>
-                                                </div>
 
-                                                <div className="space-y-3 p-4">
+                                                        <div className="min-w-0">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <h4 className="text-base font-black uppercase tracking-tight text-foreground">
+                                                                    Ciclo gerado
+                                                                </h4>
+                                                                <span className="rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-success">
+                                                                    Pronto
+                                                                </span>
+                                                            </div>
+                                                            <p className="mt-2 text-sm font-black leading-snug text-foreground">
+                                                                Seu ciclo com {successCycleStats.subjects} {successCycleStats.subjects === 1 ? 'matéria' : 'matérias'} e {successCycleStats.topics} {successCycleStats.topics === 1 ? 'tópico' : 'tópicos'} foi criado.
+                                                            </p>
+                                                            <p className="mt-2 text-xs font-medium leading-relaxed text-content-muted">
+                                                                Na página Ciclo de Estudos, você poderá organizar a prioridade do que estudar, acompanhar o conteúdo do edital e ajustar a fila conforme sua estratégia.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
                                                     {cycleConflict.existingIds.length > 0 && cycleConflict.action === 'replace' && (
                                                         <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/10 p-3 text-primary">
                                                             <Info size={14} className="mt-0.5 shrink-0" />
@@ -3055,74 +3303,188 @@ const Editais = () => {
                                                         </div>
                                                     )}
 
-                                                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-                                                        <div className="rounded-2xl border border-border/70 bg-background/35 p-3">
-                                                            <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                Editais no ciclo
-                                                            </span>
-                                                            <div className="mt-2 flex flex-col gap-1.5">
-                                                                {cycleMergeSources.map(source => (
-                                                                    <button
-                                                                        key={source.id}
-                                                                        type="button"
-                                                                        onClick={() => setCycleNameDraft(source.name)}
-                                                                        className="flex min-w-0 items-center rounded-xl border border-border/60 bg-secondary/45 px-3 py-2 text-left transition-colors hover:border-primary/35 hover:bg-secondary/65"
-                                                                        aria-label={`Usar ${source.name} como apelido do ciclo`}
-                                                                    >
-                                                                        <span className="min-w-0">
-                                                                            <span className="block truncate text-[11px] font-black uppercase tracking-tight text-foreground">
-                                                                                {source.name}
-                                                                            </span>
-                                                                            {source.position && (
-                                                                                <span className="mt-0.5 block truncate text-[9px] font-bold uppercase tracking-[0.08em] text-content-muted">
-                                                                                    {source.position}
-                                                                                </span>
-                                                                            )}
+                                                    <div className="space-y-4">
+                                                        <section className="rounded-2xl bg-surface/75 p-4 dark:bg-surface/45">
+                                                            <div className="flex items-start gap-2.5">
+                                                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning ring-1 ring-warning/20">
+                                                                    <CalendarDays size={14} />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                        Data da prova do ciclo
+                                                                    </span>
+                                                                    {cycleConflict.action === 'replace' ? (
+                                                                        <p className="mt-1 text-[12px] font-bold leading-relaxed text-foreground">
+                                                                            {cycleExamDateDraft ? formatExamDateLabel(cycleExamDateDraft) : 'Sem data definida neste edital'}
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-content-muted">
+                                                                            Escolha qual prova vai reger o ritmo do ciclo composto ou informe outra data.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {cycleConflict.action !== 'replace' && (
+                                                                <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                                                                    <div>
+                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                            Usar data de um edital
                                                                         </span>
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        </div>
+                                                                        {cycleExamDateOptions.length > 0 ? (
+                                                                            <div className="mt-2 grid gap-1.5">
+                                                                                {cycleExamDateOptions.map(option => (
+                                                                                    <button
+                                                                                        key={option.date}
+                                                                                        type="button"
+                                                                                        onClick={() => setCycleExamDateDraft(option.date)}
+                                                                                        className={cn(
+                                                                                            'group flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors ring-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/35',
+                                                                                            cycleExamDateDraft === option.date
+                                                                                                ? 'bg-warning/12 text-foreground ring-warning/45'
+                                                                                                : 'bg-background/75 text-foreground ring-border/55 hover:bg-warning/8 hover:ring-warning/30 dark:bg-modal/60',
+                                                                                        )}
+                                                                                        aria-label={`Usar data ${formatExamDateLabel(option.date)} de ${option.labels.join(' e ')}`}
+                                                                                    >
+                                                                                        <span className={cn(
+                                                                                            'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors',
+                                                                                            cycleExamDateDraft === option.date
+                                                                                                ? 'border-warning bg-warning text-warning-foreground'
+                                                                                                : 'border-border bg-background text-transparent group-hover:border-warning/50',
+                                                                                        )}>
+                                                                                            <CheckCircle2 size={10} />
+                                                                                        </span>
+                                                                                        <span className="grid min-w-0 flex-1 gap-0.5 sm:grid-cols-[92px_minmax(0,1fr)] sm:items-center">
+                                                                                            <span className="text-[12px] font-black text-foreground">
+                                                                                                {formatExamDateLabel(option.date)}
+                                                                                            </span>
+                                                                                            <span className="min-w-0 truncate text-[9px] font-bold uppercase tracking-[0.08em] text-content-muted">
+                                                                                                {option.labels.map(formatCycleSourceName).join(' + ')}
+                                                                                            </span>
+                                                                                        </span>
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="mt-2 rounded-xl bg-background/70 px-3 py-3 text-[11px] font-medium leading-relaxed text-content-muted ring-1 ring-border/55 dark:bg-modal/60">
+                                                                                Nenhum dos editais possui data cadastrada.
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
 
-                                                        <div className="space-y-3">
-                                                            <div className="rounded-2xl border border-border/70 bg-background/35 p-3">
-                                                                <label htmlFor="cycle-name-draft" className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                    Apelido do ciclo
-                                                                </label>
-                                                                <Input
-                                                                    id="cycle-name-draft"
-                                                                    value={cycleNameDraft}
-                                                                    onChange={event => setCycleNameDraft(event.target.value)}
-                                                                    maxLength={160}
-                                                                    aria-describedby="cycle-name-help"
-                                                                    placeholder="Ex: PCES + PMES"
-                                                                    className="mt-2 h-10 border-border/70 bg-modal text-xs font-bold"
-                                                                />
-                                                                <p id="cycle-name-help" className="mt-2 text-[10px] font-medium leading-relaxed text-content-muted">
-                                                                    Clique em um edital à esquerda para preencher, ou personalize.
-                                                                </p>
-                                                            </div>
+                                                                    <div>
+                                                                        <label className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                            Personalizar data
+                                                                        </label>
+                                                                        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center lg:flex-col lg:items-stretch">
+                                                                            <Input
+                                                                                type="date"
+                                                                                value={cycleExamDateDraft}
+                                                                                onChange={event => setCycleExamDateDraft(event.target.value)}
+                                                                                aria-label="Data personalizada da prova do ciclo"
+                                                                                className="h-10 w-full border-border/70 bg-background text-sm font-bold text-foreground focus-visible:ring-warning/25 dark:bg-modal sm:w-[156px] lg:w-[156px]"
+                                                                            />
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => setCycleExamDateDraft('')}
+                                                                                className="h-9 w-full justify-center px-3 text-[11px] transition-colors hover:bg-secondary sm:w-auto lg:w-[156px]"
+                                                                            >
+                                                                                Definir depois
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </section>
 
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                <div className="rounded-xl border border-primary/15 bg-primary/10 px-3 py-2">
-                                                                    <span className="block text-[8px] font-black uppercase tracking-widest text-primary/80">
-                                                                        Matérias
-                                                                    </span>
-                                                                    <span className="mt-0.5 block text-xl font-black text-foreground">
-                                                                        {successCycleStats.subjects}
-                                                                    </span>
+                                                        {cycleConflict.action !== 'replace' && (
+                                                            <section className="rounded-2xl bg-surface/75 p-4 dark:bg-surface/45">
+                                                                <div className="flex items-start gap-2.5">
+                                                                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+                                                                        <PencilLine size={14} />
+                                                                    </div>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <label htmlFor="cycle-name-draft" className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                            Nome exibido no ciclo
+                                                                        </label>
+                                                                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-content-muted">
+                                                                            Escolha quais nomes de editais entram no título ou escreva um nome personalizado.
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
 
-                                                                <div className="rounded-xl border border-success/15 bg-success/10 px-3 py-2">
-                                                                    <span className="block text-[8px] font-black uppercase tracking-widest text-success/80">
-                                                                        Tópicos
-                                                                    </span>
-                                                                    <span className="mt-0.5 block text-xl font-black text-foreground">
-                                                                        {successCycleStats.topics}
-                                                                    </span>
+                                                                <div className="mt-4 space-y-3">
+                                                                    <div>
+                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                            Usar nome de edital
+                                                                        </span>
+                                                                        <div className="mt-2 grid gap-1.5">
+                                                                            {cycleMergeSources.map(source => {
+                                                                                const selected = selectedCycleNameSourceIdSet.has(source.id);
+                                                                                const displayName = formatCycleSourceName(source.name);
+                                                                                return (
+                                                                                    <button
+                                                                                        key={source.id}
+                                                                                        type="button"
+                                                                                        onClick={() => toggleCycleNameSource(source.id)}
+                                                                                        aria-pressed={selected}
+                                                                                        className={cn(
+                                                                                            'group flex min-h-11 min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors ring-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/35',
+                                                                                            selected
+                                                                                                ? 'bg-warning/12 text-foreground ring-warning/45'
+                                                                                                : 'bg-background/75 text-foreground ring-border/55 hover:bg-warning/8 hover:ring-warning/30 dark:bg-modal/60',
+                                                                                        )}
+                                                                                        aria-label={`${selected ? 'Remover' : 'Adicionar'} ${displayName} ao nome do ciclo`}
+                                                                                    >
+                                                                                        <span className={cn(
+                                                                                            'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors',
+                                                                                            selected
+                                                                                                ? 'border-warning bg-warning text-warning-foreground'
+                                                                                                : 'border-border bg-background text-transparent group-hover:border-warning/50',
+                                                                                        )}>
+                                                                                            <CheckCircle2 size={10} />
+                                                                                        </span>
+                                                                                        <span className="grid min-w-0 flex-1 gap-0.5 sm:grid-cols-[minmax(0,1fr)_minmax(90px,0.55fr)] sm:items-center">
+                                                                                            <span className="min-w-0 truncate text-[12px] font-black uppercase tracking-tight text-foreground">
+                                                                                                {displayName}
+                                                                                            </span>
+                                                                                            {source.position && (
+                                                                                                <span className="min-w-0 truncate text-[9px] font-bold uppercase tracking-[0.08em] text-content-muted sm:text-right">
+                                                                                                    {formatCycleSourceName(source.position)}
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </span>
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div>
+                                                                        <label htmlFor="cycle-name-draft" className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                            Nome de exibição
+                                                                        </label>
+                                                                        <Input
+                                                                            id="cycle-name-draft"
+                                                                            value={cycleNameDraft}
+                                                                            onChange={event => {
+                                                                                setCycleNameDraft(event.target.value);
+                                                                                setSelectedCycleNameSourceIds([]);
+                                                                            }}
+                                                                            maxLength={160}
+                                                                            aria-describedby="cycle-name-help"
+                                                                            placeholder="Ex: PMES + PCES"
+                                                                            className="mt-2 h-11 border-border/70 bg-background text-sm font-bold text-foreground placeholder:text-content-muted/60 focus-visible:ring-primary/25 dark:bg-modal"
+                                                                        />
+                                                                        <p id="cycle-name-help" className="mt-2 text-[10px] font-medium leading-relaxed text-content-muted">
+                                                                            Esse nome aparece no painel e no Ciclo de Estudos. Os editais originais não são alterados.
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        </div>
+                                                            </section>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -3154,8 +3516,12 @@ const Editais = () => {
                                             >
                                                 {isMerging && <Loader2 size={16} className="mr-2 animate-spin" />}
                                                 <div className="flex flex-col items-start text-left">
-                                                    <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider">CARREGAR NO CICLO</span>
-                                                    <span className="text-[9px] font-bold leading-none text-success-foreground/85">Adicionar ao planejamento</span>
+                                                    <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider">
+                                                        {isMerging ? 'CARREGANDO CICLO' : 'CARREGAR NO CICLO'}
+                                                    </span>
+                                                    <span className="text-[9px] font-bold leading-none text-success-foreground/85">
+                                                        {isMerging ? 'Abrindo planejamento' : 'Adicionar ao planejamento'}
+                                                    </span>
                                                 </div>
                                             </button>
                                         </div>
@@ -3173,7 +3539,10 @@ const Editais = () => {
                                             </div>
                                             <div className="flex items-center justify-end gap-3">
                                                 <button
-                                                    onClick={() => setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }))}
+                                                    onClick={() => {
+                                                        setExpandedPreviewSubjects(new Set(replacePreviewSubjectIds));
+                                                        setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }));
+                                                    }}
                                                     className="group flex h-10 items-center justify-center gap-2.5 rounded-xl border border-destructive/45 bg-modal px-3 text-center text-destructive shadow-sm shadow-black/10 transition-all hover:border-destructive hover:bg-destructive hover:text-destructive-foreground active:scale-[0.98] disabled:opacity-50 dark:border-white/70"
                                                 >
                                                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive transition-colors group-hover:border-destructive-foreground/25 group-hover:bg-destructive-foreground/10 group-hover:text-destructive-foreground">
@@ -3181,7 +3550,7 @@ const Editais = () => {
                                                     </span>
                                                     <div className="flex flex-col items-start text-left">
                                                         <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider text-destructive transition-colors group-hover:text-destructive-foreground">SUBSTITUIR</span>
-                                                        <span className="text-[9px] font-bold leading-none text-content-muted transition-colors group-hover:text-destructive-foreground/85">Começar do zero</span>
+                                                        <span className="text-[9px] font-bold leading-none text-content-muted transition-colors group-hover:text-destructive-foreground/85">Trocar ciclo</span>
                                                     </div>
                                                 </button>
 
@@ -3201,13 +3570,12 @@ const Editais = () => {
                                             </div>
                                         </div>
                                     )
-                                ) : cycleConflict.step === 'preview' ? (
-                                    <div className="flex flex-col gap-3">
-                                        {/* Aviso: tópicos serão agrupados, não unificados */}
+	                                ) : cycleConflict.step === 'preview' ? (
+	                                    <div className="flex flex-col gap-3">
                                         {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && cycleConflict.existingIds.length > 0 && (
-                                            <div className="flex items-start gap-2.5 rounded-xl border border-warning/20 bg-warning/10 px-3 py-2.5">
-                                                <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warning" />
-                                                <p className="text-[10px] font-medium leading-snug text-warning">
+	                                            <div className="flex items-start gap-2.5 rounded-xl border border-warning/20 bg-warning/10 px-3 py-2.5">
+	                                                <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warning" />
+	                                                <p className="text-[10px] font-medium leading-snug text-warning">
                                                     <span className="font-black">Agrupamento sem unificação.</span> Matérias com o mesmo nome de editais diferentes permanecerão como entradas separadas no seu ciclo. Para unificar os tópicos, use "Processar Tópicos" ao lado.
                                                 </p>
                                             </div>
@@ -3223,7 +3591,7 @@ const Editais = () => {
                                                     {isAnalyzingTopics ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                                                     <div className="flex flex-col items-start text-left">
                                                         <span className="mb-0.5 text-[10px] font-black uppercase leading-none tracking-wider">PROCESSAR TÓPICOS</span>
-                                                        <span className="text-[8px] font-bold leading-none text-primary-foreground/80">Avançar análise com IA</span>
+                                                        <span className="text-[8px] font-bold leading-none text-primary-foreground/80">Avançar análise</span>
                                                     </div>
                                                 </button>
                                             )}
@@ -3235,13 +3603,21 @@ const Editais = () => {
                                             >
                                                 {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                                                 <div className="flex flex-col items-start text-left">
-                                                    <span className="mb-0.5 text-[10px] font-black uppercase leading-none tracking-wider">
-                                                        {cycleConflict.existingIds.length === 0 ? 'CRIAR CICLO' : 'FINALIZAR DIRETO'}
-                                                    </span>
-                                                    <span className="text-[8px] font-bold leading-none text-success-foreground/80">
-                                                        {cycleConflict.existingIds.length === 0 ? 'Concluir' : '(Pular mesclagem de tópicos)'}
-                                                    </span>
-                                                </div>
+	                                                    <span className="mb-0.5 text-[10px] font-black uppercase leading-none tracking-wider">
+	                                                        {cycleConflict.action === 'replace'
+	                                                            ? 'CONFIRMAR SUBSTITUIÇÃO'
+	                                                            : cycleConflict.existingIds.length === 0
+	                                                                ? 'CRIAR CICLO'
+	                                                                : 'ADICIONAR SEM UNIFICAR'}
+	                                                    </span>
+	                                                    <span className="text-[8px] font-bold leading-none text-success-foreground/80">
+	                                                        {cycleConflict.action === 'replace'
+	                                                            ? 'Trocar ciclo ativo'
+	                                                            : cycleConflict.existingIds.length === 0
+	                                                                ? 'Concluir'
+	                                                                : 'Manter tópicos separados'}
+	                                                    </span>
+	                                                </div>
                                             </button>
                                         </div>
                                     </div>
@@ -3264,14 +3640,26 @@ const Editais = () => {
                                         </button>
                                     </div>
                                 ) : cycleConflict.step === 'success' ? (
-                                    <button
-                                        onClick={handleGoToCycleAfterSuccess}
-                                        disabled={isSavingCycleName}
-                                        className="app-button-primary ml-auto flex h-10 min-w-[230px] items-center justify-center gap-2 px-5 text-[11px] font-black uppercase tracking-widest transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {isSavingCycleName && <Loader2 size={15} className="animate-spin" />}
-                                        ABRIR CICLO ➔
-                                    </button>
+                                    <div className="flex justify-end">
+                                        <Button
+                                            type="button"
+                                            onClick={handleGoToCycleAfterSuccess}
+                                            disabled={isSavingCycleName}
+                                            className="h-10 px-5 text-[11px] font-black uppercase tracking-widest"
+                                        >
+                                            {isSavingCycleName ? (
+                                                <>
+                                                    <Loader2 size={15} className="animate-spin" />
+                                                    Salvando
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {cycleConflict.action === 'replace' ? 'Abrir ciclo' : 'Salvar e abrir ciclo'}
+                                                    <ArrowRight size={14} />
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
                                 ) : null}
                             </div>
                         </motion.div>

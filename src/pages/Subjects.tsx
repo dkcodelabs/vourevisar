@@ -32,7 +32,7 @@ import { errorService } from '@/lib/errors/errorService';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 
 import { useMergeData } from '@/hooks/useMergeData';
-import { fetchTopicReviewStats } from '@/services/topicReviewService';
+import { fetchTopicReviewStats, fetchTopicReviewStudyMinutes } from '@/services/topicReviewService';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal';
 import { mergeService } from '@/services/mergeService';
@@ -60,6 +60,16 @@ import {
   type CycleStudyEvent,
 } from '@/utils/studyCycleEventInsights';
 import { getStudyCycleQueueSuggestion } from '@/utils/studyCycleQueueSuggestion';
+import {
+  getStartedTopicCycleCta,
+  getStudyCycleSubjectActionState,
+} from '@/utils/studyCycleSubjectState';
+import {
+  getVisibleCycleTopicIds,
+  getVisibleCycleTopics,
+  isVisibleCycleTopic,
+} from '@/utils/studyCycleTopicVisibility';
+import { getStudyCycleTransitionSummary } from '@/utils/studyCycleTransitionSummary';
 
 type SubjectTab = 'all' | 'vertical';
 type CycleTopicStatusVisual = {
@@ -119,9 +129,6 @@ const isTopicNewlyStartedInCycle = (topic: Topic, cycleStart?: string | null): b
     firstStudiedTime >= cycleStartTime;
 };
 
-const getTopicCompletedInCycle = (topic: Topic, cycleStart?: string | null): boolean =>
-  isTopicCompleted(topic) && isTopicNewlyStartedInCycle(topic, cycleStart);
-
 const isTopicCompleted = (topic: Topic) =>
   topic.completed === true ||
   topic.is_completed === true ||
@@ -156,12 +163,12 @@ const isTopicInReviewFlow = (topic: Topic) =>
   );
 
 const isSubjectCompletedInEdital = (subject: Subject) => {
-  const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
+  const activeTopics = getVisibleCycleTopics(subject.topics);
   return activeTopics.length > 0 && activeTopics.every(isTopicCompleted);
 };
 
-const isSubjectFullyStarted = (subject: Subject) => {
-  const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
+const isSubjectFirstContactClosed = (subject: Subject) => {
+  const activeTopics = getVisibleCycleTopics(subject.topics);
   return activeTopics.length > 0 && activeTopics.every(isTopicStarted);
 };
 
@@ -231,7 +238,17 @@ const getStrategicTopicIncidenceDisplay = (topic: Topic) => {
 };
 
 const getSubjectPendingTopicsCount = (subject: Subject) =>
-  subject.topics.filter(topic => topic.is_active !== false && !isTopicStarted(topic)).length;
+  subject.topics.filter(topic => isVisibleCycleTopic(topic) && !isTopicStarted(topic)).length;
+
+const formatStudyMinutes = (minutes: number) => {
+  if (minutes <= 0) return 'Sem tempo registrado';
+  if (minutes < 60) return `${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+
+  return rest > 0 ? `${hours}h ${rest}min` : `${hours}h`;
+};
 
 
 const Subjects = () => {
@@ -244,12 +261,12 @@ const Subjects = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [topicStats, setTopicStats] = useState<Map<string, { reviewCount: number; hardReviewCount: number }>>(new Map());
+  const [topicStudyMinutes, setTopicStudyMinutes] = useState<Map<string, number>>(new Map());
 
   // Novos modais V2 states
   const [visibleCount, setVisibleCount] = useState(25);
   const ITEMS_PER_PAGE = 25;
   const [selectedTopicForNotes, setSelectedTopicForNotes] = useState<{id: string, name: string, subjectName: string} | null>(null);
-  const [isStartingNextCycle, setIsStartingNextCycle] = useState(false);
   const [editingWeightSubjectId, setEditingWeightSubjectId] = useState<string | null>(null);
   const [weightDraft, setWeightDraft] = useState({
     questions: '',
@@ -525,7 +542,10 @@ const Subjects = () => {
       setTopicStats(new Map());
       return;
     }
-    fetchTopicReviewStats(allTopicIds).then(setTopicStats);
+
+    fetchTopicReviewStats(allTopicIds).then((stats) => {
+      setTopicStats(stats);
+    });
   }, [subjects]);
 
   const handleUnloadCycle = async (
@@ -582,7 +602,6 @@ const Subjects = () => {
   const [isResettingCycle, setIsResettingCycle] = useState(false);
   const [completeCycleConfirmOpen, setCompleteCycleConfirmOpen] = useState(false);
   const [pendingCompleteSubjectId, setPendingCompleteSubjectId] = useState<string | null>(null);
-  const [startNextCycleConfirmOpen, setStartNextCycleConfirmOpen] = useState(false);
   // Confirmação inline de exclusão de matéria
   const [confirmHideSubjectId, setConfirmHideSubjectId] = useState<string | null>(null);
 
@@ -922,6 +941,22 @@ const Subjects = () => {
     return expanded;
   }, [userCycle?.ciclo_atual, dynamicUnificationMap, localSubjects, activeSubjectIdsSet, hiddenSubjectIds]);
 
+  const visibleCycleTopicIds = useMemo(
+    () => getVisibleCycleTopicIds(expandedSubjectList.map(item => item.subject)),
+    [expandedSubjectList],
+  );
+
+  useEffect(() => {
+    if (visibleCycleTopicIds.length === 0) {
+      setTopicStudyMinutes(new Map());
+      return;
+    }
+
+    fetchTopicReviewStudyMinutes(visibleCycleTopicIds).then((studyMinutes) => {
+      setTopicStudyMinutes(studyMinutes);
+    });
+  }, [visibleCycleTopicIds]);
+
   const getEquivalentSubjectIds = useCallback((subjectId: string) => {
     const ids = new Set<string>([subjectId, getUnifiedSubjectId(subjectId, dynamicUnificationMap)]);
     const group = dynamicUnificationMap?.unifiedSubjects.find(unified =>
@@ -958,7 +993,7 @@ const Subjects = () => {
     const ids = new Set<string>();
 
     expandedSubjectList.forEach(item => {
-      if (!isSubjectFullyStarted(item.subject)) return;
+      if (!isSubjectFirstContactClosed(item.subject)) return;
       getEquivalentSubjectIds(item.subject.id).forEach(equivalentId => ids.add(equivalentId));
     });
 
@@ -1671,122 +1706,6 @@ const Subjects = () => {
     }
   }, [dynamicUnificationMap, getEquivalentSubjectIds, getUnifiedSubjectName, localSubjects, recordCycleEvent, user, userCycle]);
 
-  const buildCurrentCycleSnapshot = useCallback(() => {
-    if (!user || !userCycle) return null;
-
-    const cycleStart = userCycle.data_inicio_ciclo || null;
-    const cycleSubjects = expandedSubjectList.map(item => item.subject);
-    const perSubject: CycleSubjectSnapshot[] = cycleSubjects.map(subject => {
-      const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
-      const topicsStarted = activeTopics.filter(topic => isTopicNewlyStartedInCycle(topic, cycleStart)).length;
-      const topicsCompleted = activeTopics.filter(topic => getTopicCompletedInCycle(topic, cycleStart)).length;
-      const manuallyMarkedInCycle = studiedCycleIdSet.has(subject.id);
-      const allTopicsStarted = isSubjectFullyStarted(subject);
-      const completedInEdital = isSubjectCompletedInEdital(subject);
-      const closedInCycle = manuallyMarkedInCycle || allTopicsStarted || completedInEdital;
-
-      return {
-        subject_id: subject.id,
-        subject_name: getUnifiedSubjectName(subject.id, subject.name),
-        total_topics: activeTopics.length,
-        topics_started: topicsStarted,
-        topics_completed: topicsCompleted,
-        studied_in_cycle: closedInCycle,
-        manually_marked_in_cycle: manuallyMarkedInCycle,
-        all_topics_started: allTopicsStarted,
-        completed_in_edital: completedInEdital,
-        closed_in_cycle: closedInCycle,
-      };
-    });
-
-    const editalIds = Array.from(new Set(
-      cycleSubjects
-        .map(subject => subject.edital_id)
-        .filter((id): id is string => Boolean(id))
-    ));
-
-    return {
-      user_id: user.id,
-      user_cycle_id: userCycle.id,
-      cycle_number: (userCycle.ciclos_realizados || 0) + 1,
-      started_at: cycleStart,
-      completed_at: new Date().toISOString(),
-      subject_count: cycleSubjects.length,
-      studied_subject_count: perSubject.filter(subject => subject.studied_in_cycle).length,
-      topics_started_count: perSubject.reduce((sum, subject) => sum + subject.topics_started, 0),
-      topics_completed_count: perSubject.reduce((sum, subject) => sum + subject.topics_completed, 0),
-      studied_subject_ids: cycleSubjects
-        .filter(subject => studiedCycleIdSet.has(subject.id) || isSubjectFullyStarted(subject) || isSubjectCompletedInEdital(subject))
-        .map(subject => subject.id),
-      cycle_subject_ids: cycleSubjects.map(subject => subject.id),
-      edital_ids: editalIds,
-      per_subject: perSubject,
-    };
-  }, [expandedSubjectList, getUnifiedSubjectName, studiedCycleIdSet, user, userCycle]);
-
-  const handleIniciarProximoCiclo = useCallback(async () => {
-    if (!user || !userCycle) return;
-
-    const previousUserCycle = userCycle;
-    const cycleSnapshot = buildCurrentCycleSnapshot();
-    const nextCycle = {
-      ...userCycle,
-      materias_estudadas_ciclo: [],
-      ciclos_realizados: (userCycle.ciclos_realizados || 0) + 1,
-      data_inicio_ciclo: new Date().toISOString(),
-      data_fim_ciclo: null,
-      atualizado_em: new Date().toISOString(),
-    };
-
-    setIsStartingNextCycle(true);
-
-    try {
-      if (cycleSnapshot) {
-        const { error: snapshotError } = await (supabase as any)
-          .from('cycle_rotation_snapshots')
-          .upsert(cycleSnapshot, { onConflict: 'user_cycle_id,cycle_number' });
-
-        if (snapshotError) throw snapshotError;
-      }
-
-      const { error } = await supabase
-        .from('user_cycles')
-        .update({
-          materias_estudadas_ciclo: [],
-          ciclos_realizados: nextCycle.ciclos_realizados,
-          data_inicio_ciclo: nextCycle.data_inicio_ciclo,
-          data_fim_ciclo: null,
-          atualizado_em: nextCycle.atualizado_em,
-        })
-        .eq('user_id', user.id)
-        .eq('status', 'active');
-
-      if (error) throw error;
-
-      setUserCycle(nextCycle);
-      localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(nextCycle));
-      await loadCycleSnapshots();
-      toast.success(`Ciclo ${nextCycle.ciclos_realizados} iniciado.`);
-      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { source: 'Subjects', action: 'startNextCycle' } }));
-    } catch (error) {
-      setUserCycle(previousUserCycle);
-      localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(previousUserCycle));
-      await errorService.report(
-        error,
-        {
-          module: 'Subjects',
-          action: 'handleIniciarProximoCiclo',
-          userMessage: 'Erro ao salvar o resumo do ciclo e iniciar o próximo.',
-          severity: 'high',
-          scope: 'core',
-          userId: user.id,
-        }
-      );
-    } finally {
-      setIsStartingNextCycle(false);
-    }
-  }, [buildCurrentCycleSnapshot, loadCycleSnapshots, user, userCycle]);
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -2006,17 +1925,6 @@ const Subjects = () => {
     return list;
   }, [expandedSubjectList, newSubjectName, isImportEditalModalOpen]);
 
-  const studiedCycleList = useMemo(() => {
-    const seen = new Set<string>();
-
-    return filteredList
-      .filter(item => cycleClosedSubjectIdSet.has(item.subject.id))
-      .filter((item): item is ExpandedSubjectItem => {
-        if (!item || seen.has(item.subject.id)) return false;
-        seen.add(item.subject.id);
-        return true;
-      });
-  }, [filteredList, cycleClosedSubjectIdSet]);
   const isCycleFullyStudied = expandedSubjectList.length > 0 &&
     expandedSubjectList.every(item => cycleClosedSubjectIdSet.has(item.subject.id));
   const orderedCycleDisplayList = useMemo(() => {
@@ -2048,7 +1956,7 @@ const Subjects = () => {
           : false;
 
         const topics = subject.topics
-          .filter(topic => topic.is_active !== false)
+          .filter(isVisibleCycleTopic)
           .filter(topic => {
             if (!normalizedQuery || subjectMatches) return true;
             return normalizeText(topic.name).includes(normalizedQuery);
@@ -2095,11 +2003,14 @@ const Subjects = () => {
   const hasActiveCycle = Boolean(userCycle?.ciclo_atual?.length);
   const hasCycleSubjects = expandedSubjectList.length > 0;
   const showCycleWorkspace = hasActiveCycle && hasCycleSubjects;
-	  const cycleVisualStats = useMemo(() => {
-	    const cycleSubjects = expandedSubjectList.map(item => item.subject);
-	    const totalSubjects = cycleSubjects.length;
-	    const studiedSubjects = cycleSubjects.filter(subject => cycleClosedSubjectIdSet.has(subject.id)).length;
-	    const remainingSubjects = Math.max(totalSubjects - studiedSubjects, 0);
+  const cycleDisplayName = typeof userCycle?.name === 'string' && userCycle.name.trim()
+    ? userCycle.name.trim()
+    : null;
+  const cycleVisualStats = useMemo(() => {
+    const cycleSubjects = expandedSubjectList.map(item => item.subject);
+    const totalSubjects = cycleSubjects.length;
+    const studiedSubjects = cycleSubjects.filter(subject => cycleClosedSubjectIdSet.has(subject.id)).length;
+    const remainingSubjects = Math.max(totalSubjects - studiedSubjects, 0);
     const progressPercentage = totalSubjects > 0 ? Math.round((studiedSubjects / totalSubjects) * 100) : 0;
     const parsedCycleStartMs = userCycle?.data_inicio_ciclo ? new Date(userCycle.data_inicio_ciclo).getTime() : NaN;
     const cycleStartMs = Number.isFinite(parsedCycleStartMs) ? parsedCycleStartMs : Date.now();
@@ -2117,44 +2028,44 @@ const Subjects = () => {
       progressPercentage,
       elapsedDays,
       subjectsPerDay,
-	      daysToFinish,
-	    };
-	  }, [expandedSubjectList, cycleClosedSubjectIdSet, userCycle?.data_inicio_ciclo]);
+      daysToFinish,
+    };
+  }, [expandedSubjectList, cycleClosedSubjectIdSet, userCycle?.data_inicio_ciclo]);
 
-	  const strategicPanelStats = useMemo(() => {
-	    const cycleSubjects = expandedSubjectList.map(item => item.subject);
-	    const cycleStart = userCycle?.data_inicio_ciclo || null;
-	    const totalSubjects = cycleSubjects.length;
-	    const totalTopics = cycleSubjects.reduce(
-	      (sum, subject) => sum + subject.topics.filter(topic => topic.is_active !== false).length,
+  const strategicPanelStats = useMemo(() => {
+    const cycleSubjects = expandedSubjectList.map(item => item.subject);
+    const cycleStart = userCycle?.data_inicio_ciclo || null;
+    const totalSubjects = cycleSubjects.length;
+    const totalTopics = cycleSubjects.reduce(
+      (sum, subject) => sum + getVisibleCycleTopics(subject.topics).length,
 	      0,
 	    );
 	    const startedTopics = cycleSubjects.reduce(
-	      (sum, subject) => sum + subject.topics.filter(topic => topic.is_active !== false && isTopicStarted(topic)).length,
+	      (sum, subject) => sum + subject.topics.filter(topic => isVisibleCycleTopic(topic) && isTopicStarted(topic)).length,
 	      0,
 	    );
 	    const completedTopics = cycleSubjects.reduce(
-	      (sum, subject) => sum + subject.topics.filter(topic => topic.is_active !== false && isTopicCompleted(topic)).length,
+	      (sum, subject) => sum + subject.topics.filter(topic => isVisibleCycleTopic(topic) && isTopicCompleted(topic)).length,
 	      0,
 	    );
 	    const coveragePercentage = totalTopics > 0 ? Math.round((startedTopics / totalTopics) * 100) : 0;
 	    const completedSubjects = cycleSubjects.filter(subject => {
-	      const activeTopics = subject.topics.filter(topic => topic.is_active !== false);
+	      const activeTopics = getVisibleCycleTopics(subject.topics);
 	      return activeTopics.length > 0 && activeTopics.every(isTopicCompleted);
 	    }).length;
 	    const inProgressSubjects = cycleSubjects.filter(subject =>
-	      subject.topics.some(topic => topic.is_active !== false && isTopicStarted(topic) && !isTopicCompleted(topic))
+	      subject.topics.some(topic => isVisibleCycleTopic(topic) && isTopicStarted(topic) && !isTopicCompleted(topic))
 	    ).length;
 	    const topicsStartedThisCycle = cycleSubjects.reduce(
 	      (sum, subject) => sum + subject.topics.filter(topic =>
-	        topic.is_active !== false && isTopicNewlyStartedInCycle(topic, cycleStart)
+	        isVisibleCycleTopic(topic) && isTopicNewlyStartedInCycle(topic, cycleStart)
 	      ).length,
 	      0,
 	    );
 	    const examWeightTotals = getExamWeightTotals(cycleSubjects);
 	    const highestIncidenceTopic = cycleSubjects.flatMap(subject =>
 	      subject.topics
-	        .filter(topic => topic.is_active !== false && typeof topic.total_volume === 'number' && topic.total_volume > 0)
+	        .filter(topic => isVisibleCycleTopic(topic) && typeof topic.total_volume === 'number' && topic.total_volume > 0)
 	        .map(topic => ({
 	          topicName: topic.name,
 	          subjectName: getUnifiedSubjectName(subject.id, subject.name),
@@ -2170,7 +2081,7 @@ const Subjects = () => {
 	    }, null);
 	    const highestIncidenceSubject = cycleSubjects.map(subject => {
 	      const analyzedTopics = subject.topics.filter(topic =>
-	        topic.is_active !== false && typeof topic.total_volume === 'number' && topic.total_volume > 0
+	        isVisibleCycleTopic(topic) && typeof topic.total_volume === 'number' && topic.total_volume > 0
 	      );
 	      const totalVolume = analyzedTopics.reduce((sum, topic) => sum + (topic.total_volume || 0), 0);
 
@@ -2219,7 +2130,16 @@ const Subjects = () => {
 	    };
 	  }, [expandedSubjectList, getUnifiedSubjectName, userCycle?.data_inicio_ciclo]);
 
-	  const cycleMaturity = useMemo(() => {
+  const cycleTransitionSummary = useMemo(() => getStudyCycleTransitionSummary({
+    subjects: expandedSubjectList.map(item => ({
+      id: item.subject.id,
+      name: getUnifiedSubjectName(item.subject.id, item.subject.name),
+      topics: item.subject.topics,
+    })),
+    studyMinutesByTopicId: topicStudyMinutes,
+  }), [expandedSubjectList, getUnifiedSubjectName, topicStudyMinutes]);
+
+		  const cycleMaturity = useMemo(() => {
 	    const cycleNumber = (userCycle?.ciclos_realizados || 0) + 1;
 	    const eventCount = cycleStudyEvents.filter(event =>
 	      ['topic_started', 'topic_reviewed', 'topic_continued', 'subject_marked_studied', 'cycle_reordered'].includes(event.event_type)
@@ -2713,7 +2633,7 @@ const Subjects = () => {
     ).length;
     const startedTopicsCount = inReviewTopicsCount + completedTopicsCount;
     const activeTopicsStartedInCurrentCycle = subject.topics.filter(topic =>
-      topic.is_active !== false && isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo)
+      isVisibleCycleTopic(topic) && isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo)
     ).length;
 
     if (totalTopicsCount === 0) return '0 tópicos';
@@ -2779,12 +2699,13 @@ const Subjects = () => {
                 if (!b.created_at) return -1;
                 return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
               })
-              .map((topic) => {
-                const contactCount = getTopicContactCount(topic, topicStats);
-                const hasStarted = contactCount > 0 || isTopicStarted(topic);
-                const status = getVerticalTopicStatus(topic, hasStarted);
-                const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
-                const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
+	              .map((topic) => {
+	                const contactCount = getTopicContactCount(topic, topicStats);
+	                const hasStarted = contactCount > 0 || isTopicStarted(topic);
+	                const status = getVerticalTopicStatus(topic, hasStarted);
+	                const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
+	                const startedTopicCta = getStartedTopicCycleCta(topic.name);
+	                const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
                 const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
                 const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
                 const hasNotes = Boolean(
@@ -2823,16 +2744,16 @@ const Subjects = () => {
                       <Check size={11} />
                     </span>
                   )
-                ) : hasStarted ? (
-                  renderCycleTooltip(
-                    'Continuar estudo do tópico',
-                    <button
-                      onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
-                      className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all ${statusVisual.actionClassName}`}
-                      aria-label={`Continuar estudo do tópico ${topic.name}`}
-                    >
-                      <BookOpen size={11} />
-                    </button>
+	                ) : hasStarted ? (
+	                  renderCycleTooltip(
+	                    startedTopicCta.tooltip,
+	                    <button
+	                      onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
+	                      className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all ${statusVisual.actionClassName}`}
+	                      aria-label={startedTopicCta.ariaLabel}
+	                    >
+	                      <BookOpen size={11} />
+	                    </button>
                   )
                 ) : (
                   renderCycleTooltip(
@@ -2881,7 +2802,7 @@ const Subjects = () => {
 
 	                    <div className="hidden min-w-0 items-center justify-between gap-2 opacity-90 transition-opacity group-hover/topic:opacity-100 lg:flex lg:justify-end">
 	                      <span className="sr-only">{status.label}</span>
-	                      <div className="grid shrink-0 grid-cols-[minmax(0,auto)_5.75rem] items-center gap-1 sm:grid-cols-[minmax(0,auto)_6.75rem]">
+		                      <div className="grid shrink-0 grid-cols-[minmax(0,auto)_6.75rem] items-center gap-1 sm:grid-cols-[minmax(0,auto)_7.5rem]">
 	                        <div className="flex min-w-0 items-center justify-end gap-1">
 	                          {renderVerticalTopicIncidenceBadge()}
 	                          {renderVerticalTopicNotesButton()}
@@ -2895,18 +2816,18 @@ const Subjects = () => {
 	                            Concluído
 	                          </span>
 	                        )
-	                      ) : hasStarted ? (
-	                        renderCycleTooltip(
-	                          'Continuar estudo do tópico',
-	                          <button
-	                            onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
-	                            className={`app-type-action-xs flex h-7 w-[5.75rem] items-center justify-center gap-1.5 rounded-lg border px-2 transition-all sm:w-[6.75rem] ${statusVisual.actionClassName}`}
-	                            aria-label={`Continuar estudo do tópico ${topic.name}`}
-	                          >
-	                            <BookOpen size={11} />
-	                            Continuar
-	                          </button>
-	                        )
+		                      ) : hasStarted ? (
+		                        renderCycleTooltip(
+		                          startedTopicCta.tooltip,
+		                          <button
+		                            onClick={() => navigate(`/revisoes?topicId=${topic.id}`)}
+		                            className={`app-type-action-xs flex h-7 w-[6.75rem] items-center justify-center gap-1.5 rounded-lg border px-2 transition-all sm:w-[7.5rem] ${statusVisual.actionClassName}`}
+		                            aria-label={startedTopicCta.ariaLabel}
+		                          >
+		                            <BookOpen size={11} />
+		                            {startedTopicCta.label}
+		                          </button>
+		                        )
 	                      ) : (
 	                        renderCycleTooltip(
 	                          'Iniciar estudo do tópico',
@@ -2948,7 +2869,7 @@ const Subjects = () => {
             : 'Escolha um edital e ative as matérias que farão parte da fila. A página só vira mapa de estudo quando existe uma fila real.'}
         </p>
         <button
-          onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
+          onClick={() => navigate('/meus-editais', { state: { filterCycle: hasActiveCycle } })}
           className="app-primary-button px-6 py-3"
         >
           Ir para Meus Editais
@@ -2957,34 +2878,142 @@ const Subjects = () => {
     </div>
   );
 
-	  const StrategicEditalPanel = () => {
-	    const highestPendingWeight = strategicPanelStats.highestPendingWeightSubject;
-	    const highestIncidence = strategicPanelStats.highestIncidenceTopic;
-	    const highestIncidenceSubject = strategicPanelStats.highestIncidenceSubject;
-	    const currentCycleNumber = cycleMaturity.cycleNumber;
-	    const canShowStrategicInsights = ['active', 'historical'].includes(cycleMaturity.phase);
-	    const activeCycleEditais = editaisNoCiclo.filter(e =>
-	      e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
-	    );
-	    const editalCycleLabel = activeCycleEditais.length > 0
-	      ? activeCycleEditais
-	        .map(edital => {
-	          const editalName = (edital.organ || edital.name || 'Edital').trim();
-	          const position = edital.position?.trim();
-	          return position ? `${editalName} • ${position}` : editalName;
-	        })
-	        .join(' | ')
-	      : 'Edital carregado';
-	    const formatDerivedWeightPercentage = (value?: number | null) =>
-	      typeof value === 'number' && Number.isFinite(value)
-	        ? `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% entre pesos informados`
-	        : null;
-	    const queueMainSubjectId = queueSuggestion?.suggestedOrder?.[0] || null;
-	    const visibleEventInsights = cycleEventInsights.filter(insight =>
-	      !(queueMainSubjectId && insight.id.startsWith('priority-neglected:') && insight.subjectId === queueMainSubjectId)
-	    );
-	    const insightItems = [
-	      ...(cycleMaturity.phase !== 'cold_start' ? visibleEventInsights.map(insight => ({
+  const renderFirstContactFinishedPanel = (variant: 'full' | 'compact' = 'compact') => {
+    const action = cycleTransitionSummary.primaryAction;
+    const reviewCounts = cycleTransitionSummary.reviewCounts;
+    const topSubject = cycleTransitionSummary.topSubjectByStudyMinutes;
+
+    return (
+      <div className={`app-gradient-panel w-full rounded-2xl text-left ${variant === 'full' ? 'max-w-3xl p-5 sm:p-6' : 'mb-4 p-4'}`}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="mb-3 flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-primary/25 bg-primary/10 text-primary">
+                <CheckCircle2 size={21} />
+              </div>
+              <div className="min-w-0">
+                <p className="app-type-eyebrow text-primary">Primeiro contato finalizado</p>
+                <h3 className="mt-1 text-lg font-black text-title-section">
+                  Agora a prioridade é revisão, não novo ciclo
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-content-muted">
+                  Todos os tópicos ativos do edital já foram iniciados. A fila de avanço cumpriu seu papel; daqui em diante o risco está em atrasar ou perder as revisões programadas.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
+                <p className="app-type-eyebrow text-content-muted">Matérias abertas</p>
+                <p className="mt-1 text-lg font-black text-title-card tabular-nums">
+                  {cycleTransitionSummary.firstContactClosedSubjects}/{cycleTransitionSummary.totalSubjects}
+                </p>
+              </div>
+              <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
+                <p className="app-type-eyebrow text-content-muted">Tópicos iniciados</p>
+                <p className="mt-1 text-lg font-black text-title-card tabular-nums">
+                  {cycleTransitionSummary.startedTopics}/{cycleTransitionSummary.totalTopics}
+                </p>
+              </div>
+              <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
+                <p className="app-type-eyebrow text-content-muted">Revisões agora</p>
+                <p className="mt-1 text-lg font-black text-title-card tabular-nums">
+                  {reviewCounts.overdue + reviewCounts.today}
+                </p>
+                <p className="app-type-caption mt-0.5 text-content-muted">
+                  {reviewCounts.overdue} atrasadas, {reviewCounts.today} hoje
+                </p>
+              </div>
+              <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
+                <p className="app-type-eyebrow text-content-muted">Tempo registrado</p>
+                <p className="mt-1 text-lg font-black text-title-card tabular-nums">
+                  {formatStudyMinutes(cycleTransitionSummary.totalStudyMinutes)}
+                </p>
+                {cycleTransitionSummary.averageMinutesPerStartedTopic !== null && (
+                  <p className="app-type-caption mt-0.5 text-content-muted">
+                    {cycleTransitionSummary.averageMinutesPerStartedTopic} min/tópico
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+                <div className="mb-1 flex items-center gap-2 text-primary">
+                  <BookOpen size={14} />
+                  <p className="app-type-eyebrow">Próxima ação</p>
+                </div>
+                <p className="app-type-body-small text-title-card">{action.description}</p>
+              </div>
+              <div className="rounded-xl border app-hairline bg-surface/45 p-3">
+                <div className="mb-1 flex items-center gap-2 text-content-muted">
+                  <Gauge size={14} />
+                  <p className="app-type-eyebrow">Resumo de esforço</p>
+                </div>
+                <p className="app-type-body-small text-title-card">
+                  {topSubject
+                    ? `${topSubject.subjectName} concentrou ${formatStudyMinutes(topSubject.minutes)} de estudo registrado.`
+                    : 'Ainda não há tempo de estudo suficiente registrado para destacar uma matéria.'}
+                </p>
+                <p className="app-type-caption mt-1 text-content-muted">
+                  Futuras: {reviewCounts.future}. Sem agenda: {reviewCounts.unscheduled}.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-col gap-2 lg:w-44">
+            <button
+              type="button"
+              onClick={() => navigate(action.to)}
+              className="app-primary-button justify-center gap-2 px-4 py-2.5"
+            >
+              {action.label}
+              <ArrowRight size={14} />
+            </button>
+            {action.kind !== 'future_reviews' && reviewCounts.future > 0 && (
+              <button
+                type="button"
+                onClick={() => navigate('/revisoes?tab=futuras')}
+                className="app-control justify-center gap-2 px-3 py-2"
+              >
+                Próximas
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const StrategicEditalPanel = () => {
+    const highestPendingWeight = strategicPanelStats.highestPendingWeightSubject;
+    const highestIncidence = strategicPanelStats.highestIncidenceTopic;
+    const highestIncidenceSubject = strategicPanelStats.highestIncidenceSubject;
+    const currentCycleNumber = cycleMaturity.cycleNumber;
+    const canShowStrategicInsights = ['active', 'historical'].includes(cycleMaturity.phase);
+    const activeCycleEditais = editaisNoCiclo.filter(e =>
+      e.subject_ids.some(sid => localSubjects.find(s => s.id === sid))
+    );
+    const editalCycleLabel = cycleDisplayName || (activeCycleEditais.length > 0
+      ? activeCycleEditais
+        .map(edital => {
+          const editalName = (edital.organ || edital.name || 'Edital').trim();
+          const position = edital.position?.trim();
+          return position ? `${editalName} • ${position}` : editalName;
+        })
+        .join(' | ')
+      : 'Edital carregado');
+    const formatDerivedWeightPercentage = (value?: number | null) =>
+      typeof value === 'number' && Number.isFinite(value)
+        ? `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% entre pesos informados`
+        : null;
+    const queueMainSubjectId = queueSuggestion?.suggestedOrder?.[0] || null;
+    const visibleEventInsights = cycleEventInsights.filter(insight =>
+      !(queueMainSubjectId && insight.id.startsWith('priority-neglected:') && insight.subjectId === queueMainSubjectId)
+    );
+    const insightItems = [
+      ...(cycleMaturity.phase !== 'cold_start' ? visibleEventInsights.map(insight => ({
 	        label: insight.title,
 	        value: `${insight.message} ${insight.evidence}`,
 	        icon: BarChart2,
@@ -3036,25 +3065,14 @@ const Subjects = () => {
 
 	      return 'Nenhum novo insight estratégico confiável neste momento.';
 	    })();
-	    const forecastText = cycleVisualStats.remainingSubjects === 0
-	      ? 'Este ciclo já está completo.'
-	      : cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0
-	        ? `Pelo ritmo de matérias fechadas neste ciclo, você fecha a fila em cerca de ${cycleVisualStats.daysToFinish} dias.`
-	        : null;
-	    const lastClosedCycle = cycleSnapshots[0] || null;
-	    const topicDelta = lastClosedCycle
-	      ? strategicPanelStats.topicsStartedThisCycle - lastClosedCycle.topics_started_count
-	      : null;
-	    const formatTopicDelta = (value: number | null) => {
-	      if (value === null) return null;
-	      if (value === 0) return `Mesmo volume do ciclo ${lastClosedCycle?.cycle_number}.`;
-	      const abs = Math.abs(value);
-	      const label = `${abs} ${abs === 1 ? 'tópico' : 'tópicos'}`;
-	      return value > 0
-	        ? `${label} a mais que no ciclo ${lastClosedCycle?.cycle_number}.`
-	        : `${label} a menos que no ciclo ${lastClosedCycle?.cycle_number}.`;
-	    };
-	    const alertStyles: Record<StudyCycleAlert['severity'], { card: string; icon: string; label: string }> = {
+		    const forecastText = cycleTransitionSummary.hasNoNewTopicsToStart
+		      ? cycleTransitionSummary.isEditalCompleted
+		        ? 'Edital concluído no programa de revisão.'
+		        : 'Primeiro contato do edital finalizado. A prioridade agora fica em Revisões.'
+		      : cycleVisualStats.daysToFinish !== null && cycleVisualStats.daysToFinish > 0
+		        ? `Pelo ritmo de matérias fechadas neste ciclo, você fecha a fila em cerca de ${cycleVisualStats.daysToFinish} dias.`
+		        : null;
+		    const alertStyles: Record<StudyCycleAlert['severity'], { card: string; icon: string; label: string }> = {
 	      critical: {
 	        card: 'border-destructive/25 bg-destructive/10 text-destructive',
 	        icon: 'bg-destructive/15 text-destructive',
@@ -3114,30 +3132,27 @@ const Subjects = () => {
 	              <div className="app-responsive-stat-grid mt-4">
 	                <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
 	                  <div className="flex items-center justify-between gap-3">
-	                    <p className="app-type-eyebrow text-content-muted">Matérias concluídas no ciclo</p>
-	                    <p className="text-sm font-bold text-title-card tabular-nums">{cycleVisualStats.studiedSubjects}</p>
-	                  </div>
-	                </div>
-	                <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
-	                  <div className="flex items-center justify-between gap-3">
-	                    <p className="app-type-eyebrow text-content-muted">Tópicos iniciados</p>
-	                    <p className="text-sm font-bold text-title-card tabular-nums">{strategicPanelStats.topicsStartedThisCycle}</p>
-	                  </div>
-	                  {formatTopicDelta(topicDelta) && (
-	                    <p className="app-type-caption mt-1 text-content-muted">
-	                      {formatTopicDelta(topicDelta)}
-	                    </p>
-	                  )}
-	                </div>
+		                    <p className="app-type-eyebrow text-content-muted">Primeiro contato</p>
+		                    <p className="text-sm font-bold text-title-card tabular-nums">
+		                      {cycleTransitionSummary.firstContactClosedSubjects}/{cycleTransitionSummary.totalSubjects}
+		                    </p>
+		                  </div>
+		                </div>
+		                <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
+		                  <div className="flex items-center justify-between gap-3">
+		                    <p className="app-type-eyebrow text-content-muted">Tópicos iniciados</p>
+		                    <p className="text-sm font-bold text-title-card tabular-nums">
+		                      {cycleTransitionSummary.startedTopics}/{cycleTransitionSummary.totalTopics}
+		                    </p>
+		                  </div>
+		                  <p className="app-type-caption mt-1 text-content-muted">
+		                    {cycleTransitionSummary.unstartedTopics > 0
+		                      ? `${cycleTransitionSummary.unstartedTopics} ainda sem primeiro contato.`
+		                      : 'Sem tópico novo para iniciar.'}
+		                  </p>
+		                </div>
 	              </div>
-	              <div className="mt-2 space-y-2">
-	                {!lastClosedCycle && (
-	                  <p className="app-type-caption text-content-muted">
-	                    Ao iniciar o próximo ciclo, este resumo será salvo para comparar sua evolução.
-	                  </p>
-	                )}
-	              </div>
-	            </div>
+		            </div>
 
 	            {strategicAlerts.length > 0 && (
 	              <div className="app-glass rounded-2xl p-4">
@@ -3435,7 +3450,7 @@ const Subjects = () => {
       ? filteredList.map(item => item.id)
       : verticalSubjectList.map(item => item.id);
     const allExpanded = expandableSubjectIds.length > 0 && expandableSubjectIds.every(id => expandedSubjectIds.includes(id));
-    const title = isCycleMode ? 'Fila do Ciclo' : 'Edital Verticalizado';
+    const title = isCycleMode ? (cycleDisplayName || 'Fila do Ciclo') : 'Edital Verticalizado';
     const count = isCycleMode ? filteredList.length : verticalSubjectList.length;
 
     return (
@@ -3522,58 +3537,14 @@ const Subjects = () => {
                     Importe um edital ou cadastre matérias em Meus Editais para montar uma fila de ciclo confiável.
                   </p>
                   <button
-                    onClick={() => navigate('/meus-editais', { state: { filterCycle: true } })}
+                    onClick={() => navigate('/meus-editais')}
                     className="app-primary-button px-6 py-3"
                   >
                     Ir para Meus Editais
                   </button>
                 </>
               ) : activeTab === 'all' && hasActiveCycle && isCycleFullyStudied ? (
-                <div className="app-gradient-panel w-full max-w-xl rounded-2xl p-6 text-left">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-success/25 bg-success/10">
-                      <CheckCircle2 size={22} className="text-success" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-black text-title-section">
-                        Ciclo {(userCycle?.ciclos_realizados || 0) + 1} finalizado
-                      </h3>
-                      <p className="text-sm text-content-muted mt-1 leading-relaxed">
-                        Todas as matérias pendentes deste ciclo foram concluídas no ciclo ou já estão concluídas no edital.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 my-5">
-                    <div className="app-soft-panel rounded-xl p-4 text-center">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-content-muted mb-1">
-                        Estudadas
-                      </p>
-                    <p className="text-2xl font-black text-title-card">
-                        {studiedCycleList.length}
-                      </p>
-                    </div>
-                    <div className="app-soft-panel rounded-xl p-4 text-center">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-content-muted mb-1">
-                        Total
-                      </p>
-                      <p className="text-2xl font-black text-title-card">
-                        {studiedCycleList.length}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => setStartNextCycleConfirmOpen(true)}
-                      disabled={isStartingNextCycle}
-                      className="app-success-button gap-2 px-5 py-2.5 disabled:cursor-not-allowed"
-                    >
-                      {isStartingNextCycle ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                      Iniciar Próximo Ciclo
-                    </button>
-                  </div>
-                </div>
+                renderFirstContactFinishedPanel('full')
               ) : (
                 <>
                   <div className="app-empty-orb mb-6 flex h-16 w-16 items-center justify-center rounded-full">
@@ -3598,26 +3569,7 @@ const Subjects = () => {
             </div>
           ) : (
             <>
-              {activeTab === 'all' && isCycleFullyStudied && (
-                <div className="app-gradient-panel mb-4 flex items-center justify-between gap-4 rounded-xl px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-foreground">
-                      Ciclo concluído
-                    </p>
-                    <p className="text-xs text-content-muted mt-0.5">
-                      Todas as matérias da fila foram concluídas no ciclo ou já estão concluídas no edital.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setStartNextCycleConfirmOpen(true)}
-                    disabled={isStartingNextCycle}
-                    className="app-success-button app-type-action-xs h-9 shrink-0 gap-2 px-3 disabled:cursor-not-allowed"
-                  >
-                    {isStartingNextCycle ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                    Novo Ciclo
-                  </button>
-                </div>
-              )}
+              {activeTab === 'all' && isCycleFullyStudied && renderFirstContactFinishedPanel('compact')}
 
               <SortableContext items={displayList.map(i => i.id)} strategy={verticalListSortingStrategy}>
                 <div className={activeTab === 'all' ? "flex flex-col gap-1.5" : "space-y-1.5"}>
@@ -3627,7 +3579,7 @@ const Subjects = () => {
 	                  const isFullyStartedInCycle = fullyStartedSubjectIdSet.has(subject.id);
 	                  const isCompletedInEdital = completedEditalSubjectIdSet.has(subject.id);
 	                  const isClosedInCycle = isManuallyStudiedInCycle || isFullyStartedInCycle || isCompletedInEdital;
-	                  const activeSubjectTopics = subject.topics.filter(topic => topic.is_active !== false);
+	                  const activeSubjectTopics = getVisibleCycleTopics(subject.topics);
 	                  const totalTopicsCount = activeSubjectTopics.length;
 	                  const completedTopicsCount = activeSubjectTopics.filter(isTopicCompleted).length;
 	                  const inReviewTopicsCount = activeSubjectTopics.filter(topic =>
@@ -3635,11 +3587,17 @@ const Subjects = () => {
 	                  ).length;
 	                  const noTopics = totalTopicsCount === 0;
 	                  const startedTopicsCount = inReviewTopicsCount + completedTopicsCount;
-	                  const activeTopicsStartedInCurrentCycle = subject.topics.filter(topic =>
-	                    topic.is_active !== false && isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo)
-	                  ).length;
-	                  const needsCycleClosure = activeTopicsStartedInCurrentCycle > 0 && !isClosedInCycle;
-	                  const subjectTopicSummaryLabel = (() => {
+		                  const activeTopicsStartedInCurrentCycle = subject.topics.filter(topic =>
+		                    isVisibleCycleTopic(topic) && isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo)
+		                  ).length;
+		                  const needsCycleClosure = activeTopicsStartedInCurrentCycle > 0 && !isClosedInCycle;
+		                  const subjectActionState = getStudyCycleSubjectActionState({
+		                    isCompletedInEdital,
+		                    isFullyStartedInCycle,
+		                    isManuallyStudiedInCycle,
+		                    needsCycleClosure,
+		                  });
+		                  const subjectTopicSummaryLabel = (() => {
 	                    if (noTopics) return '0 tópicos';
 	                    if (isCompletedInEdital) {
 	                      return `${completedTopicsCount}/${totalTopicsCount} tópicos concluídos`;
@@ -3797,14 +3755,12 @@ const Subjects = () => {
 
                               {activeTab === 'all' && (
                                 <>
-		                                  {isCompletedInEdital || isFullyStartedInCycle ? (
-		                                    renderCycleTooltip(
-		                                      isCompletedInEdital
-		                                        ? 'Todos os tópicos ativos desta matéria estão concluídos.'
-		                                        : 'Todos os tópicos ativos desta matéria já foram iniciados.',
-		                                      <button
-		                                        onClick={(e) => e.stopPropagation()}
-		                                        aria-disabled="true"
+			                                  {subjectActionState.kind === 'locked_completed' || subjectActionState.kind === 'locked_started' ? (
+			                                    renderCycleTooltip(
+			                                      subjectActionState.tooltip,
+			                                      <button
+			                                        onClick={(e) => e.stopPropagation()}
+			                                        aria-disabled="true"
 		                                        className="relative flex h-6 w-6 shrink-0 cursor-default items-center justify-center rounded-full border border-success/25 bg-success/10 text-success opacity-80"
 		                                        aria-label={isCompletedInEdital
 		                                          ? `${getUnifiedSubjectName(subject.id, subject.name)} concluída no edital`
@@ -3813,10 +3769,10 @@ const Subjects = () => {
 		                                        <Check size={12} strokeWidth={3} />
 		                                      </button>
 		                                    )
-	                                  ) : isManuallyStudiedInCycle ? (
-	                                    renderCycleTooltip(
-	                                      'Voltar matéria para a fila',
-	                                      <button
+		                                  ) : subjectActionState.kind === 'return_to_queue' ? (
+		                                    renderCycleTooltip(
+		                                      subjectActionState.tooltip,
+		                                      <button
 	                                        onClick={(e) => {
 	                                          e.stopPropagation();
                                           handleVoltarMateriaParaFila(subject.id);
@@ -3828,9 +3784,9 @@ const Subjects = () => {
                                         <RotateCcw size={11} className="absolute scale-0 opacity-0 transition-all group-hover/return:scale-100 group-hover/return:opacity-100" />
                                       </button>
                                     )
-                                  ) : (
-                                    renderCycleTooltip(
-                                      needsCycleClosure ? 'Há tópicos novos neste ciclo. Marque a matéria quando encerrar este bloco.' : 'Marcar como estudada',
+		                                  ) : (
+		                                    renderCycleTooltip(
+		                                      subjectActionState.tooltip,
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -3866,13 +3822,14 @@ const Subjects = () => {
                                 </div>
                               ) : (
                                 <div className="flex flex-col">
-                                  {activeSubjectTopics.map((topic) => {
-                                    const completed = isTopicCompleted(topic);
-	                                    const contactCount = getTopicContactCount(topic, topicStats);
-	                                    const hasStarted = contactCount > 0 || isTopicStarted(topic);
-	                                    const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
-                                    const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
-	                                    const statusLabel = `Tópico ${statusVisual.label.toLowerCase()}`;
+	                                  {activeSubjectTopics.map((topic) => {
+	                                    const completed = isTopicCompleted(topic);
+		                                    const contactCount = getTopicContactCount(topic, topicStats);
+		                                    const hasStarted = contactCount > 0 || isTopicStarted(topic);
+		                                    const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic, userCycle?.data_inicio_ciclo);
+	                                    const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
+		                                    const startedTopicCta = getStartedTopicCycleCta(topic.name);
+		                                    const statusLabel = `Tópico ${statusVisual.label.toLowerCase()}`;
 	                                    const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
 	                                    const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
 
@@ -3969,21 +3926,21 @@ const Subjects = () => {
 	                                                  <Check size={11} />
 	                                                  <span className="hidden sm:inline">Concluído</span>
 	                                                </span>
-	                                              ) : hasStarted ? (
-	                                                renderCycleTooltip(
-	                                                  'Continuar estudo do tópico',
-	                                                  <button
-	                                                    onClick={(e) => {
-	                                                      e.stopPropagation();
-	                                                      navigate(`/revisoes?topicId=${topic.id}`);
-	                                                    }}
-	                                                    className={`app-type-action-xs flex-shrink-0 h-7 px-2.5 rounded-lg flex items-center justify-center gap-1.5 border transition-all ml-0.5 ${statusVisual.actionClassName}`}
-	                                                    aria-label={`Continuar estudo do tópico ${topic.name}`}
-	                                                  >
-	                                                    <BookOpen size={11} />
-	                                                    <span className="hidden sm:inline">Continuar</span>
-	                                                  </button>
-	                                                )
+		                                              ) : hasStarted ? (
+		                                                renderCycleTooltip(
+		                                                  startedTopicCta.tooltip,
+		                                                  <button
+		                                                    onClick={(e) => {
+		                                                      e.stopPropagation();
+		                                                      navigate(`/revisoes?topicId=${topic.id}`);
+		                                                    }}
+		                                                    className={`app-type-action-xs flex-shrink-0 h-7 px-2.5 rounded-lg flex items-center justify-center gap-1.5 border transition-all ml-0.5 ${statusVisual.actionClassName}`}
+		                                                    aria-label={startedTopicCta.ariaLabel}
+		                                                  >
+		                                                    <BookOpen size={11} />
+		                                                    <span className="hidden sm:inline">{startedTopicCta.label}</span>
+		                                                  </button>
+		                                                )
 	                                              ) : (
 	                                                renderCycleTooltip(
 	                                                  'Iniciar estudo do tópico',
@@ -4168,44 +4125,6 @@ const Subjects = () => {
           </AlertDialog>
 
           <AlertDialog
-            open={startNextCycleConfirmOpen}
-            onOpenChange={(open) => !open && !isStartingNextCycle && setStartNextCycleConfirmOpen(false)}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2 text-foreground">
-                  <RefreshCw className="w-5 h-5 text-success" />
-                  Iniciar próximo ciclo?
-                </AlertDialogTitle>
-                <AlertDialogDescription className="text-content-muted">
-                  Isso limpará as marcações manuais deste ciclo e iniciará o Ciclo {(userCycle?.ciclos_realizados || 0) + 2}. Matérias com todos os tópicos ativos iniciados continuarão concluídas automaticamente no ciclo.
-                  <br /><br />
-                  Um resumo deste ciclo será salvo para comparar sua evolução nos próximos ciclos.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isStartingNextCycle}>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={async (event) => {
-                    event.preventDefault();
-                    await handleIniciarProximoCiclo();
-                    setStartNextCycleConfirmOpen(false);
-                  }}
-                  disabled={isStartingNextCycle}
-                  className="app-success-button flex items-center justify-center gap-2 font-semibold"
-                >
-                  {isStartingNextCycle ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  Iniciar Ciclo
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          <AlertDialog
             open={resetCycleConfirmOpen}
             onOpenChange={(open) => !open && !isResettingCycle && setResetCycleConfirmOpen(false)}
           >
@@ -4216,7 +4135,7 @@ const Subjects = () => {
                   Resetar ciclo de estudos?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  Isso vai zerar o ciclo atual, limpar as marcações manuais deste ciclo e voltar a contagem para o Ciclo 1. Matérias com todos os tópicos ativos iniciados continuarão concluídas automaticamente no ciclo.
+                  Isso vai zerar o ciclo atual, limpar as marcações deste ciclo e voltar a contagem para o Ciclo 1. Matérias concluídas no edital continuam fechadas; matérias fechadas só por primeiro contato voltam para a fila.
                   <br /><br />
                   Matérias, tópicos e conteúdo cadastrado não serão apagados.
                 </AlertDialogDescription>

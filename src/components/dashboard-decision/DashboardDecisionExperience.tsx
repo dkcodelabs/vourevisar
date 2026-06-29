@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   BarChart3,
@@ -141,8 +141,10 @@ interface DashboardDecisionExperienceProps {
   onAddReminder: (text: string, reminderDate: string | null) => Promise<void>;
   onToggleReminder: (id: string, completed: boolean) => Promise<void>;
   onDeleteReminder: (id: string) => Promise<void>;
+  onUpdateCycleName: (name: string) => Promise<void>;
   isAddingReminder: boolean;
   isDeletingReminder: boolean;
+  isUpdatingCycleName: boolean;
 }
 
 export const DashboardDecisionExperience = ({
@@ -153,8 +155,10 @@ export const DashboardDecisionExperience = ({
   onAddReminder,
   onToggleReminder,
   onDeleteReminder,
+  onUpdateCycleName,
   isAddingReminder,
   isDeletingReminder,
+  isUpdatingCycleName,
 }: DashboardDecisionExperienceProps) => {
   if (model.isLoading) {
     return <DashboardDecisionSkeleton />;
@@ -165,7 +169,7 @@ export const DashboardDecisionExperience = ({
       <StudyEmptyState
         kind="no-cycle"
         variant="center"
-        onAction={() => onNavigate('/ciclo-estudos')}
+        onAction={() => onNavigate('/meus-editais')}
       />
     );
   }
@@ -173,7 +177,12 @@ export const DashboardDecisionExperience = ({
   return (
     <main className="flex w-full flex-col gap-5 pb-10">
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.65fr)]">
-        <DashboardCommandHero model={model} onNavigate={onNavigate} />
+        <DashboardCommandHero
+          model={model}
+          onNavigate={onNavigate}
+          onUpdateCycleName={onUpdateCycleName}
+          isUpdatingCycleName={isUpdatingCycleName}
+        />
         <ProgressSummaryCard model={model} onNavigate={onNavigate} />
       </section>
 
@@ -321,12 +330,42 @@ const DashboardDecisionSkeleton = () => (
   </div>
 );
 
-const DashboardCommandHero = ({ model, onNavigate }: { model: DashboardDecisionModel; onNavigate: (href: string) => void }) => {
+const DashboardCommandHero = ({
+  model,
+  onNavigate,
+  onUpdateCycleName,
+  isUpdatingCycleName,
+}: {
+  model: DashboardDecisionModel;
+  onNavigate: (href: string) => void;
+  onUpdateCycleName: (name: string) => Promise<void>;
+  isUpdatingCycleName: boolean;
+}) => {
   const { examContext, totals } = model;
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(examContext.editalName || '');
   const daysLabel =
     examContext.state === 'ready' && typeof examContext.daysRemaining === 'number'
       ? `${examContext.daysRemaining}`
       : '--';
+  const canEditCycleName = Boolean(examContext.editalId);
+
+  useEffect(() => {
+    if (!isEditingName) setNameDraft(examContext.editalName || '');
+  }, [examContext.editalName, isEditingName]);
+
+  const startEditingName = () => {
+    if (!canEditCycleName) return;
+    setNameDraft(examContext.editalName || '');
+    setIsEditingName(true);
+  };
+
+  const saveCycleName = async () => {
+    const cleanName = nameDraft.trim();
+    if (!cleanName) return;
+    await onUpdateCycleName(cleanName);
+    setIsEditingName(false);
+  };
 
   return (
     <Card className="relative overflow-hidden rounded-2xl border-primary/20 bg-[radial-gradient(circle_at_38%_-35%,hsl(var(--primary)/0.2),transparent_42%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--surface)))] shadow-[0_20px_60px_-42px_hsl(var(--primary)/0.65)]">
@@ -336,9 +375,57 @@ const DashboardCommandHero = ({ model, onNavigate }: { model: DashboardDecisionM
           <div className="col-span-4 min-w-0">
             <div className="flex min-w-0 items-start gap-2">
               <GraduationCap className="mt-0.5 size-4 shrink-0 text-primary sm:size-[18px]" />
-              <h1 className="max-w-3xl break-words text-base font-bold leading-tight text-foreground sm:text-xl">
-                {examContext.editalName || 'Nenhum edital carregado no ciclo'}
-              </h1>
+              {isEditingName ? (
+                <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+                  <Input
+                    value={nameDraft}
+                    onChange={event => setNameDraft(event.target.value)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter') void saveCycleName();
+                      if (event.key === 'Escape') setIsEditingName(false);
+                    }}
+                    maxLength={160}
+                    autoFocus
+                    className="h-10 max-w-xl border-primary/30 bg-background text-base font-bold text-foreground sm:text-lg"
+                    aria-label="Nome do ciclo"
+                  />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void saveCycleName()}
+                      disabled={isUpdatingCycleName || !nameDraft.trim()}
+                    >
+                      {isUpdatingCycleName ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+                      Salvar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsEditingName(false)}
+                      disabled={isUpdatingCycleName}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startEditingName}
+                  disabled={!canEditCycleName}
+                  className="group flex min-w-0 max-w-3xl items-start gap-2 rounded-xl text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/35 disabled:cursor-default"
+                  title={canEditCycleName ? 'Editar nome do ciclo' : undefined}
+                >
+                  <h1 className="break-words text-base font-bold leading-tight text-foreground sm:text-xl">
+                    {examContext.editalName || 'Nenhum edital carregado no ciclo'}
+                  </h1>
+                  {canEditCycleName ? (
+                    <NotebookPen className="mt-1 size-3.5 shrink-0 text-content-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+                  ) : null}
+                </button>
+              )}
             </div>
             {examContext.position ? (
               <p className="mt-1.5 flex min-w-0 items-center gap-2 text-xs font-medium text-content-muted sm:text-sm">
@@ -347,7 +434,7 @@ const DashboardCommandHero = ({ model, onNavigate }: { model: DashboardDecisionM
               </p>
             ) : null}
             {!examContext.editalId ? (
-              <Button className="mt-4" variant="outline" size="sm" onClick={() => onNavigate('/ciclo-estudos')}>
+              <Button className="mt-4" variant="outline" size="sm" onClick={() => onNavigate('/meus-editais')}>
                 Carregar edital no ciclo
                 <ChevronRight data-icon="inline-end" />
               </Button>

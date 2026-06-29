@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
+import { getConnectionErrorCode, getConnectionErrorMessage, isConnectionError } from '@/lib/errors/networkError';
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
 const AI_STATUS_UPDATED_EVENT = 'ai-status-updated';
 
@@ -58,9 +59,10 @@ export async function checkAIStatusDirect(silent = true): Promise<AIStatus> {
     publishAIStatus(newStatus);
     
     return newStatus;
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = extractErrorMessage(error);
     const errorCode = extractErrorCode(error);
+    const isConnectionFailure = isConnectionError(error);
     
     const newStatus: AIStatus = {
       status: 'error',
@@ -68,9 +70,11 @@ export async function checkAIStatusDirect(silent = true): Promise<AIStatus> {
       errorMessage: errorMessage,
       modelName: null
     };
-    
-    await saveStatusToDB(newStatus);
-    await saveErrorToDB(errorCode, errorMessage, 'checkAIStatusDirect');
+
+    if (!isConnectionFailure) {
+      await saveStatusToDB(newStatus);
+      await saveErrorToDB(errorCode, errorMessage, 'checkAIStatusDirect');
+    }
     publishAIStatus(newStatus);
     
     if (!silent) {
@@ -120,9 +124,14 @@ async function saveErrorToDB(code: string, message: string, context: string) {
   }
 }
 
-function extractErrorMessage(error: any): string {
-  const msg = error?.message || '';
-  const status = error?.status || error?.cause?.status;
+function extractErrorMessage(error: unknown): string {
+  if (isConnectionError(error)) {
+    return getConnectionErrorMessage(error);
+  }
+
+  const err = error as { message?: string; status?: number; cause?: { status?: number } };
+  const msg = err?.message || '';
+  const status = err?.status || err?.cause?.status;
   
   if (msg.includes('API key expired') || msg.includes('expired')) {
     return 'API key expirada. Renove no Google AI Studio.';
@@ -134,7 +143,7 @@ function extractErrorMessage(error: any): string {
     return 'API key sem permissão. Verifique as configurações.';
   }
   if (msg.includes('quota') || msg.includes('QUOTA_EXCEEDED')) {
-    return 'Cota da API excedida. Aguarde ou升级 seu plano.';
+    return 'Cota da API excedida. Aguarde ou atualize seu plano.';
   }
   if (msg.includes('network') || msg.includes('fetch') || msg.includes('ENOTFOUND')) {
     return 'Erro de conexão. Verifique sua internet.';
@@ -148,9 +157,13 @@ function extractErrorMessage(error: any): string {
   return msg.substring(0, 200) || 'Erro desconhecido';
 }
 
-function extractErrorCode(error: any): string {
-  const msg = error?.message || '';
-  const status = error?.status || error?.cause?.status;
+function extractErrorCode(error: unknown): string {
+  const connectionCode = getConnectionErrorCode(error);
+  if (connectionCode) return connectionCode;
+
+  const err = error as { message?: string; status?: number; cause?: { status?: number } };
+  const msg = err?.message || '';
+  const status = err?.status || err?.cause?.status;
   
   if (msg.includes('API key expired') || msg.includes('expired')) return 'API_KEY_EXPIRED';
   if (msg.includes('API_KEY_INVALID') || msg.includes('not valid')) return 'API_KEY_INVALID';

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@supabase/supabase-js';
+import { getConnectionErrorMessage, isConnectionError } from '@/lib/errors/networkError';
 
 export interface CheckoutPayload {
   name: string;
@@ -85,7 +86,9 @@ export const asaasService = {
         } else if (error instanceof FunctionsRelayError) {
           return { success: false, error: 'Erro de rede. Tente novamente.' };
         } else if (error instanceof FunctionsFetchError) {
-          return { success: false, error: 'Servidor indisponível. Tente novamente.' };
+          return { success: false, error: getConnectionErrorMessage(error) };
+        } else if (isConnectionError(error)) {
+          return { success: false, error: getConnectionErrorMessage(error) };
         }
         
         return { success: false, error: error.message || 'Falha ao processar pagamento' };
@@ -94,6 +97,9 @@ export const asaasService = {
       return data as CheckoutResponse;
     } catch (err: unknown) {
       console.error('Erro no processCheckout:', err);
+      if (isConnectionError(err)) {
+        return { success: false, error: getConnectionErrorMessage(err) };
+      }
       const message = err instanceof Error ? err.message : 'Falha ao processar pagamento';
       return { success: false, error: message };
     }

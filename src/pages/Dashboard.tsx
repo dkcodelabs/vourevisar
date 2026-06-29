@@ -11,8 +11,10 @@ const Dashboard = () => {
     addReminder,
     toggleReminder,
     deleteReminder,
+    updateCycleName,
     isAddingReminder,
     isDeletingReminder,
+    isUpdatingCycleName,
     navigateToAction,
   } = useDashboardDecisionModel();
 
@@ -44,8 +46,10 @@ const Dashboard = () => {
         onAddReminder={addReminder}
         onToggleReminder={toggleReminder}
         onDeleteReminder={deleteReminder}
+        onUpdateCycleName={updateCycleName}
         isAddingReminder={isAddingReminder}
         isDeletingReminder={isDeletingReminder}
+        isUpdatingCycleName={isUpdatingCycleName}
       />
     </div>
   );

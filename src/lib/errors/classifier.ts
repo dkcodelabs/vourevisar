@@ -4,6 +4,7 @@ import {
     ErrorReportInput,
     ErrorSeverity
 } from './errorEvent.contract';
+import { getConnectionErrorMessage, isConnectionError } from './networkError';
 
 interface ClassificationResult {
     severity: ErrorSeverity;
@@ -52,6 +53,7 @@ export function classifyError(input: ErrorReportInput): ClassificationResult {
     // Network & Timeout (503, 504, fetch failed, CORS aborted)
     else if (
         ['503', '504', '0'].includes(code) || 
+        isConnectionError(error) ||
         technicalMessage.includes('fetch failed') || 
         technicalMessage.includes('network') || 
         technicalMessage.includes('timeout') ||
@@ -62,7 +64,7 @@ export function classifyError(input: ErrorReportInput): ClassificationResult {
         result.category = 'network';
         result.recoverability = 'system_retryable';
         result.recommendedAction = 'Verificar conectividade. Se persistir, validar configuração de CORS no Supabase.';
-        if (!input.userMessage) result.userMessage = 'Conexão instável ou falha ao carregar dados. Verifique sua internet.';
+        if (!input.userMessage) result.userMessage = getConnectionErrorMessage(error);
     }
 
     // Database & System (500, PGRST*, Postgrest)

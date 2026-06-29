@@ -22,6 +22,27 @@ describe('buildActiveTopicScope', () => {
     });
   });
 
+  it('excludes inactive and hidden topics from analytics scope', () => {
+    expect(
+      buildActiveTopicScope([
+        {
+          id: 'subject-a',
+          topics: [
+            { id: 'topic-active', is_active: true, is_hidden: false },
+            { id: 'topic-legacy-visible', is_active: null, is_hidden: false },
+            { id: 'topic-inactive', is_active: false, is_hidden: false },
+            { id: 'topic-hidden', is_active: true, is_hidden: true },
+          ],
+        },
+      ]),
+    ).toEqual({
+      activeSubjectIds: ['subject-a'],
+      activeTopicIds: ['topic-active', 'topic-legacy-visible'],
+      hasScopedData: true,
+      scopeKey: 'topic-active|topic-legacy-visible',
+    });
+  });
+
   it('returns an honest empty scope when there are no active topics', () => {
     expect(buildActiveTopicScope([])).toEqual({
       activeSubjectIds: [],

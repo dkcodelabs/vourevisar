@@ -1,6 +1,10 @@
 interface ScopeSubjectLike {
   id: string;
-  topics?: Array<{ id: string | null | undefined }> | null;
+  topics?: Array<{
+    id: string | null | undefined;
+    is_active?: boolean | null;
+    is_hidden?: boolean | null;
+  }> | null;
 }
 
 export interface ActiveTopicScope {
@@ -22,6 +26,7 @@ export function buildActiveTopicScope(subjects: ScopeSubjectLike[]): ActiveTopic
       new Set(
         subjects
           .flatMap((subject) => subject.topics ?? [])
+          .filter((topic) => topic.is_active !== false && topic.is_hidden !== true)
           .map((topic) => topic.id)
           .filter((id): id is string => Boolean(id)),
       ),

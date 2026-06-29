@@ -15,6 +15,7 @@ import {
 } from '@/utils/calculateNextReview';
 import { Topic } from '@/types';
 import { registerDualProgress, findSiblingTopicIds } from '@/services/cycleMergeService';
+import { syncMergedTopicProgress } from '@/services/topicMergeProgressService';
 import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 import { fetchTopicExamDate, getOverdueDays } from '@/services/topicReviewScheduleService';
 import { getReviewStage } from '@/utils/reviewStage';
@@ -246,30 +247,12 @@ export const useTopicReview = () => {
         updateData.first_studied_at = now;
       }
 
-      // Atualizar o tópico no banco
-      const { error: updateError } = await supabase
-        .from('topics')
-        .update(updateData)
-        .eq('id', topicId);
-
-      if (updateError) throw updateError;
-
-      // 🔄 Dual Progress: sincronizar tópicos irmãos (mesclagem de editais)
-      try {
-        const unificationMap = userCycle?.unification_map ?? null;
-        await registerDualProgress(topicId, updateData, unificationMap);
-      } catch (dualErr) {
-        // Non-blocking: dual progress failure shouldn't break the main review flow
-        console.warn('⚠️ Falha no dual progress (não-bloqueante):', dualErr);
-      }
-
-      // Registrar histórico no DB
       const sessionDuration = durationOverride ?? difficultyModalData.duration ?? 0;
       const historyPayload = {
         user_id: user.id,
         topic_id: topicId,
-        edital_id: topic.edital_id || topic.origin_id, // Capturar o contexto do edital
-        cycle_id: cycleId, // Capturar o ciclo ativo
+        edital_id: topic.edital_id || topic.origin_id,
+        cycle_id: cycleId,
         review_stage: reviewStage,
         reviewed_at: now,
         study_duration_minutes: sessionDuration > 0 ? sessionDuration : null,
@@ -280,14 +263,31 @@ export const useTopicReview = () => {
         trend_label: trendLabel
       };
 
+      // Atualizar progresso do tópico clicado e equivalentes em uma RPC transacional.
+      let mergedSiblingTopicIds: string[] = [];
       try {
-        const { error: histError } = await supabase.from('topic_review_history').insert(historyPayload);
-        if (histError) throw histError;
+        const syncedTopicIds = await syncMergedTopicProgress({
+          userId: user.id,
+          topicId,
+          updateData,
+          historyData: historyPayload,
+        });
+        mergedSiblingTopicIds = syncedTopicIds.filter(id => id !== topicId);
 
-        // 🔄 Propagação profunda v2.2: Registrar histórico para tópicos irmãos (mesclados)
+        if (mergedSiblingTopicIds.length === 0) {
+          const unificationMap = userCycle?.unification_map ?? null;
+          await registerDualProgress(topicId, updateData, unificationMap);
+        }
+      } catch (dualErr) {
+        console.error('❌ Falha ao atualizar progresso do tópico:', dualErr);
+        throw dualErr;
+      }
+
+      try {
+        // Fallback legado: topic_merges modernos ja sao registrados pela RPC.
         try {
           const unificationMap = userCycle?.unification_map ?? null;
-          const siblingIds = findSiblingTopicIds(topicId, unificationMap);
+          const siblingIds = mergedSiblingTopicIds.length > 0 ? [] : findSiblingTopicIds(topicId, unificationMap);
           if (siblingIds.length > 0) {
             const siblingHistoryRows = siblingIds.map(sibId => ({
               ...historyPayload,

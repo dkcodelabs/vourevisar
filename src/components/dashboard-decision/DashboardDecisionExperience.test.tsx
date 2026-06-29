@@ -43,7 +43,7 @@ const missingCycleModel: DashboardDecisionModel = {
     description: 'Carregue um edital.',
     reason: 'Sem ciclo ativo.',
     primaryLabel: 'Carregar',
-    primaryHref: '/ciclo-estudos',
+    primaryHref: '/meus-editais',
     target: {},
     priorityScore: 0,
   },
@@ -111,8 +111,10 @@ describe('DashboardDecisionExperience', () => {
         onAddReminder={vi.fn()}
         onToggleReminder={vi.fn()}
         onDeleteReminder={vi.fn()}
+        onUpdateCycleName={vi.fn()}
         isAddingReminder={false}
         isDeletingReminder={false}
+        isUpdatingCycleName={false}
       />,
     );
 
@@ -121,7 +123,7 @@ describe('DashboardDecisionExperience', () => {
     expect(screen.queryByText('Tópico de edital arquivado')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Carregar edital no ciclo' }));
-    expect(onNavigate).toHaveBeenCalledWith('/ciclo-estudos');
+    expect(onNavigate).toHaveBeenCalledWith('/meus-editais');
   });
 
   it('shows the subject above the topic and keeps first contact beside the action badge', () => {
@@ -132,6 +134,7 @@ describe('DashboardDecisionExperience', () => {
           examContext: {
             editalName: 'TRT',
             position: 'Analista',
+            editalId: 'edital-1',
             examDate: '2026-08-01',
             daysRemaining: 40,
             state: 'ready',
@@ -174,8 +177,10 @@ describe('DashboardDecisionExperience', () => {
         onAddReminder={vi.fn()}
         onToggleReminder={vi.fn()}
         onDeleteReminder={vi.fn()}
+        onUpdateCycleName={vi.fn()}
         isAddingReminder={false}
         isDeletingReminder={false}
+        isUpdatingCycleName={false}
       />,
     );
 

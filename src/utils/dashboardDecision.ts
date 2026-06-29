@@ -25,7 +25,7 @@ export function getPaceBannerAction(state: DashboardPace['state']) {
     return { label: 'Atualizar data da prova', href: '/meus-editais' };
   }
   if (state === 'missing_cycle') {
-    return { label: 'Abrir Ciclo de Estudos', href: '/ciclo-estudos' };
+    return { label: 'Carregar edital no ciclo', href: '/meus-editais' };
   }
   return null;
 }
@@ -333,8 +333,8 @@ export function buildNextBestAction(params: {
       title: 'Carregue um edital no ciclo',
       description: 'O painel precisa de um ciclo ativo para calcular sua fila real.',
       reason: 'Sem ciclo ativo, não existe ordem confiável de estudo.',
-      primaryLabel: 'Ir para Ciclo',
-      primaryHref: '/ciclo-estudos',
+      primaryLabel: 'Ir para Meus Editais',
+      primaryHref: '/meus-editais',
       secondaryLabel: 'Meus editais',
       secondaryHref: '/meus-editais',
       target: {},

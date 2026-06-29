@@ -1,6 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import { mergeService } from './mergeService';
 
+type RecoverableCycleState = {
+  id: string;
+  ciclo_atual: string[] | null;
+  materias_estudadas_ciclo: string[] | null;
+  ciclos_realizados: number | null;
+  unification_map: unknown | null;
+};
+
 /**
  * SERVIÇO DE INTEGRIDADE DE DADOS
  * 
@@ -107,15 +115,15 @@ export const cleanupOrphanedCycleIds = async (userId: string) => {
 };
 
 /**
- * Deleta ciclos que não possuem nenhum edital ativo (merged_into_cycle = true).
- * Regra de ouro: user_cycles só deve existir se pelo menos 1 edital tiver merged_into_cycle = true.
+ * Remove apenas ciclos realmente vazios.
+ * Ciclos sem edital ativo podem guardar estado manual recuperável para quando o edital for carregado novamente.
  */
 export const deleteOrphanedCycles = async (userId: string) => {
   try {
     // 1. Buscar ciclos do usuário
     const { data: cycles, error: cyclesError } = await supabase
       .from('user_cycles')
-      .select('id')
+      .select('id, ciclo_atual, materias_estudadas_ciclo, ciclos_realizados, unification_map')
       .eq('user_id', userId);
 
     if (cyclesError) throw cyclesError;
@@ -130,11 +138,22 @@ export const deleteOrphanedCycles = async (userId: string) => {
 
     if (countError) throw countError;
 
-    // 3. Se nenhum edital está marcado como ativo, deletar TODOS os ciclos
+    // 3. Se nenhum edital está ativo, deletar apenas ciclos sem estado recuperável
     if ((count ?? 0) === 0) {
-      console.log(`[DataIntegrity] Nenhum edital ativo encontrado. Deletando ${cycles.length} ciclos órfãos.`);
+      const typedCycles = cycles as RecoverableCycleState[];
+      const deletableCycles = typedCycles.filter((cycle) => {
+        const hasActiveOrder = Array.isArray(cycle.ciclo_atual) && cycle.ciclo_atual.length > 0;
+        const hasManualState = Array.isArray(cycle.materias_estudadas_ciclo) && cycle.materias_estudadas_ciclo.length > 0;
+        const hasCompletedRotations = Number(cycle.ciclos_realizados || 0) > 0;
+        const hasUnificationMap = Boolean(cycle.unification_map);
+
+        return !hasActiveOrder && !hasManualState && !hasCompletedRotations && !hasUnificationMap;
+      });
+
+      const preserved = typedCycles.length - deletableCycles.length;
+      console.log(`[DataIntegrity] Nenhum edital ativo encontrado. Deletando ${deletableCycles.length} ciclo(s) vazio(s) e preservando ${preserved} ciclo(s) com histórico recuperável.`);
       
-      for (const cycle of cycles) {
+      for (const cycle of deletableCycles) {
         const { error: deleteError } = await supabase
           .from('user_cycles')
           .delete()
@@ -145,7 +164,7 @@ export const deleteOrphanedCycles = async (userId: string) => {
         }
       }
       
-      return { success: true, deleted: cycles.length };
+      return { success: true, deleted: deletableCycles.length, preserved };
     }
 
     console.log(`[DataIntegrity] ${count} edital(is) ativo(s) no ciclo. Nenhum ciclo órfão.`);

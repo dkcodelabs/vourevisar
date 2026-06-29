@@ -95,6 +95,7 @@ export interface HybridMergeResult {
     standaloneSubjects: number;
     totalSubjectsInCycle: number;
     aiStatus?: 'success' | 'error' | 'timeout';
+    aiWarning?: string;
   };
 }
 
@@ -138,4 +139,6 @@ export interface TopicMergePhaseResult {
   groups: TopicGroupResult[];
   /** Overall AI status for the topic phase */
   overallAiStatus: 'success' | 'error' | 'skipped';
+  /** User-facing warning when AI failed and deterministic fallback was used */
+  aiWarning?: string;
 }

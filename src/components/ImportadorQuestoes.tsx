@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-toastify';
 import { Loader2, Upload, FileText, CheckCircle, Save } from 'lucide-react';
 import { toastGate } from '@/lib/errors/toastGate';
+import { getConnectionErrorMessage, isConnectionError } from '@/lib/errors/networkError';
 
 interface Question {
     numero: string | number;
@@ -104,7 +105,10 @@ Ignore cabeçalhos e rodapés irrelevantes.
 
         } catch (error: any) {
             console.error('Erro geral:', error);
-            toastGate.notifyError(`Erro ao processar: ${error.message}`, 'COMPONENTS-IMPORTADORQUESTOES-02', { severity: 'medium' });
+            const message = isConnectionError(error)
+                ? getConnectionErrorMessage(error)
+                : `Erro ao processar: ${error.message}`;
+            toastGate.notifyError(message, 'COMPONENTS-IMPORTADORQUESTOES-02', { severity: 'medium' });
         } finally {
             setIsProcessing(false);
             setProgress('');

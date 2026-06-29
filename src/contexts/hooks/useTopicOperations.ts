@@ -5,6 +5,11 @@ import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { toast } from '@/lib/toast';
 import { useStudySessionTracking } from '@/hooks/useStudySessionTracking';
+import {
+  omitTopicProgressFields,
+  pickTopicProgressFields,
+  syncMergedTopicProgress,
+} from '@/services/topicMergeProgressService';
 
 export const useTopicOperations = (
   user: { id: string } | null,
@@ -94,12 +99,25 @@ export const useTopicOperations = (
       }
       if (updates.subtopics !== undefined) updateData.subtopics = updates.subtopics;
 
-      const { error } = await supabase
-        .from('topics')
-        .update(updateData)
-        .eq('id', topicId);
+      const progressUpdate = pickTopicProgressFields(updateData);
+      const editorialUpdate = omitTopicProgressFields(updateData);
 
-      if (error) throw error;
+      if (Object.keys(progressUpdate).length > 0) {
+        await syncMergedTopicProgress({
+          userId: user.id,
+          topicId,
+          updateData: progressUpdate,
+        });
+      }
+
+      if (Object.keys(editorialUpdate).length > 0) {
+        const { error } = await supabase
+          .from('topics')
+          .update(editorialUpdate)
+          .eq('id', topicId);
+
+        if (error) throw error;
+      }
 
       if (wasCompleted) {
         try {

@@ -7,10 +7,11 @@ import {
 import type { Subject } from '@/types';
 import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
 
-const makeSubject = (id: string, name: string, topics: Array<{ id: string; name: string }>): Subject => ({
+const makeSubject = (id: string, name: string, topics: Array<{ id: string; name: string }>, editalId?: string): Subject => ({
     id,
     name,
     status: 'Nova',
+    edital_id: editalId,
     topics: topics.map(topic => ({
         ...topic,
         completed: false,
@@ -26,11 +27,11 @@ describe('buildCycleMergeComparison', () => {
             makeSubject('subject-a', 'Matematica', [
                 { id: 'percentage-a', name: 'Porcentagem' },
                 { id: 'interest-a', name: 'Juros' },
-            ]),
+            ], 'edital-a'),
             makeSubject('subject-b', 'Matematica', [
                 { id: 'percentage-b', name: 'Porcentagem' },
                 { id: 'rule-three-b', name: 'Regra de tres' },
-            ]),
+            ], 'edital-b'),
         ];
         const map: CycleUnificationMap = {
             version: 1,
@@ -53,7 +54,9 @@ describe('buildCycleMergeComparison', () => {
         const result = buildCycleMergeComparison(subjects, map);
 
         expect(result.individualSubjects.map(subject => subject.name)).toEqual(['Matematica', 'Matematica']);
+        expect(result.individualSubjects.map(subject => subject.sourceEditalIds)).toEqual([['edital-a'], ['edital-b']]);
         expect(result.unifiedSubjects).toHaveLength(1);
+        expect(result.unifiedSubjects[0].sourceEditalIds).toEqual(['edital-a', 'edital-b']);
         expect(result.unifiedSubjects[0].topics).toEqual([
             expect.objectContaining({ name: 'Juros', isUnified: false }),
             expect.objectContaining({ name: 'Porcentagem', isUnified: true }),

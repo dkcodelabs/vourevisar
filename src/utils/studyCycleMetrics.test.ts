@@ -95,6 +95,25 @@ describe('studyCycleMetrics', () => {
     expect(metrics.importantUnstartedTopics).toBe(2);
   });
 
+  it('excludes hidden topics from cycle totals and pending counts', () => {
+    const metrics = getStudyCycleMetrics({
+      now,
+      subjects: [
+        {
+          id: 'subject-1',
+          topics: [
+            { id: 'visible', review_count: 0 },
+            { id: 'hidden', review_count: 0, is_hidden: true },
+            { id: 'inactive', review_count: 0, is_active: false },
+          ],
+        },
+      ],
+    });
+
+    expect(metrics.totalTopics).toBe(1);
+    expect(metrics.unstartedTopics).toBe(1);
+  });
+
   it('uses maturity gates based on cycle history and usage', () => {
     expect(getStudyCycleMetrics({ subjects: [], now }).maturity).toBe('cold_start');
     expect(getStudyCycleMetrics({

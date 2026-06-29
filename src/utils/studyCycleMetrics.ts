@@ -1,3 +1,5 @@
+import { getVisibleCycleTopics } from './studyCycleTopicVisibility';
+
 type MetricTopic = {
   id: string;
   completed?: boolean;
@@ -12,6 +14,7 @@ type MetricTopic = {
   next_review?: string | null;
   total_volume?: number | null;
   is_active?: boolean;
+  is_hidden?: boolean | null;
 };
 
 type MetricSubject = {
@@ -92,7 +95,7 @@ const nextReviewDate = (topic: MetricTopic) =>
   topic.next_review || topic.nextReview || null;
 
 const activeTopics = (subject: MetricSubject) =>
-  subject.topics.filter(topic => topic.is_active !== false);
+  getVisibleCycleTopics(subject.topics);
 
 const hasKnownWeight = (subject: MetricSubject) =>
   typeof subject.exam_weight_percentage === 'number' ||

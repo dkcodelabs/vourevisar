@@ -142,8 +142,13 @@ export const useDashboardDecisionModel = () => {
   const [activityRange, setActivityRange] = useState<7 | 14 | 30>(7);
 
   const activeEdital = editaisNoCiclo[0];
-  const examDate = activeEdital?.exam_date ?? null;
   const hasActiveCycle = Boolean(cycleData.userCycle?.ciclo_atual?.length);
+  const hasCompositeCycle = editaisNoCiclo.length > 1;
+  const cycleExamDate = cycleData.userCycle?.exam_date ?? null;
+  const examDate = cycleExamDate || (!hasCompositeCycle ? activeEdital?.exam_date ?? null : null);
+  const cycleDisplayName = typeof cycleData.userCycle?.name === 'string' && cycleData.userCycle.name.trim()
+    ? cycleData.userCycle.name.trim()
+    : null;
 
   const dashboardSubjects = useMemo<DashboardCycleSubject[]>(
     () =>
@@ -311,6 +316,30 @@ export const useDashboardDecisionModel = () => {
     onError: () => toastManager.error('Não consegui excluir o lembrete agora'),
   });
 
+  const updateCycleName = useMutation({
+    mutationFn: async (name: string) => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      const cleanName = name.trim();
+      if (!cleanName) throw new Error('Nome do ciclo obrigatório');
+
+      const { error } = await supabase
+        .from('user_cycles')
+        .update({
+          name: cleanName.slice(0, 160),
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'cycle_name_updated' } }));
+      toastManager.success('Nome do ciclo atualizado');
+    },
+    onError: () => toastManager.error('Não consegui atualizar o nome do ciclo agora'),
+  });
+
   const pace = useMemo(
     () =>
       buildDashboardPace({
@@ -350,6 +379,7 @@ export const useDashboardDecisionModel = () => {
 
   const daysRemaining = pace.daysRemaining;
   const editalIdentity = getDashboardEditalIdentity(activeEdital);
+  const useCycleNameAsIdentity = Boolean(cycleDisplayName);
   const examState = !hasActiveCycle
     ? 'missing_cycle'
     : !examDate
@@ -362,7 +392,8 @@ export const useDashboardDecisionModel = () => {
     isLoading: reviewsData.isLoading || cycleData.isLoading || isEditaisLoading || isRemindersLoading || (hasActiveCycle && isActivityLoading),
     error: reviewsData.error,
     examContext: {
-      ...editalIdentity,
+      editalName: cycleDisplayName || editalIdentity.editalName,
+      position: useCycleNameAsIdentity ? null : editalIdentity.position,
       editalId: activeEdital?.id,
       examDate,
       daysRemaining,
@@ -396,7 +427,9 @@ export const useDashboardDecisionModel = () => {
     addReminder: (text: string, reminderDate: string | null) => addReminder.mutateAsync({ text, reminderDate }),
     toggleReminder: (id: string, completed: boolean) => toggleReminder.mutateAsync({ id, completed }),
     deleteReminder: (id: string) => deleteReminder.mutateAsync(id),
+    updateCycleName: (name: string) => updateCycleName.mutateAsync(name),
     isAddingReminder: addReminder.isPending,
+    isUpdatingCycleName: updateCycleName.isPending,
     navigateToAction: (href: string) => navigate(href),
     isTogglingReminder: toggleReminder.isPending,
     isDeletingReminder: deleteReminder.isPending,

@@ -11,6 +11,7 @@ export interface CycleMergeComparisonSubject {
     id: string;
     name: string;
     isUnified: boolean;
+    sourceEditalIds: string[];
     sourceCount: number;
     topics: CycleMergeComparisonTopic[];
 }
@@ -22,6 +23,10 @@ export interface CycleMergeComparison {
 
 const sortByName = <T extends { name: string; id: string }>(items: T[]): T[] => (
     items.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR') || a.id.localeCompare(b.id))
+);
+
+const getUniqueEditalIds = (subjects: Subject[]): string[] => (
+    [...new Set(subjects.map(subject => subject.edital_id).filter((id): id is string => Boolean(id)))]
 );
 
 export function buildIndividualCycleMap(
@@ -57,6 +62,7 @@ export function buildCycleMergeComparison(
                 id: subject.id,
                 name: subject.name,
                 isUnified: false,
+                sourceEditalIds: subject.edital_id ? [subject.edital_id] : [],
                 sourceCount: 1,
                 topics: sortByName((subject.topics || []).map(topic => ({
                     id: topic.id,
@@ -87,6 +93,7 @@ export function buildCycleMergeComparison(
             id: subjectMapping.originalSubjectIds.join(':'),
             name: subjectMapping.displayNameOverride || subjectMapping.displayName,
             isUnified: subjectMapping.originalSubjectIds.length > 1,
+            sourceEditalIds: getUniqueEditalIds(sourceSubjects),
             sourceCount: subjectMapping.originalSubjectIds.length,
             topics: sortByName([...mappedTopics, ...individualTopics]),
         };
@@ -99,6 +106,7 @@ export function buildCycleMergeComparison(
             id: subject.id,
             name: subject.name,
             isUnified: false,
+            sourceEditalIds: subject.edital_id ? [subject.edital_id] : [],
             sourceCount: 1,
             topics: sortByName((subject.topics || []).map(topic => ({
                 id: topic.id,

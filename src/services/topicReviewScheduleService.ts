@@ -115,12 +115,11 @@ export async function recalculatePendingReviewsForEdital(params: {
   userId: string;
   examDate: string | null | undefined;
 }): Promise<{ adjustedCount: number }> {
-  const { editalId, userId, examDate } = params;
+  const { editalId, examDate } = params;
   const { data, error } = await supabase
     .from('topics')
     .select('id, last_reviewed_at, current_interval, next_review')
     .eq('edital_id', editalId)
-    .eq('user_id', userId)
     .eq('completed', false)
     .gt('review_count', 0);
 
@@ -139,7 +138,6 @@ export async function recalculatePendingReviewsForEdital(params: {
         .from('topics')
         .update({ next_review: adjustment.nextReview })
         .eq('id', adjustment.id)
-        .eq('user_id', userId)
     )));
 
     const failed = results.find(result => result.error);

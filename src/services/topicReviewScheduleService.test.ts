@@ -3,16 +3,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const supabaseMock = vi.hoisted(() => {
   const maybeSingle = vi.fn();
   const eq = vi.fn();
+  const gt = vi.fn();
+  const update = vi.fn();
   const select = vi.fn();
-  const chain = { select, eq, maybeSingle };
+  const chain = { select, eq, gt, update, maybeSingle };
 
   select.mockReturnValue(chain);
   eq.mockReturnValue(chain);
+  gt.mockResolvedValue({ data: [], error: null });
+  update.mockReturnValue(chain);
 
   return {
     chain,
     maybeSingle,
     eq,
+    gt,
+    update,
     select,
     from: vi.fn(() => chain),
   };
@@ -26,6 +32,7 @@ import {
   buildPendingReviewAdjustments,
   fetchTopicExamDate,
   getOverdueDays,
+  recalculatePendingReviewsForEdital,
 } from './topicReviewScheduleService';
 
 describe('topicReviewScheduleService', () => {
@@ -33,6 +40,9 @@ describe('topicReviewScheduleService', () => {
     supabaseMock.from.mockClear();
     supabaseMock.select.mockClear();
     supabaseMock.eq.mockClear();
+    supabaseMock.gt.mockReset();
+    supabaseMock.gt.mockResolvedValue({ data: [], error: null });
+    supabaseMock.update.mockClear();
     supabaseMock.maybeSingle.mockReset();
   });
 
@@ -63,6 +73,32 @@ describe('topicReviewScheduleService', () => {
     });
 
     await expect(fetchTopicExamDate('edital-1', 'user-1')).resolves.toBeNull();
+  });
+
+  it('recalcula tópicos pelo edital sem filtrar por topics.user_id inexistente', async () => {
+    supabaseMock.gt.mockResolvedValue({
+      data: [{
+        id: 'topic-1',
+        last_reviewed_at: '2026-06-22T12:00:00.000Z',
+        current_interval: 90,
+        next_review: '2026-09-20T03:00:00.000Z',
+      }],
+      error: null,
+    });
+
+    await expect(recalculatePendingReviewsForEdital({
+      editalId: 'edital-1',
+      userId: 'user-1',
+      examDate: '2026-08-20',
+    })).resolves.toEqual({ adjustedCount: 1 });
+
+    expect(supabaseMock.from).toHaveBeenCalledWith('topics');
+    expect(supabaseMock.eq).toHaveBeenCalledWith('edital_id', 'edital-1');
+    expect(supabaseMock.eq).toHaveBeenCalledWith('completed', false);
+    expect(supabaseMock.eq).not.toHaveBeenCalledWith('user_id', 'user-1');
+    expect(supabaseMock.update).toHaveBeenCalledWith(expect.objectContaining({
+      next_review: expect.any(String),
+    }));
   });
 
   it('calcula somente dias reais de atraso da revisão concluída', () => {

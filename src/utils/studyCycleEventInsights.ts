@@ -4,10 +4,12 @@ import {
   getExamWeightTotals,
   hasSubjectExamWeight,
 } from '@/utils/examWeight';
+import { getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
 
 type EventTopic = {
   id: string;
   is_active?: boolean;
+  is_hidden?: boolean | null;
   total_volume?: number | null;
   firstStudiedAt?: Date | string | null;
   first_studied_at?: string | null;
@@ -65,7 +67,7 @@ const studyEventTypes = new Set([
 ]);
 
 const activeTopics = (subject: EventSubject) =>
-  subject.topics.filter(topic => topic.is_active !== false);
+  getVisibleCycleTopics(subject.topics);
 
 const hasMeaningfulReviewStage = (stage?: string | null) => {
   const normalized = String(stage || '').trim().toLowerCase();
