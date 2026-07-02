@@ -259,6 +259,7 @@ const Subjects = () => {
   // Estado local simples - sem contextos
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [topicStats, setTopicStats] = useState<Map<string, { reviewCount: number; hardReviewCount: number }>>(new Map());
   const [topicStudyMinutes, setTopicStudyMinutes] = useState<Map<string, number>>(new Map());
@@ -499,8 +500,9 @@ const Subjects = () => {
     if (isFirstLoad.current) {
       setIsLoading(true);
     }
+    setLoadError(null);
     try {
-      const { data } = await withTimeout(
+      const { data, error: subjectsError } = await withTimeout(
         supabase
           .from('subjects')
           .select(`*, topics(*, difficulty_level)`)
@@ -511,10 +513,13 @@ const Subjects = () => {
         'Carregamento de materias do ciclo'
       );
 
+      if (subjectsError) throw subjectsError;
+
       const transformedSubjects = transformSubjectsData(data || []);
       setSubjects(transformedSubjects);
       setLocalSubjects(transformedSubjects);
     } catch (error) {
+      setLoadError('Não foi possível carregar seu ciclo.');
       await errorService.report(
         error,
         {
@@ -2332,8 +2337,43 @@ const Subjects = () => {
     };
   }, [activeTab, isLoading, isOriginsLoading, loading, queueSuggestion, showCycleWorkspace, strategicAlerts.length]);
 
+  const retryInitialLoad = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    await Promise.allSettled([
+      loadSubjects(true),
+      loadUserCycle(),
+      Promise.resolve(refresh()),
+    ]);
+    setLoading(false);
+  }, [loadSubjects, loadUserCycle, refresh]);
+
 	  if (isLoading || isOriginsLoading || loading) {
     return <LoadingSpinner size="large" showText fullPage />;
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-[520px] w-full items-center justify-center px-4 text-center" role="alert">
+        <div className="flex max-w-md flex-col items-center">
+          <div className="mb-5 grid h-14 w-14 place-items-center rounded-full bg-destructive/10 text-destructive">
+            <AlertCircle size={26} />
+          </div>
+          <h2 className="text-xl font-bold text-title-section">{loadError}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-content-muted">
+            Seus dados continuam salvos. Verifique sua conexão e tente carregar novamente.
+          </p>
+          <button
+            type="button"
+            onClick={retryInitialLoad}
+            className="app-primary-button mt-6 gap-2 px-5 py-2.5"
+          >
+            <RefreshCw size={15} />
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const handleLoadMore = () => {
