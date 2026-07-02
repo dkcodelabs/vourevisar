@@ -829,7 +829,7 @@ export const EditalSubjectsModal = ({
             setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'deleteSubject', userMessage: 'Erro ao excluir matéria.' });
         }
-    }, [localEditalIds, localActiveIds, edital, allSubjects, onUpdate, localSubjects]);
+    }, [localEditalIds, localActiveIds, edital, allSubjects, onUpdate, localSubjects, user]);
 
     // ── Alternar ativo/inativo (visível/oculto no Ciclo de Estudos) ───────
     const handleToggleSubjectActive = useCallback(async (subjectId: string, subjectName: string) => {
@@ -1000,7 +1000,7 @@ export const EditalSubjectsModal = ({
                     exam_weight_points: nextSubject.exam_weight_points,
                     exam_weight_percentage: nextSubject.exam_weight_percentage,
                     exam_weight_raw: hasWeight ? nextSubject.exam_weight_raw : null
-                } as any)
+                })
                 .eq('id', subjectId);
 
             if (error) throw error;
@@ -1080,7 +1080,7 @@ export const EditalSubjectsModal = ({
         try {
             const { error } = await supabase
                 .from('topics')
-                .update({ is_active: true } as any)
+                .update({ is_active: true })
                 .eq('id', topicId);
             if (error) throw error;
             hasPendingSync.current = true;
@@ -1108,11 +1108,11 @@ export const EditalSubjectsModal = ({
                 .from('topics')
                 .select('id, name, completed, review_count, subject_id')
                 .eq('subject_id', subjectId)
-                .eq('is_active', false) as any;
+                .eq('is_active', false);
             if (error) throw error;
             setInactiveTopics(prev => ({
                 ...prev,
-                [subjectId]: (data || []).map((t: any) => ({
+                [subjectId]: (data || []).map((t) => ({
                     ...t,
                     reviewCount: t.review_count || 0,
                     subtopics: [],

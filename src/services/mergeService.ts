@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { SubjectMerge, TopicMerge } from '@/types/merges';
+import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
 
 const clearLocalCache = (userId: string) => {
   if (typeof window === 'undefined') return;
@@ -69,7 +70,7 @@ export const mergeService = {
   async getSubjectMergeByPrimaryId(primaryId: string, userId: string): Promise<SubjectMerge | null> {
     try {
       // Buscar por qualquer status (não filtra por 'active')
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('subject_merges')
         .select('*')
         .eq('user_id', userId)
@@ -87,7 +88,7 @@ export const mergeService = {
 
   async getTopicMerge(topicId: string, userId: string): Promise<TopicMerge | null> {
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('topic_merges')
         .select('*')
         .eq('user_id', userId)
@@ -152,7 +153,7 @@ export const mergeService = {
 
     if (topicsToClear && topicsToClear.length > 0) {
       const topicIds = topicsToClear.map(t => t.id);
-      await (supabase as any)
+      await supabase
         .from('topics')
         .update({ 
           parent_topic_id: null,
@@ -163,7 +164,7 @@ export const mergeService = {
 
     // 3.5. Garantir visibilidade das matérias (Subjects)
     if (allSubjectIds.length > 0) {
-      await (supabase as any)
+      await supabase
         .from('subjects')
         .update({ is_visible: true })
         .in('id', allSubjectIds)
@@ -183,7 +184,7 @@ export const mergeService = {
       const cycleSet = new Set(currentCiclo);
       allSubjectIds.forEach(id => cycleSet.add(id));
       
-      await (supabase as any)
+      await supabase
         .from('user_cycles')
         .update({ 
           ciclo_atual: Array.from(cycleSet),
@@ -211,7 +212,7 @@ export const mergeService = {
           });
           
           if (newActive.size > 0) {
-            await (supabase as any)
+            await supabase
               .from('user_editais')
               .update({ 
                 active_subject_ids: Array.from(newActive) 
@@ -232,7 +233,7 @@ export const mergeService = {
   async revertTopicMerge(mergeId: string): Promise<void> {
     console.log(`[mergeService] Revertendo merge de tópico ${mergeId}...`);
     // Buscar detalhes do merge de tópico
-    const { data: existingTopic, error: fetchError } = await (supabase as any)
+    const { data: existingTopic, error: fetchError } = await supabase
         .from('topic_merges')
         .select('subject_merge_id, primary_topic_id, merged_topic_ids, user_id')
         .eq('id', mergeId)
@@ -270,7 +271,7 @@ export const mergeService = {
 
       if (!parentError && parentData) {
         // Aplicar dados do pai em todos os filhos
-        const { error: syncError } = await (supabase as any)
+        const { error: syncError } = await supabase
           .from('topics')
           .update({
             completed: parentData.completed,
@@ -297,7 +298,7 @@ export const mergeService = {
     // 1. Limpar parent_topic_id e is_hidden dos tópicos envolvidos PRIMEIRO
     if (allTopicIds.length > 0) {
       console.log(`[mergeService] Limpando flags para ${allTopicIds.length} tópicos...`);
-      const { error: updateError } = await (supabase as any)
+      const { error: updateError } = await supabase
         .from('topics')
         .update({ 
           parent_topic_id: null,
@@ -331,7 +332,7 @@ export const mergeService = {
   },
 
   async createSubjectMerge(merge: Omit<SubjectMerge, 'id' | 'created_at' | 'reverted_at' | 'status'>): Promise<SubjectMerge> {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('subject_merges')
       .insert({
         user_id: merge.user_id,
@@ -364,7 +365,7 @@ export const mergeService = {
 
     try {
       // 1. Marcar tópicos secundários como filhos do primário e escondê-los
-      const { error: updateSecondaryError } = await (supabase as any)
+      const { error: updateSecondaryError } = await supabase
         .from('topics')
         .update({ 
           parent_topic_id: primaryId,
@@ -376,7 +377,7 @@ export const mergeService = {
       if (updateSecondaryError) throw updateSecondaryError;
 
       // 2. Garantir que o tópico primário não seja filho de ninguém e esteja visível
-      const { error: updatePrimaryError } = await (supabase as any)
+      const { error: updatePrimaryError } = await supabase
         .from('topics')
         .update({ 
           parent_topic_id: null,
@@ -393,7 +394,7 @@ export const mergeService = {
   },
 
   async createTopicMerge(merge: Omit<TopicMerge, 'id' | 'created_at' | 'reverted_at' | 'status'>): Promise<TopicMerge> {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('topic_merges')
       .insert({
         user_id: merge.user_id,
@@ -419,7 +420,7 @@ export const mergeService = {
   },
 
   async getActiveSubjectMerges(userId: string): Promise<SubjectMerge[]> {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('subject_merges')
       .select('*')
       .eq('user_id', userId)
@@ -430,7 +431,7 @@ export const mergeService = {
   },
 
   async getActiveTopicMerges(userId: string): Promise<TopicMerge[]> {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('topic_merges')
       .select('*')
       .eq('user_id', userId)
@@ -443,7 +444,7 @@ export const mergeService = {
   async saveMergeFromUnificationMap(
     userId: string,
     cycleId: string,
-    unificationMap: any
+    unificationMap: CycleUnificationMap
   ): Promise<void> {
     if (!unificationMap?.unifiedSubjects || unificationMap.unifiedSubjects.length === 0) {
       console.log('[mergeService] Sem unifiedSubjects para processar');
@@ -451,7 +452,7 @@ export const mergeService = {
     }
 
     // Pegar todos os subject IDs que estão no ciclo_atual
-    const { data: cycleData } = await (supabase as any)
+    const { data: cycleData } = await supabase
       .from('user_cycles')
       .select('ciclo_atual')
       .eq('user_id', userId)
@@ -476,8 +477,8 @@ export const mergeService = {
       
       if (!shouldHaveMerge) {
         console.log('[mergeService] Removendo merge órfão:', merge.id);
-        await (supabase as any).from('subject_merges').delete().eq('id', merge.id);
-        await (supabase as any).from('topic_merges').delete().eq('subject_merge_id', merge.id);
+        await supabase.from('subject_merges').delete().eq('id', merge.id);
+        await supabase.from('topic_merges').delete().eq('subject_merge_id', merge.id);
       }
     }
 
@@ -496,7 +497,7 @@ export const mergeService = {
       
       if (existing) {
         // Atualizar
-        await (supabase as any)
+        await supabase
           .from('subject_merges')
           .update({
             merged_subject_ids: mergedIds,
@@ -543,7 +544,7 @@ export const mergeService = {
                   return (b.review_count || 0) - (a.review_count || 0);
               })[0];
 
-              await (supabase as any)
+              await supabase
                   .from('topics')
                   .update({
                       completed: masterTopic.completed,
@@ -567,7 +568,7 @@ export const mergeService = {
         const existingTopicMerge = await this.getTopicMerge(topicPrimaryId, userId);
         
         if (existingTopicMerge) {
-          await (supabase as any)
+          await supabase
             .from('topic_merges')
             .update({
               merged_topic_ids: topicMergedIds,
@@ -603,7 +604,7 @@ export const mergeService = {
   },
 
   async getTopicMergesBySubjectMerge(subjectMergeId: string): Promise<TopicMerge[]> {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('topic_merges')
       .select('*')
       .eq('subject_merge_id', subjectMergeId)
@@ -675,7 +676,7 @@ export const mergeService = {
           const allTids = [tm.primary_topic_id, ...(tm.merged_topic_ids || [])].filter(id => typeof id === 'string' && id.length > 0);
           
           if (allTids.length > 0) {
-            await (supabase as any)
+            await supabase
               .from('topics')
               .update({ 
                 parent_topic_id: null,
@@ -684,7 +685,7 @@ export const mergeService = {
               .in('id', allTids);
           }
 
-          await (supabase as any).from('topic_merges').delete().eq('id', tm.id);
+          await supabase.from('topic_merges').delete().eq('id', tm.id);
         } else {
           // Merge sobrevive (2+ editais). Verificar se o primário precisa de promoção.
           const needsPromotion = removedTopicIdsSet.has(tm.primary_topic_id);
@@ -698,7 +699,7 @@ export const mergeService = {
               updateProgress(`Promovendo tópico: ${tm.display_name}`);
               const newMergedIds = [tm.primary_topic_id, ...mergedIds].filter(id => id !== survivor);
               
-              await (supabase as any)
+              await supabase
                 .from('topic_merges')
                 .update({ 
                   primary_topic_id: survivor,
@@ -711,12 +712,12 @@ export const mergeService = {
             } else {
               // Nenhum sobrevivente válido, deletar o merge
               updateProgress(`Removendo merge sem sobreviventes: ${tm.display_name}`);
-              await (supabase as any).from('topic_merges').delete().eq('id', tm.id);
+              await supabase.from('topic_merges').delete().eq('id', tm.id);
             }
           } else {
             updateProgress(`Atualizando tópico: ${tm.display_name}`);
             // Primário sobreviveu, apenas atualizar lista de editais
-            await (supabase as any)
+            await supabase
               .from('topic_merges')
               .update({ source_edital_ids: remainingEditals })
               .eq('id', tm.id);
@@ -736,14 +737,14 @@ export const mergeService = {
           const allSids = [sm.primary_subject_id, ...mergedSubjectIds].filter(id => !!id);
           
           if (allSids.length > 0) {
-            await (supabase as any)
+            await supabase
               .from('subjects')
               .update({ is_unified: false })
               .in('id', allSids);
           }
 
-          await (supabase as any).from('subject_merges').delete().eq('id', sm.id);
-          await (supabase as any).from('topic_merges').delete().eq('subject_merge_id', sm.id);
+          await supabase.from('subject_merges').delete().eq('id', sm.id);
+          await supabase.from('topic_merges').delete().eq('subject_merge_id', sm.id);
         } else {
           // Merge sobrevive (2+ editais). Verificar se o primário precisa de promoção.
           const needsPromotion = removedSubjectIdsSet.has(sm.primary_subject_id);
@@ -756,7 +757,7 @@ export const mergeService = {
               updateProgress(`Promovendo matéria: ${sm.display_name}`);
               const newMergedIds = [sm.primary_subject_id, ...mergedSubjectIds].filter(id => id !== survivor);
               
-              await (supabase as any)
+              await supabase
                 .from('subject_merges')
                 .update({ 
                   primary_subject_id: survivor,
@@ -769,12 +770,12 @@ export const mergeService = {
             } else {
               // Nenhum sobrevivente válido
               updateProgress(`Removendo merge sem sobreviventes: ${sm.display_name}`);
-              await (supabase as any).from('subject_merges').delete().eq('id', sm.id);
-              await (supabase as any).from('topic_merges').delete().eq('subject_merge_id', sm.id);
+              await supabase.from('subject_merges').delete().eq('id', sm.id);
+              await supabase.from('topic_merges').delete().eq('subject_merge_id', sm.id);
             }
           } else {
             updateProgress(`Atualizando matéria: ${sm.display_name}`);
-            await (supabase as any)
+            await supabase
               .from('subject_merges')
               .update({ source_edital_ids: remainingEditals })
               .eq('id', sm.id);
@@ -792,11 +793,11 @@ export const mergeService = {
         .maybeSingle();
 
       if (removedEdital?.subject_ids && removedEdital.subject_ids.length > 0) {
-        const removedSubjIds = (removedEdital.subject_ids || []).filter((id: any) => typeof id === 'string' && id.length > 0);
+        const removedSubjIds = removedEdital.subject_ids.filter(id => id.length > 0);
         
         if (removedSubjIds.length > 0) {
           // Limpar subjects que eram secundários e apontavam para primários deste edital
-          await (supabase as any)
+          await supabase
             .from('subjects')
             .update({ is_unified: false })
             .in('id', removedSubjIds);
@@ -810,7 +811,7 @@ export const mergeService = {
           const removedTopicIds = (removedTopics || []).map(t => t.id).filter(id => !!id);
           
           if (removedTopicIds.length > 0) {
-            await (supabase as any)
+            await supabase
               .from('topics')
               .update({ parent_topic_id: null, merged_with_ia: false })
               .in('parent_topic_id', removedTopicIds);
@@ -914,7 +915,7 @@ export const mergeService = {
       // 5. Atualizar o ciclo se houve mudanças
       const finalCiclo = Array.from(new Set(newCiclo));
       if (hasChanges || finalCiclo.length !== currentCiclo.length) {
-        await (supabase as any)
+        await supabase
           .from('user_cycles')
           .update({ 
             ciclo_atual: finalCiclo,
@@ -936,7 +937,7 @@ export const mergeService = {
           
           if (edital.merged_into_cycle && !isStillInCycle) {
               console.log(`[mergeService] Auditoria: Edital ${edital.id} não possui mais matérias no ciclo. Resetando flags.`);
-              await (supabase as any)
+              await supabase
                   .from('user_editais')
                   .update({ 
                       merged_into_cycle: false,
@@ -972,12 +973,12 @@ export const mergeService = {
       for (const sm of subjectMerges) {
         const mergedIds = (sm.merged_subject_ids || []) as string[];
         if (mergedIds.length > 0) {
-          await (supabase as any)
+          await supabase
             .from('subjects')
             .update({ is_unified: true, is_visible: false })
             .in('id', mergedIds);
           
-          await (supabase as any)
+          await supabase
             .from('subjects')
             .update({ is_unified: false, is_visible: true })
             .eq('id', sm.primary_subject_id);

@@ -32,6 +32,12 @@ interface AllNotesEntry {
     subjectId?: string;
 }
 
+type NoteContentObject = {
+    content?: unknown;
+    text?: unknown;
+    notes?: unknown;
+};
+
 interface GeneralNotesModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -39,6 +45,30 @@ interface GeneralNotesModalProps {
     onOpenSubjectNotes?: (subjectId: string, subjectName: string) => void;
     onRequestReopen?: () => void; // Nova prop para solicitar reabertura
 }
+
+const getNoteContent = (notes: unknown): string => {
+    if (typeof notes === 'string') return notes;
+
+    if (notes && typeof notes === 'object') {
+        const notesObject = notes as NoteContentObject;
+        const content = notesObject.content ?? notesObject.text ?? notesObject.notes;
+
+        return typeof content === 'string' ? content : JSON.stringify(notesObject);
+    }
+
+    return '';
+};
+
+const getJoinedSubjectName = (subjects: unknown): string => {
+    const subject = Array.isArray(subjects) ? subjects[0] : subjects;
+
+    if (subject && typeof subject === 'object' && 'name' in subject) {
+        const name = (subject as { name?: unknown }).name;
+        return typeof name === 'string' ? name : 'Matéria não encontrada';
+    }
+
+    return 'Matéria não encontrada';
+};
 
 interface CustomCalendarProps {
     selectedDate: Date;
@@ -178,6 +208,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
     const calendarRef = useRef<HTMLDivElement>(null);
     const [notes, setNotes] = useState<TopicNotes | undefined>();
     const [currentContent, setCurrentContent] = useState('');
+    const currentContentRef = useRef('');
     const [reminders, setReminders] = useState<Reminder[]>([]);
 
     const [newReminderText, setNewReminderText] = useState('');
@@ -201,6 +232,8 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
     const [activeTab, setActiveTab] = useState('notes');
     const [isTemporarilyHidden, setIsTemporarilyHidden] = useState(false);
     const [hasLoadedNotes, setHasLoadedNotes] = useState(false);
+
+    currentContentRef.current = currentContent;
 
     const loadGeneralNotes = useCallback(async () => {
         if (!user) return;
@@ -273,6 +306,23 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         }
     }, [user]);
 
+    const checkOverflow = useCallback(() => {
+        if (quillRef.current) {
+            const quill = quillRef.current;
+            const editorElement = quill.root.querySelector('.ql-editor');
+            const containerElement = quill.root;
+
+            if (editorElement && containerElement) {
+                const hasOverflow = editorElement.scrollHeight > editorElement.clientHeight;
+                if (hasOverflow) {
+                    containerElement.classList.add('has-overflow');
+                } else {
+                    containerElement.classList.remove('has-overflow');
+                }
+            }
+        }
+    }, []);
+
     // Carregar dados ao abrir o modal
     useEffect(() => {
         if (isOpen && user) {
@@ -312,7 +362,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                 checkOverflow();
             }, 100);
         }
-    }, [currentContent]);
+    }, [checkOverflow, currentContent]);
 
     // Fechar calendário ao clicar fora
     useEffect(() => {
@@ -355,203 +405,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         setFilteredNotes(filtered);
     }, [allNotes, searchTerm, sortOrder]);
 
-    const loadAllNotes = useCallback(async () => {
-        if (!user) return;
-
-        setIsLoadingAllNotes(true);
-        try {
-            console.log('🔍 Carregando todas as anotações para o usuário:', user.id);
-
-            // Buscar tópicos com anotações
-            const { data: topicsData, error: topicsError } = await supabase
-                .from('topics')
-                .select(`
-                    id, 
-                    name, 
-                    notes, 
-                    updated_at, 
-                    created_at, 
-                    subject_id,
-                    subjects!inner(user_id, name)
-                `)
-                .eq('subjects.user_id', user.id)
-                .not('notes', 'is', null);
-
-            // Buscar matérias com anotações (sem tópico específico)
-            const { data: subjectsData, error: subjectsError } = await supabase
-                .from('subjects')
-                .select('id, name, notes, updated_at, created_at')
-                .eq('user_id', user.id)
-                .not('notes', 'is', null);
-
-            if (topicsError) throw topicsError;
-            if (subjectsError) throw subjectsError;
-
-            console.log('📊 Tópicos com anotações encontrados:', topicsData?.length || 0);
-            console.log('📚 Matérias com anotações encontradas:', subjectsData?.length || 0);
-
-            const allNotesEntries: AllNotesEntry[] = [];
-
-            // Processar anotações de tópicos
-            if (topicsData && topicsData.length > 0) {
-                const topicEntries = topicsData
-                    .filter(topic => {
-                        const hasNotes = !!topic.notes;
-                        let notesContent = '';
-
-                        console.log(`🔍 Debug tópico ${topic.name}:`, {
-                            hasNotes,
-                            notesType: typeof topic.notes,
-                            notesValue: topic.notes,
-                            notesKeys: topic.notes && typeof topic.notes === 'object' ? Object.keys(topic.notes) : null
-                        });
-
-                        if (typeof topic.notes === 'string') {
-                            notesContent = topic.notes;
-                        } else if (topic.notes && typeof topic.notes === 'object') {
-                            // Tentar diferentes propriedades possíveis
-                            const notesObj = topic.notes as any;
-                            notesContent = notesObj?.content || notesObj?.text || notesObj?.notes || JSON.stringify(notesObj);
-                        }
-
-                        // Remover tags HTML e verificar se há conteúdo real
-                        const cleanContent = notesContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-
-                        // Verificar se não é apenas um objeto vazio serializado
-                        const isEmptyObject = notesContent === '{}' || notesContent === 'null' || notesContent === 'undefined';
-                        const contentNotEmpty = hasNotes && cleanContent && cleanContent !== '' && !isEmptyObject;
-
-                        console.log(`🔍 Tópico ${topic.name}:`, {
-                            hasNotes,
-                            notesContent: notesContent.substring(0, 100),
-                            cleanContent: cleanContent.substring(0, 100),
-                            isEmptyObject,
-                            contentNotEmpty
-                        });
-                        return contentNotEmpty;
-                    })
-                    .map(topic => {
-                        let content = '';
-                        if (typeof topic.notes === 'string') {
-                            content = topic.notes;
-                        } else if (topic.notes && typeof topic.notes === 'object') {
-                            const notesObj = topic.notes as any;
-                            content = notesObj?.content || notesObj?.text || notesObj?.notes || JSON.stringify(notesObj);
-                        }
-
-                        return {
-                            id: topic.id,
-                            subjectName: (topic.subjects as any)?.name || 'Matéria não encontrada',
-                            topicName: topic.name,
-                            content: content,
-                            updatedAt: topic.updated_at || topic.created_at || new Date().toISOString(),
-                            createdAt: topic.created_at || new Date().toISOString(),
-                            type: 'topic' as const
-                        };
-                    });
-
-                allNotesEntries.push(...topicEntries);
-            }
-
-            // Processar anotações de matérias
-            if (subjectsData && subjectsData.length > 0) {
-                const subjectEntries = subjectsData
-                    .filter(subject => {
-                        const hasNotes = !!subject.notes;
-                        let notesContent = '';
-
-                        console.log(`🔍 Debug matéria ${subject.name}:`, {
-                            hasNotes,
-                            notesType: typeof subject.notes,
-                            notesValue: subject.notes,
-                            notesKeys: subject.notes && typeof subject.notes === 'object' ? Object.keys(subject.notes) : null
-                        });
-
-                        if (typeof subject.notes === 'string') {
-                            notesContent = subject.notes;
-                        } else if (subject.notes && typeof subject.notes === 'object') {
-                            // Tentar diferentes propriedades possíveis
-                            const notesObj = subject.notes as any;
-                            notesContent = notesObj?.content || notesObj?.text || notesObj?.notes || JSON.stringify(notesObj);
-                        }
-
-                        // Remover tags HTML e verificar se há conteúdo real
-                        const cleanContent = notesContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-
-                        // Verificar se não é apenas um objeto vazio serializado
-                        const isEmptyObject = notesContent === '{}' || notesContent === 'null' || notesContent === 'undefined';
-                        const contentNotEmpty = hasNotes && cleanContent && cleanContent !== '' && !isEmptyObject;
-
-                        console.log(`🔍 Matéria ${subject.name}:`, {
-                            hasNotes,
-                            notesContent: notesContent.substring(0, 100),
-                            cleanContent: cleanContent.substring(0, 100),
-                            isEmptyObject,
-                            contentNotEmpty
-                        });
-                        return contentNotEmpty;
-                    })
-                    .map(subject => {
-                        let content = '';
-                        if (typeof subject.notes === 'string') {
-                            content = subject.notes;
-                        } else if (subject.notes && typeof subject.notes === 'object') {
-                            const notesObj = subject.notes as any;
-                            content = notesObj?.content || notesObj?.text || notesObj?.notes || JSON.stringify(notesObj);
-                        }
-
-                        return {
-                            id: `subject-${subject.id}`,
-                            subjectName: subject.name,
-                            topicName: '(Anotações Gerais da Matéria)',
-                            content: content,
-                            updatedAt: subject.updated_at || subject.created_at || new Date().toISOString(),
-                            createdAt: subject.created_at || new Date().toISOString(),
-                            type: 'subject' as const,
-                            subjectId: subject.id
-                        };
-                    });
-
-                allNotesEntries.push(...subjectEntries);
-            }
-
-            // Ordenar por data de atualização (mais recentes primeiro)
-            const sortedEntries = allNotesEntries.sort((a, b) =>
-                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-            );
-
-            console.log('📝 Total de anotações processadas:', sortedEntries.length);
-            console.log('📊 Tipos encontrados:', {
-                topics: sortedEntries.filter(e => e.type === 'topic').length,
-                subjects: sortedEntries.filter(e => e.type === 'subject').length
-            });
-
-            // Atualizar registros sem updated_at com datas aleatórias
-            await updateMissingDates();
-
-            setAllNotes(sortedEntries);
-            setFilteredNotes(sortedEntries);
-        } catch (error) {
-            console.error('Erro ao carregar todas as anotações:', error);
-            toastManager.error('Erro ao carregar anotações');
-            setAllNotes([]);
-            setFilteredNotes([]);
-        } finally {
-            setIsLoadingAllNotes(false);
-        }
-    }, [user]);
-
-    // Carregar dados quando a aba "condensed" for acessada
-    useEffect(() => {
-        if (activeTab === 'condensed' && user && !hasLoadedNotes && !isLoadingAllNotes) {
-            console.log('🔄 Carregando anotações para aba condensada...');
-            setHasLoadedNotes(true);
-            loadAllNotes();
-        }
-    }, [activeTab, user, hasLoadedNotes, isLoadingAllNotes]); // Usando flag de controle
-
-
-    const updateMissingDates = async () => {
+    const updateMissingDates = useCallback(async () => {
         if (!user) return;
 
         try {
@@ -605,7 +459,178 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         } catch (error) {
             console.error('❌ Erro ao atualizar datas:', error);
         }
-    };
+    }, [user]);
+
+    const loadAllNotes = useCallback(async () => {
+        if (!user) return;
+
+        setIsLoadingAllNotes(true);
+        try {
+            console.log('🔍 Carregando todas as anotações para o usuário:', user.id);
+
+            // Buscar tópicos com anotações
+            const { data: topicsData, error: topicsError } = await supabase
+                .from('topics')
+                .select(`
+                    id, 
+                    name, 
+                    notes, 
+                    updated_at, 
+                    created_at, 
+                    subject_id,
+                    subjects!inner(user_id, name)
+                `)
+                .eq('subjects.user_id', user.id)
+                .not('notes', 'is', null);
+
+            // Buscar matérias com anotações (sem tópico específico)
+            const { data: subjectsData, error: subjectsError } = await supabase
+                .from('subjects')
+                .select('id, name, notes, updated_at, created_at')
+                .eq('user_id', user.id)
+                .not('notes', 'is', null);
+
+            if (topicsError) throw topicsError;
+            if (subjectsError) throw subjectsError;
+
+            console.log('📊 Tópicos com anotações encontrados:', topicsData?.length || 0);
+            console.log('📚 Matérias com anotações encontradas:', subjectsData?.length || 0);
+
+            const allNotesEntries: AllNotesEntry[] = [];
+
+            // Processar anotações de tópicos
+            if (topicsData && topicsData.length > 0) {
+                const topicEntries = topicsData
+                    .filter(topic => {
+                        const hasNotes = !!topic.notes;
+                        let notesContent = '';
+
+                        console.log(`🔍 Debug tópico ${topic.name}:`, {
+                            hasNotes,
+                            notesType: typeof topic.notes,
+                            notesValue: topic.notes,
+                            notesKeys: topic.notes && typeof topic.notes === 'object' ? Object.keys(topic.notes) : null
+                        });
+
+                        notesContent = getNoteContent(topic.notes);
+
+                        // Remover tags HTML e verificar se há conteúdo real
+                        const cleanContent = notesContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+                        // Verificar se não é apenas um objeto vazio serializado
+                        const isEmptyObject = notesContent === '{}' || notesContent === 'null' || notesContent === 'undefined';
+                        const contentNotEmpty = hasNotes && cleanContent && cleanContent !== '' && !isEmptyObject;
+
+                        console.log(`🔍 Tópico ${topic.name}:`, {
+                            hasNotes,
+                            notesContent: notesContent.substring(0, 100),
+                            cleanContent: cleanContent.substring(0, 100),
+                            isEmptyObject,
+                            contentNotEmpty
+                        });
+                        return contentNotEmpty;
+                    })
+                    .map(topic => {
+                        const content = getNoteContent(topic.notes);
+
+                        return {
+                            id: topic.id,
+                            subjectName: getJoinedSubjectName(topic.subjects),
+                            topicName: topic.name,
+                            content: content,
+                            updatedAt: topic.updated_at || topic.created_at || new Date().toISOString(),
+                            createdAt: topic.created_at || new Date().toISOString(),
+                            type: 'topic' as const
+                        };
+                    });
+
+                allNotesEntries.push(...topicEntries);
+            }
+
+            // Processar anotações de matérias
+            if (subjectsData && subjectsData.length > 0) {
+                const subjectEntries = subjectsData
+                    .filter(subject => {
+                        const hasNotes = !!subject.notes;
+                        let notesContent = '';
+
+                        console.log(`🔍 Debug matéria ${subject.name}:`, {
+                            hasNotes,
+                            notesType: typeof subject.notes,
+                            notesValue: subject.notes,
+                            notesKeys: subject.notes && typeof subject.notes === 'object' ? Object.keys(subject.notes) : null
+                        });
+
+                        notesContent = getNoteContent(subject.notes);
+
+                        // Remover tags HTML e verificar se há conteúdo real
+                        const cleanContent = notesContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+                        // Verificar se não é apenas um objeto vazio serializado
+                        const isEmptyObject = notesContent === '{}' || notesContent === 'null' || notesContent === 'undefined';
+                        const contentNotEmpty = hasNotes && cleanContent && cleanContent !== '' && !isEmptyObject;
+
+                        console.log(`🔍 Matéria ${subject.name}:`, {
+                            hasNotes,
+                            notesContent: notesContent.substring(0, 100),
+                            cleanContent: cleanContent.substring(0, 100),
+                            isEmptyObject,
+                            contentNotEmpty
+                        });
+                        return contentNotEmpty;
+                    })
+                    .map(subject => {
+                        const content = getNoteContent(subject.notes);
+
+                        return {
+                            id: `subject-${subject.id}`,
+                            subjectName: subject.name,
+                            topicName: '(Anotações Gerais da Matéria)',
+                            content: content,
+                            updatedAt: subject.updated_at || subject.created_at || new Date().toISOString(),
+                            createdAt: subject.created_at || new Date().toISOString(),
+                            type: 'subject' as const,
+                            subjectId: subject.id
+                        };
+                    });
+
+                allNotesEntries.push(...subjectEntries);
+            }
+
+            // Ordenar por data de atualização (mais recentes primeiro)
+            const sortedEntries = allNotesEntries.sort((a, b) =>
+                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            );
+
+            console.log('📝 Total de anotações processadas:', sortedEntries.length);
+            console.log('📊 Tipos encontrados:', {
+                topics: sortedEntries.filter(e => e.type === 'topic').length,
+                subjects: sortedEntries.filter(e => e.type === 'subject').length
+            });
+
+            // Atualizar registros sem updated_at com datas aleatórias
+            await updateMissingDates();
+
+            setAllNotes(sortedEntries);
+            setFilteredNotes(sortedEntries);
+        } catch (error) {
+            console.error('Erro ao carregar todas as anotações:', error);
+            toastManager.error('Erro ao carregar anotações');
+            setAllNotes([]);
+            setFilteredNotes([]);
+        } finally {
+            setIsLoadingAllNotes(false);
+        }
+    }, [updateMissingDates, user]);
+
+    // Carregar dados quando a aba "condensed" for acessada
+    useEffect(() => {
+        if (activeTab === 'condensed' && user && !hasLoadedNotes && !isLoadingAllNotes) {
+            console.log('🔄 Carregando anotações para aba condensada...');
+            setHasLoadedNotes(true);
+            loadAllNotes();
+        }
+    }, [activeTab, user, hasLoadedNotes, isLoadingAllNotes, loadAllNotes]); // Usando flag de controle
 
     const saveNotes = async (notesToSave: TopicNotes) => {
         if (!user) return;
@@ -780,24 +805,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         }
     };
 
-    const checkOverflow = () => {
-        if (quillRef.current) {
-            const quill = quillRef.current;
-            const editorElement = quill.root.querySelector('.ql-editor');
-            const containerElement = quill.root;
-
-            if (editorElement && containerElement) {
-                const hasOverflow = editorElement.scrollHeight > editorElement.clientHeight;
-                if (hasOverflow) {
-                    containerElement.classList.add('has-overflow');
-                } else {
-                    containerElement.classList.remove('has-overflow');
-                }
-            }
-        }
-    };
-
-    const handleContentChange = (content: string) => {
+    const handleContentChange = useCallback((content: string) => {
         setCurrentContent(content);
 
         // Verificar overflow após mudança de conteúdo
@@ -826,20 +834,22 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                 }
             }
         }, 10);
-    };
+    }, [checkOverflow]);
 
     useEffect(() => {
-        if (!isOpen || activeTab !== 'notes' || !editorContainerRef.current || quillRef.current) {
+        const editorContainer = editorContainerRef.current;
+
+        if (!isOpen || activeTab !== 'notes' || !editorContainer || quillRef.current) {
             return;
         }
 
         const editorElement = document.createElement('div');
-        editorContainerRef.current.appendChild(editorElement);
+        editorContainer.appendChild(editorElement);
 
         const isMobile = window.innerWidth < 640;
         const quill = new Quill(editorElement, {
             theme: 'snow',
-            readOnly: isLoading || isSaving,
+            readOnly: false,
             placeholder: 'Comece a escrever suas anotações gerais...',
             modules: {
                 toolbar: isMobile ? [
@@ -859,7 +869,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
         quillRef.current = quill;
         isApplyingContentRef.current = true;
-        quill.root.innerHTML = currentContent || '';
+        quill.root.innerHTML = currentContentRef.current || '';
         isApplyingContentRef.current = false;
 
         quill.on('text-change', () => {
@@ -873,11 +883,9 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
         return () => {
             quillRef.current = null;
-            if (editorContainerRef.current) {
-                editorContainerRef.current.innerHTML = '';
-            }
+            editorContainer.innerHTML = '';
         };
-    }, [isOpen, activeTab]);
+    }, [activeTab, checkOverflow, handleContentChange, isOpen]);
 
     useEffect(() => {
         if (!quillRef.current) return;
@@ -903,7 +911,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
             isApplyingContentRef.current = false;
             setTimeout(checkOverflow, 50);
         }
-    }, [currentContent]);
+    }, [checkOverflow, currentContent]);
 
     const handleSave = async () => {
         setIsSaving(true);

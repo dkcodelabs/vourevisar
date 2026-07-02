@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,17 +60,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
     };
   }, [subjectId, topicId]);
 
-  // Carregar dados do tópico quando o modal abre
-  useEffect(() => {
-    if (isOpen && subjectId && topicId) {
-      console.log('📖 Modal aberto com dados válidos, carregando...');
-      loadTopicData();
-    } else if (isOpen) {
-      console.warn('⚠️ Modal aberto sem dados válidos:', { subjectId, topicId });
-    }
-  }, [isOpen, subjectId, topicId]);
-
-  const loadTopicData = async () => {
+  const loadTopicData = useCallback(async () => {
     setIsLoading(true);
     try {
       console.log('📖 Carregando dados do tópico:', { subjectId, topicId });
@@ -105,7 +95,17 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [subjectId, topicId]);
+
+  // Carregar dados do tópico quando o modal abre
+  useEffect(() => {
+    if (isOpen && subjectId && topicId) {
+      console.log('📖 Modal aberto com dados válidos, carregando...');
+      loadTopicData();
+    } else if (isOpen) {
+      console.warn('⚠️ Modal aberto sem dados válidos:', { subjectId, topicId });
+    }
+  }, [isOpen, loadTopicData, subjectId, topicId]);
 
   const saveNotes = async (updatedNotes: TopicNotes) => {
     setIsSaving(true);

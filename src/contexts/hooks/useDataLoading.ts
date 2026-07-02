@@ -1,22 +1,24 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, type Dispatch, type SetStateAction } from 'react';
+import { type User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Subject, StudyProgress } from '@/types';
 import { transformSubjectsData, calculateStudyProgress } from '../utils/dataTransformers';
 import { withTimeout } from '@/utils/withTimeout';
 
 export const useDataLoading = (
-  user: any,
-  setSubjects: React.Dispatch<React.SetStateAction<Subject[]>>,
-  setStudyProgress: React.Dispatch<React.SetStateAction<StudyProgress>>,
-  setIsDataLoaded: React.Dispatch<React.SetStateAction<boolean>>,
-  setError: React.Dispatch<React.SetStateAction<string | null>>,
-  setUserSettings: React.Dispatch<React.SetStateAction<{ subjects_per_day: number } | null>>
+  user: User | null,
+  setSubjects: Dispatch<SetStateAction<Subject[]>>,
+  setStudyProgress: Dispatch<SetStateAction<StudyProgress>>,
+  setIsDataLoaded: Dispatch<SetStateAction<boolean>>,
+  setError: Dispatch<SetStateAction<string | null>>,
+  setUserSettings: Dispatch<SetStateAction<{ subjects_per_day: number } | null>>
 ) => {
   const [isLoading, setIsLoading] = useState(false);
+  const userId = user?.id ?? null;
 
   const loadSubjects = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
 
     setIsLoading(true);
     setError(null);
@@ -33,7 +35,7 @@ export const useDataLoading = (
               next_review
             )
           `)
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('topics.is_active', true)
           .order('priority', { ascending: true })
           .order('position', { foreignTable: 'topics', ascending: true }),
@@ -47,7 +49,7 @@ export const useDataLoading = (
         supabase
           .from('user_settings')
           .select('subjects_per_day')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .single(),
         8000,
         'Carregamento de configuracoes do usuario'
@@ -82,31 +84,31 @@ export const useDataLoading = (
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]); // Apenas user.id como dependência
+  }, [setError, setIsDataLoaded, setStudyProgress, setSubjects, setUserSettings, userId]);
 
   const refreshData = useCallback(async () => {
     setIsDataLoaded(false);
     await loadSubjects();
-  }, [loadSubjects]);
+  }, [loadSubjects, setIsDataLoaded]);
 
   const forceRefresh = useCallback(async () => {
     setIsDataLoaded(false);
     setSubjects([]);
     await loadSubjects();
-  }, [loadSubjects]);
+  }, [loadSubjects, setIsDataLoaded, setSubjects]);
 
   const fetchSubjects = useCallback(async () => {
     await loadSubjects();
   }, [loadSubjects]);
 
   const fetchUserSettings = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
 
     try {
       const { data: settingsData, error: settingsError } = await supabase
         .from('user_settings')
         .select('subjects_per_day')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single();
 
       if (settingsError && settingsError.code !== 'PGRST116') {
@@ -117,7 +119,7 @@ export const useDataLoading = (
     } catch (error) {
       // Silently handle error
     }
-  }, [user, setUserSettings]);
+  }, [setUserSettings, userId]);
 
   return {
     isLoading,

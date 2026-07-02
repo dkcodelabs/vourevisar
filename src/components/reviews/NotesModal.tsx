@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,19 @@ import { TopicReviewHistorySection } from '@/components/TopicReviewHistorySectio
 import { useCycleState } from '@/hooks/useCycleState';
 import { registerDualProgress, registerSubjectDualProgress } from '@/services/cycleMergeService';
 import { toastGate } from '@/lib/errors/toastGate';
+import { Database, Json } from '@/integrations/supabase/types';
+
+type TopicUpdate = Database['public']['Tables']['topics']['Update'];
+type SubjectUpdate = Database['public']['Tables']['subjects']['Update'];
+
+const serializeNotes = (notes: TopicNotes): Json => ({
+  content: notes.content,
+  createdAt: notes.createdAt,
+  updatedAt: notes.updatedAt
+});
+
+const serializeSubtopics = (items: TopicSubtopic[]): Json =>
+  items.map(({ id, name, addedAt }) => ({ id, name, addedAt }));
 
 interface NotesModalProps {
   isOpen: boolean;
@@ -52,23 +65,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
   const { refreshData } = useApp();
   const { userCycle } = useCycleState();
 
-  // Buscar notas do tópico
-  useEffect(() => {
-    if (isOpen && topicId) {
-      // Verificar se é um ID temporário (não é UUID válido)
-      if (topicId.startsWith('temp-')) {
-        // Para IDs temporários, apenas inicializar com valores vazios
-        setNotes(undefined);
-        // setDifficulty(null); // Removido - usando sistema de estrelas
-        setSubtopics([]);
-        setIsLoading(false);
-      } else {
-        loadTopicNotes();
-      }
-    }
-  }, [isOpen, topicId]);
-
-  const loadTopicNotes = async () => {
+  const loadTopicNotes = useCallback(async () => {
     setIsLoading(true);
     try {
       // Carregar anotações do tópico
@@ -116,7 +113,23 @@ const NotesModal: React.FC<NotesModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showSubjectNotes, topicId]);
+
+  // Buscar notas do tópico
+  useEffect(() => {
+    if (isOpen && topicId) {
+      // Verificar se é um ID temporário (não é UUID válido)
+      if (topicId.startsWith('temp-')) {
+        // Para IDs temporários, apenas inicializar com valores vazios
+        setNotes(undefined);
+        // setDifficulty(null); // Removido - usando sistema de estrelas
+        setSubtopics([]);
+        setIsLoading(false);
+      } else {
+        loadTopicNotes();
+      }
+    }
+  }, [isOpen, loadTopicNotes, topicId]);
 
 
   const saveNotes = async (updatedNotes: TopicNotes) => {
@@ -137,10 +150,10 @@ const NotesModal: React.FC<NotesModalProps> = ({
         return;
       }
 
-      const updates: any = {
-        notes: updatedNotes as any,
+      const updates: TopicUpdate = {
+        notes: serializeNotes(updatedNotes),
         // difficulty_level: difficulty, // Removido - usando sistema de estrelas
-        subtopics: subtopics,
+        subtopics: serializeSubtopics(subtopics),
         // difficulty_set_at: difficulty ? new Date().toISOString() : null, // Removido - usando sistema de estrelas
         updated_at: new Date().toISOString()
       };
@@ -158,7 +171,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       if (!topicId.startsWith('temp-')) {
         try {
           const unificationMap = userCycle?.unification_map ?? null;
-          await registerDualProgress(topicId, { notes: updatedNotes as any, subtopics: subtopics }, unificationMap);
+          await registerDualProgress(topicId, { notes: updatedNotes, subtopics }, unificationMap);
         } catch (dualErr) {
           console.warn('⚠️ Falha na propagação das anotações do tópico (não-bloqueante):', dualErr);
         }
@@ -205,9 +218,9 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
       // Salvar dificuldade e subtópicos se houver mudanças
       if (hasUnsavedChanges && !topicId.startsWith('temp-')) {
-        const updates: any = {
+        const updates: TopicUpdate = {
           // difficulty_level: difficulty, // Removido - usando sistema de estrelas
-          subtopics: subtopics,
+          subtopics: serializeSubtopics(subtopics),
           // difficulty_set_at: difficulty ? new Date().toISOString() : null, // Removido - usando sistema de estrelas
           updated_at: new Date().toISOString()
         };
@@ -239,12 +252,14 @@ const NotesModal: React.FC<NotesModalProps> = ({
   const saveSubjectNotes = async (updatedNotes: TopicNotes) => {
     setIsSaving(true);
     try {
+      const updates: SubjectUpdate = {
+        notes: serializeNotes(updatedNotes),
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('subjects')
-        .update({
-          notes: updatedNotes as any,
-          updated_at: new Date().toISOString()
-        })
+        .update(updates)
         .eq('id', subjectId);
 
       if (error) throw error;
@@ -252,7 +267,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
       // 🔄 Propagação profunda v2.2: Replicar anotações da matéria para irmãos (mesclados)
       try {
         const unificationMap = userCycle?.unification_map ?? null;
-        await registerSubjectDualProgress(subjectId, { notes: updatedNotes as any }, unificationMap);
+        await registerSubjectDualProgress(subjectId, { notes: updatedNotes }, unificationMap);
       } catch (dualErr) {
         console.warn('⚠️ Falha na propagação das notas da matéria (não-bloqueante):', dualErr);
       }

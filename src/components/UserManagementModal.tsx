@@ -1,7 +1,7 @@
 // =====================================================
 // MODAL DE GERENCIAMENTO DE USUÁRIOS E ROLES
 // =====================================================
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useUserRole, AppRole } from '@/hooks/useUserRole'
 import { X, Crown, Shield, Users, User, AlertTriangle, Check } from 'lucide-react'
@@ -17,6 +17,25 @@ interface UserWithRoles {
   roles: AppRole[]
   highestRole: AppRole | null
 }
+
+type UserRoleRow = {
+  user_id: string
+  role: AppRole
+}
+
+const ROLE_HIERARCHY: Record<AppRole, number> = {
+  user: 1,
+  moderator: 2,
+  admin: 3,
+  owner: 4
+}
+
+const getHighestRole = (roles: AppRole[]) =>
+  roles.length > 0
+    ? roles.reduce((prev, current) =>
+        ROLE_HIERARCHY[current] > ROLE_HIERARCHY[prev] ? current : prev
+      )
+    : null
 
 interface UserManagementModalProps {
   isOpen: boolean
@@ -39,7 +58,7 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
   const { refetch } = useUserRole()
 
   // Buscar usuários
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -52,15 +71,15 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
 
       if (profilesError) throw profilesError
 
-      // Buscar roles usando RPC (ignorando tipos TypeScript)
-      const { data: userRoles, error: rolesError } = await (supabase as any)
+      // Buscar roles usando RPC administrativa tipada.
+      const { data: userRoles, error: rolesError } = await supabase
         .rpc('get_all_user_roles_admin')
 
       // Se RPC não funcionar, usar query SQL direta
-      let rolesData = userRoles
+      let rolesData: UserRoleRow[] = userRoles || []
       if (rolesError || !userRoles) {
         console.log('Tentando query SQL direta...')
-        const { data: directRoles } = await (supabase as any)
+        const { data: directRoles } = await supabase
           .from('user_roles')
           .select('user_id, role')
         rolesData = directRoles || []
@@ -69,30 +88,17 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
       // Combinar dados
       const usersWithRoles: UserWithRoles[] = (profiles || []).map(profile => {
         const roles = (rolesData || [])
-          .filter((ur: any) => ur.user_id === profile.id)
-          .map((ur: any) => ur.role as AppRole)
-
-        const hierarchy: Record<AppRole, number> = {
-          user: 1,
-          moderator: 2,
-          admin: 3,
-          owner: 4
-        }
-
-        const highestRole = roles.length > 0 
-          ? roles.reduce((prev, current) => 
-              hierarchy[current] > hierarchy[prev] ? current : prev
-            )
-          : null
+          .filter((ur) => ur.user_id === profile.id)
+          .map((ur) => ur.role)
 
         return {
           id: profile.id,
-          email: profile.email,
-          name: profile.name,
-          avatar_url: profile.avatar_url,
+          email: profile.email || 'email-nao-informado',
+          full_name: profile.name || undefined,
+          avatar_url: profile.avatar_url || undefined,
           created_at: profile.created_at,
           roles,
-          highestRole
+          highestRole: getHighestRole(roles)
         }
       })
 
@@ -103,17 +109,17 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   // Atribuir role
   const assignRole = async (userId: string, role: AppRole) => {
     try {
       setActionLoading(`assign-${userId}-${role}`)
       
-      // Usar RPC function para atribuir role (ignorando tipos TypeScript)
-      const { error } = await (supabase as any).rpc('assign_user_role_admin', {
-        target_user_id: userId,
-        new_role: role
+      // Usa RPC security definer tipada para respeitar RLS e manter a role única por usuário.
+      const { error } = await supabase.rpc('set_user_role', {
+        _target_user_id: userId,
+        _role: role
       })
 
       if (error) throw error
@@ -135,8 +141,8 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
     try {
       setActionLoading(`remove-${userId}-${role}`)
       
-      // Usar RPC function para remover role (ignorando tipos TypeScript)
-      const { error } = await (supabase as any).rpc('remove_user_role_admin', {
+      // Usa RPC administrativa tipada para remoção respeitando RLS.
+      const { error } = await supabase.rpc('remove_user_role_admin', {
         target_user_id: userId,
         role_to_remove: role
       })
@@ -159,7 +165,7 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
     if (isOpen) {
       fetchUsers()
     }
-  }, [isOpen])
+  }, [fetchUsers, isOpen])
 
   if (!isOpen) return null
 

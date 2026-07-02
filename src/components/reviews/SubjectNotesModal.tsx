@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { X, Save, MessageSquareText } from 'lucide-react';
@@ -11,6 +11,15 @@ import { sanitizeHtml } from '@/lib/sanitize';
 import { useCycleState } from '@/hooks/useCycleState';
 import { registerSubjectDualProgress } from '@/services/cycleMergeService';
 import { toastGate } from '@/lib/errors/toastGate';
+import { Database, Json } from '@/integrations/supabase/types';
+
+type SubjectUpdate = Database['public']['Tables']['subjects']['Update'];
+
+const serializeNotes = (notes: TopicNotes): Json => ({
+  content: notes.content,
+  createdAt: notes.createdAt,
+  updatedAt: notes.updatedAt
+});
 
 interface SubjectNotesModalProps {
   isOpen: boolean;
@@ -34,14 +43,7 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
   const isMobile = useIsMobile();
   const { userCycle } = useCycleState(); // Necessário para a propagação profunda
 
-  // Buscar notas da matéria
-  useEffect(() => {
-    if (isOpen && subjectId) {
-      loadSubjectNotes();
-    }
-  }, [isOpen, subjectId]);
-
-  const loadSubjectNotes = async () => {
+  const loadSubjectNotes = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -63,17 +65,26 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [subjectId]);
+
+  // Buscar notas da matéria
+  useEffect(() => {
+    if (isOpen && subjectId) {
+      loadSubjectNotes();
+    }
+  }, [isOpen, loadSubjectNotes, subjectId]);
 
   const saveNotes = async (updatedNotes: TopicNotes) => {
     setIsSaving(true);
     try {
+      const updates: SubjectUpdate = {
+        notes: serializeNotes(updatedNotes),
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('subjects')
-        .update({
-          notes: updatedNotes as any,
-          updated_at: new Date().toISOString()
-        })
+        .update(updates)
         .eq('id', subjectId);
 
       if (error) throw error;
@@ -81,7 +92,7 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
       // 🔄 Propagação profunda v2.2: Replicar anotações da matéria para irmãos (mesclados)
       try {
         const unificationMap = userCycle?.unification_map ?? null;
-        await registerSubjectDualProgress(subjectId, { notes: updatedNotes as any }, unificationMap);
+        await registerSubjectDualProgress(subjectId, { notes: updatedNotes }, unificationMap);
       } catch (dualErr) {
         console.warn('⚠️ Falha na propagação das notas da matéria (não-bloqueante):', dualErr);
       }

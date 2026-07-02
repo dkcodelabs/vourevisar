@@ -10,15 +10,10 @@ import {
 } from 'recharts';
 import { format, subDays, startOfDay, isSameDay, parseISO, getHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ReviewHistoryItem } from '@/types/revision';
 
 interface Topic {
     first_studied_at: string | null;
-    [key: string]: any;
-}
-
-interface ReviewHistoryItem {
-    reviewed_at: string;
-    [key: string]: any;
 }
 
 interface ReviewsTrendChartProps {

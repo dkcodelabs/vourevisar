@@ -1,5 +1,5 @@
 import { toastGate } from '@/lib/errors/toastGate';
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -7,6 +7,8 @@ import { toast } from 'react-toastify'
 import { Progress } from '@/components/ui/progress'
 import { Bot, Clock, Database, Eye, Sparkles } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
+import type { ProcessTopicIncidenceResponse } from '@/components/AllTopicsTable'
+import type { Json } from '@/integrations/supabase/types'
 
 interface ProcessedTopicItem {
     topic_id: string
@@ -53,12 +55,40 @@ interface ProcessedTopic {
     persistence_error?: string
     worker_version?: string | null
     items?: ProcessedTopicItem[]
-    raw_result?: any
+    raw_result?: ProcessTopicIncidenceResponse
 }
 
 interface AutomationSimulatorProps {
-    onProcessComplete?: (result: any) => void
-    externalResult?: any | null
+    onProcessComplete?: (result: ProcessTopicIncidenceResponse) => void
+    externalResult?: ProcessTopicIncidenceResponse | null
+}
+
+interface LastTopicRow {
+    id: string
+    name: string
+    last_trend_check_at: string
+    total_volume: number | null
+    skip_reason: string | null
+    last_audit_log: Json | null
+    last_used_query: string | null
+    last_search_context: string | null
+    status: string | null
+    incidence_source: string | null
+    incidence_context: Json | null
+    incidence_applied_at: string | null
+    subjects?: { name?: string | null } | null
+}
+
+interface AuditLogSummary {
+    total_api_calls?: number | string | null
+}
+
+const asRecord = (value: Json | null | undefined): Record<string, Json> =>
+    value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+
+const getAuditApiCalls = (value: Json | null | undefined): number => {
+    const audit = asRecord(value) as AuditLogSummary
+    return Number(audit.total_api_calls || 0)
 }
 
 type QueueStatusFilter = 'pending' | 'no_result' | 'error'
@@ -95,14 +125,14 @@ export function AutomationSimulator({
     const [queueStatus, setQueueStatus] = useState<QueueStatusFilter>('pending')
     const [quota, setQuota] = useState({ used: 0, limit: 100, remaining: 100 })
 
-    const queueScopeBody = () => ({
+    const queueScopeBody = useCallback(() => ({
         limit: 2,
         ...(selectedQueueEditalId ? { editalId: selectedQueueEditalId } : {}),
         ...(selectedQueueSubjectId ? { subjectId: selectedQueueSubjectId } : {}),
         queueStatus,
-    })
+    }), [queueStatus, selectedQueueEditalId, selectedQueueSubjectId])
 
-    const applyQuotaFromResult = (result: any) => {
+    const applyQuotaFromResult = useCallback((result: ProcessTopicIncidenceResponse | null | undefined) => {
         const googleQuota = result?.google_quota
         if (!googleQuota) return false
 
@@ -116,9 +146,9 @@ export function AutomationSimulator({
         })
 
         return true
-    }
+    }, [])
 
-    const updateQuota = async () => {
+    const updateQuota = useCallback(async () => {
         const limit = 100
         const { data: authData } = await supabase.auth.getUser()
         const userId = authData.user?.id
@@ -143,8 +173,8 @@ export function AutomationSimulator({
             return
         }
 
-        const used = (data || []).reduce((total: number, row: any) => {
-            return total + Number(row.last_audit_log?.total_api_calls || 0)
+        const used = (data || []).reduce((total, row) => {
+            return total + getAuditApiCalls(row.last_audit_log)
         }, 0)
 
         setQuota({
@@ -152,7 +182,7 @@ export function AutomationSimulator({
             limit,
             remaining: Math.max(0, limit - used),
         })
-    }
+    }, [])
 
     // 🔄 V36: Carregar APENAS O ÚLTIMO processado
     useEffect(() => {
@@ -182,46 +212,47 @@ export function AutomationSimulator({
                 .maybeSingle()
 
             if (data) {
-                const incidenceContext = (data.incidence_context || {}) as any
+                const lastTopic = data as LastTopicRow
+                const incidenceContext = asRecord(lastTopic.incidence_context)
                 const logFromDB: ProcessedTopic = {
-                    id: data.id,
-                    timestamp: new Date(data.last_trend_check_at),
-                    topico_original: data.name,
-                    materia: (data.subjects as any)?.name || 'Geral',
-                    total_volume: data.total_volume || 0,
-                    maior_sub_topico: data.skip_reason || '-',
-                    status: data.status === 'processed' ? 'success' :
-                        data.status === 'skipped' ? 'warning' :
-                            data.status === 'error' ? 'error' :
-                                (data.total_volume > 0 ? 'success' : 'warning'),
-                    reasoning: data.skip_reason,
-                    effective_context: data.last_search_context,
-                    last_used_query: data.last_used_query,
-                    api_cost: (data.last_audit_log as any)?.total_api_calls || 0,
-                    from_catalog: data.incidence_source === 'catalog',
-                    incidence_source: data.incidence_source,
-                    source_method: incidenceContext?.source_method,
+                    id: lastTopic.id,
+                    timestamp: new Date(lastTopic.last_trend_check_at),
+                    topico_original: lastTopic.name,
+                    materia: lastTopic.subjects?.name || 'Geral',
+                    total_volume: lastTopic.total_volume || 0,
+                    maior_sub_topico: lastTopic.skip_reason || '-',
+                    status: lastTopic.status === 'processed' ? 'success' :
+                        lastTopic.status === 'skipped' ? 'warning' :
+                            lastTopic.status === 'error' ? 'error' :
+                                ((lastTopic.total_volume || 0) > 0 ? 'success' : 'warning'),
+                    reasoning: lastTopic.skip_reason,
+                    effective_context: lastTopic.last_search_context,
+                    last_used_query: lastTopic.last_used_query,
+                    api_cost: getAuditApiCalls(lastTopic.last_audit_log),
+                    from_catalog: lastTopic.incidence_source === 'catalog',
+                    incidence_source: lastTopic.incidence_source,
+                    source_method: incidenceContext.source_method ? String(incidenceContext.source_method) : undefined,
                     items: [{
-                        topic_id: data.id,
-                        topic_name: data.name,
-                        subject_name: (data.subjects as any)?.name || 'Geral',
-                        status: data.status === 'catalog_applied' ? 'catalog' : data.status === 'processed' ? 'ai' : String(data.status || 'unknown'),
-                        volume: Number(data.total_volume || 0),
-                        api_calls: Number((data.last_audit_log as any)?.total_api_calls || 0),
-                        reason: data.skip_reason || undefined,
-                        source_method: incidenceContext?.source_method,
-                        normalized_score: typeof incidenceContext?.normalized_score === 'number' ? incidenceContext.normalized_score : undefined,
-                        score_label: incidenceContext?.score_label ? String(incidenceContext.score_label) : undefined,
-                        rank_percentile: typeof incidenceContext?.rank_percentile === 'number' ? incidenceContext.rank_percentile : null,
-                        score_confidence: incidenceContext?.score_confidence ? String(incidenceContext.score_confidence) : undefined,
-                        score_basis_count: typeof incidenceContext?.score_basis_count === 'number' ? incidenceContext.score_basis_count : undefined,
+                        topic_id: lastTopic.id,
+                        topic_name: lastTopic.name,
+                        subject_name: lastTopic.subjects?.name || 'Geral',
+                        status: lastTopic.status === 'catalog_applied' ? 'catalog' : lastTopic.status === 'processed' ? 'ai' : String(lastTopic.status || 'unknown'),
+                        volume: Number(lastTopic.total_volume || 0),
+                        api_calls: getAuditApiCalls(lastTopic.last_audit_log),
+                        reason: lastTopic.skip_reason || undefined,
+                        source_method: incidenceContext.source_method ? String(incidenceContext.source_method) : undefined,
+                        normalized_score: typeof incidenceContext.normalized_score === 'number' ? incidenceContext.normalized_score : undefined,
+                        score_label: incidenceContext.score_label ? String(incidenceContext.score_label) : undefined,
+                        rank_percentile: typeof incidenceContext.rank_percentile === 'number' ? incidenceContext.rank_percentile : null,
+                        score_confidence: incidenceContext.score_confidence ? String(incidenceContext.score_confidence) : undefined,
+                        score_basis_count: typeof incidenceContext.score_basis_count === 'number' ? incidenceContext.score_basis_count : undefined,
                     }]
                 }
                 setLastResult(logFromDB)
             }
         }
         loadLast()
-    }, [])
+    }, [updateQuota])
 
     useEffect(() => {
         const loadQueueFilters = async () => {
@@ -245,7 +276,7 @@ export function AutomationSimulator({
             if (editalsResult.error) {
                 console.warn('[Incidência] Falha ao carregar editais para fila:', editalsResult.error)
             } else {
-                setQueueEditals((editalsResult.data || []).map((edital: any) => ({
+                setQueueEditals((editalsResult.data || []).map((edital) => ({
                     id: String(edital.id),
                     name: String(edital.name || 'Edital sem nome'),
                     exam_board: edital.exam_board ? String(edital.exam_board) : null,
@@ -255,7 +286,7 @@ export function AutomationSimulator({
             if (subjectsResult.error) {
                 console.warn('[Incidência] Falha ao carregar matérias para fila:', subjectsResult.error)
             } else {
-                setQueueSubjects((subjectsResult.data || []).map((subject: any) => ({
+                setQueueSubjects((subjectsResult.data || []).map((subject) => ({
                     id: String(subject.id),
                     name: String(subject.name || 'Matéria sem nome'),
                     edital_id: subject.edital_id ? String(subject.edital_id) : null,
@@ -270,9 +301,9 @@ export function AutomationSimulator({
         setQueuePreview([])
     }, [selectedQueueEditalId, selectedQueueSubjectId, queueStatus])
 
-    const buildProcessedItems = (result: any): ProcessedTopicItem[] => (
+    const buildProcessedItems = useCallback((result: ProcessTopicIncidenceResponse | null | undefined): ProcessedTopicItem[] => (
         Array.isArray(result?.results)
-            ? result.results.map((item: any) => ({
+            ? result.results.map((item) => ({
                 topic_id: String(item.topic_id || crypto.randomUUID()),
                 topic_name: String(item.topic_name || 'Tópico sem nome'),
                 subject_name: String(item.subject_name || 'Geral'),
@@ -295,9 +326,9 @@ export function AutomationSimulator({
                 year: item.year ? String(item.year) : undefined,
             }))
             : []
-    )
+    ), [])
 
-    const hydrateProcessResult = async (result: any, mode: 'batch' | 'single') => {
+    const hydrateProcessResult = useCallback(async (result: ProcessTopicIncidenceResponse, mode: 'batch' | 'single') => {
         const first = Array.isArray(result?.results) ? result.results[0] : null
         const processedItems = buildProcessedItems(result)
         const usedDirectSearch = processedItems.some(item =>
@@ -305,17 +336,17 @@ export function AutomationSimulator({
             || item.reasoning?.startsWith('Fallback sem Gemini')
         )
         const firstError = Array.isArray(result?.results)
-            ? result.results.find((item: any) => item.status === 'error')?.error
+            ? result.results.find((item) => item.status === 'error')?.error
             : null
         const firstDeferredReason = Array.isArray(result?.results)
-            ? result.results.find((item: any) => item.status === 'deferred')?.reason
+            ? result.results.find((item) => item.status === 'deferred')?.reason
             : null
         const persistableResults = Array.isArray(result?.results)
-            ? result.results.filter((item: any) => item.status !== 'deferred')
+            ? result.results.filter((item) => item.status !== 'deferred')
             : []
-        const processedTopicIds = persistableResults.map((item: any) => item.topic_id).filter(Boolean)
+        const processedTopicIds = persistableResults.map((item) => item.topic_id).filter(Boolean)
         const deferredCount = Array.isArray(result?.results)
-            ? result.results.filter((item: any) => item.status === 'deferred').length
+            ? result.results.filter((item) => item.status === 'deferred').length
             : 0
         const allDeferred = deferredCount > 0 && deferredCount === Number(result?.processed || 0)
         let persistedCount = 0
@@ -330,7 +361,7 @@ export function AutomationSimulator({
             if (persistedError) {
                 persistenceError = persistedError.message
             } else {
-                persistedCount = (persistedRows || []).filter((row: any) => {
+                persistedCount = (persistedRows || []).filter((row) => {
                     const status = String(row.status || '')
                     return Boolean(row.last_trend_check_at)
                         && ['processed', 'no_volume', 'skipped', 'catalog_applied', 'error'].includes(status)
@@ -377,7 +408,7 @@ export function AutomationSimulator({
                     ? `Primeiro resultado: ${first.status}`
                     : 'Nenhum tópico pendente',
             api_cost: Array.isArray(result.results)
-                ? result.results.reduce((sum: number, item: any) => sum + Number(item.api_calls || 0), 0)
+                ? result.results.reduce((sum, item) => sum + Number(item.api_calls || 0), 0)
                 : 0,
             from_catalog: result.catalog > 0,
             incidence_source: result.catalog > 0 ? 'catalog' : allDeferred ? null : 'ai',
@@ -390,7 +421,7 @@ export function AutomationSimulator({
             items: processedItems,
             raw_result: result,
         } satisfies ProcessedTopic
-    }
+    }, [buildProcessedItems])
 
     useEffect(() => {
         if (!externalResult) return
@@ -400,12 +431,12 @@ export function AutomationSimulator({
             setLastResult(logEntry)
             if (!applyQuotaFromResult(externalResult)) await updateQuota()
         })()
-    }, [externalResult])
+    }, [applyQuotaFromResult, externalResult, hydrateProcessResult, updateQuota])
 
     const handleProcessNext = async () => {
         setIsProcessing(true)
         try {
-            const { data: result, error } = await supabase.functions.invoke('process-topic-incidence', {
+            const { data: result, error } = await supabase.functions.invoke<ProcessTopicIncidenceResponse>('process-topic-incidence', {
                 body: queueScopeBody()
             })
 
@@ -463,7 +494,7 @@ export function AutomationSimulator({
     const handlePreviewQueue = async () => {
         setIsPreviewing(true)
         try {
-            const { data: result, error } = await supabase.functions.invoke('process-topic-incidence', {
+            const { data: result, error } = await supabase.functions.invoke<ProcessTopicIncidenceResponse>('process-topic-incidence', {
                 body: { ...queueScopeBody(), previewQueue: true }
             })
 

@@ -4,15 +4,16 @@ import { ReviewsTrendChart } from '@/components/reviews/ReviewsTrendChart';
 import { WeeklyEngagementChart } from '@/components/reviews/WeeklyEngagementChart';
 import { ReviewsStatsCard } from '@/components/reviews/ReviewsStatsCard';
 import { calculateProtectionMode } from '@/utils/calculateProtectionMode';
-import { RevisionItem } from '@/types/revision';
+import { ReviewHistoryItem, RevisionItem, RevisionStats } from '@/types/revision';
+import { Subject } from '@/types';
 
 interface RevisoesChartsWrapperProps {
     isVisible: boolean;
-    stats: any; // Using any for stats to match flexibility, but could be typed strictly if needed
+    stats: RevisionStats;
     studyTopics: Array<{ first_studied_at: string | null }>;
     topics: RevisionItem[];
-    reviewData: any[];
-    subjects: any[];
+    reviewData: ReviewHistoryItem[];
+    subjects: Subject[];
     maxReviews: number;
 }
 
@@ -108,8 +109,8 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
                     startedTopicsCount={stats.startedTopicsCount}
                     completedTopicsCount={stats.completedTopicsCount}
                     completedReviews={stats.completedReviews}
-                    pendingReviews={stats.pendingReviews}
-                    notStartedReviews={stats.notStartedReviews}
+                    pendingReviews={stats.overdue + stats.today + stats.future}
+                    notStartedReviews={Math.max(stats.totalTopics - stats.startedTopicsCount, 0)}
                     overdue={stats.overdue}
                     today={stats.today}
                     future={stats.future}

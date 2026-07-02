@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { AutomationSimulator } from './AutomationSimulator'
-import { AllTopicsTable, type TopicIncidenceFilter } from './AllTopicsTable'
+import { AllTopicsTable, type ProcessTopicIncidenceResponse, type TopicIncidenceFilter } from './AllTopicsTable'
 import { IncidenceOperationalSummary } from '@/components/incidence/IncidenceOperationalSummary'
 
 export function CalculadoraImportancia() {
     const [refreshTable, setRefreshTable] = useState(0)
     const [topicFilter, setTopicFilter] = useState<TopicIncidenceFilter>('all')
-    const [externalProcessResult, setExternalProcessResult] = useState<any | null>(null)
+    const [externalProcessResult, setExternalProcessResult] = useState<ProcessTopicIncidenceResponse | null>(null)
 
     return (
         <div className="space-y-6">

@@ -11,6 +11,7 @@ import { toastGate } from '@/lib/errors/toastGate';
 import { errorService } from '@/lib/errors/errorService';
 import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import { Subject } from '@/types';
+import type { Json } from '@/integrations/supabase/types';
 
 type Mode = null | 'ia' | 'manual';
 
@@ -80,7 +81,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
         if (!user) return;
 
         // Mapeia subjects para o formato JSONB de public_editais
-        const mappedSubjects = subjects.map(s => ({
+        const mappedSubjects: Json = subjects.map(s => ({
             id: s.id,
             name: s.name,
             topics: (s.topics || []).map(t => ({ id: t.id, name: t.name })),
@@ -99,7 +100,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
             created_by: user.id,
         };
 
-        const { error } = await (supabase as any).from('public_editais').insert([payload]);
+        const { error } = await supabase.from('public_editais').insert([payload]);
         if (error) throw error;
 
         toast.success('Edital importado pela IA e adicionado ao catálogo!');
@@ -129,7 +130,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
                 created_by: user?.id ?? null,
             };
 
-            const { error } = await (supabase as any).from('public_editais').insert([payload]);
+            const { error } = await supabase.from('public_editais').insert([payload]);
             if (error) throw error;
 
             toast.success('Edital cadastrado com sucesso!');

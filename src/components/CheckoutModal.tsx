@@ -188,8 +188,8 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
         toast.info('Aguardando confirmação de pagamento...');
       }
       
-    } catch (err: any) {
-      const message = err.message || 'Erro ao processar pagamento';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro ao processar pagamento';
       toastGate.notifyError(message, 'CHECKOUT_FAIL');
     } finally {
       setLoading(false);

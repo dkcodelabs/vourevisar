@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Subject } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,15 +18,16 @@ let isLoadingGlobal = false;
 
 export const StaticDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadData = async () => {
-    if (!user || isLoadingGlobal) return;
+  const loadData = useCallback(async () => {
+    if (!userId || isLoadingGlobal) return;
 
     // Verificar cache primeiro
-    if (globalData[user.id]) {
-      setSubjects(globalData[user.id]);
+    if (globalData[userId]) {
+      setSubjects(globalData[userId]);
       return;
     }
 
@@ -37,14 +38,14 @@ export const StaticDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const { data } = await supabase
         .from('subjects')
         .select(`*, topics (*, difficulty_level)`)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('priority', { ascending: true })
         .order('created_at', { foreignTable: 'topics', ascending: true });
 
       const transformedSubjects = transformSubjectsData(data || []);
 
       // Salvar no cache
-      globalData[user.id] = transformedSubjects;
+      globalData[userId] = transformedSubjects;
       setSubjects(transformedSubjects);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -52,23 +53,23 @@ export const StaticDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setIsLoading(false);
       isLoadingGlobal = false;
     }
-  };
+  }, [userId]);
 
-  const refreshData = async () => {
-    if (user) {
-      delete globalData[user.id]; // Limpar cache
+  const refreshData = useCallback(async () => {
+    if (userId) {
+      delete globalData[userId]; // Limpar cache
       await loadData();
     }
-  };
+  }, [loadData, userId]);
 
   useEffect(() => {
-    if (user) {
+    if (userId) {
       loadData();
     } else {
       setSubjects([]);
       globalData = {}; // Limpar todo o cache
     }
-  }, [user?.id]);
+  }, [loadData, userId]);
 
   const value = {
     subjects,

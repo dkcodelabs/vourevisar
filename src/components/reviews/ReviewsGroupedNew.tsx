@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, FileText, Edit3, CheckCircle, NotebookPen } from 'lucide-react';
 import { differenceInDays, startOfDay } from 'date-fns';
-import { Subject } from '@/types';
+import { Subject, Topic } from '@/types';
 import { SubtopicsList } from '@/components/ui/subtopics-list';
 import { ReviewConfirmDialog } from './ReviewConfirmDialog';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -79,7 +79,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
         });
     };
 
-    const getTopicStatus = (topic: any) => {
+    const getTopicStatus = (topic: Topic) => {
         if (topic.reviewStage === 'Concluído') return 'completed';
         if (!topic.nextReview) return 'new';
 
@@ -92,7 +92,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
         return 'future';
     };
 
-    const getStatusText = (topic: any) => {
+    const getStatusText = (topic: Topic) => {
         const status = getTopicStatus(topic);
 
         if (status === 'completed') return 'Concluído';
@@ -127,7 +127,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
         }
     };
 
-    const getReviewCount = (topic: any) => {
+    const getReviewCount = (topic: Topic) => {
         // Obter o perfil do usuário e o número máximo de revisões
         const userProfile = settings?.review_profile || ReviewProfile.INTERMEDIATE;
         const maxReviews = REVIEW_PROFILES[userProfile].maxReviews;
@@ -151,7 +151,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
     };
 
     // Função para determinar a cor da matéria baseada no status dos tópicos
-    const getSubjectColor = (subject: Subject, topics: any[], index: number) => {
+    const getSubjectColor = (topics: Topic[], index: number) => {
         // Para a aba "hoje" (que inclui hoje + atrasadas), usar cores baseadas no status
         if (tab === 'hoje') {
             // Verificar se há tópicos atrasados
@@ -178,7 +178,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
     };
 
     // Função para calcular quantos dias um tópico está atrasado
-    const getDaysOverdue = (topic: any) => {
+    const getDaysOverdue = (topic: Topic) => {
         if (!topic.nextReview) return 0;
         const today = startOfDay(new Date());
         const reviewDate = startOfDay(new Date(topic.nextReview));
@@ -187,13 +187,13 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
     };
 
     // Função para encontrar o maior atraso de uma matéria
-    const getSubjectMaxOverdue = (topics: any[]) => {
+    const getSubjectMaxOverdue = (topics: Topic[]) => {
         if (topics.length === 0) return 0;
         return Math.max(...topics.map(topic => getDaysOverdue(topic)));
     };
 
     // Função para encontrar a próxima revisão mais próxima de uma matéria
-    const getSubjectNextReview = (topics: any[]) => {
+    const getSubjectNextReview = (topics: Topic[]) => {
         const validDates = topics
             .filter(topic => topic.nextReview)
             .map(topic => new Date(topic.nextReview))
@@ -203,10 +203,10 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
     };
 
     // Função para encontrar a conclusão mais recente de uma matéria
-    const getSubjectLatestCompletion = (topics: any[]) => {
+    const getSubjectLatestCompletion = (topics: Topic[]) => {
         const validDates = topics
-            .filter(topic => topic.updatedAt)
-            .map(topic => new Date(topic.updatedAt))
+            .map(topic => topic.lastReviewedAt ?? (topic.last_reviewed_at ? new Date(topic.last_reviewed_at) : null))
+            .filter((date): date is Date => date !== null)
             .sort((a, b) => b.getTime() - a.getTime());
 
         return validDates.length > 0 ? validDates[0] : null;
@@ -288,7 +288,7 @@ export const ReviewsGroupedNew: React.FC<ReviewsGroupedNewProps> = ({
 
             return {
                 subject,
-                color: getSubjectColor(subject, sortedTopics, index),
+                color: getSubjectColor(sortedTopics, index),
                 topics: sortedTopics,
                 maxOverdue: getSubjectMaxOverdue(sortedTopics),
                 nextReview: getSubjectNextReview(sortedTopics),

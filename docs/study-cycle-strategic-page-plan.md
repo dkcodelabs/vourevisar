@@ -974,6 +974,7 @@ Decisao de produto: flashcards/questoes nao devem ser gerados automaticamente pa
 - [ ] Melhorar rastreabilidade na pagina Revisoes: quando houver editais mesclados ou topicos equivalentes, exibir de forma discreta o edital/origem da materia e do topico para o aluno entender de onde veio a revisao sem poluir a lista principal.
 - [ ] Projetar mesclagem/desmesclagem manual assistida: permitir que o aluno confirme, mescle ou desfaça equivalencias de materias/topicos sugeridas pela IA em fluxo simples, sem transformar a IA em decisora final. Definir se a acao fica apenas durante o merge inicial, se tambem aparece depois no ciclo/revisoes quando o aluno percebe equivalencias, ou ambos. Objetivo: produto automatico por padrao, conservador sem falso positivo, com correcao manual facil para casos ambíguos.
 - [ ] Reduzir divida estrutural do fluxo de revisao em recorte futuro: limpar warnings antigos de lint em fases e quebrar o hook `useTopicReview`, que ainda concentra calculo SRS, persistencia, historico, sessao de estudo, dificuldade e efeitos de UI. Nao misturar com correcoes de merge/ciclo; fazer depois que os fluxos de edital, ciclo e revisoes estiverem estabilizados.
+- [x] Adicionar testes dedicados para `src/services/mergeService.ts`: `src/services/mergeService.test.ts` cobre criacao, reversao com copia de progresso, promocao de primarios sobreviventes e limpeza de referencias em `subject_merges`/`topic_merges`.
 
 ## Proximo passo imediato
 

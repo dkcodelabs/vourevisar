@@ -12,6 +12,28 @@ export enum GroupingMode {
     SUBJECT = 'SUBJECT'
 }
 
+export interface ReviewHistoryItem {
+    id: string;
+    topic_id: string;
+    review_stage: string;
+    reviewed_at: string;
+    topic_name?: string;
+    subject_id?: string;
+}
+
+export interface RevisionStats {
+    today: number;
+    overdue: number;
+    future: number;
+    completedTopicsCount: number;
+    completedReviews: number;
+    totalScheduledReviews: number;
+    startedTopicsCount: number;
+    focusCount: number;
+    totalTopics: number;
+    totalSubjects: number;
+}
+
 export interface RevisionItem {
     id: string;
     topic: string;

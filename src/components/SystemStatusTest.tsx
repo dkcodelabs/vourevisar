@@ -1,27 +1,59 @@
 // =====================================================
 // TESTE DE STATUS DO SISTEMA - DIAGNÓSTICO COMPLETO
 // =====================================================
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useUserProfile } from '@/hooks/useUserProfile'
 import { useSubscriptionInfo } from '@/hooks/useSubscriptionInfo'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { UserBadge } from '@/components/UserBadge'
+import type { PostgrestError } from '@supabase/supabase-js'
+import type { Json } from '@/integrations/supabase/types'
+
+type DiagnosticError = PostgrestError | Error | unknown
+
+interface SystemDiagnosticResults {
+  currentUser?: {
+    id?: string
+    email?: string
+    status: string
+  }
+  role?: {
+    data: { role: string } | null
+    error: PostgrestError | null
+    isOwner: boolean
+    isAdmin: boolean
+  }
+  subscription?: {
+    rpcData: Json
+    rpcError: PostgrestError | null
+    hookData: ReturnType<typeof useSubscriptionInfo>['subscriptionInfo']
+  }
+  directSubscription?: {
+    data: Record<string, unknown> | null
+    error: PostgrestError | null
+  }
+  rpcTest?: {
+    data: Json
+    error: DiagnosticError
+    status: string
+  }
+  error?: DiagnosticError
+}
 
 export function SystemStatusTest() {
-  const [testResults, setTestResults] = useState<any>({})
+  const [testResults, setTestResults] = useState<SystemDiagnosticResults>({})
   const [loading, setLoading] = useState(false)
   
   const { user, isOwner, isAdmin, loading: roleLoading } = useUserRole()
   const { profile, displayBadge, badgeColor } = useUserProfile()
   const { subscriptionInfo } = useSubscriptionInfo()
 
-  const runDiagnostic = async () => {
+  const runDiagnostic = useCallback(async () => {
     setLoading(true)
-    const results: any = {}
+    const results: SystemDiagnosticResults = {}
 
     try {
       // 1. Verificar usuário atual
@@ -65,7 +97,7 @@ export function SystemStatusTest() {
           .maybeSingle()
 
         results.directSubscription = {
-          data: directSubData,
+          data: directSubData as Record<string, unknown> | null,
           error: directSubError
         }
 
@@ -94,11 +126,11 @@ export function SystemStatusTest() {
 
     setTestResults(results)
     setLoading(false)
-  }
+  }, [isAdmin, isOwner, subscriptionInfo])
 
   useEffect(() => {
     runDiagnostic()
-  }, [])
+  }, [runDiagnostic])
 
   return (
     <div className="space-y-4 p-4">
