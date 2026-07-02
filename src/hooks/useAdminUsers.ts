@@ -41,8 +41,8 @@ export function useAdminUsers() {
             if (rolesError) console.error('Error fetching roles:', rolesError);
 
             // 3. Map Data
-            const combinedUsers: AdminUser[] = (profiles || []).map((profile: any) => {
-                const userRole = roles?.find((r: any) => r.user_id === profile.id)?.role || 'user';
+            const combinedUsers: AdminUser[] = (profiles || []).map((profile: unknown) => {
+                const userRole = roles?.find((r: unknown) => r.user_id === profile.id)?.role || 'user';
                 const isGoogle = profile.avatar_url?.includes('googleusercontent');
                 const source = isGoogle ? 'Email, Google' : 'Email';
 
@@ -70,7 +70,7 @@ export function useAdminUsers() {
             });
 
             setUsers(combinedUsers);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error fetching admin users:', err);
             // Fallback for missing columns or other DB errors
             if (err.message?.includes('column "email" does not exist') || err.message?.includes('column "deleted_at" does not exist')) {

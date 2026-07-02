@@ -15,8 +15,8 @@ export const useSessionCompletion = () => {
     subjectId: string, 
     userCycle: UserCycle, 
     tempMarkedTopics: Record<string, string[]>, 
-    setUserCycle: any, 
-    setTempMarkedTopics: any
+    setUserCycle: unknown,
+    setTempMarkedTopics: unknown
   ) => {
     console.log('🔵 handleCompleteSession INICIADO:', {
       subjectId,
@@ -381,4 +381,3 @@ export const useSessionCompletion = () => {
 
   return { handleCompleteSession };
 };
-

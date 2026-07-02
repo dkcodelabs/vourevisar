@@ -36,7 +36,7 @@ export function useProfileData() {
         console.log('No profile found for user:', userId);
         return null;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error in fetchProfile:', error);
       setError(error);
       return null;

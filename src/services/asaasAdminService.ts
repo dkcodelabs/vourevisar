@@ -41,7 +41,7 @@ export const asaasAdminService = {
   /**
    * Invoca a Edge Function asaas-admin
    */
-  async invokeAdminFunction(action: string, params: Record<string, any> = {}) {
+  async invokeAdminFunction(action: string, params: Record<string, unknown> = {}) {
     try {
       const { data, error } = await supabase.functions.invoke('asaas-admin', {
         body: { action, params }
@@ -56,7 +56,7 @@ export const asaasAdminService = {
       }
 
       return data.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       errorService.report(error as Error, {
         module: 'asaasAdminService',
         action,

@@ -30,7 +30,7 @@ class ErrorService {
     }
 
     private isIgnorableError(error: unknown): boolean {
-        const err = error as any;
+        const err = error as unknown;
         // 1. AbortController cancellations (Client or Browser side)
         if (err?.name === 'AbortError') return true;
         if (err?.code === 20) return true; // DOMException: AbortError
@@ -104,9 +104,9 @@ class ErrorService {
         };
     }
 
-    private sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
+    private sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
         const sensitiveKeys = ['password', 'token', 'secret', 'authorization', 'cookie', 'bearer'];
-        const sanitized: Record<string, any> = {};
+        const sanitized: Record<string, unknown> = {};
 
         for (const [key, value] of Object.entries(metadata)) {
             if (sensitiveKeys.some(k => key.toLowerCase().includes(k))) {
@@ -131,7 +131,7 @@ class ErrorService {
      * Reporta um erro: Loga no console (dev), Persiste no Banco e Retorna objeto normalizado
      */
     public async report(
-        error: any,
+        error: unknown,
         context: Omit<ErrorReportInput, 'originalError'>
     ): Promise<AppErrorNormalized> {
         // Construir input completo

@@ -30,7 +30,7 @@ export function useAuthOperations() {
       //   id: 'login-success'
       // });
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Sign in error:', error);
       // toastManager.error(error.message || 'Erro ao fazer login');
       throw error;
@@ -116,7 +116,7 @@ export function useAuthOperations() {
 
       toastManager.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
       return { ...data, confirmationPending };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Sign up error:', error);
       toastManager.error(error.message || 'Erro ao criar conta');
       throw error;
@@ -146,7 +146,7 @@ export function useAuthOperations() {
       if (error) throw error;
 
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toastManager.error('Erro ao fazer login com Google. Verifique as configurações OAuth.');
       throw error;
     } finally {
@@ -173,7 +173,7 @@ export function useAuthOperations() {
       if (error) throw error;
 
       toastManager.success('Sessão encerrada.');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Even if there's an error, we should clear local state
       toastManager.error('Erro ao sair, mas você foi desconectado localmente');
     } finally {
@@ -192,7 +192,7 @@ export function useAuthOperations() {
 
       toastManager.success('Email de recuperação enviado!');
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reset password error:', error);
       toastManager.error('Erro ao enviar email de recuperação');
       throw error;
@@ -211,7 +211,7 @@ export function useAuthOperations() {
       if (error) throw error;
 
       toastManager.success('Senha atualizada com sucesso!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Update password error:', error);
       toastManager.error('Erro ao atualizar senha');
       throw error;
@@ -241,7 +241,7 @@ export function useAuthOperations() {
 
       toastManager.success('Perfil atualizado com sucesso!');
       return updatedProfile;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating profile:', error);
       toastManager.error('Erro ao atualizar perfil');
       throw error;

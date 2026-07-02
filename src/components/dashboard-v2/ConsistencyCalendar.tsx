@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import { CheckCircle2, Circle } from 'lucide-react';
 
 interface ConsistencyCalendarProps {
-    reviewData: any[];
+    reviewData: unknown[];
     daysCount?: number;
 }
 

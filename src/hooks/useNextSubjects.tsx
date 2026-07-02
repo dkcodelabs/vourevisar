@@ -122,7 +122,7 @@ export const useNextSubjects = (subjects: Subject[], userCycle: UserCycle | null
     });
 
     return { nextSubjects, subjectsByStatus };
-  }, [subjects, userCycle, userSettings]);
+  }, [subjects, userCycle]);
 
   return { nextSubjects, subjectsByStatus };
 };

@@ -79,7 +79,7 @@ export const useStudyCycle = () => {
       }
 
       const now = new Date().toISOString();
-      const updateData: any = {
+      const updateData: unknown = {
         review_count: newReviewCount,
         next_review: nextReview,
         review_stage: reviewStage,
@@ -172,7 +172,7 @@ export const useStudyCycle = () => {
   };
 
   // Função para concluir sessão (integrada com sistema de progresso diário)
-  const handleCompleteSession = async (subjectId: string, saveStudySession?: (session: any) => Promise<boolean>) => {
+  const handleCompleteSession = async (subjectId: string, saveStudySession?: (session: unknown) => Promise<boolean>) => {
     console.log('🔵 handleCompleteSession INICIADO:', {
       subjectId,
       tempMarkedTopics: tempMarkedTopics[subjectId] || []

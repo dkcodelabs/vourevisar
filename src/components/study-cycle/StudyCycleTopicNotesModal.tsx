@@ -42,7 +42,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
 
   const [notes, setNotes] = useState<TopicNotes | undefined>(undefined);
   // const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.MEDIUM); // Removido - usando sistema de estrelas
-  const [subTopics, setSubTopics] = useState<any[]>([]);
+  const [subTopics, setSubTopics] = useState<unknown[]>([]);
   const [newSubTopic, setNewSubTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -84,7 +84,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
 
       // Sub-tópicos
       if (topicData?.subtopics) {
-        setSubTopics(topicData.subtopics as any[]);
+        setSubTopics(topicData.subtopics as unknown[]);
       } else {
         setSubTopics([]);
       }
@@ -116,7 +116,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
       const { error } = await supabase
         .from('topics')
         .update({
-          notes: updatedNotes as any,
+          notes: updatedNotes as unknown,
           updated_at: new Date().toISOString()
         })
         .eq('id', topicId);
@@ -155,8 +155,8 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
             content: content.trim(),
             updatedAt: new Date().toISOString(),
             createdAt: notes?.createdAt || new Date().toISOString()
-          } as any,
-          subtopics: subTopics as any,
+          } as unknown,
+          subtopics: subTopics as unknown,
           updated_at: new Date().toISOString()
         })
         .eq('id', topicId);
@@ -363,8 +363,8 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
                         content: content.trim(),
                         updatedAt: new Date().toISOString(),
                         createdAt: notes?.createdAt || new Date().toISOString()
-                      } as any,
-                      subtopics: subTopics as any,
+                      } as unknown,
+                      subtopics: subTopics as unknown,
                       updated_at: new Date().toISOString()
                     })
                     .eq('id', topicId);

@@ -4,15 +4,15 @@ export function withTimeout<T>(
   label?: string
 ): Promise<T>;
 export function withTimeout(
-  promise: any,
+  promise: unknown,
   timeoutMs?: number,
   label?: string
-): Promise<any>;
+): Promise<unknown>;
 export async function withTimeout(
-  promise: any,
+  promise: unknown,
   timeoutMs = 15000,
   label = 'Operacao'
-): Promise<any> {
+): Promise<unknown> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   const timeoutPromise = new Promise<never>((_, reject) => {

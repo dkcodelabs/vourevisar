@@ -7,7 +7,7 @@ export const migrateDifficultyLevels = async () => {
     console.log('Iniciando normalizacao da escala de dificuldade...');
 
     const { data: marker, error: markerError } = await supabase
-      .from('app_data_migrations' as any)
+      .from('app_data_migrations' as unknown)
       .select('migration_key')
       .eq('migration_key', NORMALIZATION_KEY)
       .maybeSingle();

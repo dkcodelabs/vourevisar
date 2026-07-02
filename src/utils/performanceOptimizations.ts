@@ -19,7 +19,7 @@ export const debounceEvent = (key: string, callback: () => void, delay: number =
 };
 
 // Sistema de cache simples para dados que não mudam frequentemente
-const dataCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+const dataCache = new Map<string, { data: unknown; timestamp: number; ttl: number }>();
 
 export const getCachedData = <T>(key: string): T | null => {
   const cached = dataCache.get(key);
@@ -81,7 +81,7 @@ export const throttle = (key: string, callback: () => void, delay: number = 1000
 };
 
 // Função para logs condicionais (apenas em desenvolvimento)
-export const devLog = (message: string, data?: any) => {
+export const devLog = (message: string, data?: unknown) => {
   if (process.env.NODE_ENV === 'development') {
     if (data) {
       console.log(message, data);
@@ -92,6 +92,6 @@ export const devLog = (message: string, data?: any) => {
 };
 
 // Função para logs de erro (sempre ativo)
-export const errorLog = (message: string, error?: any) => {
+export const errorLog = (message: string, error?: unknown) => {
   console.error(message, error);
 };

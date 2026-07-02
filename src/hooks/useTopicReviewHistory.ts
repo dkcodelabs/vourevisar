@@ -33,7 +33,7 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
         setError(null);
 
         // Buscar histórico de revisões
-        const { data: historyData, error: historyError } = await (supabase as any)
+        const { data: historyData, error: historyError } = await (supabase as unknown)
           .from('topic_review_history')
           .select('*, difficulty_numeric, trend_label, trend_delta')
           .eq('topic_id', topicId)
@@ -79,7 +79,7 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
  */
 function processTopicHistory(
   historyData: TopicReviewHistoryEntry[],
-  topicData: any,
+  topicData: unknown,
   userProfile: ReviewProfile
 ): TopicReviewHistory {
   const now = new Date();
@@ -163,7 +163,7 @@ function processTopicHistory(
 
   // Extrair a trend_label mais recente (último registro com valor não nulo)
   const latestTrendEntry = [...historyData].reverse().find(
-    (entry: any) => entry.trend_label != null
+    (entry: unknown) => entry.trend_label != null
   );
   const latestTrendLabel: string = latestTrendEntry?.trend_label ?? 'Sem histórico suficiente';
   const latestTrendDelta: number | null = latestTrendEntry?.trend_delta ?? null;
@@ -188,7 +188,7 @@ function processTopicHistory(
 export const useRegisterReview = () => {
   const registerReview = async (topicId: string, reviewStage: string) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown)
         .from('topic_review_history')
         .insert({
           topic_id: topicId,

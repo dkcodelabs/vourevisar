@@ -10,7 +10,7 @@ import { toastGate } from '@/lib/errors/toastGate';
 export const useNewCycleManagement = (
   subjects: Subject[],
   userSettings: { subjects_per_day: number } | null,
-  setUserCycle: (cycle: any) => void,
+  setUserCycle: (cycle: unknown) => void,
   setIsCycleCompleted: (completed: boolean) => void
 ) => {
   const { user } = useAuth();
@@ -29,7 +29,7 @@ export const useNewCycleManagement = (
     // DESABILITADO: Não iniciar novo ciclo automaticamente
     // O usuário deve clicar no botão para iniciar manualmente
     return;
-  }, [user, userSettings, subjects]);
+  }, [user, userSettings]);
 
   const handleStartNewCycle = async (userCycle?: UserCycle) => {
     if (!user) return;

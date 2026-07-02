@@ -62,7 +62,7 @@ export const useSubjectOperations = (
           status: updates.status,
           priority: updates.priority,
           color: updates.color,
-          edital_id: (updates as any).edital_id // Manter o cast temporário até tipar o Partial<Subject> melhor se necessário
+          edital_id: (updates as unknown).edital_id // Manter o cast temporário até tipar o Partial<Subject> melhor se necessário
         })
         .eq('id', id)
         .eq('user_id', user.id);
@@ -97,7 +97,7 @@ export const useSubjectOperations = (
       if (error) throw error;
 
       // Remover o ID desta matéria de todos os editais que a referenciam
-      const { data: editaisWithSubject } = await (supabase as any)
+      const { data: editaisWithSubject } = await (supabase as unknown)
         .from('user_editais')
         .select('id, subject_ids')
         .contains('subject_ids', [id]);
@@ -105,7 +105,7 @@ export const useSubjectOperations = (
       if (editaisWithSubject) {
         for (const edital of (editaisWithSubject as { id: string; subject_ids: string[] }[])) {
           const remaining = (edital.subject_ids || []).filter((sid: string) => sid !== id);
-          await (supabase as any)
+          await (supabase as unknown)
             .from('user_editais')
             .update({
               subject_ids: remaining,

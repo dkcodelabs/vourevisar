@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 interface DraftData {
   notes: string;
   difficulty?: string;
-  subTopics?: any[];
+  subTopics?: unknown[];
   lastModified: number;
 }
 

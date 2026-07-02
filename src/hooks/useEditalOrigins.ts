@@ -39,8 +39,7 @@ export const useEditalOrigins = () => {
                 .eq('user_id', user.id);
 
             if (error) throw error;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const parsedEditais = ((data || []) as any[]).map((row) => ({
+            const parsedEditais = ((data || []) as unknown as Partial<EditalOriginData>[]).map((row) => ({
                 id: row.id as string,
                 name: row.name as string,
                 subject_ids: (row.subject_ids as string[]) || [],

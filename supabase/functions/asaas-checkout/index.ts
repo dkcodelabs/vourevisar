@@ -1,15 +1,13 @@
-// @ts-expect-error - Deno compatibility
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-// @ts-expect-error - Deno compatibility
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import type { JsonBoundary } from '../_shared/jsonBoundary.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// @ts-expect-error - Deno compatibility
-serve(async (req: any) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }

@@ -8,7 +8,7 @@ import { loadUserCycle } from '@/utils/cycleUtils';
 export const useCycleInitialization = (
   subjects: Subject[], 
   userSettings: { subjects_per_day: number } | null,
-  setUserCycle: (cycle: any) => void
+  setUserCycle: (cycle: unknown) => void
 ) => {
   const { user } = useAuth();
   const [isCycleLoading, setIsCycleLoading] = useState(true);

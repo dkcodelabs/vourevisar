@@ -4,7 +4,7 @@ import { Subject } from '@/types';
 
 export const generateNextDay = async (
   userId: string,
-  userCycle: any,
+  userCycle: unknown,
   subjects: Subject[]
 ) => {
   console.log('🔄 generateNextDay iniciado:', {
@@ -128,7 +128,7 @@ export const generateNextDay = async (
     newIndex
   });
 
-  const updateData: any = {
+  const updateData: unknown = {
     disciplinas_do_dia: nextBatchIds,
     indice_atual: newIndex,
     atualizado_em: new Date().toISOString()
@@ -203,7 +203,7 @@ export const loadUserCycle = async (userId: string) => {
 
 export const cleanCycle = (
   currentCycle: string[],
-  allSubjects: any[],
+  allSubjects: unknown[],
   allowedSubjectIds?: Set<string>
 ): string[] => {
   const allExistantSubjectIds = allSubjects.map(s => s.id);

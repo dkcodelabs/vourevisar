@@ -2,7 +2,7 @@
 import { Subject, Topic, StudyProgress, TopicNotes } from '@/types';
 import { isToday, isBefore } from 'date-fns';
 
-export const transformSubjectsData = (data: any[]): Subject[] => {
+export const transformSubjectsData = (data: unknown[]): Subject[] => {
   if (!data) return [];
 
   return data.map(subject => ({
@@ -18,11 +18,11 @@ export const transformSubjectsData = (data: any[]): Subject[] => {
     exam_weight_questions: subject.exam_weight_questions ?? null,
     exam_weight_percentage: subject.exam_weight_percentage ?? null,
     exam_weight_raw: subject.exam_weight_raw ?? null,
-    topics: subject.topics ? subject.topics.map((topic: any) => transformTopicData(topic)) : []
+    topics: subject.topics ? subject.topics.map((topic: unknown) => transformTopicData(topic)) : []
   }));
 };
 
-export const transformTopicData = (topic: any): Topic => {
+export const transformTopicData = (topic: unknown): Topic => {
   // Transformar anotações do banco para o tipo TopicNotes
   const notes: TopicNotes | undefined = topic.notes ? topic.notes : undefined;
 

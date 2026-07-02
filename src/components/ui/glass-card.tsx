@@ -6,8 +6,8 @@ interface GlassCardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
-  whileHover?: any;
-  whileTap?: any;
+  whileHover?: unknown;
+  whileTap?: unknown;
 }
 
 const GlassCard: React.FC<GlassCardProps> = ({ 

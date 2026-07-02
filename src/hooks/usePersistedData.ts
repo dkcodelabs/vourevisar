@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { transformSubjectsData } from '@/contexts/utils/dataTransformers';
@@ -18,7 +18,7 @@ export const usePersistedData = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadFromCache = (): Subject[] | null => {
+  const loadFromCache = useCallback((): Subject[] | null => {
     try {
       const cached = localStorage.getItem(CACHE_KEY);
       if (!cached || !user) return null;
@@ -33,9 +33,9 @@ export const usePersistedData = () => {
       console.error('Erro ao ler cache:', error);
     }
     return null;
-  };
+  }, [user]);
 
-  const saveToCache = (subjects: Subject[]) => {
+  const saveToCache = useCallback((subjects: Subject[]) => {
     if (!user) return;
 
     try {
@@ -48,9 +48,9 @@ export const usePersistedData = () => {
     } catch (error) {
       console.error('Erro ao salvar cache:', error);
     }
-  };
+  }, [user]);
 
-  const loadSubjects = async () => {
+  const loadSubjects = useCallback(async () => {
     if (!user) return;
 
     // Tentar carregar do cache primeiro
@@ -78,9 +78,9 @@ export const usePersistedData = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadFromCache, saveToCache, user]);
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     if (!user) return;
 
     // Limpar cache e recarregar
@@ -103,7 +103,7 @@ export const usePersistedData = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [saveToCache, user]);
 
   useEffect(() => {
     if (user) {
@@ -112,7 +112,7 @@ export const usePersistedData = () => {
       setSubjects([]);
       localStorage.removeItem(CACHE_KEY);
     }
-  }, [user?.id]);
+  }, [loadSubjects, user]);
 
   return {
     subjects,

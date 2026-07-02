@@ -143,7 +143,7 @@ const Settings = () => {
         );
         if (insertError) throw insertError;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao buscar configurações:', err);
       setError('Não foi possível carregar suas configurações.');
       errorService.report(err, { module: 'settings', action: 'fetch', userMessage: "Erro ao carregar configurações" });
@@ -184,7 +184,7 @@ const Settings = () => {
       if (error) throw error;
       await fetchUserSettingsContext();
       toast.success("Notificações salvas!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       errorService.report(err, { module: 'settings', action: 'save_notifications', userMessage: "Erro ao salvar notificações" });
     } finally {
       setIsSaving(false);
@@ -227,7 +227,7 @@ const Settings = () => {
       await supabase.from('general_notes').delete().eq('user_id', user.id);
       
       // Também excluir user_editais (Agrupamentos/Editais importados)
-      await (supabase as any).from('user_editais').delete().eq('user_id', user.id);
+      await (supabase as unknown).from('user_editais').delete().eq('user_id', user.id);
 
       // Limpar os caches locais para não exibir dados "fantasmas" na montagem
       localStorage.removeItem(`subjects_${user.id} `);

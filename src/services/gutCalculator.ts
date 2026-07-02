@@ -306,7 +306,7 @@ SAÍDA JSON:
             // Suporte legado (caso IA alucine e mande array)
             if (Array.isArray(result)) {
                 return {
-                    tags: result.map((item: any) => String(item).trim()),
+                    tags: result.map((item: unknown) => String(item).trim()),
                     search_context: materia.split(' ')[0]
                 }
             }
@@ -317,7 +317,7 @@ SAÍDA JSON:
             }
 
             // Garante estrutura V20
-            const tags = Array.isArray(result.tags) ? result.tags.map((t: any) => String(t).trim()) : [topicoSujo]
+            const tags = Array.isArray(result.tags) ? result.tags.map((t: unknown) => String(t).trim()) : [topicoSujo]
             const search_context = result.search_context || materia.split(' ')[0]
 
             return { tags, search_context }
@@ -337,7 +337,7 @@ SAÍDA JSON:
 async function buscarGoogle(
     query: string,
     anosPreferencia: number = 3
-): Promise<{ volume: number, usadas: number, searchInformation?: any }> {
+): Promise<{ volume: number, usadas: number, searchInformation?: unknown }> {
     // --- DEBUG CRÍTICO ---
     // --- DEBUG CRÍTICO ---
     // console.log("🕵️‍♂️ DEBUG API GOOGLE (Cleaned)");
@@ -475,7 +475,7 @@ export async function calcularNotaImportancia(
     // Variáveis para Audit Log V30
     const auditLog = {
         total_api_calls: 0,
-        attempts: [] as any[],
+        attempts: [] as unknown[],
         winner_query: ""
     }
 
@@ -643,7 +643,7 @@ export async function calcularNotaImportancia(
 
 export async function processNextPendingTopic(
     userId?: string
-): Promise<any> {
+): Promise<unknown> {
     const supabase = getSupabaseClient()
 
     if (!supabase) {
@@ -680,7 +680,7 @@ export async function processNextPendingTopic(
             .limit(1)
             .single()
 
-        const { data: topic, error: queryError } = queryResult as { data: TopicFromDB | null, error: any }
+        const { data: topic, error: queryError } = queryResult as { data: TopicFromDB | null, error: unknown }
 
         if (queryError) {
             console.error('❌ Erro ao buscar tópico pendente:', queryError)
@@ -790,7 +790,7 @@ export async function processNextPendingTopic(
                         skip_reason: validation.motivo,
                         last_trend_check_at: new Date().toISOString(),
                         status: 'skipped'
-                    } as any) // Workaround: tipos Supabase desatualizados
+                    } as unknown) // Workaround: tipos Supabase desatualizados
                     .eq('id', topicData.id)
 
                 console.log(`✅ Tópico "${topicData.name}" marcado como skipped`)
@@ -880,7 +880,7 @@ export async function processNextPendingTopic(
                     winner_query: auditLog.winner_query,
                     source: 'ai',
                 }
-            } as any)
+            } as unknown)
             .eq('id', topicData.id)
 
         if (updateError) {
@@ -916,11 +916,11 @@ export async function processNextPendingTopic(
                 const { data: rejectedTopic } = await supabase
                     .from('topics')
                     .select('id, name')
-                    .eq('is_skipped', false as any)
+                    .eq('is_skipped', false as unknown)
                     .or(`last_trend_check_at.is.null, last_trend_check_at.lt.${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()} `)
                     .order('last_trend_check_at', { ascending: true, nullsFirst: true })
                     .limit(1)
-                    .single() as { data: { id: string, name: string } | null, error: any }
+                    .single() as { data: { id: string, name: string } | null, error: unknown }
 
                 if (rejectedTopic) {
                     await supabase
@@ -929,7 +929,7 @@ export async function processNextPendingTopic(
                             is_skipped: true,
                             skip_reason: errorMessage,
                             last_trend_check_at: new Date().toISOString()
-                        } as any) // Workaround: tipos Supabase desatualizados
+                        } as unknown) // Workaround: tipos Supabase desatualizados
                         .eq('id', rejectedTopic.id)
 
                     console.log(`🚫 Tópico "${rejectedTopic.name}" marcado como SKIPPED permanentemente`)

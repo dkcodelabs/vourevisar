@@ -80,12 +80,12 @@ const UserAiUsageBadge = ({ userId }: { userId: string }) => {
             const isOwnerOrAdmin = (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin'));
 
             const { data: subData } = await supabase
-                .from('user_subscriptions' as any)
+                .from('user_subscriptions' as unknown)
                 .select('plan, status')
                 .eq('user_id', userId)
                 .maybeSingle();
             
-            const sub = subData as any;
+            const sub = subData as unknown;
             const isPaidActive = sub && ['monthly', 'annual'].includes(sub.plan) && sub.status === 'active';
             const limit = isPaidActive ? 5 : 1;
             
@@ -146,7 +146,7 @@ const UserAiUsageBadge = ({ userId }: { userId: string }) => {
             
             const { error } = await supabase
                 .from('user_editais')
-                .update({ source_id: 'bypass-admin-grant' } as any)
+                .update({ source_id: 'bypass-admin-grant' } as unknown)
                 .eq('user_id', userId)
                 .eq('is_imported', true)
                 .is('source_id', null)
@@ -294,7 +294,7 @@ const UserManagement = () => {
             // Optimistic Update
             setUsers(users.map(u => u.id === userToObject.id ? { ...u, deleted_at: new Date().toISOString(), status: 'Archived' } : u));
             toast.success(`Usuário arquivado com sucesso`);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error archiving user:', error);
             await errorService.report(error, {
                 module: 'users',
@@ -324,7 +324,7 @@ const UserManagement = () => {
             // Optimistic Update
             setUsers(users.map(u => u.id === userToObject.id ? { ...u, deleted_at: null, status: 'Active' } : u));
             toast.success(`Usuário restaurado com sucesso`);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error restoring user:', error);
             await errorService.report(error, {
                 module: 'users',
@@ -350,7 +350,7 @@ const UserManagement = () => {
 
             setUsers(users.filter(u => u.id !== userToObject.id));
             toast.success(`Usuário excluído permanentemente`);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error deleting user:', error);
             await errorService.report(error, {
                 module: 'users',
@@ -379,7 +379,7 @@ const UserManagement = () => {
 
             setUsers(users.filter(u => u.id !== userToObject.id));
             toast.success(`Usuário ${userToObject.name} excluído completamente do sistema.`);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error purging user:', error);
             const message = error?.message || 'Erro desconhecido ao excluir usuário.';
             toastGate.notifyError(message, 'USER-PURGE-ERR', { severity: 'critical' });
@@ -442,7 +442,7 @@ const UserManagement = () => {
 
             toast.success(`Usuário ${newActiveState ? 'ativado' : 'desativado'} com sucesso`);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error updating status:', error);
             await errorService.report(error, {
                 module: 'users',
@@ -475,7 +475,7 @@ const UserManagement = () => {
 
             if (error) throw error;
             toast.success(`Email de redefinição de senha enviado para ${user.email}`);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error sending reset email:', error);
             await errorService.report(error, {
                 module: 'users',

@@ -252,7 +252,7 @@ export default function SystemErrors() {
             if (error) throw error;
             toast.success(`${data} logs antigos removidos.`);
             fetchErrors();
-        } catch (err: any) {
+        } catch (err: unknown) {
             toastGate.notifyError("Erro ao limpar logs.", "SYS-CLEAN-ERR", { severity: 'medium', flowKey: 'sys-cleanup' });
             console.error(err);
         }

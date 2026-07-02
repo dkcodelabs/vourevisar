@@ -3,7 +3,7 @@ import { useCycleStatus } from '@/hooks/useCycleStatus';
 
 export const CycleStats: React.FC = () => {
   const { getCycleStats } = useCycleStatus();
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<unknown>(null);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -17,7 +17,7 @@ export const CycleStats: React.FC = () => {
     let lastStatsUpdateTime = 0;
     const STATS_DEBOUNCE_TIME = 1000; // 1 segundo
     
-    const handleCycleUpdate = (event: any) => {
+    const handleCycleUpdate = (event: unknown) => {
       const now = Date.now();
       const eventDetail = event?.detail;
       

@@ -76,7 +76,7 @@ export const SyncReviewModal: React.FC<SyncReviewModalProps> = ({
                             const tName = (typeof t === 'string' ? t : t.name || '').trim().toUpperCase();
                             return tName === srcName;
                         });
-                        newTopics.push(typeof originalTopic === 'string' ? originalTopic : (originalTopic as any)?.name || srcName);
+                        newTopics.push(typeof originalTopic === 'string' ? originalTopic : (originalTopic as unknown)?.name || srcName);
                     }
                 });
 

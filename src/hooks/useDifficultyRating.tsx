@@ -53,7 +53,7 @@ export const useDifficultyRating = () => {
     setIsLoading(true);
     try {
       await updateTopic(ratingState.subjectId, ratingState.topicId, {
-        difficulty_level: difficulty as any,
+        difficulty_level: difficulty as unknown,
       });
 
       if (difficulty) {
@@ -83,7 +83,7 @@ export const useDifficultyRating = () => {
     setIsLoading(true);
     try {
       await updateTopic(subjectId, topicId, {
-        difficulty_level: difficulty as any,
+        difficulty_level: difficulty as unknown,
       });
 
       if (difficulty) {

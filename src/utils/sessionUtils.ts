@@ -269,7 +269,7 @@ export const completeStudySession = async (
       // Remover a matéria da lista do dia e do ciclo
       const updatedDisciplinasoDia = cycleData.disciplinas_do_dia.filter(id => id !== subjectId);
       const updatedCicloAtual = cycleData.ciclo_atual.filter(id => id !== subjectId);
-      const updateObj: any = {
+      const updateObj: unknown = {
         disciplinas_do_dia: updatedDisciplinasoDia,
         ciclo_atual: updatedCicloAtual,
         atualizado_em: new Date().toISOString()
@@ -332,7 +332,7 @@ export const completeStudySession = async (
         topics_studied: markedTopicIds.length,
         subjects_worked: [subjectId],
         session_duration_minutes: 30 // Default duration
-      } as any);
+      } as unknown);
 
     if (sessionError) {
       console.error('Error recording study session:', sessionError);

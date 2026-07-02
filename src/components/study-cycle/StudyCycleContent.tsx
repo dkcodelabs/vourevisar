@@ -95,7 +95,7 @@ export const StudyCycleContent: React.FC = () => {
     if (!user) return;
     setUnloadingEditalId(editalId);
     try {
-      const { data: existingCycle } = await (supabase as any)
+      const { data: existingCycle } = await (supabase as unknown)
         .from('user_cycles')
         .select('id, ciclo_atual')
         .eq('user_id', user.id)
@@ -117,7 +117,7 @@ export const StudyCycleContent: React.FC = () => {
         if (error) throw error;
       }
 
-      const { error: editalErr } = await (supabase as any)
+      const { error: editalErr } = await (supabase as unknown)
         .from('user_editais')
         .update({ merged_into_cycle: false, active_subject_ids: [] })
         .eq('id', editalId);
@@ -148,7 +148,7 @@ export const StudyCycleContent: React.FC = () => {
     let lastUpdateTime = 0;
     const UPDATE_DEBOUNCE_TIME = 1000; // 1 segundo
 
-    const handleCycleUpdate = (event: any) => {
+    const handleCycleUpdate = (event: unknown) => {
       const now = Date.now();
       const eventDetail = event?.detail;
 
@@ -202,7 +202,7 @@ export const StudyCycleContent: React.FC = () => {
 
 
 
-    const handleForceRerender = (event: any) => {
+    const handleForceRerender = (event: unknown) => {
       console.log('🔄 StudyCycleContent: Forçando re-render por evento externo', event.detail);
 
       // Forçar refresh imediato dos dados
@@ -221,7 +221,7 @@ export const StudyCycleContent: React.FC = () => {
       window.removeEventListener('cycleUpdated', handleCycleUpdate);
       window.removeEventListener('forceComponentRerender', handleForceRerender);
     };
-  }, []); // Sem dependências para evitar loops
+  }, [refreshCycleData, userCycle?.ciclos_realizados, userCycle?.materias_estudadas_ciclo]);
 
   // REMOVIDO: useEffect loadInitialData redundante
   // O hook useStudyCycleData já carrega os dados inicialmente através de seus próprios useEffects.
@@ -397,7 +397,7 @@ export const StudyCycleContent: React.FC = () => {
         }
       );
     }
-  }, [openReviewModal]);
+  }, [openReviewModal, user?.id]);
 
 
 

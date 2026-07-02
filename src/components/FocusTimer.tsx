@@ -85,8 +85,8 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
 
       if (data) {
         setTopicDisplay(data.name || 'Tópico Ativo');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setSubjectDisplay((data.subjects as any)?.name || 'Revisão');
+        const subject = data.subjects as unknown as { name?: string | null } | null;
+        setSubjectDisplay(subject?.name || 'Revisão');
       }
     } catch {
       setTopicDisplay('Tópico Ativo');

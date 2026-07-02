@@ -41,7 +41,7 @@ export function usePlanConfigs(): UsePlanConfigsReturn {
 
       if (fetchError) throw fetchError;
 
-      const parsed: PlanConfig[] = (data || []).map((row: any) => ({
+      const parsed: PlanConfig[] = (data || []).map((row: unknown) => ({
         ...row,
         value: parseFloat(row.value),
         features: Array.isArray(row.features) ? row.features : JSON.parse(row.features || '[]'),

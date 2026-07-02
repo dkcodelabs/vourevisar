@@ -18,7 +18,7 @@ export default function PlanCouponManager() {
   const [loadingPlans, setLoadingPlans] = useState(true);
 
   // Coupon State
-  const [coupons, setCoupons] = useState<any[]>([]);
+  const [coupons, setCoupons] = useState<unknown[]>([]);
   const [loadingCoupons, setLoadingCoupons] = useState(true);
 
   // Forms State
@@ -56,10 +56,10 @@ export default function PlanCouponManager() {
   const fetchPlans = async () => {
     setLoadingPlans(true);
     try {
-      const { data, error } = await (supabase as any).from('plan_configs').select('*').order('value', { ascending: true });
+      const { data, error } = await (supabase as unknown).from('plan_configs').select('*').order('value', { ascending: true });
       if (error) throw error;
       setPlans(data as PlanConfig[]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toastGate.notifyError(err.message, 'FETCH_PLANS');
     } finally {
       setLoadingPlans(false);
@@ -69,10 +69,10 @@ export default function PlanCouponManager() {
   const fetchCoupons = async () => {
     setLoadingCoupons(true);
     try {
-      const { data, error } = await (supabase as any).from('coupons').select('*').order('created_at', { ascending: false });
+      const { data, error } = await (supabase as unknown).from('coupons').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       setCoupons(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toastGate.notifyError(err.message, 'FETCH_COUPONS');
     } finally {
       setLoadingCoupons(false);
@@ -82,7 +82,7 @@ export default function PlanCouponManager() {
   const handleUpdatePlan = async (plan: PlanConfig) => {
     setSavingPlan(plan.id);
     try {
-      const { error } = await (supabase as any)
+      const { error } = await (supabase as unknown)
         .from('plan_configs')
         .update({
           name: plan.name,
@@ -97,7 +97,7 @@ export default function PlanCouponManager() {
       if (error) throw error;
       toast.success('Plano atualizado com sucesso!');
       fetchPlans();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toastGate.notifyError(err.message, 'UPDATE_PLAN');
     } finally {
       setSavingPlan(null);
@@ -122,27 +122,27 @@ export default function PlanCouponManager() {
         active: true
       };
 
-      const { error } = await (supabase as any).from('coupons').insert(payload);
+      const { error } = await (supabase as unknown).from('coupons').insert(payload);
       if (error) throw error;
       
       toast.success('Cupom criado com sucesso!');
       setIsCouponModalOpen(false);
       setNewCoupon({ code: '', discount_type: 'PERCENTAGE', discount_value: 0, max_uses: '', valid_until: '' });
       fetchCoupons();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toastGate.notifyError(err.message, 'CREATE_COUPON');
     } finally {
       setSavingCoupon(false);
     }
   };
 
-  const handleToggleCoupon = async (coupon: any) => {
+  const handleToggleCoupon = async (coupon: unknown) => {
     try {
-      const { error } = await (supabase as any).from('coupons').update({ active: !coupon.active }).eq('id', coupon.id);
+      const { error } = await (supabase as unknown).from('coupons').update({ active: !coupon.active }).eq('id', coupon.id);
       if (error) throw error;
       toast.success(`Cupom ${!coupon.active ? 'ativado' : 'desativado'}!`);
       fetchCoupons();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toastGate.notifyError(err.message, 'TOGGLE_COUPON');
     }
   };
@@ -371,7 +371,7 @@ function PlanEditorCard({ plan, onSave, isSaving }: { plan: PlanConfig, onSave: 
     setEditedPlan({ ...plan });
   }, [plan]);
 
-  const handleChange = (field: keyof PlanConfig, value: any) => {
+  const handleChange = (field: keyof PlanConfig, value: unknown) => {
     setEditedPlan(prev => ({ ...prev, [field]: value }));
   };
 

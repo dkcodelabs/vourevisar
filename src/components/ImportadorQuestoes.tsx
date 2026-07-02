@@ -103,7 +103,7 @@ Ignore cabeçalhos e rodapés irrelevantes.
                 toast.success(`${allQuestions.length} questões extraídas com sucesso!`);
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Erro geral:', error);
             const message = isConnectionError(error)
                 ? getConnectionErrorMessage(error)

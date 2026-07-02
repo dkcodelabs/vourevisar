@@ -4,6 +4,7 @@ import cebraspeProfile from "../_shared/bank-profiles/cebraspe.json" with { type
 import cesgranrioProfile from "../_shared/bank-profiles/cesgranrio.json" with { type: "json" };
 import fccProfile from "../_shared/bank-profiles/fcc.json" with { type: "json" };
 import fgvProfile from "../_shared/bank-profiles/fgv.json" with { type: "json" };
+import type { JsonBoundary } from "../_shared/jsonBoundary.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -293,7 +294,7 @@ function buildGeminiApiError(status: number, headers: Headers, errorText: string
   });
 }
 
-function isGeminiRateLimitError(error: any) {
+function isGeminiRateLimitError(error: JsonBoundary) {
   const message = String(error?.message || error || "");
   return (
     error?.status === 429 ||
@@ -303,7 +304,7 @@ function isGeminiRateLimitError(error: any) {
   );
 }
 
-async function callGemini(apiKey: string, modelName: string, payload: any, timeoutMs = 90000): Promise<{ text: string; finishReason: string; usage: any }> {
+async function callGemini(apiKey: string, modelName: string, payload: JsonBoundary, timeoutMs = 90000): Promise<{ text: string; finishReason: string; usage: JsonBoundary }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -340,7 +341,7 @@ async function callGemini(apiKey: string, modelName: string, payload: any, timeo
 
     const finishReason = result.candidates?.[0]?.finishReason || "UNKNOWN";
     const usage = result.usageMetadata;
-    const text = result.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") || "";
+    const text = result.candidates?.[0]?.content?.parts?.map((p: JsonBoundary) => p.text).join("") || "";
 
     console.log("[callGemini]", {
       modelName,
@@ -350,7 +351,7 @@ async function callGemini(apiKey: string, modelName: string, payload: any, timeo
     });
 
     return { text, finishReason, usage };
-  } catch (err: any) {
+  } catch (err: JsonBoundary) {
     if (err.name === "AbortError") {
       throw new Error("Timeout: A API do Gemini demorou muito para responder.");
     }
@@ -364,7 +365,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isRetryableGeminiError(error: any) {
+function isRetryableGeminiError(error: JsonBoundary) {
   const message = String(error?.message || error || "");
   return (
     message.includes("Gemini API erro 500") ||
@@ -381,7 +382,7 @@ function uniqueModels(models: string[]) {
   return [...new Set(models.map((model) => model.trim()).filter(Boolean))];
 }
 
-function getModelCandidates(config: any, primaryModel: string) {
+function getModelCandidates(config: JsonBoundary, primaryModel: string) {
   const configuredFallbacks = Array.isArray(config.fallback_models) ? config.fallback_models : [];
   return uniqueModels([
     primaryModel,
@@ -398,7 +399,7 @@ function normalizeSearchText(value: unknown) {
     .toLowerCase();
 }
 
-function matchesBankProfile(profile: BankProfile, inputText?: string, analysis?: any) {
+function matchesBankProfile(profile: BankProfile, inputText?: string, analysis?: JsonBoundary) {
   const haystack = normalizeSearchText([
     analysis?.edital?.banca,
     analysis?.banca,
@@ -413,7 +414,7 @@ function matchesBankProfile(profile: BankProfile, inputText?: string, analysis?:
   });
 }
 
-function buildBankProfileInstruction(mode: ExtractMode, inputText?: string, analysis?: any) {
+function buildBankProfileInstruction(mode: ExtractMode, inputText?: string, analysis?: JsonBoundary) {
   const matchedProfiles = BANK_PROFILES.filter((profile) => matchesBankProfile(profile, inputText, analysis));
   const profilesToShow = matchedProfiles.length > 0
     ? matchedProfiles
@@ -436,11 +437,11 @@ ${profileModeInstruction} O perfil nao substitui o edital: se nao houver evidenc
 ${instructions}`;
 }
 
-function withBankProfileInstruction(basePrompt: string, mode: ExtractMode, inputText?: string, analysis?: any) {
+function withBankProfileInstruction(basePrompt: string, mode: ExtractMode, inputText?: string, analysis?: JsonBoundary) {
   return `${basePrompt}${buildBankProfileInstruction(mode, inputText, analysis)}`;
 }
 
-function buildUserProvidedContext(reqData: any) {
+function buildUserProvidedContext(reqData: JsonBoundary) {
   const lines = [
     reqData?.banca ? `Banca informada pelo aluno: ${reqData.banca}` : "",
     reqData?.origin ? `Orgao/concurso informado pelo aluno: ${reqData.origin}` : "",
@@ -460,7 +461,7 @@ function normalizeDetectedCargoOptions(value: unknown) {
 
   return value
     .slice(0, 80)
-    .map((cargo: any, index: number) => {
+    .map((cargo: JsonBoundary, index: number) => {
       const label = String(cargo?.label_exibicao || cargo?.name || cargo?.rawLabel || cargo?.nome_cargo || "").replace(/\s+/g, " ").trim();
       const nomeCargo = String(cargo?.nome_cargo || label || "").replace(/\s+/g, " ").trim();
       if (!label || !nomeCargo) return null;
@@ -479,12 +480,12 @@ function normalizeDetectedCargoOptions(value: unknown) {
     .filter(Boolean);
 }
 
-function buildDetectedCargoOptionsContext(reqData: any) {
+function buildDetectedCargoOptionsContext(reqData: JsonBoundary) {
   const detected = normalizeDetectedCargoOptions(reqData?.detectedCargoOptions);
   if (!detected.length) return "";
 
   const options = detected
-    .map((cargo: any, index: number) => `${index + 1}. ${cargo.label_exibicao}`)
+    .map((cargo: JsonBoundary, index: number) => `${index + 1}. ${cargo.label_exibicao}`)
     .join("\n");
 
   return `CARGOS DETECTADOS POR LEITURA ESTRUTURAL DO TEXTO:
@@ -493,7 +494,7 @@ ${options}
 Use esta lista apenas como pista verificavel do edital. Ela foi extraida de marcadores explicitos como "CARGO 1:" e nao substitui o PDF. Se a lista estiver coerente com o documento, preserve estes cargos/opcoes na resposta JSON.`;
 }
 
-function getCargoOptionText(cargo: any) {
+function getCargoOptionText(cargo: JsonBoundary) {
   return [
     cargo?.id,
     cargo?.name,
@@ -511,12 +512,12 @@ function extractAreaCode(value: unknown) {
   return match ? `area ${match[1]}` : null;
 }
 
-function findSelectedCargo(analysis: any, selectedCargo: string, selectedCargoId?: string) {
+function findSelectedCargo(analysis: JsonBoundary, selectedCargo: string, selectedCargoId?: string) {
   if (!Array.isArray(analysis?.cargos)) return null;
 
   const selectedId = String(selectedCargoId || "").trim();
   if (selectedId) {
-    const byId = analysis.cargos.find((cargo: any) => String(cargo?.id || "").trim() === selectedId);
+    const byId = analysis.cargos.find((cargo: JsonBoundary) => String(cargo?.id || "").trim() === selectedId);
     if (byId) return byId;
   }
 
@@ -524,7 +525,7 @@ function findSelectedCargo(analysis: any, selectedCargo: string, selectedCargoId
   const selectedAreaCode = extractAreaCode(selectedCargo);
   if (!selectedText) return null;
 
-  let best: { cargo: any; score: number } | null = null;
+  let best: { cargo: JsonBoundary; score: number } | null = null;
 
   for (const cargo of analysis.cargos) {
     const optionText = normalizeSearchText(getCargoOptionText(cargo));
@@ -550,7 +551,7 @@ function findSelectedCargo(analysis: any, selectedCargo: string, selectedCargoId
   return best?.cargo || null;
 }
 
-function buildSelectedOptionContext(analysis: any, selectedCargo: string, selectedCargoId?: string) {
+function buildSelectedOptionContext(analysis: JsonBoundary, selectedCargo: string, selectedCargoId?: string) {
   if (!analysis) return "";
   const selected = findSelectedCargo(analysis, selectedCargo, selectedCargoId);
 
@@ -567,7 +568,7 @@ function buildSelectedOptionContext(analysis: any, selectedCargo: string, select
   ].filter(Boolean).join("\n");
 }
 
-function getSelectedCargoParts(analysis: any, selectedCargo: string, selectedCargoId?: string) {
+function getSelectedCargoParts(analysis: JsonBoundary, selectedCargo: string, selectedCargoId?: string) {
   const selected = findSelectedCargo(analysis, selectedCargo, selectedCargoId);
   return {
     name: String(selected?.nome_cargo || selected?.name || selectedCargo || "").trim(),
@@ -585,18 +586,18 @@ function getMaxOutputTokensForModel(modelName: string, requestedMaxTokens: numbe
 async function callGeminiWithFallbacks(
   apiKey: string,
   modelCandidates: string[],
-  payloadFactory: (modelName: string) => any,
+  payloadFactory: (modelName: string) => JsonBoundary,
   timeoutMs: number,
   attemptsPerModel = 1,
-): Promise<{ text: string; finishReason: string; usage: any; modelName: string }> {
-  let lastError: any = null;
+): Promise<{ text: string; finishReason: string; usage: JsonBoundary; modelName: string }> {
+  let lastError: JsonBoundary = null;
 
   for (const modelName of modelCandidates) {
     for (let attempt = 1; attempt <= attemptsPerModel; attempt++) {
       try {
         const result = await callGemini(apiKey, modelName, payloadFactory(modelName), timeoutMs);
         return { ...result, modelName };
-      } catch (error: any) {
+      } catch (error: JsonBoundary) {
         lastError = error;
         const isModelNotFoundError = String(error?.message || "").includes("erro 404") || 
                                      String(error?.message || "").includes("not found") || 
@@ -667,7 +668,7 @@ async function uploadPdfBytesToGemini(apiKey: string, fileBytes: Uint8Array, fil
     const fileUri = activeFile?.uri || uploadData.file?.uri || uploadData.name;
     if (!fileUri) throw new Error(`Upload retornou sem URI.`);
     return fileUri;
-  } catch (err: any) {
+  } catch (err: JsonBoundary) {
     if (err.name === "AbortError") {
       throw new Error("Timeout: O upload do PDF para o Gemini demorou muito.");
     }
@@ -677,7 +678,7 @@ async function uploadPdfBytesToGemini(apiKey: string, fileBytes: Uint8Array, fil
   }
 }
 
-async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> {
+async function waitForGeminiFileActive(apiKey: string, file: JsonBoundary): Promise<JsonBoundary> {
   if (!file?.name) return file;
   if (!file.state || file.state === "ACTIVE") return file;
 
@@ -713,7 +714,7 @@ async function uploadPdfUrlToGemini(apiKey: string, pdfUrl: string): Promise<str
   return uploadPdfBytesToGemini(apiKey, new Uint8Array(arrayBuffer), fileName);
 }
 
-async function uploadStoragePdfToGemini(supabaseClient: any, apiKey: string, pdfPath: string, userId: string): Promise<string> {
+async function uploadStoragePdfToGemini(supabaseClient: JsonBoundary, apiKey: string, pdfPath: string, userId: string): Promise<string> {
   if (!pdfPath.startsWith(`${userId}/`)) {
     throw new Error("PDF fora da pasta do usuario autenticado.");
   }
@@ -738,7 +739,7 @@ function stripJsonText(text: string): string {
     .trim();
 }
 
-function parseJsonObject(text: string): any {
+function parseJsonObject(text: string): JsonBoundary {
   const clean = stripJsonText(text);
   try {
     return JSON.parse(clean);
@@ -758,7 +759,7 @@ function normalizeDate(value: unknown): string | null {
   return `${match[3]}-${match[2]}-${match[1]}`;
 }
 
-function normalizeAnalysis(raw: any, fallbackCargoOptions: any[] = []) {
+function normalizeAnalysis(raw: JsonBoundary, fallbackCargoOptions: JsonBoundary[] = []) {
   const edital = raw?.edital || {};
   const cargos = Array.isArray(raw?.cargos) ? raw.cargos : [];
   const hasOnlyGenericCargo = cargos.length === 1 && ["cargo unico", "cargo único", "cargo", "sem cargo"].includes(
@@ -773,7 +774,7 @@ function normalizeAnalysis(raw: any, fallbackCargoOptions: any[] = []) {
   const ano = raw?.ano ? String(raw.ano).trim() : "";
 
   const normalizedCargos = sourceCargos
-    .map((cargo: any, index: number) => {
+    .map((cargo: JsonBoundary, index: number) => {
       const nomeCargo = cargo?.nome_cargo ? String(cargo.nome_cargo).trim() : "";
       const areaCodigo = cargo?.area_codigo ? String(cargo.area_codigo).trim() : "";
       const areaEnfase = cargo?.area_enfase ? String(cargo.area_enfase).trim() : "";
@@ -795,7 +796,7 @@ function normalizeAnalysis(raw: any, fallbackCargoOptions: any[] = []) {
         label_exibicao: labelExibicao || fallbackName || null,
       };
     })
-    .filter((cargo: any) => cargo.name.length > 0);
+    .filter((cargo: JsonBoundary) => cargo.name.length > 0);
 
   return {
     edital: {
@@ -980,7 +981,7 @@ function cleanOptionHeadingSubjectTitle(title: string, selectedCargo: string) {
   return normalizedTitle;
 }
 
-function normalizeExtraction(raw: any, selectedCargo: string) {
+function normalizeExtraction(raw: JsonBoundary, selectedCargo: string) {
   const edital = raw?.edital || {};
   const subjects = Array.isArray(raw?.subjects)
     ? raw.subjects
@@ -998,7 +999,7 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
     },
     selectedCargo: String(raw?.selectedCargo || raw?.cargo_alvo || selectedCargo || "").trim(),
     subjects: subjects
-      .map((subject: any) => {
+      .map((subject: JsonBoundary) => {
         const weight = subject?.weight || {};
         const title = cleanOptionHeadingSubjectTitle(
           String(subject?.title || subject?.name || subject?.disciplina || "").trim(),
@@ -1021,17 +1022,17 @@ function normalizeExtraction(raw: any, selectedCargo: string) {
           topics: mergeNumberedTopicContinuations(
             expandInlineNumberedTopics(
               topics
-                .map((topic: any, index: number) => ({
+                .map((topic: JsonBoundary, index: number) => ({
                   name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
                   position: normalizeNumber(topic?.position) ?? index,
                 }))
-                .filter((topic: any) => topic.name.length >= 2),
+                .filter((topic: JsonBoundary) => topic.name.length >= 2),
             ),
           ),
         };
       })
-      .filter((subject: any) => subject.title.length > 0 && subject.topics.length > 0),
-    warnings: Array.isArray(raw?.warnings) ? raw.warnings.map((w: any) => String(w)) : [],
+      .filter((subject: JsonBoundary) => subject.title.length > 0 && subject.topics.length > 0),
+    warnings: Array.isArray(raw?.warnings) ? raw.warnings.map((w: JsonBoundary) => String(w)) : [],
   };
 }
 
@@ -1095,14 +1096,14 @@ function parseExplicitDisciplineWeightSnippet(snippet: string) {
   return { questions, points };
 }
 
-function recoverCesgranrioDisciplineWeights(sourceText: string | undefined, allowedSubjects: any[]) {
+function recoverCesgranrioDisciplineWeights(sourceText: string | undefined, allowedSubjects: JsonBoundary[]) {
   if (!sourceText || !/cesgranrio/i.test(sourceText)) return [];
 
   const normalizedText = normalizeWeightEvidenceText(sourceText);
   if (!normalizedText) return [];
 
   return allowedSubjects
-    .map((subject: any) => ({
+    .map((subject: JsonBoundary) => ({
       id: String(subject?.id || "").trim(),
       title: String(subject?.title || subject?.name || subject?.subjectName || "").trim(),
     }))
@@ -1180,9 +1181,9 @@ function recoverCesgranrioBlockWeights(sourceText: string | undefined) {
   }).filter(Boolean);
 }
 
-function promoteSingleSubjectBlockWeights(subjects: any[], blockWeights: any[], allowedSubjects: any[]) {
-  const subjectIdsWithWeight = new Set(subjects.map((subject: any) => subject.subjectId));
-  const allowedByBlockKind = allowedSubjects.reduce<Record<string, Array<{ id: string; title: string }>>>((acc, subject: any) => {
+function promoteSingleSubjectBlockWeights(subjects: JsonBoundary[], blockWeights: JsonBoundary[], allowedSubjects: JsonBoundary[]) {
+  const subjectIdsWithWeight = new Set(subjects.map((subject: JsonBoundary) => subject.subjectId));
+  const allowedByBlockKind = allowedSubjects.reduce<Record<string, Array<{ id: string; title: string }>>>((acc, subject: JsonBoundary) => {
     const kind = normalizeWeightBlockKind(subject?.knowledgeType || subject?.type);
     const id = String(subject?.id || "").trim();
     const title = String(subject?.title || subject?.name || subject?.subjectName || "").trim();
@@ -1192,7 +1193,7 @@ function promoteSingleSubjectBlockWeights(subjects: any[], blockWeights: any[], 
   }, {});
 
   const promoted = blockWeights
-    .map((block: any) => {
+    .map((block: JsonBoundary) => {
       const kind = normalizeWeightBlockKind(block.blockName);
       if (!kind) return null;
       const subjectsInBlock = allowedByBlockKind[kind] || [];
@@ -1215,10 +1216,10 @@ function promoteSingleSubjectBlockWeights(subjects: any[], blockWeights: any[], 
   return [...subjects, ...promoted];
 }
 
-function normalizeWeightExtraction(raw: any, allowedSubjects: any[], sourceText?: string) {
+function normalizeWeightExtraction(raw: JsonBoundary, allowedSubjects: JsonBoundary[], sourceText?: string) {
   const allowedById = new Map(
     allowedSubjects
-      .map((subject: any) => ({
+      .map((subject: JsonBoundary) => ({
         id: String(subject?.id || "").trim(),
         title: String(subject?.title || subject?.name || subject?.subjectName || "").trim(),
       }))
@@ -1228,7 +1229,7 @@ function normalizeWeightExtraction(raw: any, allowedSubjects: any[], sourceText?
 
   const rawSubjects = Array.isArray(raw?.subjects) ? raw.subjects : [];
   const subjects = rawSubjects
-    .map((subject: any) => {
+    .map((subject: JsonBoundary) => {
       const subjectId = String(subject?.subjectId || subject?.id || "").trim();
       const allowed = allowedById.get(subjectId);
       if (!allowed) return null;
@@ -1243,7 +1244,7 @@ function normalizeWeightExtraction(raw: any, allowedSubjects: any[], sourceText?
         rawText: rawText && rawText.length <= 500 ? rawText : rawText ? rawText.slice(0, 497) + "..." : null,
       };
     })
-    .filter((subject: any) =>
+    .filter((subject: JsonBoundary) =>
       subject &&
       subject.rawText &&
       hasSubjectTitleInWeightEvidence(subject.subjectName, subject.rawText) &&
@@ -1251,24 +1252,24 @@ function normalizeWeightExtraction(raw: any, allowedSubjects: any[], sourceText?
     );
 
   const rawBlockWeights = Array.isArray(raw?.blockWeights)
-    ? raw.blockWeights.map((block: any) => ({
+    ? raw.blockWeights.map((block: JsonBoundary) => ({
         blockName: block?.blockName ? String(block.blockName).trim() : null,
         questions: normalizeNumber(block?.questions),
         points: normalizeNumber(block?.points),
         percentage: normalizeNumber(block?.percentage),
         rawText: block?.rawText ? String(block.rawText).replace(/\s+/g, " ").trim() : null,
-      })).filter((block: any) => block.blockName && block.rawText)
+      })).filter((block: JsonBoundary) => block.blockName && block.rawText)
     : [];
   const recoveredBlockWeights = recoverCesgranrioBlockWeights(sourceText);
-  const blockKeys = new Set(rawBlockWeights.map((block: any) => normalizeWeightBlockKind(block.blockName)));
+  const blockKeys = new Set(rawBlockWeights.map((block: JsonBoundary) => normalizeWeightBlockKind(block.blockName)));
   const blockWeights = [
     ...rawBlockWeights,
-    ...recoveredBlockWeights.filter((block: any) => !blockKeys.has(normalizeWeightBlockKind(block.blockName))),
+    ...recoveredBlockWeights.filter((block: JsonBoundary) => !blockKeys.has(normalizeWeightBlockKind(block.blockName))),
   ];
 
-  const subjectIdsWithWeight = new Set(subjects.map((subject: any) => subject.subjectId));
+  const subjectIdsWithWeight = new Set(subjects.map((subject: JsonBoundary) => subject.subjectId));
   const recoveredSubjects = recoverCesgranrioDisciplineWeights(sourceText, allowedSubjects)
-    .filter((subject: any) => !subjectIdsWithWeight.has(subject.subjectId));
+    .filter((subject: JsonBoundary) => !subjectIdsWithWeight.has(subject.subjectId));
   const subjectsWithRecovered = promoteSingleSubjectBlockWeights(
     [...subjects, ...recoveredSubjects],
     blockWeights,
@@ -1278,7 +1279,7 @@ function normalizeWeightExtraction(raw: any, allowedSubjects: any[], sourceText?
   const pointsPerQuestion = extractExplicitPointsPerQuestion(sourceText);
   const subjectsWithCalculatedPoints = pointsPerQuestion === null
     ? subjectsWithRecovered
-    : subjectsWithRecovered.map((subject: any) => {
+    : subjectsWithRecovered.map((subject: JsonBoundary) => {
         if (subject.points !== null || subject.questions === null) return subject;
 
         return {
@@ -1333,7 +1334,7 @@ function normalizeConfidence(value: unknown) {
   return "medium";
 }
 
-function normalizeContentStructure(raw: any, selectedCargo: string) {
+function normalizeContentStructure(raw: JsonBoundary, selectedCargo: string) {
   const materias = Array.isArray(raw?.materias)
     ? raw.materias
     : Array.isArray(raw?.subjects)
@@ -1343,7 +1344,7 @@ function normalizeContentStructure(raw: any, selectedCargo: string) {
   return {
     cargo_alvo: String(raw?.cargo_alvo || raw?.selectedCargo || selectedCargo || "").trim(),
     materias: materias
-      .map((subject: any, index: number) => {
+      .map((subject: JsonBoundary, index: number) => {
         const originalTitle = String(subject?.titulo || subject?.title || subject?.disciplina || subject?.name || "").trim();
         const title = cleanOptionHeadingSubjectTitle(originalTitle, selectedCargo);
         return {
@@ -1363,16 +1364,16 @@ function normalizeContentStructure(raw: any, selectedCargo: string) {
             : null,
         };
       })
-      .filter((subject: any) => subject.titulo.length > 0 && subject.startHeading.length > 0),
+      .filter((subject: JsonBoundary) => subject.titulo.length > 0 && subject.startHeading.length > 0),
     avisos: Array.isArray(raw?.avisos)
-      ? raw.avisos.map((w: any) => String(w))
+      ? raw.avisos.map((w: JsonBoundary) => String(w))
       : Array.isArray(raw?.warnings)
-        ? raw.warnings.map((w: any) => String(w))
+        ? raw.warnings.map((w: JsonBoundary) => String(w))
         : [],
   };
 }
 
-function normalizeSubjectTopicExtraction(raw: any, subjectTitle: string, knowledgeType: string) {
+function normalizeSubjectTopicExtraction(raw: JsonBoundary, subjectTitle: string, knowledgeType: string) {
   const topics = Array.isArray(raw?.topicos)
     ? raw.topicos
     : Array.isArray(raw?.topics)
@@ -1382,11 +1383,11 @@ function normalizeSubjectTopicExtraction(raw: any, subjectTitle: string, knowled
   const normalizedTopics = mergeNumberedTopicContinuations(
     expandInlineNumberedTopics(
       topics
-        .map((topic: any, index: number) => ({
+        .map((topic: JsonBoundary, index: number) => ({
           name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
           position: normalizeNumber(topic?.position) ?? index,
         }))
-        .filter((topic: any) => topic.name.length >= 2),
+        .filter((topic: JsonBoundary) => topic.name.length >= 2),
     ),
   );
 
@@ -1395,9 +1396,9 @@ function normalizeSubjectTopicExtraction(raw: any, subjectTitle: string, knowled
     tipo: normalizeKnowledgeType(raw?.tipo || raw?.type || knowledgeType),
     topicos: normalizedTopics,
     avisos: Array.isArray(raw?.avisos)
-      ? raw.avisos.map((w: any) => String(w))
+      ? raw.avisos.map((w: JsonBoundary) => String(w))
       : Array.isArray(raw?.warnings)
-        ? raw.warnings.map((w: any) => String(w))
+        ? raw.warnings.map((w: JsonBoundary) => String(w))
         : [],
   };
 }
@@ -1417,7 +1418,7 @@ function buildSourceInstruction(inputText?: string, fileUri?: string | null) {
 }
 
 function buildContents(instruction: string, inputText?: string, fileUri?: string | null) {
-  const parts: any[] = [{ text: `${instruction}\n\n${buildSourceInstruction(inputText, fileUri)}` }];
+  const parts: JsonBoundary[] = [{ text: `${instruction}\n\n${buildSourceInstruction(inputText, fileUri)}` }];
   if (fileUri) {
     parts.push({ file_data: { mime_type: "application/pdf", file_uri: fileUri } });
   }
@@ -1447,18 +1448,18 @@ function calculateCostEstimate(modelName: string, promptTokens: number, completi
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  let supabaseClient;
-  let user;
-  let reqData;
+  let supabaseClient: JsonBoundary = null;
+  let userId = "";
+  let reqData: JsonBoundary;
   let mode: ExtractMode = "analyze";
   let modelNameUsed = "gemini-2.5-flash";
 
   const logAiUsage = async (status: "success" | "failed", modelUsed: string, pTokens: number, cTokens: number) => {
-    if (!supabaseClient || !user) return;
+    if (!supabaseClient || !userId) return;
     try {
       const cost = calculateCostEstimate(modelUsed, pTokens, cTokens);
       await supabaseClient.from("ai_usage_logs").insert({
-        user_id: user.id,
+        user_id: userId,
         model_name: modelUsed,
         mode: mode,
         prompt_tokens: pTokens,
@@ -1480,7 +1481,7 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const { data: { user: authUser } } = await supabaseClient.auth.getUser(authHeader?.replace("Bearer ", "") ?? "");
     if (!authUser) throw new Error("Unauthorized");
-    user = authUser;
+    userId = authUser.id;
 
     reqData = await req.json();
     mode = reqData.mode || (reqData.position ? "extractForCargo" : "analyze");
@@ -1517,7 +1518,7 @@ serve(async (req) => {
       .eq("key", "ai_edital_config")
       .maybeSingle();
 
-    const config = (systemSetting?.value || {}) as any;
+    const config = (systemSetting?.value || {}) as JsonBoundary;
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) throw new Error("GEMINI_API_KEY nao configurada nos secrets da Edge Function.");
 
@@ -1525,7 +1526,7 @@ serve(async (req) => {
     const { data: userRole } = await supabaseClient
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle();
     const hasBypass = userRole?.role === "admin" || userRole?.role === "owner";
 
@@ -1536,10 +1537,10 @@ serve(async (req) => {
       let userUsage = 0;
 
       const { data: limitsData, error: limitsError } = await supabaseClient
-        .rpc("get_user_ai_limits", { p_user_id: user.id });
+        .rpc("get_user_ai_limits", { p_user_id: userId });
 
       if (!limitsError && limitsData) {
-        const parsed = limitsData as any;
+        const parsed = limitsData as JsonBoundary;
         canImport = parsed.can_import !== false;
         userLimit = parsed.limit;
         userUsage = parsed.usage;
@@ -1549,10 +1550,10 @@ serve(async (req) => {
           const { data: subData, error: subError } = await supabaseClient
             .from("user_subscriptions")
             .select("plan, status, subscription_ends_at, trial_ends_at")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .maybeSingle();
 
-          const sub = subData as any;
+          const sub = subData as JsonBoundary;
           const subscriptionEnd = sub?.subscription_ends_at ? new Date(sub.subscription_ends_at) : null;
           const isPaidActive = sub && ["monthly", "annual"].includes(sub.plan) && sub.status === "active" && (!subscriptionEnd || subscriptionEnd > new Date());
           const trialEnd = sub?.trial_ends_at ? new Date(sub.trial_ends_at) : null;
@@ -1568,7 +1569,7 @@ serve(async (req) => {
             const { count, error: countError } = await supabaseClient
               .from("user_editais")
               .select("*", { count: "exact", head: true })
-              .eq("user_id", user.id)
+              .eq("user_id", userId)
               .eq("is_imported", true)
               .is("source_id", null)
               .gte("created_at", firstDayStr);
@@ -1581,7 +1582,7 @@ serve(async (req) => {
             const { count, error: countError } = await supabaseClient
               .from("user_editais")
               .select("*", { count: "exact", head: true })
-              .eq("user_id", user.id)
+              .eq("user_id", userId)
               .eq("is_imported", true)
               .is("source_id", null);
 
@@ -1593,7 +1594,7 @@ serve(async (req) => {
             const { count, error: countError } = await supabaseClient
               .from("user_editais")
               .select("*", { count: "exact", head: true })
-              .eq("user_id", user.id)
+              .eq("user_id", userId)
               .eq("is_imported", true)
               .is("source_id", null);
 
@@ -1634,7 +1635,7 @@ serve(async (req) => {
       const maxPerHour = rateLimitByMode[mode] ?? 10;
       const { data: rateLimitOk, error: rateLimitError } = await supabaseClient
         .rpc("check_rate_limit", {
-          p_user_id: user.id,
+          p_user_id: userId,
           p_endpoint: rateLimitEndpoint,
           p_max_per_hour: maxPerHour
         });
@@ -1657,7 +1658,7 @@ serve(async (req) => {
 
       // 2. Log API usage BEFORE calling Gemini
       const { error: logUsageError } = await supabaseClient.rpc("log_api_usage", {
-        p_user_id: user.id,
+        p_user_id: userId,
         p_endpoint: rateLimitEndpoint
       });
 
@@ -1683,7 +1684,7 @@ serve(async (req) => {
             .select("cost_estimate")
             .gte("created_at", todayStr);
           if (!sumError && sumData) {
-            const totalCost = sumData.reduce((acc: number, log: any) => acc + Number(log.cost_estimate || 0), 0);
+            const totalCost = sumData.reduce((acc: number, log: JsonBoundary) => acc + Number(log.cost_estimate || 0), 0);
             isCircuitBreakerOk = totalCost < dailyLimitUsd;
           }
         } catch (fallbackErr) {
@@ -1711,7 +1712,7 @@ serve(async (req) => {
     if (shouldUsePdfFile && pdfFileUri) {
       fileUri = String(pdfFileUri);
     } else if (shouldUsePdfFile && pdfPath) {
-      fileUri = await uploadStoragePdfToGemini(supabaseClient, apiKey, pdfPath, user.id);
+      fileUri = await uploadStoragePdfToGemini(supabaseClient, apiKey, pdfPath, userId);
     } else if (shouldUsePdfFile && pdfUrl) {
       fileUri = await uploadPdfUrlToGemini(apiKey, pdfUrl);
     }
@@ -1747,12 +1748,12 @@ serve(async (req) => {
     } else if (mode === "extractWeights") {
       const subjectsJson = JSON.stringify(
         weightSubjects
-          .map((subject: any) => ({
+          .map((subject: JsonBoundary) => ({
             id: String(subject?.id || "").trim(),
             name: String(subject?.title || subject?.name || subject?.subjectName || "").trim(),
             knowledgeType: subject?.knowledgeType || subject?.type || null,
           }))
-          .filter((subject: any) => subject.id && subject.name),
+          .filter((subject: JsonBoundary) => subject.id && subject.name),
         null,
         2,
       );
@@ -1820,10 +1821,10 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
       );
     }
 
-    let parsed: any;
+    let parsed: JsonBoundary;
     try {
       parsed = parseJsonObject(text);
-    } catch (parseError: any) {
+    } catch (parseError: JsonBoundary) {
       console.error("[extract-edital] invalid JSON response:", {
         mode,
         modelName,
@@ -1891,10 +1892,10 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
       usage,
       modelName,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (error: any) {
+  } catch (error: JsonBoundary) {
     console.error("[extract-edital] error:", error?.message || error);
     // Log failure in telemetria (if client and user are initialized)
-    if (supabaseClient && user) {
+    if (supabaseClient && userId) {
       await logAiUsage("failed", modelNameUsed, 0, 0);
     }
     const status = error?.status === 429 ? 429 : error?.message === "Unauthorized" ? 401 : 400;

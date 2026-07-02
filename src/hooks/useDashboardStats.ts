@@ -28,7 +28,7 @@ export interface DashboardStats {
 
 export const useDashboardStats = (
   subjects: Subject[],
-  reviewData: any[],
+  reviewData: unknown[],
   currentMonth: Date = new Date()
 ): DashboardStats => {
   const today = startOfDay(new Date());

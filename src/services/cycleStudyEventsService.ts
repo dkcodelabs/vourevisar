@@ -34,7 +34,7 @@ export const recordCycleStudyEvent = async ({
   metadata = {},
 }: RecordCycleStudyEventInput) => {
   try {
-    const { error } = await (supabase as any)
+    const { error } = await (supabase as unknown)
       .from('cycle_study_events')
       .insert({
         user_id: userId,

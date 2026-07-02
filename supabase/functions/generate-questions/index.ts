@@ -3,6 +3,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import type { JsonBoundary } from '../_shared/jsonBoundary.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -102,7 +103,7 @@ function parseQuestions(rawText: string, type: string): ParsedQuestion[] {
       questions.push({
         id: `q_${index + 1}_${Date.now()}`,
         statement: statement.trim(),
-        type: type as any,
+        type: type as JsonBoundary,
         options: type === 'multipla-escolha' ? options : undefined,
         correctAnswer: correctAnswer.trim(),
         explanation: explanation.trim()

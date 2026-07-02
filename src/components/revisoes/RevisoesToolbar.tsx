@@ -2,11 +2,11 @@ import React from 'react';
 import { Minimize2, Maximize2, HelpCircle, Search, X, Layers } from 'lucide-react';
 
 interface RevisoesToolbarProps {
-    stats: any;
+    stats: unknown;
     searchTerm: string;
     setSearchTerm: (term: string) => void;
     activeTab: string;
-    setActiveTab: (tab: any) => void;
+    setActiveTab: (tab: unknown) => void;
     reviewStageFilter: string;
     setReviewStageFilter: (filter: string) => void;
     areAllExpanded: boolean;

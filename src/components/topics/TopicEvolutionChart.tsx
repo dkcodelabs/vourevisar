@@ -30,7 +30,7 @@ const DIFFICULTY_LABEL: Record<number, string> = {
   3: 'Difícil',
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: unknown) => {
   if (!active || !payload?.length) return null;
   const value = payload[0]?.value as number;
   return (
@@ -111,7 +111,7 @@ export function TopicEvolutionChart({ history, compact = false }: TopicEvolution
             dataKey="difficulty"
             stroke="url(#diffGradient)"
             strokeWidth={2.5}
-            dot={(props: any) => {
+            dot={(props: unknown) => {
               const { cx, cy, payload } = props;
               const color =
                 payload.difficulty >= 3

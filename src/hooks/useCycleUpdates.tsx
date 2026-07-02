@@ -9,7 +9,7 @@ export const useCycleUpdates = (
   subjects: Subject[],
   userSettings: { subjects_per_day: number } | null,
   userCycle: UserCycle | null,
-  setUserCycle: (cycle: any) => void
+  setUserCycle: (cycle: unknown) => void
 ) => {
   const { user } = useAuth();
   const lastSubjectsPerDay = useRef<number | null>(null);
@@ -105,7 +105,7 @@ export const useCycleUpdates = (
     };
 
     handleConfigurationChange();
-  }, [userSettings?.subjects_per_day, user, userCycle?.id, subjects, setUserCycle]);
+  }, [subjects, setUserCycle, user, userCycle, userSettings]);
 
   // Função vazia - não é mais necessária
   const markAsSessionUpdate = () => {

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -19,19 +19,15 @@ export const useSubjectsAndTopics = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const userId = user?.id;
 
-  useEffect(() => {
-    if (user) {
-      fetchSubjects();
-    }
-  }, [user]);
-
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
+    if (!userId) return;
     try {
       const { data, error } = await supabase
         .from('subjects')
         .select('id, name')
-        .eq('user_id', user!.id)
+        .eq('user_id', userId)
         .order('name');
 
       if (error) throw error;
@@ -41,7 +37,13 @@ export const useSubjectsAndTopics = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchSubjects();
+    }
+  }, [fetchSubjects, userId]);
 
   const fetchTopicsBySubject = async (subjectId: string) => {
     try {
@@ -50,8 +52,8 @@ export const useSubjectsAndTopics = () => {
         .select('id, name, subject_id')
         .eq('subject_id', subjectId)
         .eq('is_active', true)
-        .order('name') as any);
-      const { data, error } = queryResult as { data: Topic[] | null, error: any };
+        .order('name') as unknown);
+      const { data, error } = queryResult as { data: Topic[] | null, error: unknown };
       
       if (error) throw error;
       setTopics(data || []);

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 interface DashboardCalendarProps {
     subjects: Subject[];
-    reviewData?: any[];
+    reviewData?: unknown[];
     onDayClick?: (date: Date) => void;
     onMonthChange?: (date: Date) => void;
     className?: string;

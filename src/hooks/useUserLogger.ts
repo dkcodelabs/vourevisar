@@ -26,7 +26,7 @@ export const useUserLogger = () => {
 
     const logEvent = useCallback(async (
         eventType: EventType,
-        metadata: Record<string, any> = {},
+        metadata: Record<string, unknown> = {},
         origin: string | null = 'web_app'
     ) => {
         try {
@@ -107,7 +107,7 @@ export const useUserLogger = () => {
             if (error) {
                 console.warn(`[Audit] Failed to log ${eventType} (RPC Error):`, error);
             } else {
-                const res = data as any;
+                const res = data as unknown;
                 if (res?.status === 'error') {
                     // Check if it's a duplicate key error (safe to ignore as it means deduplication worked)
                     if (res.message?.includes('duplicate key') || res.message?.includes('unique constraint')) {

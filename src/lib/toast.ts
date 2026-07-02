@@ -81,7 +81,7 @@ export const toast = {
 type PromiseParams<T> = {
   loading: string;
   success: string | ((data: T) => string);
-  error: string | ((error: any) => string);
+  error: string | ((error: unknown) => string);
 };
 
 // Re-export the raw toast for special cases

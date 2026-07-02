@@ -97,7 +97,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         let isCancelled = false;
-        let channel: any = null;
+        let channel: unknown = null;
 
         const initTimer = async () => {
             // 1. Carrega estado inicial do Supabase
@@ -131,7 +131,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
                         if (payload.eventType === 'DELETE') {
                             applyTimer(null);
                         } else {
-                            const row = payload.new as any;
+                            const row = payload.new as unknown;
                             const remoteTimer = dbRowToTimer(row);
                             applyTimer(remoteTimer);
                         }

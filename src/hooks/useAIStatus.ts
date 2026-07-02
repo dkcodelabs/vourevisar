@@ -87,8 +87,14 @@ export async function checkAIStatusDirect(silent = true): Promise<AIStatus> {
 
 async function saveStatusToDB(status: AIStatus) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const payload: any = {
+    const payload: {
+      id: string;
+      status: AIStatus['status'];
+      last_check: string | null;
+      error_message: string | null;
+      updated_at: string;
+      model_name?: string;
+    } = {
       id: '00000000-0000-0000-0000-000000000001',
       status: status.status,
       last_check: status.lastCheck,
@@ -101,7 +107,7 @@ async function saveStatusToDB(status: AIStatus) {
       payload.model_name = status.modelName; 
     }
 
-    await (supabase as any)
+    await (supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> })
       .from('ai_status')
       .upsert(payload, { onConflict: 'id' });
   } catch (err) {
@@ -111,8 +117,7 @@ async function saveStatusToDB(status: AIStatus) {
 
 async function saveErrorToDB(code: string, message: string, context: string) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    await (supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> })
       .from('ai_error_logs')
       .insert({
         error_code: code,
@@ -177,15 +182,14 @@ function extractErrorCode(error: unknown): string {
 
 export async function getAIErrorLogs(limit = 20): Promise<AIErrorLog[]> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> })
       .from('ai_error_logs')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(limit);
     
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as AIErrorLog[];
   } catch (err) {
     console.warn('Erro ao carregar logs de erro:', err);
     return [];
@@ -225,19 +229,24 @@ export function useAIStatus(options: { enabled?: boolean } = {}) {
     if (!enabled) return;
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
+      const { data } = await (supabase as unknown as { from: (table: string) => ReturnType<typeof supabase.from> })
         .from('ai_status')
         .select('*')
         .eq('id', '00000000-0000-0000-0000-000000000001')
         .maybeSingle();
       
       if (data) {
+        const savedStatus = data as unknown as {
+          status: AIStatus['status'];
+          last_check: string | null;
+          error_message: string | null;
+          model_name?: string | null;
+        };
         setAIStatus({
-          status: data.status,
-          lastCheck: data.last_check,
-          errorMessage: data.error_message,
-          modelName: data.model_name || null
+          status: savedStatus.status,
+          lastCheck: savedStatus.last_check,
+          errorMessage: savedStatus.error_message,
+          modelName: savedStatus.model_name || null
         });
       }
     } catch (err) {
