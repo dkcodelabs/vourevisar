@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Calendar, Users, Clock,
   Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
   ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Monitor, FileSearch,
-  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Layers, Bot, NotebookTabs, AlertTriangle, Crown, LogOut, User
+  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Bot, NotebookTabs, AlertTriangle, Crown, LogOut, User
 } from "lucide-react";
 
 import { AnimatedLogo } from './AnimatedLogo';
@@ -88,7 +88,6 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
     { to: "/revisoes", label: "Revisões", icon: Clock },
     { to: "/cadernos", label: "Cadernos", icon: NotebookTabs },
     { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
-    { to: "/reveal-cards", label: "Componentes UI", icon: Layers },
   ];
 
   const adminItems: NavItem[] = isAdmin ? [

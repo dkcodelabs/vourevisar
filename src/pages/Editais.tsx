@@ -5,6 +5,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database, Json } from '@/integrations/supabase/types';
 import {
     Plus, PlusCircle, Library, Trash2, Play, Eye, Clock,
     BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, Sparkles, Loader2,
@@ -28,7 +29,7 @@ import { ImportEditalModal } from '@/components/subjects/ImportEditalModal';
 import { MergeSuggestionCard, CompactMergeSuggestionList } from '@/components/subjects/MergeSuggestionCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Subject } from '@/types';
+import { Subject, Topic } from '@/types';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { cn } from '@/lib/utils';
@@ -86,6 +87,48 @@ type StudySessionSummary = {
     subject_id: string | null;
     session_duration_minutes: number | null;
 };
+
+type PublicEditalRow = Database['public']['Tables']['public_editais']['Row'];
+type PublicEditalSource = Omit<PublicEditalRow, 'subjects'> & { subjects: Subject[] };
+type ManualCycleOrigin = { name: string; isManual: true };
+type CycleOrigin = UserEdital | ManualCycleOrigin;
+
+type CycleConflictState = {
+    isOpen: boolean;
+    edital: UserEdital | null;
+    existingIds: string[];
+    currentOrigins: CycleOrigin[];
+    step: 'select' | 'preview' | 'topic-preview' | 'success';
+    action: 'merge' | 'replace' | 'hybrid' | null;
+    unificationMap?: CycleUnificationMap;
+    finalSubjectIds?: string[];
+    hybridResult?: HybridMergeResult;
+    aiStatus?: 'success' | 'error' | 'timeout';
+    topicMergeResult?: TopicMergePhaseResult;
+    subjectDisplayNameOverrides?: Record<string, string>;
+    showIASuggestionsOnly?: boolean;
+    wasTopicMerged?: boolean;
+    showDetailedPreview?: boolean;
+    updatedAt?: string | null;
+};
+
+type PendingMergeDraft = Partial<Omit<CycleConflictState, 'isOpen' | 'edital'>> & {
+    updatedAt?: string | null;
+};
+
+const isManualCycleOrigin = (origin: CycleOrigin): origin is ManualCycleOrigin =>
+    'isManual' in origin && origin.isManual;
+
+const parseCycleUnificationMap = (value: Json | null): CycleUnificationMap | null => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    if (value.version !== 1 || !Array.isArray(value.editalIds) || !Array.isArray(value.unifiedSubjects)) return null;
+    return value as unknown as CycleUnificationMap;
+};
+
+const serializeJson = (value: unknown): Json => JSON.parse(JSON.stringify(value)) as Json;
+
+const getJsonRecord = (value: Json | null): Record<string, Json | undefined> | null =>
+    value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const getDaysUntilExam = (dateStr?: string): number | null => {
@@ -172,8 +215,7 @@ const rowToEdital = (row: Record<string, unknown>): UserEdital => ({
     mergedIntoCycle: (row.merged_into_cycle as boolean) || false,
 });
 
-/** Wrapper para acessar tabela user_editais (não está nos types gerados ainda) */
-const editaisTable = () => (supabase as any).from('user_editais');
+const editaisTable = () => supabase.from('user_editais');
 
 // ─── Componente Principal ───────────────────────────────────────────────────
 const Editais = () => {
@@ -198,23 +240,7 @@ const Editais = () => {
     }>({ isOpen: false, edital: null });
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [unloadConfirm, setUnloadConfirm] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
-    const [cycleConflict, setCycleConflict] = useState<{
-        isOpen: boolean;
-        edital: UserEdital | null;
-        existingIds: string[];
-        currentOrigins: (UserEdital | { name: string; isManual: boolean })[];
-        step: 'select' | 'preview' | 'topic-preview' | 'success';
-        action: 'merge' | 'replace' | 'hybrid' | null;
-        unificationMap?: CycleUnificationMap;
-        finalSubjectIds?: string[];
-        hybridResult?: HybridMergeResult;
-        aiStatus?: 'success' | 'error' | 'timeout';
-        topicMergeResult?: TopicMergePhaseResult;
-        subjectDisplayNameOverrides?: Record<string, string>; // subjectId → custom name
-        showIASuggestionsOnly?: boolean;
-        wasTopicMerged?: boolean;
-        showDetailedPreview?: boolean;
-    }>({
+    const [cycleConflict, setCycleConflict] = useState<CycleConflictState>({
         isOpen: false,
         edital: null,
         existingIds: [],
@@ -224,7 +250,7 @@ const Editais = () => {
         showIASuggestionsOnly: false,
         showDetailedPreview: false
     });
-    const [pendingMerges, setPendingMerges] = useState<Record<string, any>>({});
+    const [pendingMerges, setPendingMerges] = useState<Record<string, PendingMergeDraft>>({});
     const [isRecoveringMerge, setIsRecoveringMerge] = useState(false);
     const [isAnalyzingTopics, setIsAnalyzingTopics] = useState(false);
     const [processingId, setProcessingId] = useState<string | null>(null);
@@ -270,7 +296,7 @@ const Editais = () => {
         isOpen: boolean;
         edital: UserEdital | null;
         localSubjects: Subject[];
-        sourceSubjects: any[];
+        sourceSubjects: Subject[];
         sourceUpdatedAt?: string | null;
         sourceMetadata?: {
             organ?: string | null;
@@ -383,7 +409,7 @@ const Editais = () => {
 
         // Limpa o estado imediatamente para não disparar novamente
         window.history.replaceState({}, document.title);
-    }, [location.state, editais.length, hasCycleEditais]); // Só re-executa se o estado mudar ou se os editais carregarem pela primeira vez
+    }, [location.state, editais, hasCycleEditais]);
 
 
     // ── Fetch editais do Supabase ──
@@ -433,7 +459,7 @@ const Editais = () => {
                     exam_board: updates.exam_board || null,
                     name: updates.position ? `${updates.organ} - ${updates.position}` : updates.organ,
                     updated_at: new Date().toISOString()
-                } as any)
+                })
                 .eq('id', id);
 
             if (error) throw error;
@@ -472,7 +498,7 @@ const Editais = () => {
     const highlightedSourceId = searchParams.get('sourceId');
     const [scrolledTo, setScrolledTo] = useState(false);
 
-    const [publicEditais, setPublicEditais] = useState<any[]>([]);
+    const [publicEditais, setPublicEditais] = useState<PublicEditalSource[]>([]);
     const [publicEditaisLoaded, setPublicEditaisLoaded] = useState(false);
 
     const getSyncedSourceTime = (edital: UserEdital): number | null => {
@@ -502,14 +528,17 @@ const Editais = () => {
         try {
             setPublicEditaisLoaded(false);
             const { data, error } = await withTimeout(
-                (supabase as any)
+                supabase
                     .from('public_editais')
                     .select('id, updated_at, organ, position, year, category, exam_date, exam_board, subjects'),
                 10000,
                 'Carregamento de editais publicos'
             );
             if (!error && data) {
-                setPublicEditais(data);
+                setPublicEditais(data.map(row => ({
+                    ...row,
+                    subjects: Array.isArray(row.subjects) ? row.subjects as unknown as Subject[] : [],
+                })));
             }
         } catch (err) {
             console.error('Error fetching public editais for sync check:', err);
@@ -522,7 +551,7 @@ const Editais = () => {
         if (!user) return;
         try {
             const { data, error } = await withTimeout(
-                (supabase as any)
+                supabase
                     .from('pending_cycle_merges')
                     .select('*')
                     .eq('user_id', user.id),
@@ -532,11 +561,11 @@ const Editais = () => {
 
             if (error) throw error;
 
-            const map: Record<string, any> = {};
-            data?.forEach((item: any) => {
-                if (item.edital_id) {
+            const map: Record<string, PendingMergeDraft> = {};
+            data?.forEach(item => {
+                if (item.edital_id && item.state_data && typeof item.state_data === 'object' && !Array.isArray(item.state_data)) {
                     map[item.edital_id] = {
-                        ...item.state_data,
+                        ...item.state_data as unknown as PendingMergeDraft,
                         updatedAt: item.updated_at
                     };
                 }
@@ -547,21 +576,21 @@ const Editais = () => {
         }
     }, [user]);
 
-    const savePendingMerge = useCallback(async (editalId: string, state: any) => {
+    const savePendingMerge = useCallback(async (editalId: string, state: PendingMergeDraft) => {
         if (!user) return;
         try {
             const dataToSave = { ...state };
             delete dataToSave.isOpen;
             delete dataToSave.edital;
 
-            const { error } = await (supabase as any)
+            const { error } = await supabase
                 .from('pending_cycle_merges')
                 .upsert({
                     user_id: user.id,
                     edital_id: editalId,
-                    state_data: dataToSave,
+                    state_data: serializeJson(dataToSave),
                     updated_at: new Date().toISOString()
-                } as any);
+                });
 
             if (error) throw error;
             setPendingMerges(prev => ({ ...prev, [editalId]: dataToSave }));
@@ -573,7 +602,7 @@ const Editais = () => {
     const discardPendingMerge = useCallback(async (editalId: string | 'all') => {
         if (!user) return;
         try {
-            let query = (supabase as any)
+            let query = supabase
                 .from('pending_cycle_merges')
                 .delete()
                 .eq('user_id', user.id);
@@ -690,7 +719,7 @@ const Editais = () => {
                     const secondaryIds = originalIds.slice(1);
 
                     // 3. Sincronizar todos os tópicos com os dados do 'master'
-                    await (supabase as any)
+                    await supabase
                         .from('topics')
                         .update({
                             completed: masterTopic.completed,
@@ -707,7 +736,7 @@ const Editais = () => {
                         .in('id', originalIds);
 
                     // 4. Definir o parent_topic_id (primaryId será o pai visual)
-                    await (supabase as any)
+                    await supabase
                         .from('topics')
                         .update({ parent_topic_id: primaryId })
                         .in('id', secondaryIds);
@@ -801,10 +830,10 @@ const Editais = () => {
 
     // ── CRUD Operations ──
     const handleDeleteEdital = useCallback(async (edital: UserEdital) => {
-        if (!user?.id || processingId === edital.id) return;
+        const userId = user?.id;
+        if (!userId || processingId === edital.id) return;
 
         setProcessingId(edital.id);
-        const userId = user.id;
         const subjectIds = Array.isArray(edital.subjectIds)
             ? edital.subjectIds.filter(id => typeof id === 'string' && id.length > 0)
             : [];
@@ -813,7 +842,7 @@ const Editais = () => {
             // 1. Sincronizar ciclo e limpar merges ANTES de deletar o edital físico.
             // Isso é vital para que o serviço identifique quais IDs estão saindo e promova sobreviventes.
             await mergeService.syncCycleAfterRemoval(userId, edital.id, { emitEvents: false });
-            await mergeService.cleanupMergesAfterEditalRemoval(user!.id, edital.id, (p) => {
+            await mergeService.cleanupMergesAfterEditalRemoval(userId, edital.id, (p) => {
                 setRemovalProgress({ editalId: edital.id, ...p });
             }, { emitEvents: false });
 
@@ -825,16 +854,17 @@ const Editais = () => {
                 .maybeSingle();
 
             if (updatedCycle?.unification_map) {
-                let newUnificationMap = updatedCycle.unification_map as any;
+                let newUnificationMap = parseCycleUnificationMap(updatedCycle.unification_map);
+                if (!newUnificationMap) throw new Error('Mapa de unificação inválido no ciclo ativo.');
                 const subjectIdsSet = new Set(edital.subjectIds);
 
                 newUnificationMap = {
                     ...newUnificationMap,
                     editalIds: (newUnificationMap.editalIds || []).filter((id: string) => id !== edital.id),
-                    unifiedSubjects: (newUnificationMap.unifiedSubjects || []).map((u: any) => ({
+                    unifiedSubjects: newUnificationMap.unifiedSubjects.map(u => ({
                         ...u,
                         originalSubjectIds: u.originalSubjectIds.filter((id: string) => !subjectIdsSet.has(id))
-                    })).filter((u: any) => u.originalSubjectIds.length > 0)
+                    })).filter(u => u.originalSubjectIds.length > 0)
                 };
 
                 if (newUnificationMap.editalIds.length === 0) newUnificationMap = null;
@@ -851,7 +881,7 @@ const Editais = () => {
 
             // 3. Limpar rascunhos e sugestões não deve travar a exclusão principal.
             await Promise.allSettled([
-                (supabase as any)
+                supabase
                     .from('pending_cycle_merges')
                     .delete()
                     .eq('user_id', userId)
@@ -878,11 +908,11 @@ const Editais = () => {
                     for (let i = 0; i < topicIds.length; i += CHUNK_SIZE) {
                         const chunk = topicIds.slice(i, i + CHUNK_SIZE);
                         await Promise.allSettled([
-                            (supabase as any).from('topic_review_history').delete().in('topic_id', chunk),
+                            supabase.from('topic_review_history').delete().in('topic_id', chunk),
                             // Limpa merges onde o tópico é primário (coluna uuid, .in() funciona)
                             // Nota: merges onde o tópico é secundário (merged_topic_ids jsonb) 
                             // já foram tratados por cleanupMergesAfterEditalRemoval() acima.
-                            (supabase as any).from('topic_merges').delete().in('primary_topic_id', chunk),
+                            supabase.from('topic_merges').delete().in('primary_topic_id', chunk),
                         ]);
                     }
 
@@ -903,8 +933,8 @@ const Editais = () => {
                 for (let i = 0; i < subjectIds.length; i += SUBJECT_CHUNK) {
                     const chunk = subjectIds.slice(i, i + SUBJECT_CHUNK);
                     await Promise.allSettled([
-                        (supabase as any).from('study_sessions').delete().in('subject_id', chunk),
-                        (supabase as any).from('subject_merges').delete().in('primary_subject_id', chunk),
+                        supabase.from('study_sessions').delete().in('subject_id', chunk),
+                        supabase.from('subject_merges').delete().in('primary_subject_id', chunk),
                     ]);
                 }
 
@@ -1006,7 +1036,7 @@ const Editais = () => {
                 .eq('user_id', user.id)
                 .maybeSingle();
 
-            const unificationMap = existingCycle?.unification_map as any;
+            const unificationMap = parseCycleUnificationMap(existingCycle?.unification_map ?? null);
             const existingIdsInCycle = (existingCycle?.ciclo_atual as string[] | null) || [];
 
             // 1. Detectar nomes das matérias que já estão no ciclo (para detecção por nome)
@@ -1020,7 +1050,7 @@ const Editais = () => {
             // 2. Expandir IDs considerando unificações passadas
             const expandedExistingIds = new Set(existingIdsInCycle);
             if (unificationMap?.unifiedSubjects) {
-                unificationMap.unifiedSubjects.forEach((u: any) => {
+                unificationMap.unifiedSubjects.forEach(u => {
                     const hasSomeInCycle = u.originalSubjectIds.some((id: string) => expandedExistingIds.has(id));
                     if (hasSomeInCycle) {
                         u.originalSubjectIds.forEach((id: string) => expandedExistingIds.add(id));
@@ -1040,7 +1070,7 @@ const Editais = () => {
                 .select('*, topics(*)')
                 .in('id', edital.subjectIds);
 
-            const currentEditalSubjects = (editalSubjectsData as any[]) || [];
+            const currentEditalSubjects = (editalSubjectsData as unknown as Subject[] | null) || [];
 
             // Detecção por Nome: Se alguma matéria do novo edital tem o mesmo nome de algo no ciclo
             const hasNameConflict = currentEditalSubjects.some(s => namesInCycle.has(s.name.toLowerCase().trim()));
@@ -1052,7 +1082,7 @@ const Editais = () => {
             }));
 
             // Verificar matérias que não pertencem a nenhum dos editais identificados (Manuais ou Órfãs)
-            const coveredIds = new Set(origins.flatMap(o => (o as any).isManual ? [] : (o as UserEdital).subjectIds || []));
+            const coveredIds = new Set(origins.flatMap(origin => isManualCycleOrigin(origin) ? [] : origin.subjectIds));
             const hasOrphanSubjects = realExistingIdsInCycle.some(id => !coveredIds.has(id));
 
             if (hasOrphanSubjects || (origins.length === 0 && hasNameConflict)) {
@@ -1060,7 +1090,7 @@ const Editais = () => {
             }
 
             if (editalSubjectsData) {
-                setLoadedEditalSubjects(editalSubjectsData as any);
+                setLoadedEditalSubjects(editalSubjectsData as unknown as Subject[]);
             }
 
             // Mostrar modal de carga/conflito
@@ -1393,7 +1423,7 @@ const Editais = () => {
                 // Limpar data da prova ao substituir ciclo
                 await supabase
                     .from('user_settings')
-                    .update({ data_prova_meta: null } as any)
+                    .update({ data_prova_meta: null })
                     .eq('user_id', user.id);
 
                 setProcessingProgress({ message: 'Preparando substituição do ciclo...', percentage: 20 });
@@ -1440,7 +1470,7 @@ const Editais = () => {
 
                 // 3. Salvar mesclagens nas tabelas dedicated (subject_merges e topic_merges)
                 try {
-                    const { data: cycleData } = await (supabase as any)
+                    const { data: cycleData } = await supabase
                         .from('user_cycles')
                         .select('id')
                         .eq('user_id', user.id)
@@ -1481,8 +1511,9 @@ const Editais = () => {
             });
 
             if (rpcError) throw rpcError;
-            if (rpcData && (rpcData as any).ok === false) throw new Error((rpcData as any).error);
-            const resumedReviewCount = Number((rpcData as { resumed_reviews?: number } | null)?.resumed_reviews || 0);
+            const rpcResult = getJsonRecord(rpcData);
+            if (rpcResult?.ok === false) throw new Error(typeof rpcResult.error === 'string' ? rpcResult.error : 'Falha ao carregar ciclo.');
+            const resumedReviewCount = Number(rpcResult?.resumed_reviews || 0);
 
             // Sincronizar estado local de editais para evitar disparidade na UI
             setEditais(prev => prev.map(e => {
@@ -1537,7 +1568,7 @@ const Editais = () => {
             setIsMerging(false);
             setProcessingProgress(null);
         }
-    }, [cycleConflict, editais, fetchEditais, refreshData, user, subjects, discardPendingMerge, persistPhysicalSoftMerge, saveUnificationMap, navigate, cycleNameCandidates, cycleMergeSources, defaultCycleExamDate]);
+    }, [cycleConflict, editais, fetchEditais, refreshData, user, subjects, discardPendingMerge, cycleNameCandidates, cycleMergeSources, defaultCycleExamDate]);
 
     const handleGoToCycleAfterSuccess = useCallback(async () => {
         if (!user?.id) return;
@@ -1670,7 +1701,7 @@ const Editais = () => {
                 subject_ids: [], // Será atualizado no final
                 active_subject_ids: [],
                 merged_into_cycle: false,
-            } as any).select().single();
+            }).select().single();
 
             if (editalErr) throw editalErr;
             if (!newEditalRow) throw new Error('Falha ao criar edital base.');
@@ -1692,7 +1723,7 @@ const Editais = () => {
                         exam_weight_questions: subj.exam_weight_questions ?? null,
                         exam_weight_percentage: subj.exam_weight_percentage ?? null,
                         exam_weight_raw: subj.exam_weight_raw ?? null,
-                    } as any)
+                    })
                     .select('id')
                     .single();
 
@@ -1717,7 +1748,7 @@ const Editais = () => {
                 if (topicsToInsert.length > 0) {
                     const { error: topicErr } = await supabase
                         .from('topics')
-                        .insert(topicsToInsert as any);
+                        .insert(topicsToInsert);
                     if (topicErr) throw topicErr;
                 }
             }
@@ -1728,7 +1759,7 @@ const Editais = () => {
                     .update({
                         subject_ids: realSubjectIds,
                         active_subject_ids: realSubjectIds
-                    } as any)
+                    })
                     .eq('id', newEditalRow.id);
 
                 if (updateErr) throw updateErr;
@@ -1797,7 +1828,7 @@ const Editais = () => {
                 is_imported: false,
                 subject_ids: mergedSubjectIds,
                 merged_with: ids,
-            } as any);
+            });
             if (insertErr) throw insertErr;
 
             const { error: deleteErr } = await editaisTable()
@@ -1828,7 +1859,7 @@ const Editais = () => {
                 exam_date: updatedEdital.examDate || null,
                 exam_board: updatedEdital.examBoard || null,
                 updated_at: new Date().toISOString()
-            } as any).eq('id', updatedEdital.id).eq('user_id', user.id);
+            }).eq('id', updatedEdital.id).eq('user_id', user.id);
             if (error) throw error;
 
             setEditais(prev => prev.map(e => e.id === updatedEdital.id ? updatedEdital : e));
@@ -1848,7 +1879,7 @@ const Editais = () => {
         try {
             // 1. Buscar fonte e local em paralelo
             const [sourceResult, localResult] = await Promise.all([
-                (supabase as any)
+                supabase
                     .from('public_editais')
                     .select('*')
                     .eq('id', edital.sourceId)
@@ -1866,8 +1897,8 @@ const Editais = () => {
             console.log('[Sync DEBUG]', {
                 editalId: edital.id,
                 sourceId: edital.sourceId,
-                sourceNames: (sourceResult.data.subjects || []).map((s: any) => s.name),
-                localNames: (localResult.data || []).map((s: any) => s.name),
+                sourceNames: (sourceResult.data.subjects as unknown as Subject[] || []).map(s => s.name),
+                localNames: (localResult.data || []).map(s => s.name),
             });
 
             setSyncReview({
@@ -1897,7 +1928,7 @@ const Editais = () => {
      * Aplica as alterações selecionadas no SyncReviewModal
      */
     const applySyncChanges = async (
-        addedSubjects: any[],
+        addedSubjects: Subject[],
         addedTopics: Record<string, string[]>,
         removedSubjIds: string[],
         removedTopIds: string[]
@@ -1920,7 +1951,7 @@ const Editais = () => {
                         name: ss.name || ss.title,
                         status: 'Nova',
                         edital_id: edital.id
-                    } as any)
+                    })
                     .select('id')
                     .single();
 
@@ -1931,17 +1962,17 @@ const Editais = () => {
                 console.log('[Sync Apply] Matéria inserida:', ss.name, '→ ID:', newSubj.id);
                 finalSubjectIds.push(newSubj.id);
 
-                const topicsToInsert = (ss.topics || []).map((ts: any, idx: number) => ({
+                const topicsToInsert = (ss.topics || []).map((topic: Topic | string, idx: number) => ({
                     subject_id: newSubj.id,
                     edital_id: edital.id, // Vínculo explícito com o edital
-                    name: typeof ts === 'string' ? ts : ts.name,
+                    name: typeof topic === 'string' ? topic : topic.name,
                     completed: false,
                     review_count: 0,
-                    position: (ts as any).position ?? idx
+                    position: typeof topic === 'string' ? idx : topic.position ?? idx
                 }));
 
                 if (topicsToInsert.length > 0) {
-                    const { error: topicErr } = await supabase.from('topics').insert(topicsToInsert as any);
+                    const { error: topicErr } = await supabase.from('topics').insert(topicsToInsert);
                     if (topicErr) {
                         console.error('[Sync Apply] Erro ao inserir tópicos:', topicErr);
                         throw topicErr;
@@ -1960,7 +1991,7 @@ const Editais = () => {
                     position: idx
                 }));
                 if (topicsToInsert.length > 0) {
-                    await supabase.from('topics').insert(topicsToInsert as any);
+                    await supabase.from('topics').insert(topicsToInsert);
                 }
             }
 
@@ -2011,7 +2042,7 @@ const Editais = () => {
                     synced_at: new Date().toISOString()
                 } : null,
                 updated_at: new Date().toISOString()
-            } as any).eq('id', edital.id);
+            }).eq('id', edital.id);
 
             if (updErr) {
                 console.error('[Sync Apply] Erro ao atualizar edital:', updErr);
@@ -2341,7 +2372,7 @@ const Editais = () => {
                             for (const ls of localSubjectsOnly) {
                                 const lsName = (ls.name || '').trim().toUpperCase();
                                 if (lsName && !sourceSubjects.some(
-                                    (ss: any) => (ss.name || '').trim().toUpperCase() === lsName
+                                    ss => (ss.name || '').trim().toUpperCase() === lsName
                                 )) {
                                     return true;
                                 }
@@ -2356,7 +2387,7 @@ const Editais = () => {
                                 const sourceTopics = ss.topics || [];
                                 const localTopics = localSubject.topics || [];
                                 const localTopicNames = new Set(
-                                    (localTopics || []).map((t: any) => (t.name || '').trim().toUpperCase())
+                                    localTopics.map(topic => (topic.name || '').trim().toUpperCase())
                                 );
 
                                 // Verifica tópicos novos no fonte
@@ -2371,7 +2402,7 @@ const Editais = () => {
                                 for (const lt of (localTopics || [])) {
                                     const ltName = (lt.name || '').trim().toUpperCase();
                                     if (ltName && !sourceTopics.some(
-                                        (st: any) => (st.name || '').trim().toUpperCase() === ltName
+                                        topic => (topic.name || '').trim().toUpperCase() === ltName
                                     )) {
                                         return true;
                                     }
@@ -2774,7 +2805,7 @@ const Editais = () => {
                                                     Mesclagem recuperada
                                                 </p>
                                                 <p className="text-[10px] font-medium text-warning/80">
-                                                    Restauramos sua última análise · {new Date((cycleConflict as any).updatedAt).toLocaleString('pt-BR')}
+                                                    Restauramos sua última análise · {new Date(cycleConflict.updatedAt!).toLocaleString('pt-BR')}
                                                 </p>
                                             </div>
                                         </div>
@@ -2839,13 +2870,13 @@ const Editais = () => {
                                         </div>
                                         <div className="space-y-3">
                                             {cycleConflict.currentOrigins.map((origin, i) => {
-                                                const isManual = (origin as any).isManual;
-                                                const editalOrigin = isManual ? null : origin as UserEdital;
+                                                const isManual = isManualCycleOrigin(origin);
+                                                const editalOrigin = isManual ? null : origin;
 
                                                 const originSubjects = subjects.filter(s => {
                                                     if (!cycleConflict.existingIds.includes(s.id)) return false;
                                                     if (isManual) {
-                                                        return !cycleConflict.currentOrigins.some(o => (o as any).id === s.edital_id);
+                                                        return !cycleConflict.currentOrigins.some(item => !isManualCycleOrigin(item) && item.id === s.edital_id);
                                                     }
                                                     return s.edital_id === editalOrigin?.id;
                                                 });

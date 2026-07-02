@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, FileText, Sparkles, Loader2, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info, Eye, ArrowLeft, BookOpen, Settings } from 'lucide-react';
@@ -27,6 +27,37 @@ interface AiTopic {
     selected: boolean;
     position?: number;
 }
+
+type UnknownRecord = Record<string, unknown>;
+
+const asRecord = (value: unknown): UnknownRecord =>
+    typeof value === 'object' && value !== null && !Array.isArray(value) ? value as UnknownRecord : {};
+
+const getErrorMessage = (error: unknown): string =>
+    error instanceof Error ? error.message : String(error || 'Erro desconhecido');
+
+const getErrorCode = (error: unknown): string | undefined => {
+    const code = asRecord(error).code;
+    return typeof code === 'string' ? code : undefined;
+};
+
+const getArray = (record: UnknownRecord, ...keys: string[]): unknown[] => {
+    for (const key of keys) {
+        if (Array.isArray(record[key])) return record[key];
+    }
+    return [];
+};
+
+const getString = (record: UnknownRecord, ...keys: string[]): string => {
+    for (const key of keys) {
+        const value = record[key];
+        if (typeof value === 'string') return value;
+    }
+    return '';
+};
+
+const getNullableNumber = (record: UnknownRecord, key: string): number | null =>
+    typeof record[key] === 'number' ? record[key] : null;
 
 interface AiSubject {
     id: string;
@@ -87,6 +118,29 @@ interface AiEditalAnalysis {
         area_enfase?: string | null;
     }>;
 }
+
+interface UserAiLimits {
+    plan: string;
+    status: string;
+    effective_plan?: string;
+    effective_status?: string;
+    limit: number;
+    usage: number;
+    total_usage?: number;
+    remaining?: number | null;
+    usage_period?: 'monthly' | 'lifetime' | string;
+    has_bypass: boolean;
+    can_import: boolean;
+}
+
+type AiLimitsRpcClient = {
+    rpc: (
+        functionName: 'get_user_ai_limits',
+        args: { p_user_id: string },
+    ) => PromiseLike<{ data: UserAiLimits | null; error: unknown }>;
+};
+
+const aiLimitsRpcClient = supabase as unknown as AiLimitsRpcClient;
 
 interface MappedSubjectAnchor {
     chave: string;
@@ -171,19 +225,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
     // IA Limits & Quota States
-    interface UserAiLimits {
-        plan: string;
-        status: string;
-        effective_plan?: string;
-        effective_status?: string;
-        limit: number;
-        usage: number;
-        total_usage?: number;
-        remaining?: number | null;
-        usage_period?: 'monthly' | 'lifetime' | string;
-        has_bypass: boolean;
-        can_import: boolean;
-    }
     const [aiLimits, setAiLimits] = useState<UserAiLimits | null>(null);
     const [loadingAiLimits, setLoadingAiLimits] = useState(false);
 
@@ -271,8 +312,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         year?: string;
         status?: string;
         subjects: {
+            id?: string;
             name: string;
-            topics: { name: string }[];
+            color?: string;
+            priority?: number;
+            topics: { id?: string; name: string }[];
         }[];
         category?: string;
         exam_date?: string;
@@ -287,7 +331,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     useEffect(() => {
         const fetchPublicEditais = async () => {
             try {
-                const { data, error } = await (supabase as any)
+                const { data, error } = await supabase
                     .from('public_editais')
                     .select('*')
                     .eq('is_public', true)
@@ -334,11 +378,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         if (!user) return;
         setLoadingAiLimits(true);
         try {
-            const { data: rpcLimits, error: rpcError } = await supabase
-                .rpc('get_user_ai_limits' as any, { p_user_id: user.id } as any);
+            const { data: rpcLimits, error: rpcError } = await aiLimitsRpcClient
+                .rpc('get_user_ai_limits', { p_user_id: user.id });
 
             if (!rpcError && rpcLimits) {
-                const parsed = rpcLimits as unknown as UserAiLimits;
+                const parsed = rpcLimits;
                 let totalUsage: number | undefined;
 
                 if (parsed.has_bypass) {
@@ -413,12 +457,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 .is('source_id', null);
 
             const { data: subData } = await supabase
-                .from('user_subscriptions' as any)
+                .from('user_subscriptions')
                 .select('plan, status, subscription_ends_at, trial_ends_at')
                 .eq('user_id', user.id)
                 .maybeSingle();
             
-            const sub = subData as any;
+            const sub = subData;
             const subEnd = sub?.subscription_ends_at ? new Date(sub.subscription_ends_at) : null;
             const trialEnd = sub?.trial_ends_at ? new Date(sub.trial_ends_at) : null;
             const isPaidActive = sub && ['monthly', 'annual'].includes(sub.plan) && sub.status === 'active' && (!subEnd || subEnd > new Date());
@@ -468,7 +512,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         if (!user) return;
         setLoadingPending(true);
         try {
-            const { data, error } = await (supabase as any)
+            const { data, error } = await supabase
                 .from('pending_ai_extractions')
                 .select('id, edital_name, updated_at, ai_result, analysis_result, selected_cargo, source_type, pdf_url, origin, position, year')
                 .eq('user_id', user.id)
@@ -482,7 +526,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 let restoredSourcePayload: DocumentPayload | null = null;
 
                 if (storedAiResult.length === 0 && !storedAnalysis?.cargos?.length) {
-                    await (supabase as any)
+                    await supabase
                         .from('pending_ai_extractions')
                         .delete()
                         .eq('id', data.id);
@@ -515,7 +559,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                     if (repairedAiResult.length !== storedAiResult.length) {
                         restoredAiResult = repairedAiResult;
-                        await (supabase as any)
+                        await supabase
                             .from('pending_ai_extractions')
                             .update({ ai_result: repairedAiResult })
                             .eq('id', data.id);
@@ -537,8 +581,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 setIaStage(restoredAiResult.length ? 'review' : storedAnalysis?.cargos?.length ? 'selectCargo' : 'input');
                 setShowIaDataEditor(shouldOpenIaDataEditor(storedAnalysis, storedCargoName));
             }
-        } catch (err: any) {
-            console.error('[loadPending] catch error:', err?.code, err?.message);
+        } catch (err: unknown) {
+            console.error('[loadPending] catch error:', getErrorCode(err), getErrorMessage(err));
         } finally {
             setLoadingPending(false);
         }
@@ -552,7 +596,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, activeTab]);
 
-    const getProgressTarget = (stage: typeof iaStage, message: string) => {
+    const getProgressTarget = useCallback((stage: typeof iaStage, message: string) => {
         const normalized = message.toLowerCase();
         if (stage === 'analyzing') {
             if (normalized.includes('extraindo cargos')) return 88;
@@ -573,7 +617,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             return 22;
         }
         return 0;
-    };
+    }, []);
 
     useEffect(() => {
         if (iaStage !== 'analyzing' && iaStage !== 'extracting') return;
@@ -588,7 +632,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }, 120);
 
         return () => window.clearInterval(interval);
-    }, [iaStage, processingMsg]);
+    }, [getProgressTarget, iaStage, processingMsg]);
 
     const savePendingExtraction = async (
         editalName: string,
@@ -601,7 +645,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     ) => {
         if (!user) return;
         try {
-            const { data: existing } = await (supabase as any)
+            const { data: existing } = await supabase
                 .from('pending_ai_extractions')
                 .select('id')
                 .eq('user_id', user.id)
@@ -621,7 +665,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             };
 
             if (existing) {
-                await (supabase as any)
+                await supabase
                     .from('pending_ai_extractions')
                     .update(payload)
                     .eq('id', existing.id);
@@ -632,7 +676,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     source: 'fresh'
                 });
             } else {
-                const { data: inserted } = await (supabase as any)
+                const { data: inserted } = await supabase
                     .from('pending_ai_extractions')
                     .insert(payload)
                     .select('id')
@@ -646,8 +690,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     });
                 }
             }
-        } catch (err: any) {
-            console.error('[savePending] catch error:', err?.code, err?.message);
+        } catch (err: unknown) {
+            console.error('[savePending] catch error:', getErrorCode(err), getErrorMessage(err));
         }
     };
 
@@ -663,12 +707,12 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const discardPendingExtractionData = async () => {
         if (pendingExtraction && user && pendingExtraction.id && !pendingExtraction.id.startsWith('pending-')) {
             try {
-                await (supabase as any)
+                await supabase
                     .from('pending_ai_extractions')
                     .delete()
                     .eq('id', pendingExtraction.id);
-            } catch (err: any) {
-                console.warn('[discardPending]', err?.code ?? err?.message);
+            } catch (err: unknown) {
+                console.warn('[discardPending]', getErrorCode(err) ?? getErrorMessage(err));
             }
         }
         setPendingExtraction(null);
@@ -709,7 +753,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         pdfInputRef.current?.click();
     };
 
-    const resetPendingState = () => {
+    const resetPendingState = useCallback(() => {
         setPendingExtraction(null);
         setAiResult([]);
         setAnalysisResult(null);
@@ -725,16 +769,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setInputText('');
         setPdfFile(null);
         setExamDate('');
-    };
+    }, []);
 
     useEffect(() => {
         setActiveTab(initialTab);
         if (!isOpen) {
             resetPendingState();
-        } else if (user) {
-            loadPendingExtraction();
         }
-    }, [initialTab, isOpen, user]);
+    }, [initialTab, isOpen, resetPendingState]);
 
     const handleOpenSuggest = () => {
         setSuggestConcurso(searchQuery.trim());
@@ -746,7 +788,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         if (!suggestConcurso.trim()) return;
         setIsSendingSuggestion(true);
         try {
-            await (supabase as any)
+            await supabase
                 .from('edital_suggestions')
                 .insert({
                     user_id: user?.id,
@@ -878,7 +920,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             throw new Error(`Resposta da IA não contém JSON válido. A IA pode ter ignorado o prompt. Tente usar texto mais limpo ou um PDF diferente.`);
         }
 
-        let parsed: any;
+        let parsed: unknown;
         try {
             parsed = JSON.parse(sanitized);
         } catch (initialError) {
@@ -923,7 +965,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
         try {
             // 3. Normalização da Estrutura (Aceita formato Full ou Minified)
-            const rawData = parsed.s || parsed.subjects || parsed;
+            const parsedRecord = asRecord(parsed);
+            const rawData = parsedRecord.s || parsedRecord.subjects || parsed;
             const rawSubjects = Array.isArray(rawData) ? rawData : [];
 
             const extractPosition = (name: string): { position: number; cleanName: string } => {
@@ -951,13 +994,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return { position: 0, cleanName: trimmed };
             };
 
-            const result = rawSubjects.map((s: any, idx: number): AiSubject => ({
+            const result = rawSubjects.map((rawSubject, idx): AiSubject => {
+                const subject = asRecord(rawSubject);
+                return {
                 id: `ia-${idx}-${Date.now()}`,
-                title: cleanSubjectTitle(s.t || s.title || s.disciplina),
-                knowledgeType: s.tipo || s.type || null,
+                title: cleanSubjectTitle(getString(subject, 't', 'title', 'disciplina')),
+                knowledgeType: getString(subject, 'tipo', 'type') || null,
                 expanded: false,
-                topics: (s.p || s.topics || s.topicos || []).map((t: any, tIdx: number): AiTopic => {
-                    const rawName = typeof t === 'string' ? t : (t.n || t.name || "");
+                topics: getArray(subject, 'p', 'topics', 'topicos').map((rawTopic, tIdx): AiTopic => {
+                    const topic = asRecord(rawTopic);
+                    const rawName = typeof rawTopic === 'string' ? rawTopic : getString(topic, 'n', 'name');
                     const { position, cleanName } = extractPosition(rawName);
                     return {
                         name: cleanName,
@@ -969,7 +1015,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     return clean.length >= 2;
                 }),
                 selected: true
-            }));
+            };
+            });
             return result;
         } catch (normError) {
             console.error("Erro na normalização do JSON:", normError);
@@ -986,12 +1033,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         return () => timers.forEach(timer => window.clearTimeout(timer));
     };
 
-    const getFunctionErrorMessage = async (error: any, response?: Response) => {
-        const errorResponse = response || error?.context;
-        if (errorResponse && typeof errorResponse.clone === 'function') {
+    const getFunctionErrorMessage = async (error: unknown, response?: Response) => {
+        const context = asRecord(error).context;
+        const errorResponse = response || (context instanceof Response ? context : undefined);
+        if (errorResponse) {
             try {
-                const body = await errorResponse.clone().json();
-                return body?.error || body?.message || JSON.stringify(body);
+                const body: unknown = await errorResponse.clone().json();
+                const bodyRecord = asRecord(body);
+                return getString(bodyRecord, 'error', 'message') || JSON.stringify(body);
             } catch {
                 try {
                     const text = await errorResponse.clone().text();
@@ -1001,7 +1050,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 }
             }
         }
-        return error?.message || JSON.stringify(error);
+        return getErrorMessage(error);
     };
 
     const getFriendlyAiExtractionError = (message: string) => {
@@ -1224,13 +1273,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         return title.replace(/\s*[:;.-]\s*$/g, '').trim() || 'Sem Título';
     };
 
-    const mapExtractionToAiSubjects = (extraction: any): AiSubject[] => {
-        const rawSubjects = Array.isArray(extraction?.subjects)
-            ? extraction.subjects
-            : Array.isArray(extraction?.conteudo)
-                ? extraction.conteudo
-                : [];
-        const normalizeKnowledgeType = (value: any): string | null => {
+    const mapExtractionToAiSubjects = (extraction: unknown): AiSubject[] => {
+        const extractionRecord = asRecord(extraction);
+        const rawSubjects = getArray(extractionRecord, 'subjects', 'conteudo');
+        const normalizeKnowledgeType = (value: unknown): string | null => {
             const normalized = String(value || '').trim();
             if (!normalized) return null;
             const ascii = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -1240,25 +1286,30 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             return normalized;
         };
 
-        return rawSubjects.map((s: any, idx: number): AiSubject => {
-            const rawTopics = Array.isArray(s.topics) ? s.topics : Array.isArray(s.topicos) ? s.topicos : [];
+        return rawSubjects.map((rawSubject, idx): AiSubject => {
+            const subject = asRecord(rawSubject);
+            const rawTopics = getArray(subject, 'topics', 'topicos');
+            const weight = asRecord(subject.weight);
             return {
                 id: `ia-${idx}-${Date.now()}`,
-                title: cleanSubjectTitle(s.title || s.name || s.disciplina),
-                knowledgeType: normalizeKnowledgeType(s.type || s.tipo),
+                title: cleanSubjectTitle(getString(subject, 'title', 'name', 'disciplina')),
+                knowledgeType: normalizeKnowledgeType(subject.type || subject.tipo),
                 selected: true,
                 expanded: false,
                 weight: {
-                    points: s.weight?.points ?? null,
-                    questions: s.weight?.questions ?? null,
-                    percentage: s.weight?.percentage ?? null,
-                    rawText: s.weight?.rawText ?? null
+                    points: getNullableNumber(weight, 'points'),
+                    questions: getNullableNumber(weight, 'questions'),
+                    percentage: getNullableNumber(weight, 'percentage'),
+                    rawText: getString(weight, 'rawText') || null
                 },
-                topics: rawTopics.map((t: any, tIdx: number): AiTopic => ({
-                    name: String(typeof t === 'string' ? t : t.name || t.n || '').trim(),
+                topics: rawTopics.map((rawTopic, tIdx): AiTopic => {
+                    const topic = asRecord(rawTopic);
+                    return {
+                    name: String(typeof rawTopic === 'string' ? rawTopic : getString(topic, 'name', 'n')).trim(),
                     selected: true,
-                    position: typeof t?.position === 'number' ? t.position : tIdx
-                })).filter((t: AiTopic) => t.name.length >= 2)
+                    position: typeof topic.position === 'number' ? topic.position : tIdx
+                };
+                }).filter((topic: AiTopic) => topic.name.length >= 2)
             };
         }).filter((s: AiSubject) => s.title.trim().length > 0 && s.topics.length > 0);
     };
@@ -1338,26 +1389,26 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         return [...recoveredSubjects, ...remainingSubjects];
     };
 
-    const mapIncrementalSubjectToAiSubject = (subjectResult: any, fallback: MappedSubjectAnchor, idx: number): AiSubject | null => {
-        const rawTopics = Array.isArray(subjectResult?.topicos)
-            ? subjectResult.topicos
-            : Array.isArray(subjectResult?.topics)
-                ? subjectResult.topics
-                : [];
+    const mapIncrementalSubjectToAiSubject = (subjectResult: unknown, fallback: MappedSubjectAnchor, idx: number): AiSubject | null => {
+        const subject = asRecord(subjectResult);
+        const rawTopics = getArray(subject, 'topicos', 'topics');
         const topics = rawTopics
-            .map((topic: any, tIdx: number): AiTopic => ({
-                name: String(typeof topic === 'string' ? topic : topic?.name || topic?.n || '').trim(),
+            .map((rawTopic, tIdx): AiTopic => {
+                const topic = asRecord(rawTopic);
+                return {
+                name: String(typeof rawTopic === 'string' ? rawTopic : getString(topic, 'name', 'n')).trim(),
                 selected: true,
-                position: typeof topic?.position === 'number' ? topic.position : tIdx
-            }))
+                position: typeof topic.position === 'number' ? topic.position : tIdx
+            };
+            })
             .filter((topic: AiTopic) => topic.name.length >= 2);
 
         if (topics.length === 0) return null;
 
         return {
             id: `ia-incremental-${idx}-${Date.now()}`,
-            title: cleanSubjectTitle(subjectResult?.disciplina || subjectResult?.title || fallback.titulo),
-            knowledgeType: subjectResult?.tipo || fallback.tipo_conhecimento || null,
+            title: cleanSubjectTitle(getString(subject, 'disciplina', 'title') || fallback.titulo),
+            knowledgeType: getString(subject, 'tipo') || fallback.tipo_conhecimento || null,
             selected: true,
             expanded: false,
             weight: {
@@ -1700,9 +1751,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             setIaStage('selectCargo');
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Erro na IA:', error);
-            const msg = error.message || 'Erro desconhecido';
+            const msg = getErrorMessage(error);
 
             // Se for cota comercial excedida, atualiza limites locais instantaneamente
             if (msg.includes('AI_LIMIT_EXCEEDED') || msg.toLowerCase().includes('esgotou seu limite') || msg.toLowerCase().includes('cota comercial')) {
@@ -1831,11 +1882,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     setIaStage('review');
                     return;
                 }
-            } catch (incrementalError: any) {
-                if (isAiRateLimitMessage(incrementalError?.message || String(incrementalError))) {
+            } catch (incrementalError: unknown) {
+                if (isAiRateLimitMessage(getErrorMessage(incrementalError))) {
                     throw incrementalError;
                 }
-                console.warn('[extract-edital incremental] Fallback para extração antiga:', incrementalError?.message || incrementalError);
+                console.warn('[extract-edital incremental] Fallback para extração antiga:', getErrorMessage(incrementalError));
                 setProcessingMsg('Usando extração compatível...');
             }
 
@@ -1917,10 +1968,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             await sleep(180);
 
             setIaStage('review');
-        } catch (error: any) {
+        } catch (error: unknown) {
             stopProgressHints?.();
             console.error('Erro na extração do cargo:', error);
-            const technicalMessage = error.message || 'Erro desconhecido';
+            const technicalMessage = getErrorMessage(error);
             const friendlyMessage = getFriendlyAiExtractionError(technicalMessage);
             setIaErrorMessage(friendlyMessage);
             setShowIaDataEditor(true);
@@ -2041,15 +2092,15 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         try {
             const rawSubjects = Array.isArray(edital.subjects) ? edital.subjects : [];
             
-            const mappedSubjects: Subject[] = rawSubjects.map((s: any, idx: number) => ({
-                id: s.id || `imp-subj-${idx}-${Date.now()}`,
-                name: s.name,
+            const mappedSubjects: Subject[] = rawSubjects.map((subject, idx) => ({
+                id: subject.id || `imp-subj-${idx}-${Date.now()}`,
+                name: subject.name,
                 status: 'Nova',
-                color: s.color,
-                priority: s.priority,
-                topics: (Array.isArray(s.topics) ? s.topics : []).map((t: any, tidx: number) => ({
-                    id: t.id || `imp-top-${idx}-${tidx}-${Date.now()}`,
-                    name: typeof t === 'string' ? t : t.name,
+                color: subject.color,
+                priority: subject.priority,
+                topics: subject.topics.map((topic, tidx) => ({
+                    id: topic.id || `imp-top-${idx}-${tidx}-${Date.now()}`,
+                    name: topic.name,
                     completed: false,
                     reviewCount: 0,
                     review_count: 0,

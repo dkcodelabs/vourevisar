@@ -41,6 +41,26 @@ type IncidenceMapRow = {
   completedAt: string | null;
 };
 
+type IncidenceMapQueryRow = {
+  id: string;
+  edital_id: string;
+  status: string;
+  total_topics: number | null;
+  with_signal_count: number | null;
+  no_signal_count: number | null;
+  catalog_count: number | null;
+  ai_count: number | null;
+  skipped_count: number | null;
+  error_count: number | null;
+  pending_count: number | null;
+  last_processed_at: string | null;
+  completed_at: string | null;
+  user_editais?: {
+    name?: string | null;
+    exam_board?: string | null;
+  } | null;
+};
+
 const emptyStats: IncidenceStats = {
   totalTopics: 0,
   withVolume: 0,
@@ -100,15 +120,18 @@ export function IncidenceOperationalSummary({ refreshTrigger = 0 }: IncidenceOpe
         const userId = userData.user?.id;
         if (!userId) throw new Error('Usuário não autenticado.');
 
-        const topicCount = (configure: (query: any) => any = query => query) => {
-          const baseQuery = (supabase as any)
+        const createTopicCountQuery = () =>
+          supabase
             .from('topics')
             .select('id,subjects!inner(user_id)', { count: 'exact', head: true })
             .eq('subjects.user_id', userId)
             .neq('is_active', false);
 
-          return configure(baseQuery);
-        };
+        type TopicCountQuery = ReturnType<typeof createTopicCountQuery>;
+
+        const topicCount = (
+          configure: (query: TopicCountQuery) => TopicCountQuery = query => query
+        ) => configure(createTopicCountQuery());
 
         const [
           totalResp,
@@ -135,8 +158,8 @@ export function IncidenceOperationalSummary({ refreshTrigger = 0 }: IncidenceOpe
             .eq('is_skipped', false)
             .or('total_volume.is.null,total_volume.eq.0')
             .or('last_trend_check_at.is.null,status.eq.error')),
-          (supabase as any).from('topic_incidence_catalog').select('id', { count: 'exact', head: true }),
-          (supabase as any)
+          supabase.from('topic_incidence_catalog').select('id', { count: 'exact', head: true }),
+          supabase
             .from('topics')
             .select('last_trend_check_at,subjects!inner(user_id)')
             .eq('subjects.user_id', userId)
@@ -165,7 +188,7 @@ export function IncidenceOperationalSummary({ refreshTrigger = 0 }: IncidenceOpe
         const totalTopics = totalResp.count || 0;
         const withVolume = withVolumeResp.count || 0;
 
-        const { data: mapRows, error: mapsError } = await (supabase as any)
+        const { data: mapRows, error: mapsError } = await supabase
           .from('edital_incidence_maps')
           .select(`
             id,
@@ -193,7 +216,9 @@ export function IncidenceOperationalSummary({ refreshTrigger = 0 }: IncidenceOpe
           setMapsNotice('Status por edital indisponível. A migration do mapa de cobrança pode estar pendente.');
         } else {
           setMapsNotice(null);
-          setMaps((mapRows || []).map((row: any) => ({
+          const typedMapRows = (mapRows || []) as unknown as IncidenceMapQueryRow[];
+
+          setMaps(typedMapRows.map((row) => ({
             id: row.id,
             editalId: row.edital_id,
             editalName: row.user_editais?.name || 'Edital sem nome',

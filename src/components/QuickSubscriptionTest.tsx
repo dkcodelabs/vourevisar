@@ -3,9 +3,10 @@
 // =====================================================
 import React, { useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
+import type { Json } from '@/integrations/supabase/types'
 
 export function QuickSubscriptionTest() {
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<Json | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

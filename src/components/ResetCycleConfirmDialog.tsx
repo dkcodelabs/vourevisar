@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -43,17 +43,7 @@ export function ResetCycleConfirmDialog({
   const [understood, setUnderstood] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
-  useEffect(() => {
-    if (open && userId) {
-      fetchResetStats();
-    } else {
-      // Reset form when dialog closes
-      setConfirmText('');
-      setUnderstood(false);
-    }
-  }, [open, userId]);
-
-  const fetchResetStats = async () => {
+  const fetchResetStats = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch subjects
@@ -112,7 +102,17 @@ export function ResetCycleConfirmDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    if (open && userId) {
+      fetchResetStats();
+    } else {
+      // Reset form when dialog closes
+      setConfirmText('');
+      setUnderstood(false);
+    }
+  }, [fetchResetStats, open, userId]);
 
   const handleConfirm = async () => {
     if (confirmText !== 'RESETAR' || !understood) {

@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 
-import { useReviewsData } from '@/hooks/useReviewsData';
+import { ReviewTopic, useReviewsData } from '@/hooks/useReviewsData';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { useTimer } from '@/contexts/TimerContext';
 import { useCycleState } from '@/hooks/useCycleState';
@@ -19,7 +19,7 @@ import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
 
 
-import { RevisionItem, RevisionStatus } from '@/types/revision';
+import { ReviewHistoryItem, RevisionItem, RevisionStatus } from '@/types/revision';
 import { PROGRAMMED_REVIEW_COUNT } from '@/utils/calculateNextReview';
 import { getProgrammedReviewsCompleted, isReviewProgramCompleted } from '@/utils/reviewStage';
 
@@ -37,6 +37,14 @@ import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { errorService } from '@/lib/errors/errorService';
 
 type ViewTab = 'FOCUS' | 'FUTURE' | 'COMPLETED' | 'SUBJECTS' | 'ALL';
+
+const getFocusTopicId = (state: unknown): string | undefined => {
+  if (typeof state !== 'object' || state === null || !('focusTopicId' in state)) return undefined;
+  return typeof state.focusTopicId === 'string' ? state.focusTopicId : undefined;
+};
+
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : '';
 
 interface ActiveTimer {
   topicId: string;
@@ -109,8 +117,7 @@ export const Revisoes = () => {
         if (!user) throw new Error('User not authenticated');
         if (!activeTopicScope.hasScopedData) return [];
 
-        // @ts-expect-error Tipagem global intencional para compatibilidade
-        const response = await (supabase as any)
+        const response = await supabase
           .from('topic_review_history')
           .select(`
           id, topic_id, review_stage, reviewed_at,
@@ -121,7 +128,7 @@ export const Revisoes = () => {
           .order('reviewed_at', { ascending: false });
 
         if (response.error) throw response.error;
-        return filterHistoryRowsByActiveTopicIds(response.data || [], activeTopicScope.activeTopicIds).map((review: any) => ({
+        return filterHistoryRowsByActiveTopicIds(response.data || [], activeTopicScope.activeTopicIds).map((review): ReviewHistoryItem => ({
           id: review.id,
           topic_id: review.topic_id,
           review_stage: review.review_stage,
@@ -213,7 +220,7 @@ export const Revisoes = () => {
     const sourceList = activeTab === 'FOCUS' ? focusTopics : topics;
     const allItems: RevisionItem[] = [];
 
-    const mapTopicToItem = (topic: any): RevisionItem => {
+    const mapTopicToItem = (topic: ReviewTopic): RevisionItem => {
       const subject = subjects.find(s => s.id === topic.subject_id);
       const rawCount = topic.reviewCount || topic.review_count || 0;
       const programCompleted = isReviewProgramCompleted(topic);
@@ -339,7 +346,7 @@ export const Revisoes = () => {
 
   const location = useLocation();
   useEffect(() => {
-    const topicId = (location.state as any)?.focusTopicId || searchParams.get('topicId');
+    const topicId = getFocusTopicId(location.state) || searchParams.get('topicId');
     if (topicId) {
       const raw = topics.find(t => t.id === topicId);
       if (raw) {
@@ -377,7 +384,9 @@ export const Revisoes = () => {
     reviewStageFilter,
     setSearchParams,
     setSearchTerm,
-    setReviewStageFilter
+    setReviewStageFilter,
+    location.state,
+    topics
   ]);
 
   // When coming from "Parar e Avaliar" in FocusModal: auto-open the review modal
@@ -680,7 +689,7 @@ export const Revisoes = () => {
             setProcessedUpdate(difficultyModalData.topicId);
             await markTopicAsReviewed(difficultyModalData.topicId, d, dur, difficultyModalData.reviewCount - 1);
             stopTimer(); closeDifficultyModal(); setTimeout(() => { refreshData(); refetch(); }, 500);
-          } catch (e: any) {
+          } catch (e: unknown) {
             await errorService.report(
               e,
               {
@@ -692,7 +701,7 @@ export const Revisoes = () => {
                 userId: user?.id
               }
             );
-            if (e.message?.includes('SYNC_ERROR')) toast.warning("Sincronismo: Já processada.");
+            if (getErrorMessage(e).includes('SYNC_ERROR')) toast.warning("Sincronismo: Já processada.");
             closeDifficultyModal(); stopTimer(); setTimeout(() => { refreshData(); refetch(); }, 500);
           }
         }}

@@ -15,8 +15,11 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RequireActiveSubscription } from "@/components/RequireActiveSubscription";
 import { AdminRoute } from "@/components/AdminRoute";
 import { AuthCallback } from "@/components/AuthCallback";
+import { shouldExposeDebugRoutes } from "@/utils/deploymentGuards";
 
 import { useBrowserCompatibility } from "@/hooks/useBrowserCompatibility";
+
+const exposeDebugRoutes = shouldExposeDebugRoutes(import.meta.env);
 
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
@@ -31,22 +34,23 @@ const Revisoes = lazy(() => import("@/pages/Revisoes"));
 const Editais = lazy(() => import("@/pages/Editais"));
 const Cadernos = lazy(() => import("@/pages/Cadernos"));
 const Planos = lazy(() => import("@/pages/Planos"));
-const RevealCardDemo = lazy(() => import("@/components/ui/RevealCardDemo"));
 const UserManagement = lazy(() => import("@/pages/admin/UserManagement"));
 const SubscriptionManagement = lazy(() => import("@/pages/admin/SubscriptionManagement"));
 const SystemErrors = lazy(() => import("@/pages/admin/system/SystemErrors"));
 const RolesManagement = lazy(() => import("@/pages/admin/security/RolesManagement"));
 const AuditLogs = lazy(() => import("@/pages/admin/AuditLogs"));
 const AdminFeedback = lazy(() => import("@/pages/admin/AdminFeedback"));
-const ToastSpamTest = lazy(() => import("@/pages/admin/debug/ToastSpamTest"));
 const TrendAnalysis = lazy(() => import("@/pages/statistics/TrendAnalysis"));
 const ImportanciaProvaAdmin = lazy(() => import("@/pages/admin/TendenciaGUT"));
 const AdminEditais = lazy(() => import("@/pages/admin/AdminEditais"));
 const PlanCouponManager = lazy(() => import("@/pages/admin/PlanCouponManager"));
 const AISettings = lazy(() => import("@/pages/admin/AISettings"));
-const SimpleRoleTest = lazy(() =>
-  import("@/components/SimpleRoleTest").then(module => ({ default: module.SimpleRoleTest }))
-);
+const SimpleRoleTest = import.meta.env.DEV
+  ? lazy(() => import("@/components/SimpleRoleTest").then(module => ({ default: module.SimpleRoleTest })))
+  : null;
+const ToastSpamTest = import.meta.env.DEV
+  ? lazy(() => import("@/pages/admin/debug/ToastSpamTest"))
+  : null;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -122,7 +126,9 @@ const App = () => {
                               <Route path="admin/system/errors" element={<SystemErrors />} />
                               <Route path="admin/feedback" element={<AdminFeedback />} />
                               <Route path="admin/editais" element={<AdminEditais />} />
-                              <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
+                              {exposeDebugRoutes && ToastSpamTest && (
+                                <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
+                              )}
                               <Route path="admin/pricing" element={<PlanCouponManager />} />
                               <Route path="admin/ai-settings" element={<AISettings />} />
                             </Route>
@@ -130,13 +136,11 @@ const App = () => {
                             {/* Statistics Routes */}
                             <Route path="estatisticas/tendencia" element={<RequireActiveSubscription><TrendAnalysis /></RequireActiveSubscription>} />
 
-                            <Route path="test-roles" element={<SimpleRoleTest />} />
+                            {exposeDebugRoutes && SimpleRoleTest && <Route path="test-roles" element={<SimpleRoleTest />} />}
                             <Route path="planos" element={<Planos />} />
                             <Route path="conta" element={<Account />} />
                             <Route path="perfil" element={<Navigate to="/conta?tab=perfil" replace />} />
                             <Route path="configuracoes" element={<Navigate to="/conta?tab=configuracoes" replace />} />
-                            <Route path="reveal-cards" element={<RequireActiveSubscription><RevealCardDemo /></RequireActiveSubscription>} />
-
                           </Route>
                         </Route>
                         <Route path="*" element={<NotFound />} />

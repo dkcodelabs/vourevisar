@@ -1,3 +1,5 @@
+import type { Json } from '@/integrations/supabase/types';
+
 export type Status = 'Nova' | 'Em Estudo' | 'Concluída';
 export type RevisionStatus = 'Atrasado' | 'Hoje' | 'Futura';
 export type RevisionStage = '24h' | '7 dias' | '30 dias' | 'Concluído' | string;
@@ -41,7 +43,7 @@ export interface Topic {
   difficulty_set_at?: string | null;
   last_search_context?: string | null;
   last_used_query?: string | null;
-  last_audit_log?: any | null;
+  last_audit_log?: Json | null;
   created_at?: string;
   position?: number;
   memory_stability?: number | null;

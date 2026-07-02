@@ -12,6 +12,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [userSettings, setUserSettings] = useState<{ subjects_per_day: number } | null>(null);
   const [studyProgress, setStudyProgress] = useState<StudyProgress>({
@@ -52,7 +53,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Carregar dados quando o usuário muda
   useEffect(() => {
-    if (user) {
+    if (userId) {
       setSubjects([]);
       setIsDataLoaded(false);
       setError(null);
@@ -63,7 +64,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsDataLoaded(false);
       setError(null);
     }
-  }, [user?.id]); // Apenas user.id como dependência
+  }, [loadSubjects, userId]);
 
   // Listener para eventos de atualização de dados
   useEffect(() => {

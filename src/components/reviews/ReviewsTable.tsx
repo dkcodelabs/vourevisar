@@ -12,6 +12,7 @@ import { useApp } from '@/contexts/AppContext';
 import { toast } from '@/lib/toast';
 import NotesModal from './NotesModal';
 import { toastGate } from '@/lib/errors/toastGate';
+import { TopicNotes } from '@/types';
 
 interface Topic {
   id: string;
@@ -24,7 +25,7 @@ interface Topic {
   first_studied_at: string | null;
   last_reviewed_at: string | null;
   completed: boolean;
-  notes?: any;
+  notes?: TopicNotes | null;
 }
 
 interface ReviewsTableProps {

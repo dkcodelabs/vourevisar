@@ -47,17 +47,22 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const quillInstance = useRef<Quill | null>(null);
   const isUpdatingRef = useRef(false);
+  const initialContentRef = useRef(notes?.content || '');
+  const initialHideToolbarRef = useRef(hideToolbar);
+  const initialReadOnlyRef = useRef(isLoading || isSaving);
 
   // Inicializar o Quill
   useEffect(() => {
-    if (containerRef.current && !quillInstance.current) {
+    const container = containerRef.current;
+
+    if (container && !quillInstance.current) {
       // Criar o elemento do editor
       const editorContainer = document.createElement('div');
-      containerRef.current.appendChild(editorContainer);
+      container.appendChild(editorContainer);
 
       // Configuração da toolbar
       const modules = {
-        toolbar: hideToolbar ? false : [
+        toolbar: initialHideToolbarRef.current ? false : [
           [{ 'header': [1, 2, 3, false] }],
           ['bold', 'italic', 'underline', 'strike'],
           [{ 'background': [] }],
@@ -72,14 +77,14 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
         theme: 'snow',
         modules,
         placeholder: 'Comece a escrever suas anotações... Use a barra de ferramentas para formatação.',
-        readOnly: isLoading || isSaving
+        readOnly: initialReadOnlyRef.current
       });
 
       quillInstance.current = quill;
 
       // Conteúdo inicial
-      if (notes?.content) {
-        quill.root.innerHTML = notes.content;
+      if (initialContentRef.current) {
+        quill.root.innerHTML = initialContentRef.current;
       }
 
       // Handler de mudanças
@@ -96,10 +101,10 @@ const RichTextNotesEditor: React.FC<RichTextNotesEditorProps> = ({
     return () => {
       // Cleanup: Remover toolbar e editor se necessário
       if (quillInstance.current) {
-        const toolbar = containerRef.current?.parentElement?.querySelector('.ql-toolbar');
+        const toolbar = container.parentElement?.querySelector('.ql-toolbar');
         if (toolbar) toolbar.remove();
         quillInstance.current = null;
-        if (containerRef.current) containerRef.current.innerHTML = '';
+        container.innerHTML = '';
       }
     };
   }, []); // Rodar apenas uma vez

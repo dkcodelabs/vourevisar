@@ -237,7 +237,8 @@ export function performExactMerge(
   existingSubjects: Subject[],
   newSubjects: Subject[]
 ): ExactMatchResult {
-  const groups = new Map<string, { subjects: Subject[], containsExisting: boolean, containsNew: boolean }>();
+  type TaggedSubject = Subject & { _isExisting: boolean };
+  const groups = new Map<string, { subjects: TaggedSubject[], containsExisting: boolean, containsNew: boolean }>();
   const allSubjects = [
     ...existingSubjects.map(s => ({ ...s, _isExisting: true as const })),
     ...newSubjects.map(s => ({ ...s, _isExisting: false as const }))
@@ -249,7 +250,7 @@ export function performExactMerge(
       groups.set(norm, { subjects: [], containsExisting: false, containsNew: false });
     }
     const g = groups.get(norm)!;
-    g.subjects.push(s as Subject);
+    g.subjects.push(s);
     if (s._isExisting) g.containsExisting = true;
     else g.containsNew = true;
   }
@@ -273,8 +274,8 @@ export function performExactMerge(
       });
     } else {
       // Se houver conflito de fonte ou não for cross, mantém separadas
-      const existingInGroup = g.subjects.filter(s => '_isExisting' in s && (s as any)._isExisting);
-      const newInGroup = g.subjects.filter(s => !('_isExisting' in s) || !(s as any)._isExisting);
+      const existingInGroup = g.subjects.filter(s => s._isExisting);
+      const newInGroup = g.subjects.filter(s => !s._isExisting);
       unmatchedExisting.push(...existingInGroup);
       unmatchedNew.push(...newInGroup);
     }
@@ -937,10 +938,10 @@ export async function registerDualProgress(id: string, data: Partial<Topic>, map
   if (data.current_interval !== undefined) updatePayload.current_interval = data.current_interval;
 
   // Campos de dados de estudo (propagação profunda v2.2)
-  if ((data as any).notes !== undefined) updatePayload.notes = (data as any).notes;
-  if ((data as any).difficulty_level !== undefined) updatePayload.difficulty_level = (data as any).difficulty_level;
-  if ((data as any).difficulty_set_at !== undefined) updatePayload.difficulty_set_at = (data as any).difficulty_set_at;
-  if ((data as any).subtopics !== undefined) updatePayload.subtopics = (data as any).subtopics;
+  if (data.notes !== undefined) updatePayload.notes = data.notes;
+  if (data.difficulty_level !== undefined) updatePayload.difficulty_level = data.difficulty_level;
+  if (data.difficulty_set_at !== undefined) updatePayload.difficulty_set_at = data.difficulty_set_at;
+  if (data.subtopics !== undefined) updatePayload.subtopics = data.subtopics;
 
   if (Object.keys(updatePayload).length === 0) return;
 
@@ -964,7 +965,7 @@ export async function registerSubjectDualProgress(subjectId: string, data: Parti
   if (siblings.length === 0) return;
 
   const updatePayload: Record<string, unknown> = {};
-  if ((data as any).notes !== undefined) updatePayload.notes = (data as any).notes;
+  if (data.notes !== undefined) updatePayload.notes = data.notes;
 
   if (Object.keys(updatePayload).length === 0) return;
 

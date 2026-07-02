@@ -15,7 +15,6 @@ import {
   Clock,
   AlertTriangle,
   CircleHelp,
-  Layers,
   UserCircle,
   Sparkles,
 } from "lucide-react"
@@ -63,7 +62,6 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
     { title: "Revisões", url: "/revisoes", icon: Clock },
     { title: "Cadernos", url: "/cadernos", icon: NotebookTabs },
     { title: "Estatísticas", url: "/estatisticas", icon: BarChart3 },
-    { title: "Componentes UI", url: "/reveal-cards", icon: Layers },
   ]
 
   const adminItems = isAdmin

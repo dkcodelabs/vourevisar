@@ -21,14 +21,20 @@ import {
 } from "@/components/ui/select"
 import { UserCheck, User, Crown, Shield, Users, Calendar, DollarSign, XCircle } from 'lucide-react'
 import { useSubscriptionStats } from '@/hooks/useSubscriptionStats'
+import type { Database } from '@/integrations/supabase/types'
+
+type AppRole = Database['public']['Enums']['app_role']
+type SubscriptionPlan = Database['public']['Enums']['subscription_plan']
+type SubscriptionStatus = Database['public']['Enums']['subscription_status']
+type SubscriptionAction = 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate'
 
 interface UserWithSubscription {
   id: string
   email: string
   name: string | null
-  role: 'owner' | 'admin' | 'moderator' | 'user' | null
-  subscription_plan: 'free_trial' | 'monthly' | 'annual' | null
-  subscription_status: 'trial' | 'active' | 'expired' | 'canceled' | 'suspended' | null
+  role: AppRole | null
+  subscription_plan: SubscriptionPlan | null
+  subscription_status: SubscriptionStatus | null
   is_active: boolean
   days_remaining: number | null
   subscription_ends_at: string | null
@@ -122,7 +128,7 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
           id: user.id,
           email: user.email,
           name: user.name || user.email?.split('@')[0] || 'Sem nome',
-          role: role as any,
+          role,
           subscription_plan: subscription?.plan || null,
           subscription_status: subscription?.status || null,
           is_active: isActive,
@@ -145,7 +151,7 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
   }
 
   // Alterar assinatura de um usuário
-  const changeSubscription = async (userId: string, action: 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate') => {
+  const changeSubscription = async (userId: string, action: SubscriptionAction) => {
     try {
       setProcessingUserId(userId)
       setError(null)
@@ -204,9 +210,9 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         console.log('Free activated successfully')
       } else {
         // Ativar assinatura paga
-        const planMap = {
-          'activate_monthly': 'monthly',
-          'activate_annual': 'annual'
+        const planMap: Record<Exclude<SubscriptionAction, 'activate_trial' | 'deactivate'>, Extract<SubscriptionPlan, 'monthly' | 'annual'>> = {
+          activate_monthly: 'monthly',
+          activate_annual: 'annual'
         }
 
         const plan = planMap[action]
@@ -214,7 +220,7 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + (plan === 'annual' ? 12 : 1))
         
         const subscriptionData = {
-          plan: plan as 'monthly' | 'annual',
+          plan,
           status: 'active' as const,
           subscription_started_at: new Date().toISOString(),
           subscription_ends_at: subscriptionEndDate.toISOString(),
@@ -405,7 +411,7 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
 
                     <Select
                       disabled={processingUserId === user.id}
-                      onValueChange={(value) => changeSubscription(user.id, value as any)}
+                      onValueChange={(value) => changeSubscription(user.id, value as SubscriptionAction)}
                     >
                       <SelectTrigger className="w-40">
                         <SelectValue placeholder="Alterar..." />

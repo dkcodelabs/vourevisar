@@ -9,7 +9,7 @@ import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { mergeService } from '@/services/mergeService';
 import { dedupeMergedReviewTopics, expandReviewSubjectScope } from '@/utils/reviewMergeScope';
 
-interface Topic {
+export interface ReviewTopic {
   id: string;
   name: string;
   subject_id: string;
@@ -31,10 +31,6 @@ interface Topic {
   learningStatus?: LearningStatus;
 }
 
-type TopicRow = Omit<Topic, 'subject_name' | 'learningStatus'> & {
-  notes?: unknown;
-};
-
 // Interface for export group
 export interface GroupedTopicStats {
   learningStatus: LearningStatus;
@@ -42,7 +38,7 @@ export interface GroupedTopicStats {
 }
 
 // Helper: Calculate Risk Score
-const calculateRiskScore = (topic: Topic): number => {
+const calculateRiskScore = (topic: ReviewTopic): number => {
   const today = new Date();
   const dueDate = topic.next_review ? new Date(topic.next_review) : today;
 
@@ -80,7 +76,7 @@ export const determineLearningStatus = (stability: number, interval: number, rev
 export const useReviewsData = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredTopics, setFilteredTopics] = useState<Topic[]>([]);
+  const [filteredTopics, setFilteredTopics] = useState<ReviewTopic[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'all' | 'date'>('all');
 
@@ -142,7 +138,7 @@ export const useReviewsData = () => {
 
       if (error) throw error;
 
-      const reviewScopedTopics = dedupeMergedReviewTopics(data as TopicRow[], topicMerges);
+      const reviewScopedTopics = dedupeMergedReviewTopics(data, topicMerges);
 
       // Map to existing Topic structure and Sort locally
       const mappedTopics = reviewScopedTopics.map(topic => ({
@@ -222,7 +218,7 @@ export const useReviewsData = () => {
     }
   }, [topics, searchTerm, selectedDate, viewMode]);
 
-  const checkRecoveryMode = (allTopics: Topic[]) => {
+  const checkRecoveryMode = (allTopics: ReviewTopic[]) => {
     const today = new Date();
     const todayDateString = format(startOfDay(today), 'yyyy-MM-dd');
 
@@ -319,11 +315,11 @@ export const useReviewsData = () => {
       return acc;
     },
     {
-      delayedTopics: [] as Topic[],
-      todayTopics: [] as Topic[],
-      futureTopics: [] as Topic[],
-      completedTopics: [] as Topic[],
-      consolidatedTopics: [] as Topic[],
+      delayedTopics: [] as ReviewTopic[],
+      todayTopics: [] as ReviewTopic[],
+      futureTopics: [] as ReviewTopic[],
+      completedTopics: [] as ReviewTopic[],
+      consolidatedTopics: [] as ReviewTopic[],
       totalPendingCount: 0
     }
   );

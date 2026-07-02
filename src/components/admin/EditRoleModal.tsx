@@ -70,9 +70,10 @@ export function EditRoleModal({ isOpen, onClose, user, onRoleUpdated }: EditRole
             onRoleUpdated();
             onClose();
 
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error updating role:', error);
-            toastGate.notifyError('Falha ao atualizar permissão: ' + (error.message || 'Unknown error', 'COMPONENTS-ADMIN-EDITROLEMODAL-02', { severity: 'medium' }));
+            const message = error instanceof Error ? error.message : 'Erro desconhecido';
+            toastGate.notifyError(`Falha ao atualizar permissão: ${message}`, 'COMPONENTS-ADMIN-EDITROLEMODAL-02', { severity: 'medium' });
         } finally {
             setIsLoading(false);
             setShowOwnerConfirm(false);

@@ -8,6 +8,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
+import type { Json } from '@/integrations/supabase/types';
 
 interface Topic {
     id: string;
@@ -35,6 +36,35 @@ interface AdminEditalSubjectsModalProps {
     } | null;
     onUpdate: () => void;
 }
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const normalizeTopics = (value: unknown): Topic[] => {
+    if (!Array.isArray(value)) return [];
+
+    return value
+        .filter(isRecord)
+        .map((topic, index) => ({
+            id: typeof topic.id === 'string' && topic.id.trim() ? topic.id : `t-${index}-${Date.now()}`,
+            name: typeof topic.name === 'string' ? topic.name : '',
+        }))
+        .filter(topic => topic.name.trim());
+};
+
+const normalizeSubjects = (value: unknown): Subject[] => {
+    if (!Array.isArray(value)) return [];
+
+    return value
+        .filter(isRecord)
+        .map((subject, index) => ({
+            id: typeof subject.id === 'string' && subject.id.trim() ? subject.id : `s-${index}-${Date.now()}`,
+            name: typeof subject.name === 'string' ? subject.name : 'Matéria sem nome',
+            topics: normalizeTopics(subject.topics),
+            color: typeof subject.color === 'string' ? subject.color : '#3b82f6',
+            priority: typeof subject.priority === 'number' ? subject.priority : 0,
+        }));
+};
 
 export const AdminEditalSubjectsModal = ({
     isOpen, onClose, edital, onUpdate
@@ -70,20 +100,7 @@ export const AdminEditalSubjectsModal = ({
     useEffect(() => {
         if (isOpen && edital) {
             // Edital subjects are stored as JSON in the 'subjects' column
-            const editalSubjects: any[] = (edital as any).subjects || [];
-            
-            // Ensure every subject and topic has an ID for local management
-            const formattedSubjects = editalSubjects.map((s: Subject, sIdx: number) => ({
-                id: s.id || `s-${sIdx}-${Date.now()}`,
-                name: s.name,
-                topics: (s.topics || []).map((t: Topic, tIdx: number) => ({
-                    id: t.id || `t-${sIdx}-${tIdx}-${Date.now()}`,
-                    name: t.name
-                })),
-                color: s.color || '#3b82f6', // Default color if not set
-                priority: s.priority || 0
-            }));
-            setSubjects(formattedSubjects);
+            setSubjects(normalizeSubjects(edital.subjects));
             setActiveTab('current');
             setIaStage('input');
             setInputText('');
@@ -94,7 +111,9 @@ export const AdminEditalSubjectsModal = ({
     const handleSaveToDatabase = async (updatedSubjects: Subject[], shouldNotify = false) => {
         setIsSaving(true);
         try {
-            const dbSubjects = updatedSubjects.map(s => ({
+            if (!edital?.id) throw new Error('Edital não encontrado para salvar.');
+
+            const dbSubjects: Json = updatedSubjects.map(s => ({
                 id: s.id,
                 name: s.name,
                 color: s.color,
@@ -102,7 +121,7 @@ export const AdminEditalSubjectsModal = ({
                 topics: s.topics.map(t => ({ id: t.id, name: t.name }))
             }));
 
-            const { error: updateErr } = await (supabase as any)
+            const { error: updateErr } = await supabase
                 .from('public_editais')
                 .update({ 
                     subjects: dbSubjects,
@@ -115,23 +134,23 @@ export const AdminEditalSubjectsModal = ({
             if (shouldNotify) {
                 try {
                     console.log('Iniciando disparos de notificações globais...');
-                    const { data: rpcData, error: usersErr } = await (supabase as any)
+                    const { data: rpcData, error: usersErr } = await supabase
                         .rpc('get_users_by_edital_source', { source_uuid: edital?.id });
 
                     if (!usersErr && rpcData && rpcData.length > 0) {
-                        const uniqueUserIds = Array.from(new Set(rpcData.map((u: any) => u.user_id)));
+                        const uniqueUserIds = Array.from(new Set(rpcData.map((u) => u.user_id)));
                         const notificationsToInsert = uniqueUserIds.map(userId => ({
                             user_id: userId,
                             type: 'update_edital',
                             category: 'sistema',
                             title: 'Matriz de Estudos',
-                            message: `O edital ${(edital as any).organ || 'que você segue'} foi atualizado.`,
+                            message: `O edital ${edital.organ || 'que você segue'} foi atualizado.`,
                             action_url: `/meus-editais?sourceId=${edital?.id}`,
                             read: false,
                             created_at: new Date().toISOString()
                         }));
 
-                        await (supabase as any).from('user_notifications').insert(notificationsToInsert);
+                        await supabase.from('user_notifications').insert(notificationsToInsert);
                         toast.success(`${uniqueUserIds.length} alunos serão notificados.`);
                     }
                 } catch (notifErr) {
@@ -145,7 +164,7 @@ export const AdminEditalSubjectsModal = ({
 
             setHasUnsavedChanges(false);
             if (onUpdate) onUpdate();
-        } catch (err: any) {
+        } catch (err) {
             console.error('Erro ao salvar edital:', err);
             errorService.report(err, { module: 'AdminEditalSubjectsModal', action: 'save' });
         } finally {

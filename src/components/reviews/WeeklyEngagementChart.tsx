@@ -4,10 +4,12 @@ import { Calendar, TrendingUp, TrendingDown, Zap, Target } from 'lucide-react';
 import { format, subDays, subWeeks, startOfDay, startOfWeek, endOfWeek, isSameDay, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { StreakCalendarModal } from '@/components/dashboard/StreakCalendarModal';
+import { Subject } from '@/types';
+import { ReviewHistoryItem } from '@/types/revision';
 
 interface WeeklyEngagementChartProps {
-    reviewData: any[];
-    subjects: any[];
+    reviewData: ReviewHistoryItem[];
+    subjects: Subject[];
 }
 
 // Map to 3-letter day names in Portuguese
@@ -326,4 +328,3 @@ export const WeeklyEngagementChart: React.FC<WeeklyEngagementChartProps> = ({
 };
 
 export default WeeklyEngagementChart;
-

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -6,6 +6,7 @@ import { toast } from 'react-toastify'
 import { getSupabaseClient } from '@/services/gutCalculator'
 import { Bot, Clock, Database, Filter, Loader2, Play, Sparkles, XCircle } from 'lucide-react'
 import { toastGate } from '@/lib/errors/toastGate'
+import type { Json } from '@/integrations/supabase/types'
 
 export type TopicIncidenceFilter = 'all' | 'pending' | 'with-volume' | 'without-volume' | 'catalog' | 'ai' | 'skipped' | 'error' | 'zero-volume'
 
@@ -21,7 +22,7 @@ interface TopicRow {
     total_volume: number
     last_search_context: string | null
     last_used_query?: string | null
-    last_audit_log?: any | null
+    last_audit_log?: Json | null
     status?: string | null
     incidence_source?: 'ai' | 'catalog' | 'manual' | null
     incidence_context?: {
@@ -33,6 +34,69 @@ interface TopicRow {
     } | null
     incidence_applied_at?: string | null
 }
+
+export interface ProcessTopicIncidenceResult {
+    status?: string | null
+    reason?: string | null
+    error?: string | null
+    topic_id?: string | null
+    topic_name?: string | null
+    subject_name?: string | null
+    volume?: number | string | null
+    api_calls?: number | string | null
+    reasoning?: string | null
+    source_method?: string | null
+    normalized_score?: number | null
+    score_label?: string | null
+    rank_percentile?: number | null
+    score_confidence?: string | null
+    score_basis_count?: number | null
+    edital_name?: string | null
+    exam_board?: string | null
+    organ?: string | null
+    position?: string | null
+    year?: string | null
+}
+
+export interface ProcessTopicIncidenceResponse {
+    message?: string
+    error?: string
+    worker_version?: string | null
+    processed?: number
+    catalog?: number
+    ai?: number
+    zero?: number
+    skipped?: number
+    deferred?: number
+    errors?: number
+    google_quota?: {
+        limit?: number | string | null
+        used_before_run?: number | string | null
+        used_after_run?: number | string | null
+    }
+    results?: ProcessTopicIncidenceResult[]
+}
+
+interface TopicQueryRow {
+    id: string
+    name: string
+    subjects?: { name?: string | null } | null
+    last_trend_check_at: string | null
+    is_skipped: boolean | null
+    skip_reason: string | null
+    created_at: string
+    total_volume: number | null
+    last_search_context: string | null
+    last_used_query: string | null
+    last_audit_log: Json | null
+    status: string | null
+    incidence_source: string | null
+    incidence_context: TopicRow['incidence_context'] | null
+    incidence_applied_at: string | null
+}
+
+const isTopicIncidenceSource = (value: string | null): value is NonNullable<TopicRow['incidence_source']> =>
+    value === 'ai' || value === 'catalog' || value === 'manual'
 
 const isAnalyzed = (topic: TopicRow) =>
     Boolean(topic.last_trend_check_at) || ['processed', 'success', 'no_volume', 'skipped', 'catalog_applied', 'error'].includes(String(topic.status || ''))
@@ -113,7 +177,7 @@ export function AllTopicsTable({
     refreshTrigger?: number
     filter?: TopicIncidenceFilter
     onFilterChange?: (filter: TopicIncidenceFilter) => void
-    onTopicProcessed?: (result: any) => void
+    onTopicProcessed?: (result: ProcessTopicIncidenceResponse) => void
 }) {
     const [topics, setTopics] = useState<TopicRow[]>([])
     const [loading, setLoading] = useState(true)
@@ -123,53 +187,7 @@ export function AllTopicsTable({
     const [stats, setStats] = useState({ users: 0, subjects: 0, topics: 0 })
     const [processingTopicId, setProcessingTopicId] = useState<string | null>(null)
 
-    useEffect(() => {
-        loadTopics()
-    }, [currentPage, itemsPerPage, refreshTrigger, filter])
-
-    const processTopicNow = async (topic: TopicRow) => {
-        const supabase = getSupabaseClient()
-        if (!supabase) {
-            toastGate.notifyError('Supabase não configurado', 'ALL-TOPICS-PROCESS-01', { severity: 'medium' })
-            return
-        }
-
-        setProcessingTopicId(topic.id)
-
-        try {
-            const { data, error: invokeError } = await supabase.functions.invoke('process-topic-incidence', {
-                body: {
-                    topicId: topic.id,
-                    limit: 1,
-                },
-            })
-
-            if (invokeError) throw invokeError
-
-            const result = data?.results?.[0]
-            logCopyableJson('✅ Processamento individual completo', data)
-            onTopicProcessed?.(data)
-
-            if (!result) {
-                toast.info(data?.message || 'Nenhum resultado retornado para este tópico.')
-            } else if (result.status === 'error') {
-                toastGate.notifyError(`Erro ao processar: ${result.reason || 'falha desconhecida'}`, 'ALL-TOPICS-PROCESS-02', { severity: 'medium' })
-            } else if (result.status === 'zero') {
-                toast.warn(`Processado, mas sem sinal: ${topic.name}`)
-            } else {
-                toast.success(`Tópico processado: sinal ${Number(result.volume || 0).toLocaleString('pt-BR')}`)
-            }
-
-            await loadTopics()
-        } catch (err) {
-            console.error('Erro ao processar tópico específico:', err)
-            toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao processar tópico', 'ALL-TOPICS-PROCESS-03', { severity: 'medium' })
-        } finally {
-            setProcessingTopicId(null)
-        }
-    }
-
-    const loadTopics = async () => {
+    const loadTopics = useCallback(async () => {
         const supabase = getSupabaseClient()
         if (!supabase) {
             setError('Supabase não configurado')
@@ -186,7 +204,7 @@ export function AllTopicsTable({
             if (!userId) throw new Error('Usuário não autenticado.')
 
             const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-            let query = (supabase as any)
+            let query = supabase
                 .from('topics')
                 .select(`
                     id,
@@ -266,12 +284,12 @@ export function AllTopicsTable({
                 topics: count || 0
             })
 
-            const formattedData: TopicRow[] = (data || []).map((row: any) => ({
+            const formattedData: TopicRow[] = ((data || []) as TopicQueryRow[]).map((row) => ({
                 id: row.id,
                 name: row.name,
                 subject_name: row.subjects?.name || 'Sem Matéria',
                 last_trend_check_at: row.last_trend_check_at,
-                is_skipped: row.is_skipped,
+                is_skipped: row.is_skipped ?? false,
                 skip_reason: row.skip_reason,
                 created_at: row.created_at,
                 // user_email removido do select direto para simplificar (precisaria de join complexo)
@@ -281,7 +299,7 @@ export function AllTopicsTable({
                 last_used_query: row.last_used_query,
                 last_audit_log: row.last_audit_log,
                 status: row.status,
-                incidence_source: row.incidence_source,
+                incidence_source: isTopicIncidenceSource(row.incidence_source) ? row.incidence_source : null,
                 incidence_context: row.incidence_context || null,
                 incidence_applied_at: row.incidence_applied_at,
             }))
@@ -292,6 +310,52 @@ export function AllTopicsTable({
             setError(err instanceof Error ? err.message : 'Erro desconhecido')
         } finally {
             setLoading(false)
+        }
+    }, [currentPage, filter, itemsPerPage])
+
+    useEffect(() => {
+        loadTopics()
+    }, [loadTopics, refreshTrigger])
+
+    const processTopicNow = async (topic: TopicRow) => {
+        const supabase = getSupabaseClient()
+        if (!supabase) {
+            toastGate.notifyError('Supabase não configurado', 'ALL-TOPICS-PROCESS-01', { severity: 'medium' })
+            return
+        }
+
+        setProcessingTopicId(topic.id)
+
+        try {
+            const { data, error: invokeError } = await supabase.functions.invoke<ProcessTopicIncidenceResponse>('process-topic-incidence', {
+                body: {
+                    topicId: topic.id,
+                    limit: 1,
+                },
+            })
+
+            if (invokeError) throw invokeError
+
+            const result = data?.results?.[0]
+            logCopyableJson('✅ Processamento individual completo', data)
+            if (data) onTopicProcessed?.(data)
+
+            if (!result) {
+                toast.info(data?.message || 'Nenhum resultado retornado para este tópico.')
+            } else if (result.status === 'error') {
+                toastGate.notifyError(`Erro ao processar: ${result.reason || 'falha desconhecida'}`, 'ALL-TOPICS-PROCESS-02', { severity: 'medium' })
+            } else if (result.status === 'zero') {
+                toast.warn(`Processado, mas sem sinal: ${topic.name}`)
+            } else {
+                toast.success(`Tópico processado: sinal ${Number(result.volume || 0).toLocaleString('pt-BR')}`)
+            }
+
+            await loadTopics()
+        } catch (err) {
+            console.error('Erro ao processar tópico específico:', err)
+            toastGate.notifyError(err instanceof Error ? err.message : 'Erro ao processar tópico', 'ALL-TOPICS-PROCESS-03', { severity: 'medium' })
+        } finally {
+            setProcessingTopicId(null)
         }
     }
 

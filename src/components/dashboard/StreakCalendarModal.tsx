@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Calendar, Clock, Target, Timer } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfDay, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Subject } from '@/types';
+import { ReviewHistoryItem } from '@/types/revision';
 
 interface DayDetail {
   date: Date;
@@ -21,9 +23,9 @@ interface DayDetail {
 interface StreakCalendarModalProps {
   isOpen: boolean;
   onClose: () => void;
-  subjects: any[];
+  subjects: Subject[];
   selectedDate?: Date;
-  reviewData?: any[];
+  reviewData?: ReviewHistoryItem[];
 }
 
 export const StreakCalendarModal: React.FC<StreakCalendarModalProps> = ({

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { TrendingUp, ArrowLeft } from 'lucide-react';
 import { AutomationSimulator } from '@/components/AutomationSimulator';
-import { AllTopicsTable, type TopicIncidenceFilter } from '@/components/AllTopicsTable';
+import { AllTopicsTable, type ProcessTopicIncidenceResponse, type TopicIncidenceFilter } from '@/components/AllTopicsTable';
 import { IncidenceOperationalSummary } from '@/components/incidence/IncidenceOperationalSummary';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,7 +9,7 @@ const TrendAnalysis = () => {
     const navigate = useNavigate();
     const [refreshTable, setRefreshTable] = useState(0);
     const [topicFilter, setTopicFilter] = useState<TopicIncidenceFilter>('all');
-    const [externalProcessResult, setExternalProcessResult] = useState<any | null>(null);
+    const [externalProcessResult, setExternalProcessResult] = useState<ProcessTopicIncidenceResponse | null>(null);
 
     return (
         <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-foreground">

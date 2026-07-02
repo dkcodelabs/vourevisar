@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, ChevronRight, FileText, Edit3, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Subject } from '@/types';
+import { Subject, Topic } from '@/types';
 import { ReviewConfirmDialog } from './ReviewConfirmDialog';
 
 interface ReviewsGroupedProps {
@@ -67,7 +67,7 @@ export const ReviewsGrouped: React.FC<ReviewsGroupedProps> = ({
         });
     };
 
-    const getTopicStatus = (topic: any) => {
+    const getTopicStatus = (topic: Topic) => {
         if (topic.reviewStage === 'Concluído') return 'completed';
 
         if (!topic.nextReview) return 'new';
@@ -91,7 +91,7 @@ export const ReviewsGrouped: React.FC<ReviewsGroupedProps> = ({
         }
     };
 
-    const getStatusText = (topic: any) => {
+    const getStatusText = (topic: Topic) => {
         const status = getTopicStatus(topic);
 
         if (status === 'completed') return 'Concluído';
