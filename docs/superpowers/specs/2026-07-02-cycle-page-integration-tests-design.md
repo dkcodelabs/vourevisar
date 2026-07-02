@@ -13,7 +13,7 @@ A primeira camada de integracao cobre:
 - ausencia total de materias com CTA para `Meus Editais`;
 - ciclo ativo com topicos pendentes e suas acoes principais;
 - ciclo sem novos topicos com prioridade para `Ir para Revisoes`;
-- conclusao verdadeira permitindo iniciar um novo ciclo.
+- conclusao verdadeira direcionando para desempenho, sem reabrir ciclo indevidamente.
 
 Ficam fora deste recorte merges, importacao de edital, edicao em massa, drag and drop e validacao visual por viewport. Esses fluxos exigem suites proprias porque possuem dependencias e riscos diferentes.
 
@@ -30,7 +30,7 @@ Uma factory central cria cenarios validos por padrao e permite sobrescrever some
 3. Sem materias cadastradas, a pagina deve explicar a ausencia e navegar para `/meus-editais` pelo CTA.
 4. Com topicos novos, a fila deve exibir materia e topico acionaveis e nao oferecer novo ciclo prematuramente.
 5. Sem topicos novos, mas com revisoes pendentes, a acao dominante deve levar a `/revisoes`; `Novo Ciclo` nao deve aparecer.
-6. Somente quando todos os estudos e revisoes estiverem realmente concluidos a interface pode oferecer iniciar novo ciclo.
+6. Quando todos os estudos e revisoes estiverem realmente concluidos, a interface deve oferecer `Ver desempenho`; `Novo Ciclo` continua ausente.
 
 ## Estrategia TDD
 
