@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { resolveSupabaseEnv } from './env';
+import { getMissingSupabaseDeployEnv, resolveSupabaseEnv } from './env';
 
 describe('resolveSupabaseEnv', () => {
+  it('accepts the legacy anon key in deploy validation', () => {
+    expect(
+      getMissingSupabaseDeployEnv({
+        VITE_SUPABASE_URL: 'https://project.supabase.co',
+        VITE_SUPABASE_ANON_KEY: 'legacy-anon-key',
+      }),
+    ).toEqual([]);
+  });
+
   it('throws in production when Supabase URL is missing', () => {
     expect(() =>
       resolveSupabaseEnv({
