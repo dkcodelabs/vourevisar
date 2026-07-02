@@ -22,6 +22,12 @@ interface ParsedData {
   topico: string;
 }
 
+const getValidationMessage = (error: unknown): string => {
+  if (!error || typeof error !== 'object') return 'valor inválido';
+  const issues = (error as { issues?: Array<{ message?: string }> }).issues;
+  return issues?.[0]?.message || 'valor inválido';
+};
+
 const ContentUploadModal: React.FC<ContentUploadModalProps> = ({ open, onOpenChange, onSuccess }) => {
   const { user } = useAuth();
   const [content, setContent] = useState('');
@@ -250,7 +256,7 @@ ${content}`;
         try {
           subjectNameSchema.parse(subjectName);
         } catch (error: unknown) {
-          toastGate.notifyError(`Matéria "${subjectName}": ${error.errors[0]?.message}`, 'COMPONENTS-CONTENTUPLOADMODAL-06', { severity: 'medium' });
+          toastGate.notifyError(`Matéria "${subjectName}": ${getValidationMessage(error)}`, 'COMPONENTS-CONTENTUPLOADMODAL-06', { severity: 'medium' });
           continue;
         }
 
@@ -292,7 +298,7 @@ ${content}`;
           try {
             topicNameSchema.parse(topicName);
           } catch (error: unknown) {
-            toastGate.notifyError(`Tópico "${topicName}": ${error.errors[0]?.message}`, 'COMPONENTS-CONTENTUPLOADMODAL-07', { severity: 'medium' });
+            toastGate.notifyError(`Tópico "${topicName}": ${getValidationMessage(error)}`, 'COMPONENTS-CONTENTUPLOADMODAL-07', { severity: 'medium' });
             continue;
           }
 

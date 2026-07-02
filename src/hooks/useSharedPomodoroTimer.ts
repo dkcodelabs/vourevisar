@@ -1,11 +1,37 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+interface PomodoroState {
+  timeLeft: number;
+  isRunning: boolean;
+  sessionsToday: number;
+  initialTime: number;
+  isBlinking: boolean;
+  lastDate: string;
+  lastSaveTime?: number;
+  listeners: Set<() => void>;
+}
+
+type StoredPomodoroState = Omit<PomodoroState, 'listeners' | 'isBlinking'> & {
+  isBlinking?: boolean;
+};
+
+const isStoredPomodoroState = (value: unknown): value is StoredPomodoroState => {
+  if (!value || typeof value !== 'object') return false;
+  const state = value as Record<string, unknown>;
+  return typeof state.timeLeft === 'number'
+    && typeof state.isRunning === 'boolean'
+    && typeof state.sessionsToday === 'number'
+    && typeof state.initialTime === 'number'
+    && typeof state.lastDate === 'string';
+};
+
 // Função para carregar estado do localStorage
-const loadStateFromStorage = () => {
+const loadStateFromStorage = (): PomodoroState => {
   try {
     const saved = localStorage.getItem('pomodoroState');
     if (saved) {
-      const parsed = JSON.parse(saved);
+      const parsed: unknown = JSON.parse(saved);
+      if (!isStoredPomodoroState(parsed)) throw new Error('Estado do Pomodoro inválido');
       const today = new Date().toDateString();
 
       // Se é um novo dia, resetar sessões
@@ -52,7 +78,7 @@ const loadStateFromStorage = () => {
 };
 
 // Função para salvar estado no localStorage
-const saveStateToStorage = (state: unknown) => {
+const saveStateToStorage = (state: PomodoroState) => {
   try {
     const stateToSave = {
       timeLeft: state.timeLeft,

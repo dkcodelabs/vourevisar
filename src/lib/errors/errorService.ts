@@ -14,6 +14,16 @@ import { classifyError } from './classifier';
 
 const MAX_METADATA_SIZE = 4096;
 
+interface ErrorLike {
+    name?: string;
+    code?: string | number;
+    status?: string | number;
+    message?: string;
+}
+
+const asErrorLike = (error: unknown): ErrorLike =>
+    typeof error === 'object' && error !== null ? error as ErrorLike : {};
+
 class ErrorService {
     private static instance: ErrorService;
     private lastErrorSignature: string | null = null;
@@ -30,7 +40,7 @@ class ErrorService {
     }
 
     private isIgnorableError(error: unknown): boolean {
-        const err = error as unknown;
+        const err = asErrorLike(error);
         // 1. AbortController cancellations (Client or Browser side)
         if (err?.name === 'AbortError') return true;
         if (err?.code === 20) return true; // DOMException: AbortError
@@ -57,11 +67,12 @@ class ErrorService {
         input: ErrorReportInput
     ): AppErrorNormalized {
         const error = input.originalError;
+        const errorLike = asErrorLike(error);
         const errorId = `ERR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
         // Extração de dados do erro
-        const code = input.errorCode || error?.code || error?.status?.toString() || 'UNKNOWN';
-        const technicalMessage = input.technicalMessage || error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
+        const code = String(input.errorCode || errorLike.code || errorLike.status || 'UNKNOWN');
+        const technicalMessage = input.technicalMessage || errorLike.message || (typeof error === 'string' ? error : JSON.stringify(error));
         const userMessage = input.userMessage || getFriendlyMessage(technicalMessage, code);
 
         // Classificação Inteligente

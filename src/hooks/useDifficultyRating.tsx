@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
+import type { DifficultyLevel } from '@/types';
 
 interface DifficultyRatingState {
   isModalOpen: boolean;
@@ -53,7 +54,7 @@ export const useDifficultyRating = () => {
     setIsLoading(true);
     try {
       await updateTopic(ratingState.subjectId, ratingState.topicId, {
-        difficulty_level: difficulty as unknown,
+        difficulty_level: difficulty as DifficultyLevel | null,
       });
 
       if (difficulty) {
@@ -83,7 +84,7 @@ export const useDifficultyRating = () => {
     setIsLoading(true);
     try {
       await updateTopic(subjectId, topicId, {
-        difficulty_level: difficulty as unknown,
+        difficulty_level: difficulty as DifficultyLevel | null,
       });
 
       if (difficulty) {

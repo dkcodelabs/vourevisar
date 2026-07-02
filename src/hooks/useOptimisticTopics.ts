@@ -4,6 +4,8 @@ import { Topic, TopicNotes } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
+import type { TablesUpdate } from '@/integrations/supabase/types';
+import type { Json } from '@/integrations/supabase/types';
 
 export const useOptimisticTopics = (
   initialTopics: Topic[],
@@ -119,31 +121,19 @@ export const useOptimisticTopics = (
 
     try {
       // Converter campos de Date para string para o Supabase
-      const supabaseUpdates: unknown = { ...updates };
-
-      if (updates.firstStudiedAt) {
-        supabaseUpdates.first_studied_at = updates.firstStudiedAt.toISOString();
-        delete supabaseUpdates.firstStudiedAt;
-      }
-
-      if (updates.lastReviewedAt) {
-        supabaseUpdates.last_reviewed_at = updates.lastReviewedAt.toISOString();
-        delete supabaseUpdates.lastReviewedAt;
-      }
-
-      if (updates.nextReview) {
-        supabaseUpdates.next_review = updates.nextReview.toISOString();
-        delete supabaseUpdates.nextReview;
-      }
-
-      if (updates.reviewCount !== undefined) {
-        supabaseUpdates.review_count = updates.reviewCount;
-        delete supabaseUpdates.reviewCount;
-      }
-
-      if (updates.completed !== undefined) {
-        supabaseUpdates.is_completed = updates.completed;
-      }
+      const supabaseUpdates: TablesUpdate<'topics'> = {
+        name: updates.name,
+        completed: updates.completed,
+        review_count: updates.reviewCount ?? updates.review_count,
+        review_stage: updates.reviewStage ?? updates.review_stage,
+        first_studied_at: updates.firstStudiedAt?.toISOString() ?? updates.first_studied_at,
+        last_reviewed_at: updates.lastReviewedAt?.toISOString() ?? updates.last_reviewed_at,
+        next_review: updates.nextReview?.toISOString() ?? updates.next_review,
+        notes: updates.notes as unknown as Json,
+        difficulty_level: updates.difficulty_level,
+        subtopics: updates.subtopics as unknown as Json,
+        position: updates.position,
+      };
 
       // Campos camelCase já foram removidos/convertidos acima
       // Campos snake_case prontos para envio ao Supabase

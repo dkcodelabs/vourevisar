@@ -17,6 +17,8 @@ import {
 } from '@/utils/studyCycleStrategic';
 
 import { fetchTopicReviewStats } from '@/services/topicReviewService';
+import { transformSubjectsData } from '@/contexts/utils/dataTransformers';
+import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 
 const STUDY_FOCUS_COUNT = 2;
 
@@ -179,7 +181,7 @@ export const useStudyCycleData = () => {
           .order('priority', { ascending: true })
           .order('position', { foreignTable: 'topics', ascending: true })
           .order('created_at', { foreignTable: 'topics', ascending: true }),
-        (supabase as unknown)
+        supabase
           .from('user_editais')
           .select('*')
           .eq('user_id', user.id)
@@ -190,7 +192,7 @@ export const useStudyCycleData = () => {
         return;
       }
 
-      const newSubjects = (subjectsRes.data as unknown) || [];
+      const newSubjects = transformSubjectsData(subjectsRes.data || []);
       setSubjects(newSubjects);
       localStorage.setItem(cacheKey, JSON.stringify(newSubjects));
       setIsSubjectsLoaded(true);
@@ -209,7 +211,7 @@ export const useStudyCycleData = () => {
     loadSubjects();
   }, [loadSubjects]);
 
-  const updateTopic = useCallback(async (topicId: string, updates: unknown) => {
+  const updateTopic = useCallback(async (topicId: string, updates: TablesUpdate<'topics'>) => {
     try {
       await supabase.from('topics').update(updates).eq('id', topicId);
       await loadSubjects();
@@ -457,20 +459,33 @@ export const useStudyCycleData = () => {
 
   const handleSaveNotes = useCallback(async (subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
     try {
-      const updatePayload: unknown = {};
-      if (updatedData.notes !== undefined) updatePayload.notes = { content: updatedData.notes };
+      const updatePayload: TablesUpdate<'topics'> = {};
+      const progressUpdate: Partial<Topic> = {};
+      if (updatedData.notes !== undefined) {
+        updatePayload.notes = { content: updatedData.notes };
+        progressUpdate.notes = { content: updatedData.notes };
+      }
       if (updatedData.difficulty !== undefined) {
         updatePayload.difficulty_level = mapDifficultyToNumericLevel(updatedData.difficulty);
-        updatePayload.difficulty_set_at = new Date();
+        updatePayload.difficulty_set_at = new Date().toISOString();
+        progressUpdate.difficulty_level = updatePayload.difficulty_level as Topic['difficulty_level'];
+        progressUpdate.difficulty_set_at = updatePayload.difficulty_set_at;
       }
-      if (updatedData.subTopics !== undefined) updatePayload.subtopics = updatedData.subTopics;
+      if (updatedData.subTopics !== undefined) {
+        const subtopics = updatedData.subTopics.map(subtopic => ({
+          ...subtopic,
+          addedAt: new Date().toISOString(),
+        }));
+        updatePayload.subtopics = subtopics as unknown as Json;
+        progressUpdate.subtopics = subtopics;
+      }
 
       await updateTopic(topicId, updatePayload);
 
       // 🔄 Propagação profunda v2.2: Replicar notas/dificuldade/subtópicos para irmãos
       try {
         const unificationMap = userCycle?.unification_map ?? null;
-        await registerDualProgress(topicId, updatePayload, unificationMap);
+        await registerDualProgress(topicId, progressUpdate, unificationMap);
       } catch (dualErr) {
         console.warn('⚠️ Falha na propagação de notas para irmãos (não-bloqueante):', dualErr);
       }

@@ -29,6 +29,7 @@ export interface ReviewTopic {
   memory_stability?: number;
   current_interval?: number;
   learningStatus?: LearningStatus;
+  notes?: unknown;
 }
 
 // Interface for export group
@@ -141,7 +142,9 @@ export const useReviewsData = () => {
       const reviewScopedTopics = dedupeMergedReviewTopics(data, topicMerges);
 
       // Map to existing Topic structure and Sort locally
-      const mappedTopics = reviewScopedTopics.map(topic => ({
+      const mappedTopics = reviewScopedTopics.map(topic => {
+        const subject = Array.isArray(topic.subjects) ? topic.subjects[0] : topic.subjects;
+        return {
         id: topic.id,
         name: topic.name,
         subject_id: topic.subject_id,
@@ -158,14 +161,14 @@ export const useReviewsData = () => {
           ? determineLearningStatus(topic.memory_stability || 0, topic.current_interval || 0, topic.review_count || 0) 
           : undefined,
         notes: topic.notes,
-        subject_name: topic.subjects?.name || 'Sem disciplina',
+        subject_name: subject?.name || 'Sem disciplina',
         subjects: {
-          id: topic.subjects?.id,
-          name: topic.subjects?.name,
-          color: topic.subjects?.color,
+          id: subject?.id,
+          name: subject?.name,
+          color: subject?.color,
           user_id: user.id
         }
-      }));
+      }});
 
       // Sort logic: 
       // 1. Pending (Overdue < Today < Future)

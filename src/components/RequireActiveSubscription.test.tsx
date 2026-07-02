@@ -52,7 +52,7 @@ describe('RequireActiveSubscription', () => {
       accessLevel: 'none',
       accessMessage: 'Sem acesso',
       refetch: vi.fn(),
-    } as ReturnType<typeof useUserAccess>);
+    } as unknown as ReturnType<typeof useUserAccess>);
 
     renderGuardedRoute();
 
@@ -72,7 +72,7 @@ describe('RequireActiveSubscription', () => {
       accessLevel: 'none',
       accessMessage: 'Sem acesso',
       refetch: vi.fn(),
-    } as ReturnType<typeof useUserAccess>);
+    } as unknown as ReturnType<typeof useUserAccess>);
 
     renderGuardedRoute();
 

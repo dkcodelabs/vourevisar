@@ -11,6 +11,12 @@ import {
   REVIEW_STAGES
 } from '@/types/topic-review-history';
 import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
+import type { Tables } from '@/integrations/supabase/types';
+
+type TopicScheduleRow = Pick<
+  Tables<'topics'>,
+  'first_studied_at' | 'review_stage' | 'next_review' | 'review_count' | 'last_reviewed_at' | 'completed'
+>;
 
 /**
  * Hook para buscar e processar o histórico de revisões de um tópico
@@ -33,7 +39,7 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
         setError(null);
 
         // Buscar histórico de revisões
-        const { data: historyData, error: historyError } = await (supabase as unknown)
+        const { data: historyData, error: historyError } = await supabase
           .from('topic_review_history')
           .select('*, difficulty_numeric, trend_label, trend_delta')
           .eq('topic_id', topicId)
@@ -44,7 +50,7 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
         // Buscar dados do tópico
         const { data: topicData, error: topicError } = await supabase
           .from('topics')
-          .select('first_studied_at, review_stage, next_review, review_count, last_reviewed_at')
+          .select('first_studied_at, review_stage, next_review, review_count, last_reviewed_at, completed')
           .eq('id', topicId)
           .single();
 
@@ -79,7 +85,7 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
  */
 function processTopicHistory(
   historyData: TopicReviewHistoryEntry[],
-  topicData: unknown,
+  topicData: TopicScheduleRow,
   userProfile: ReviewProfile
 ): TopicReviewHistory {
   const now = new Date();
@@ -163,7 +169,7 @@ function processTopicHistory(
 
   // Extrair a trend_label mais recente (último registro com valor não nulo)
   const latestTrendEntry = [...historyData].reverse().find(
-    (entry: unknown) => entry.trend_label != null
+    (entry) => entry.trend_label != null
   );
   const latestTrendLabel: string = latestTrendEntry?.trend_label ?? 'Sem histórico suficiente';
   const latestTrendDelta: number | null = latestTrendEntry?.trend_delta ?? null;
@@ -188,7 +194,7 @@ function processTopicHistory(
 export const useRegisterReview = () => {
   const registerReview = async (topicId: string, reviewStage: string) => {
     try {
-      const { error } = await (supabase as unknown)
+      const { error } = await supabase
         .from('topic_review_history')
         .insert({
           topic_id: topicId,

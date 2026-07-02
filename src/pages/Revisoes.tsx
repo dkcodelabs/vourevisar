@@ -128,14 +128,16 @@ export const Revisoes = () => {
           .order('reviewed_at', { ascending: false });
 
         if (response.error) throw response.error;
-        return filterHistoryRowsByActiveTopicIds(response.data || [], activeTopicScope.activeTopicIds).map((review): ReviewHistoryItem => ({
+        return filterHistoryRowsByActiveTopicIds(response.data || [], activeTopicScope.activeTopicIds).map((review): ReviewHistoryItem => {
+          const topic = Array.isArray(review.topics) ? review.topics[0] : review.topics;
+          return {
           id: review.id,
           topic_id: review.topic_id,
           review_stage: review.review_stage,
           reviewed_at: review.reviewed_at,
-          topic_name: review.topics?.name,
-          subject_id: review.topics?.subject_id
-        })) || [];
+          topic_name: topic?.name,
+          subject_id: topic?.subject_id
+        }});
       } catch (error) {
         // Log the error but rethrow so react-query handles the state
         await errorService.report(
@@ -222,7 +224,7 @@ export const Revisoes = () => {
 
     const mapTopicToItem = (topic: ReviewTopic): RevisionItem => {
       const subject = subjects.find(s => s.id === topic.subject_id);
-      const rawCount = topic.reviewCount || topic.review_count || 0;
+      const rawCount = topic.review_count || 0;
       const programCompleted = isReviewProgramCompleted(topic);
       const reviewCount = getProgrammedReviewsCompleted(
         rawCount,
@@ -255,7 +257,11 @@ export const Revisoes = () => {
         subjectId: topic.subject_id,
         difficulty: topic.difficulty_level || 0,
         dueDate: topic.next_review || new Date().toISOString(),
-        notes: topic.notes || '',
+        notes: typeof topic.notes === 'string'
+          ? topic.notes
+          : (topic.notes && typeof topic.notes === 'object' && 'content' in topic.notes
+              ? String(topic.notes.content || '')
+              : ''),
         status: status,
         ownerImage: '',
         reviewCount,

@@ -131,22 +131,23 @@ export default function AuditLogs() {
         setAiError(null);
         try {
             const { data: logsData, error: logsError } = await supabase
-                .from('ai_usage_logs' as unknown)
+                .from('ai_usage_logs' as never)
                 .select('*')
                 .order('created_at', { ascending: false });
 
             if (logsError) throw logsError;
 
             const mappedLogs: AiUsageLog[] = [];
-            if (logsData && logsData.length > 0) {
-                const userIds = Array.from(new Set(logsData.map((log: unknown) => log.user_id)));
+            const typedLogs = (logsData || []) as unknown as AiUsageLog[];
+            if (typedLogs.length > 0) {
+                const userIds = Array.from(new Set(typedLogs.map(log => log.user_id)));
                 
                 const { data: profiles } = await supabase
                     .from('profiles')
                     .select('id, name, email')
                     .in('id', userIds);
 
-                logsData.forEach((log: unknown) => {
+                typedLogs.forEach(log => {
                     const profile = profiles?.find(p => p.id === log.user_id);
                     mappedLogs.push({
                         ...log,
@@ -168,7 +169,7 @@ export default function AuditLogs() {
                 .eq('key', 'ai_edital_config')
                 .maybeSingle();
 
-            const config = (setting?.value || {}) as unknown;
+            const config = (setting?.value || {}) as { daily_budget_usd?: number };
             const dailyBudget = typeof config.daily_budget_usd === 'number' ? config.daily_budget_usd : 5.0;
 
             setAiStats({
@@ -180,7 +181,7 @@ export default function AuditLogs() {
 
         } catch (error: unknown) {
             console.error('Error fetching AI usage logs:', error);
-            setAiError(error?.message || 'A tabela de logs de IA não foi localizada. Certifique-se de que a migração SQL foi instalada no seu banco.');
+            setAiError(error instanceof Error ? error.message : 'A tabela de logs de IA não foi localizada. Certifique-se de que a migração SQL foi instalada no seu banco.');
         } finally {
             setLoadingAi(false);
             setLoadingAi(false); // Mantem robustez

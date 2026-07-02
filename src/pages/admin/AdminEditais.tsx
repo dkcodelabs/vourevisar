@@ -105,7 +105,7 @@ const AdminEditais = () => {
     const fetchEditais = useCallback(async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await (supabase as unknown)
+            const { data, error } = await supabase
                 .from('public_editais')
                 .select('*')
                 .order('created_at', { ascending: false });
@@ -121,7 +121,7 @@ const AdminEditais = () => {
     const fetchSuggestions = useCallback(async () => {
         setLoadingSuggestions(true);
         try {
-            const { data } = await (supabase as unknown)
+            const { data } = await supabase
                 .from('edital_suggestions')
                 .select('*')
                 .order('created_at', { ascending: false });
@@ -177,10 +177,10 @@ const AdminEditais = () => {
         try {
             let error;
             if (editingId) {
-                const { error: err } = await (supabase as unknown).from('public_editais').update(payload).eq('id', editingId);
+                const { error: err } = await supabase.from('public_editais').update(payload).eq('id', editingId);
                 error = err;
             } else {
-                const { error: err } = await (supabase as unknown).from('public_editais').insert([payload]);
+                const { error: err } = await supabase.from('public_editais').insert([payload]);
                 error = err;
             }
             if (error) throw error;
@@ -197,7 +197,7 @@ const AdminEditais = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            const { error } = await (supabase as unknown).from('public_editais').delete().eq('id', id);
+            const { error } = await supabase.from('public_editais').delete().eq('id', id);
             if (error) throw error;
             toast.success('Edital removido.');
             setConfirmDeleteId(null);
@@ -212,7 +212,7 @@ const AdminEditais = () => {
         setSendingResponse(true);
         const msg = customMessage.trim() || RESPONSE_TEMPLATES[selectedTemplate];
         try {
-            const { error: suggErr } = await (supabase as unknown).from('edital_suggestions').update({
+            const { error: suggErr } = await supabase.from('edital_suggestions').update({
                 status: selectedTemplate,
                 response_message: msg,
                 responded_at: new Date().toISOString(),

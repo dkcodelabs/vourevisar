@@ -65,7 +65,7 @@ export function getDashboardActivitySelection(days: DashboardActivityDay[], sele
   const selectedDay = selectedDate ? days.find((day) => day.date === selectedDate) : null;
   const day =
     selectedDay ??
-    days.at(-1) ??
+    days[days.length - 1] ??
     null;
   const entries = day?.entries ?? [];
 

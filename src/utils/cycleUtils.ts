@@ -1,10 +1,11 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Subject } from '@/types';
+import { Subject, UserCycle } from '@/types';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 
 export const generateNextDay = async (
   userId: string,
-  userCycle: unknown,
+  userCycle: UserCycle,
   subjects: Subject[]
 ) => {
   console.log('🔄 generateNextDay iniciado:', {
@@ -128,7 +129,7 @@ export const generateNextDay = async (
     newIndex
   });
 
-  const updateData: unknown = {
+  const updateData: TablesUpdate<'user_cycles'> = {
     disciplinas_do_dia: nextBatchIds,
     indice_atual: newIndex,
     atualizado_em: new Date().toISOString()
@@ -203,7 +204,7 @@ export const loadUserCycle = async (userId: string) => {
 
 export const cleanCycle = (
   currentCycle: string[],
-  allSubjects: unknown[],
+  allSubjects: Array<Pick<Subject, 'id'>>,
   allowedSubjectIds?: Set<string>
 ): string[] => {
   const allExistantSubjectIds = allSubjects.map(s => s.id);

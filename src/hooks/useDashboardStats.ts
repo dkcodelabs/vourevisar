@@ -26,9 +26,15 @@ export interface DashboardStats {
   };
 }
 
+interface DashboardReviewRow {
+  reviewed_at: string;
+  review_stage: string | null;
+  topic_id: string;
+}
+
 export const useDashboardStats = (
   subjects: Subject[],
-  reviewData: unknown[],
+  reviewData: DashboardReviewRow[],
   currentMonth: Date = new Date()
 ): DashboardStats => {
   const today = startOfDay(new Date());

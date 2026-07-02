@@ -18,7 +18,7 @@ type RecoverableCycleState = {
 /**
  * Valida se os dados da matéria estão completos antes da criação.
  */
-export const validateSubjectCreation = (subject: unknown) => {
+export const validateSubjectCreation = (subject: { edital_id?: string | null }) => {
   if (!subject.edital_id) {
     throw new Error('Não é permitido criar matérias sem vínculo com um edital.');
   }
@@ -130,7 +130,7 @@ export const deleteOrphanedCycles = async (userId: string) => {
     if (!cycles || cycles.length === 0) return { success: true, deleted: 0 };
 
     // 2. Contar editais ativos no ciclo
-    const { count, error: countError } = await (supabase as unknown)
+    const { count, error: countError } = await supabase
       .from('user_editais')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)

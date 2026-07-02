@@ -80,7 +80,7 @@ export const useUserSettings = () => {
             subjects_per_day: newSettings.subjects_per_day,
             notifications_enabled: newSettings.notifications_enabled,
             notification_time: newSettings.notification_time,
-            data_prova_meta: (newSettings as unknown).data_prova_meta || null
+            data_prova_meta: null
           });
         } else {
           setSettings({
@@ -88,7 +88,7 @@ export const useUserSettings = () => {
             subjects_per_day: settingsData.subjects_per_day,
             notifications_enabled: settingsData.notifications_enabled,
             notification_time: settingsData.notification_time,
-            data_prova_meta: (settingsData as unknown).data_prova_meta || null
+            data_prova_meta: null
           });
         }
 

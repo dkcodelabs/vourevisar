@@ -72,7 +72,7 @@ export const findTopicIncidenceCatalogMatch = async (
   const keys = buildCatalogKeys(context);
   if (!keys.topic_key || !keys.subject_key) return null;
 
-  const { data: exactMatch, error: exactError } = await (supabase as unknown)
+  const { data: exactMatch, error: exactError } = await supabase
     .from('topic_incidence_catalog')
     .select('id,total_volume,importance_score,search_context,winner_query,audit_log')
     .eq('context_hash', keys.context_hash)
@@ -87,7 +87,7 @@ export const findTopicIncidenceCatalogMatch = async (
     return exactMatch as TopicIncidenceCatalogMatch;
   }
 
-  const { data: fallbackMatch, error: fallbackError } = await (supabase as unknown)
+  const { data: fallbackMatch, error: fallbackError } = await supabase
     .from('topic_incidence_catalog')
     .select('id,total_volume,importance_score,search_context,winner_query,audit_log')
     .eq('topic_key', keys.topic_key)
@@ -113,7 +113,7 @@ export const applyTopicIncidenceCatalogMatch = async (
   topicId: string,
   match: TopicIncidenceCatalogMatch,
 ) => {
-  const { error } = await (supabase as unknown)
+  const { error } = await supabase
     .from('topics')
     .update({
       total_volume: match.total_volume,
@@ -153,7 +153,7 @@ export const saveTopicIncidenceCatalogResult = async ({
   const now = new Date().toISOString();
 
   if (existing) {
-    const { error } = await (supabase as unknown)
+    const { error } = await supabase
       .from('topic_incidence_catalog')
       .update({
         total_volume: Math.max(existing.total_volume || 0, totalVolume),
@@ -175,7 +175,7 @@ export const saveTopicIncidenceCatalogResult = async ({
     return existing.id;
   }
 
-  const { data, error } = await (supabase as unknown)
+  const { data, error } = await supabase
     .from('topic_incidence_catalog')
     .insert({
       ...keys,

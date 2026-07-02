@@ -7,6 +7,7 @@ import { toastManager } from '@/utils/toastManager';
 import { toast } from '@/lib/toast';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { toastGate } from '@/lib/errors/toastGate';
+import type { Subject } from '@/types';
 
 export const useTopicActions = () => {
   const { user } = useAuth();
@@ -35,7 +36,7 @@ export const useTopicActions = () => {
     });
   };
 
-  const markTopicAsReviewed = async (topicId: string, subjects: unknown[]) => {
+  const markTopicAsReviewed = async (topicId: string, subjects: Subject[]) => {
     try {
       const { data: topic } = await supabase
         .from('topics')

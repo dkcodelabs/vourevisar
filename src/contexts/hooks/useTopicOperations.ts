@@ -10,6 +10,8 @@ import {
   pickTopicProgressFields,
   syncMergedTopicProgress,
 } from '@/services/topicMergeProgressService';
+import type { TablesUpdate } from '@/integrations/supabase/types';
+import type { Json } from '@/integrations/supabase/types';
 
 export const useTopicOperations = (
   user: { id: string } | null,
@@ -78,7 +80,7 @@ export const useTopicOperations = (
 
       const wasCompleted = updates.completed === true;
 
-      const updateData: unknown = {
+      const updateData: TablesUpdate<'topics'> = {
         name: updates.name,
         completed: updates.completed,
         review_count: updates.reviewCount ?? updates.review_count,
@@ -92,12 +94,12 @@ export const useTopicOperations = (
       if (updates.first_studied_at) updateData.first_studied_at = updates.first_studied_at;
 
       // Handle custom fields
-      if (updates.notes !== undefined) updateData.notes = updates.notes;
+      if (updates.notes !== undefined) updateData.notes = updates.notes as unknown as Json;
       if (updates.difficulty_level !== undefined) {
         updateData.difficulty_level = updates.difficulty_level;
         updateData.difficulty_set_at = new Date().toISOString();
       }
-      if (updates.subtopics !== undefined) updateData.subtopics = updates.subtopics;
+      if (updates.subtopics !== undefined) updateData.subtopics = updates.subtopics as unknown as Json;
 
       const progressUpdate = pickTopicProgressFields(updateData);
       const editorialUpdate = omitTopicProgressFields(updateData);

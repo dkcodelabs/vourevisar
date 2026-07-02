@@ -404,7 +404,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             }
 
             if (rpcError) {
-                console.warn('[ImportEditalModal] Falha ao buscar limites via RPC, usando fallback local:', rpcError.message);
+                console.warn('[ImportEdititalModal] Falha ao buscar limites via RPC, usando fallback local:', getErrorMessage(rpcError));
             }
 
             // Verificar antes se é admin/owner no cliente para evitar chamada desnecessária que dá 404 no console

@@ -258,7 +258,8 @@ describe('RecentRemindersCard', () => {
       <RecentRemindersCard
         reminders={[
           {
-            id: 'reminder-1',
+          id: 'reminder-1',
+          href: '/revisoes',
             text: 'Revisar constitucional',
             reminderDate: '2026-06-21',
             completed: true,
@@ -288,7 +289,8 @@ describe('RecentRemindersCard', () => {
       <RecentRemindersCard
         reminders={[
           {
-            id: 'reminder-1',
+          id: 'reminder-1',
+          href: '/revisoes',
             text: 'Revisar constitucional',
             reminderDate: '2026-06-21',
             completed: false,
@@ -319,7 +321,8 @@ describe('RecentRemindersCard', () => {
       <RecentRemindersCard
         reminders={[
           {
-            id: 'reminder-1',
+          id: 'reminder-1',
+          href: '/revisoes',
             text: 'Revisar constitucional',
             reminderDate: '2026-06-21',
             completed: false,

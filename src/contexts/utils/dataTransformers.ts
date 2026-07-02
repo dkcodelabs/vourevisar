@@ -1,14 +1,23 @@
 
 import { Subject, Topic, StudyProgress, TopicNotes } from '@/types';
+import type { Json, Tables } from '@/integrations/supabase/types';
 import { isToday, isBefore } from 'date-fns';
 
-export const transformSubjectsData = (data: unknown[]): Subject[] => {
+type TopicRow = Partial<Tables<'topics'>> & Pick<Tables<'topics'>, 'id' | 'name'> & {
+  origin_id?: string | null;
+};
+type SubjectWithTopicsRow = Partial<Tables<'subjects'>> & Pick<Tables<'subjects'>, 'id' | 'name' | 'status'> & {
+  origin_id?: string | null;
+  topics?: TopicRow[] | null;
+};
+
+export const transformSubjectsData = (data: SubjectWithTopicsRow[]): Subject[] => {
   if (!data) return [];
 
   return data.map(subject => ({
     id: subject.id,
     name: subject.name,
-    status: subject.status,
+    status: subject.status as Subject['status'],
     priority: subject.priority,
     color: subject.color,
     is_visible: subject.is_visible !== false, // default true
@@ -18,13 +27,15 @@ export const transformSubjectsData = (data: unknown[]): Subject[] => {
     exam_weight_questions: subject.exam_weight_questions ?? null,
     exam_weight_percentage: subject.exam_weight_percentage ?? null,
     exam_weight_raw: subject.exam_weight_raw ?? null,
-    topics: subject.topics ? subject.topics.map((topic: unknown) => transformTopicData(topic)) : []
+    topics: subject.topics ? subject.topics.map(transformTopicData) : []
   }));
 };
 
-export const transformTopicData = (topic: unknown): Topic => {
+export const transformTopicData = (topic: TopicRow): Topic => {
   // Transformar anotações do banco para o tipo TopicNotes
-  const notes: TopicNotes | undefined = topic.notes ? topic.notes : undefined;
+  const notes = topic.notes && typeof topic.notes === 'object' && !Array.isArray(topic.notes)
+    ? topic.notes as TopicNotes
+    : undefined;
 
   return {
     id: topic.id,
@@ -39,17 +50,17 @@ export const transformTopicData = (topic: unknown): Topic => {
     first_studied_at: topic.first_studied_at,
     last_reviewed_at: topic.last_reviewed_at,
     is_completed: topic.completed || false,
-    difficulty_level: topic.difficulty_level,
+    difficulty_level: topic.difficulty_level as Topic['difficulty_level'],
     notes: notes,
     edital_id: topic.edital_id,
     origin_id: topic.origin_id,
-    subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [],
+    subtopics: Array.isArray(topic.subtopics) ? topic.subtopics as unknown as Topic['subtopics'] : [],
     last_search_context: topic.last_search_context,
     next_review: topic.next_review,
     total_volume: topic.total_volume,
     incidence_score: topic.incidence_score ?? null,
-    incidence_level: topic.incidence_level ?? null,
-    incidence_context: topic.incidence_context ?? null,
+    incidence_level: topic.incidence_level as Topic['incidence_level'],
+    incidence_context: topic.incidence_context as Record<string, unknown> | null,
     memory_stability: topic.memory_stability,
     current_interval: topic.current_interval,
     is_active: topic.is_active !== false,
@@ -57,7 +68,7 @@ export const transformTopicData = (topic: unknown): Topic => {
     position: topic.position ?? undefined,
     review_stage: topic.review_stage ?? null,
     last_used_query: topic.last_used_query,
-    last_audit_log: topic.last_audit_log
+    last_audit_log: topic.last_audit_log as Json | null
   };
 };
 

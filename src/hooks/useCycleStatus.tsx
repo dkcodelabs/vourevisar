@@ -140,7 +140,7 @@ export const useCycleStatus = () => {
         }
 
         // Verificar se está 100% concluída (TODOS os tópicos devem estar na última revisão OU completed)
-        const allTopicsCompleted = subject.topics.every((topic: unknown) => {
+        const allTopicsCompleted = subject.topics.every((topic: Topic) => {
           return topic.reviewStage === 'Concluído' ||
             topic.completed === true ||
             topic.reviewStage === '60d';
@@ -181,7 +181,7 @@ export const useCycleStatus = () => {
 
       // Log removido para otimização
 
-      let updateData: unknown;
+      let updateData: Partial<ExtendedUserCycle>;
       let newCycleNumberForEvent: number | undefined;
 
       if (isLastActiveSubject) {
@@ -297,7 +297,7 @@ export const useCycleStatus = () => {
           if (allUserSubjects && allUserSubjects.length > 0) {
             const areAllStudiesCompleted = allUserSubjects.every(subject =>
               subject.topics && subject.topics.length > 0 &&
-              subject.topics.every((topic: unknown) => topic.completed === true)
+              subject.topics.every((topic: Topic) => topic.completed === true)
             );
 
             console.log('🔍 Verificação final no useCycleStatus:', {
@@ -306,8 +306,8 @@ export const useCycleStatus = () => {
               subjectsStatus: allUserSubjects.map(s => ({
                 name: s.name,
                 totalTopics: s.topics?.length || 0,
-                completedTopics: s.topics?.filter((t: unknown) => t.completed).length || 0,
-                allCompleted: s.topics?.every((t: unknown) => t.completed) || false
+                completedTopics: s.topics?.filter((t: Topic) => t.completed).length || 0,
+                allCompleted: s.topics?.every((t: Topic) => t.completed) || false
               }))
             });
 
@@ -402,7 +402,7 @@ export const useCycleStatus = () => {
   }, [userCycle]);
 
   // Obter próxima matéria sugerida (primeira não estudada e não concluída)
-  const getNextSuggestedSubject = useCallback((subjects: unknown[] = []): string | null => {
+  const getNextSuggestedSubject = useCallback((subjects: SubjectWithTopics[] = []): string | null => {
     try {
       if (!userCycle?.ciclo_atual) return null;
 
@@ -435,7 +435,7 @@ export const useCycleStatus = () => {
   }, [userCycle]);
 
   // Verificar se uma matéria específica é a próxima sugerida
-  const isNextSuggested = useCallback((subjectId: string, subject?: unknown): boolean => {
+  const isNextSuggested = useCallback((subjectId: string, subject?: SubjectWithTopics): boolean => {
     try {
       if (!userCycle?.ciclo_atual) return false;
 
@@ -595,7 +595,7 @@ export const useCycleStatus = () => {
     loadCycle();
 
     // Sistema de eventos otimizado
-    const handleCycleUpdate = (event: unknown) => {
+    const handleCycleUpdate = (event: CustomEvent<{ source?: string; type?: string }>) => {
       const now = Date.now();
       const eventDetail = event?.detail;
 

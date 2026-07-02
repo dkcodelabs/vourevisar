@@ -4,6 +4,7 @@ import { ReviewInterval } from '@/types/study-cycle';
 import { CheckIcon } from './Icons';
 import { FileText, ArrowRight, Flame, Target } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type { MentorAlert } from '@/types/mentor';
 
 interface StudyCycleTopicItemProps {
   topic: StudyCycleTopic;
@@ -16,7 +17,7 @@ interface StudyCycleTopicItemProps {
   onEditingChange?: (topicId: string | null) => void;
   searchQuery?: string;
   isConsolidated?: boolean;
-  mentorAlert?: unknown;
+  mentorAlert?: MentorAlert | null;
 }
 
 // Componente para destacar texto da busca
@@ -301,7 +302,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
           </div>
           <button
             onClick={onOpenNotes}
-            className={`p-1 transition-colors ${(typeof topic.notes === 'string' ? topic.notes : (topic.notes as unknown)?.content)?.trim() && (typeof topic.notes === 'string' ? topic.notes : (topic.notes as unknown)?.content) !== '<p><br></p>'
+            className={`p-1 transition-colors ${topic.notes?.trim() && topic.notes !== '<p><br></p>'
               ? 'text-primary/50 hover:text-primary'
               : 'text-gray-400 hover:text-primary/70'
               }`}

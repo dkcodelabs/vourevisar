@@ -18,6 +18,7 @@ import {
   UserCircle,
   Sparkles,
 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 
 import { NavMain } from "@/components/nav-main"
@@ -64,7 +65,12 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
     { title: "Estatísticas", url: "/estatisticas", icon: BarChart3 },
   ]
 
-  const adminItems = isAdmin
+  const adminItems: Array<{
+    name: string
+    url: string
+    icon: LucideIcon
+    status?: "error" | "ok" | "idle"
+  }> = isAdmin
     ? [
         { name: "Gerenciar Usuários", url: "/admin/users", icon: Users },
         { name: "Gerenciar Editais", url: "/admin/editais", icon: Library },

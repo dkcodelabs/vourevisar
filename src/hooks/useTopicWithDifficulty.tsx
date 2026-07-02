@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { Topic } from '@/types';
+import { Topic, type DifficultyLevel } from '@/types';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 
@@ -48,7 +48,7 @@ export const useTopicWithDifficulty = () => {
   ) => {
     try {
       await updateTopic(subjectId, topicId, {
-        difficulty_level: difficulty as unknown,
+        difficulty_level: difficulty as DifficultyLevel | null,
       });
 
       if (difficulty) {

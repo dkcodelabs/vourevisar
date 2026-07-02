@@ -13,6 +13,8 @@ import { sanitizeHtml } from '@/lib/sanitize';
 // import { Difficulty } from '@/types/study-cycle'; // Removido - usando sistema de estrelas
 import { supabase } from '@/integrations/supabase/client';
 import { toastGate } from '@/lib/errors/toastGate';
+import type { Json } from '@/integrations/supabase/types';
+import type { SubTopic } from '@/types/study-cycle';
 
 interface StudyCycleTopicNotesModalProps {
   isOpen: boolean;
@@ -42,7 +44,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
 
   const [notes, setNotes] = useState<TopicNotes | undefined>(undefined);
   // const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.MEDIUM); // Removido - usando sistema de estrelas
-  const [subTopics, setSubTopics] = useState<unknown[]>([]);
+  const [subTopics, setSubTopics] = useState<SubTopic[]>([]);
   const [newSubTopic, setNewSubTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -84,7 +86,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
 
       // Sub-tópicos
       if (topicData?.subtopics) {
-        setSubTopics(topicData.subtopics as unknown[]);
+        setSubTopics(topicData.subtopics as unknown as SubTopic[]);
       } else {
         setSubTopics([]);
       }
@@ -116,7 +118,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
       const { error } = await supabase
         .from('topics')
         .update({
-          notes: updatedNotes as unknown,
+          notes: updatedNotes as unknown as Json,
           updated_at: new Date().toISOString()
         })
         .eq('id', topicId);
@@ -155,8 +157,8 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
             content: content.trim(),
             updatedAt: new Date().toISOString(),
             createdAt: notes?.createdAt || new Date().toISOString()
-          } as unknown,
-          subtopics: subTopics as unknown,
+          } as unknown as Json,
+          subtopics: subTopics as unknown as Json,
           updated_at: new Date().toISOString()
         })
         .eq('id', topicId);
@@ -363,8 +365,8 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
                         content: content.trim(),
                         updatedAt: new Date().toISOString(),
                         createdAt: notes?.createdAt || new Date().toISOString()
-                      } as unknown,
-                      subtopics: subTopics as unknown,
+                      } as unknown as Json,
+                      subtopics: subTopics as unknown as Json,
                       updated_at: new Date().toISOString()
                     })
                     .eq('id', topicId);

@@ -475,7 +475,7 @@ export async function calcularNotaImportancia(
     // Variáveis para Audit Log V30
     const auditLog = {
         total_api_calls: 0,
-        attempts: [] as unknown[],
+        attempts: [] as Array<{ query: string; volume: number; strategy: string }>,
         winner_query: ""
     }
 
@@ -680,11 +680,11 @@ export async function processNextPendingTopic(
             .limit(1)
             .single()
 
-        const { data: topic, error: queryError } = queryResult as { data: TopicFromDB | null, error: unknown }
+        const { data: topic, error: queryError } = queryResult as unknown as { data: TopicFromDB | null, error: { message?: string } | null }
 
         if (queryError) {
             console.error('❌ Erro ao buscar tópico pendente:', queryError)
-            return { error: `Erro no banco: ${queryError.message}` }
+            return { error: `Erro no banco: ${queryError.message || 'falha desconhecida'}` }
         }
 
         if (!topic) {

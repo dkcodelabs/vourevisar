@@ -7,6 +7,7 @@ import { toast } from '@/lib/toast';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study'; // mantido para compatibilidade legada
 import { useStudySessionTracking } from './useStudySessionTracking';
 import { toastGate } from '@/lib/errors/toastGate';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 
 export const useStudyCycle = () => {
   const { user } = useAuth();
@@ -79,7 +80,7 @@ export const useStudyCycle = () => {
       }
 
       const now = new Date().toISOString();
-      const updateData: unknown = {
+      const updateData: TablesUpdate<'topics'> = {
         review_count: newReviewCount,
         next_review: nextReview,
         review_stage: reviewStage,

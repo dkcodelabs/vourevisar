@@ -1,6 +1,7 @@
 import { Subject } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextReviewDate } from './reviewStageUtils';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 
 export const completeStudySession = async (
   user_id: string,
@@ -269,7 +270,7 @@ export const completeStudySession = async (
       // Remover a matéria da lista do dia e do ciclo
       const updatedDisciplinasoDia = cycleData.disciplinas_do_dia.filter(id => id !== subjectId);
       const updatedCicloAtual = cycleData.ciclo_atual.filter(id => id !== subjectId);
-      const updateObj: unknown = {
+      const updateObj: TablesUpdate<'user_cycles'> = {
         disciplinas_do_dia: updatedDisciplinasoDia,
         ciclo_atual: updatedCicloAtual,
         atualizado_em: new Date().toISOString()

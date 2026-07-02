@@ -55,7 +55,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
   const [internalEditing, setInternalEditing] = useState(false);
   const [name, setName] = useState(initialName);
   const [isSaving, setIsSaving] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLInputElement>(null);
 
   const isEditingState = isEditing || internalEditing;
 
@@ -128,7 +128,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
     return (
       <div className="flex items-center gap-2 flex-1">
         <Input
-          ref={textareaRef as unknown} // Cast to any since Input ref might expect HTMLInputElement
+          ref={textareaRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="h-8 text-sm flex-1 min-w-0"

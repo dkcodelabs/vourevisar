@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
+
+type ProfileRow = Tables<'profiles'>;
+type RoleRow = Tables<'user_roles'>;
 
 export interface AdminUser {
     id: string;
@@ -41,8 +45,8 @@ export function useAdminUsers() {
             if (rolesError) console.error('Error fetching roles:', rolesError);
 
             // 3. Map Data
-            const combinedUsers: AdminUser[] = (profiles || []).map((profile: unknown) => {
-                const userRole = roles?.find((r: unknown) => r.user_id === profile.id)?.role || 'user';
+            const combinedUsers: AdminUser[] = (profiles || []).map((profile: ProfileRow) => {
+                const userRole = roles?.find((role: RoleRow) => role.user_id === profile.id)?.role || 'user';
                 const isGoogle = profile.avatar_url?.includes('googleusercontent');
                 const source = isGoogle ? 'Email, Google' : 'Email';
 
@@ -72,11 +76,12 @@ export function useAdminUsers() {
             setUsers(combinedUsers);
         } catch (err: unknown) {
             console.error('Error fetching admin users:', err);
+            const message = err instanceof Error ? err.message : 'Erro desconhecido';
             // Fallback for missing columns or other DB errors
-            if (err.message?.includes('column "email" does not exist') || err.message?.includes('column "deleted_at" does not exist')) {
+            if (message.includes('column "email" does not exist') || message.includes('column "deleted_at" does not exist')) {
                 setError('Esquema do banco de dados desatualizado. Execute as migrações.');
             } else {
-                setError(err.message);
+                setError(message);
             }
         } finally {
             setLoading(false);
