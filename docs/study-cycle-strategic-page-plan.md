@@ -953,12 +953,12 @@ Decisao de produto: flashcards/questoes nao devem ser gerados automaticamente pa
 - [x] Remover alternancia de cor dos topicos que confundia com a cor da materia; linhas de topico usam superficie unica e separacao por borda/hover.
 - [x] Rodar `npm run lint`.
 - [x] Rodar `npm run build` se a mudanca for ampla.
-- [ ] Zerar a divida global de lint e impedir regressao. Baseline de 2026-07-01: 0 erros e 368 warnings, sendo 335 `no-explicit-any`, 18 `react-hooks/exhaustive-deps` e 15 `react-refresh/only-export-components`. O script de lint e o Quality Gate devem rejeitar qualquer warning com `--max-warnings=0`.
+- [x] Zerar a divida global de lint e impedir regressao. Baseline de 2026-07-01: 0 erros e 368 warnings, sendo 335 `no-explicit-any`, 18 `react-hooks/exhaustive-deps` e 15 `react-refresh/only-export-components`. O script de lint e o Quality Gate agora rejeitam qualquer warning com `--max-warnings=0`; o PR #11 passou remotamente sem anotacoes.
   - [x] Eliminar `no-explicit-any` no frontend, hooks e services, preservando contratos Supabase e comportamento existente. Nao restou `any` explicito em codigo ativo; ocorrencias textuais remanescentes sao apenas o operador SQL `ANY(...)` em testes.
   - [x] Eliminar `no-explicit-any` nas Edge Functions `extract-edital`, `process-topic-incidence` e funcoes menores; as cinco funcoes tocadas passam juntas em `deno check` antes de deploy.
   - [x] Corrigir dependencias de hooks sem criar loops, chamadas duplicadas ou estado obsoleto.
   - [x] Declarar nominalmente os exports validos de Provider/hook e variants do shadcn/ui para Fast Refresh, mantendo a regra ativa para exports nao previstos.
-  - [ ] Atualizar `actions/checkout` e `actions/setup-node` para runtime Node 24 e validar o Quality Gate remoto sem anotacoes de runtime depreciado.
+  - [x] Atualizar `actions/checkout` e `actions/setup-node` para runtime Node 24 e validar o Quality Gate remoto sem anotacoes de runtime depreciado.
   - [x] Rodar `npm run lint`, `npx tsc --noEmit`, `npm run test:run`, `npm run build`, `deno check` e `npm audit`; todos verdes localmente, com 283 testes e zero vulnerabilidades.
 - [ ] Tornar `tsc -b` um gate real e zerar o passivo historico antes de afirmar que o repositorio esta integralmente tipado. Baseline medido em 2026-07-01 na `main` (`aa9bc2a1`): 472 pontos unicos de erro, concentrados em `Subjects.tsx`, `dataTransformers.ts`, ciclo, dashboards e hooks antigos. A branch de lint nao introduziu nenhum erro novo em comparacao com esse baseline; corrigir em recorte separado para nao misturar uma refatoracao estrutural ampla com o fechamento do Quality Gate de warnings.
 - [ ] Adicionar testes de componente/integracao para a pagina de ciclo durante a refatoracao de `Subjects.tsx`: hoje a cobertura automatizada do ciclo esta concentrada nos utilitarios estrategicos e nao protege renderizacao, interacoes da fila, modos responsivos e CTAs contra regressao.
