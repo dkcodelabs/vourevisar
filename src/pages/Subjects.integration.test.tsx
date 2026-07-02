@@ -227,4 +227,24 @@ describe('Subjects cycle integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ir para Meus Editais' }));
     expect(screen.getByText('Destino Meus Editais')).toBeInTheDocument();
   });
+
+  it('shows a retryable error instead of an empty cycle when subjects fail', async () => {
+    setScenario({
+      subjects: [],
+      cycle: null,
+      subjectsError: new Error('Failed to fetch'),
+    });
+
+    renderSubjects();
+
+    expect(await screen.findByText('Não foi possível carregar seu ciclo.')).toBeInTheDocument();
+    const retryButton = screen.getByRole('button', { name: 'Tentar novamente' });
+    expect(screen.queryByText('Seu ciclo ainda não está montado')).not.toBeInTheDocument();
+
+    setScenario({ subjects: [], cycle: null });
+    fireEvent.click(retryButton);
+
+    expect(await screen.findByText('Seu ciclo ainda não está montado')).toBeInTheDocument();
+    expect(screen.queryByText('Não foi possível carregar seu ciclo.')).not.toBeInTheDocument();
+  });
 });
