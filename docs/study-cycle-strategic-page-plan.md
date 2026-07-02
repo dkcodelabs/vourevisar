@@ -953,7 +953,13 @@ Decisao de produto: flashcards/questoes nao devem ser gerados automaticamente pa
 - [x] Remover alternancia de cor dos topicos que confundia com a cor da materia; linhas de topico usam superficie unica e separacao por borda/hover.
 - [x] Rodar `npm run lint`.
 - [x] Rodar `npm run build` se a mudanca for ampla.
-- [ ] Reduzir a divida global de lint apenas no fechamento da aplicacao, quando os fluxos principais estiverem prontos: em 2026-06-23, `npm run lint` terminou sem erros, mas com 654 warnings, principalmente `no-explicit-any`, dependencias ausentes de hooks e alguns avisos de fast refresh/cleanup de refs. Nao misturar essa limpeza com polimento visual ou feature ativa. Fazer em fases: primeiro arquivos recentemente tocados, depois hooks com risco de estado obsoleto, depois services criticos (`mergeService`, `gutCalculator`, incidencia/catalogo), e por ultimo Edge Functions (`extract-edital`, `process-topic-incidence`) com testes/deploy separados.
+- [ ] Zerar a divida global de lint e impedir regressao. Baseline de 2026-07-01: 0 erros e 368 warnings, sendo 335 `no-explicit-any`, 18 `react-hooks/exhaustive-deps` e 15 `react-refresh/only-export-components`. O script de lint e o Quality Gate devem rejeitar qualquer warning com `--max-warnings=0`.
+  - [ ] Eliminar `no-explicit-any` no frontend, hooks e services, preservando contratos Supabase e comportamento existente.
+  - [ ] Eliminar `no-explicit-any` nas Edge Functions `extract-edital`, `process-topic-incidence` e funcoes menores; validar separadamente antes de qualquer deploy Supabase.
+  - [ ] Corrigir dependencias de hooks sem criar loops, chamadas duplicadas ou estado obsoleto.
+  - [ ] Separar exports nao-componentes que quebram Fast Refresh, mantendo excecoes apenas quando forem padrao valido e deliberado do shadcn/ui.
+  - [ ] Atualizar `actions/checkout` e `actions/setup-node` para runtime Node 24 e validar o Quality Gate remoto sem anotacoes de runtime depreciado.
+  - [ ] Rodar `npm run lint`, `npx tsc --noEmit`, `npm run test:run` e `npm run build`; fechar este item somente com todos os comandos verdes e lint sem warnings.
 - [ ] Adicionar testes de componente/integracao para a pagina de ciclo durante a refatoracao de `Subjects.tsx`: hoje a cobertura automatizada do ciclo esta concentrada nos utilitarios estrategicos e nao protege renderizacao, interacoes da fila, modos responsivos e CTAs contra regressao.
 - [x] Avaliar e corrigir divisao de bundle em recorte proprio: em 2026-06-23, o `App.tsx` passou a lazy-load de paginas por rota, o import dinamico redundante de `gutCalculator` foi removido e o Vite recebeu `manualChunks` para vendors principais. `npm run build` passou sem aviso de chunk acima de 500 kB, sem warning de import misto e sem circular chunk.
 
