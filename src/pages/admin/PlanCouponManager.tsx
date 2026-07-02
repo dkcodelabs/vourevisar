@@ -6,6 +6,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
 import { PlanConfig } from '@/hooks/usePlanConfigs';
+import type { Tables } from '@/integrations/supabase/types';
+
+type Coupon = Tables<'coupons'>;
+
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : 'Erro desconhecido';
 
 export default function PlanCouponManager() {
   const { user } = useAuth();
@@ -18,7 +24,7 @@ export default function PlanCouponManager() {
   const [loadingPlans, setLoadingPlans] = useState(true);
 
   // Coupon State
-  const [coupons, setCoupons] = useState<unknown[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loadingCoupons, setLoadingCoupons] = useState(true);
 
   // Forms State
@@ -56,11 +62,11 @@ export default function PlanCouponManager() {
   const fetchPlans = async () => {
     setLoadingPlans(true);
     try {
-      const { data, error } = await (supabase as unknown).from('plan_configs').select('*').order('value', { ascending: true });
+      const { data, error } = await supabase.from('plan_configs').select('*').order('value', { ascending: true });
       if (error) throw error;
       setPlans(data as PlanConfig[]);
     } catch (err: unknown) {
-      toastGate.notifyError(err.message, 'FETCH_PLANS');
+      toastGate.notifyError(getErrorMessage(err), 'FETCH_PLANS');
     } finally {
       setLoadingPlans(false);
     }
@@ -69,11 +75,11 @@ export default function PlanCouponManager() {
   const fetchCoupons = async () => {
     setLoadingCoupons(true);
     try {
-      const { data, error } = await (supabase as unknown).from('coupons').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       setCoupons(data || []);
     } catch (err: unknown) {
-      toastGate.notifyError(err.message, 'FETCH_COUPONS');
+      toastGate.notifyError(getErrorMessage(err), 'FETCH_COUPONS');
     } finally {
       setLoadingCoupons(false);
     }
@@ -82,7 +88,7 @@ export default function PlanCouponManager() {
   const handleUpdatePlan = async (plan: PlanConfig) => {
     setSavingPlan(plan.id);
     try {
-      const { error } = await (supabase as unknown)
+      const { error } = await supabase
         .from('plan_configs')
         .update({
           name: plan.name,
@@ -98,7 +104,7 @@ export default function PlanCouponManager() {
       toast.success('Plano atualizado com sucesso!');
       fetchPlans();
     } catch (err: unknown) {
-      toastGate.notifyError(err.message, 'UPDATE_PLAN');
+      toastGate.notifyError(getErrorMessage(err), 'UPDATE_PLAN');
     } finally {
       setSavingPlan(null);
     }
@@ -122,7 +128,7 @@ export default function PlanCouponManager() {
         active: true
       };
 
-      const { error } = await (supabase as unknown).from('coupons').insert(payload);
+      const { error } = await supabase.from('coupons').insert(payload);
       if (error) throw error;
       
       toast.success('Cupom criado com sucesso!');
@@ -130,20 +136,20 @@ export default function PlanCouponManager() {
       setNewCoupon({ code: '', discount_type: 'PERCENTAGE', discount_value: 0, max_uses: '', valid_until: '' });
       fetchCoupons();
     } catch (err: unknown) {
-      toastGate.notifyError(err.message, 'CREATE_COUPON');
+      toastGate.notifyError(getErrorMessage(err), 'CREATE_COUPON');
     } finally {
       setSavingCoupon(false);
     }
   };
 
-  const handleToggleCoupon = async (coupon: unknown) => {
+  const handleToggleCoupon = async (coupon: Coupon) => {
     try {
-      const { error } = await (supabase as unknown).from('coupons').update({ active: !coupon.active }).eq('id', coupon.id);
+      const { error } = await supabase.from('coupons').update({ active: !coupon.active }).eq('id', coupon.id);
       if (error) throw error;
       toast.success(`Cupom ${!coupon.active ? 'ativado' : 'desativado'}!`);
       fetchCoupons();
     } catch (err: unknown) {
-      toastGate.notifyError(err.message, 'TOGGLE_COUPON');
+      toastGate.notifyError(getErrorMessage(err), 'TOGGLE_COUPON');
     }
   };
 
@@ -244,7 +250,7 @@ export default function PlanCouponManager() {
                           {c.discount_type === 'PERCENTAGE' ? `${c.discount_value}%` : `R$ ${c.discount_value.toFixed(2).replace('.', ',')}`}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
-                          {c.max_uses ? `${c.times_used} / ${c.max_uses}` : `${c.times_used} (Ilimitado)`}
+                          {c.max_uses ? `${c.uses_count} / ${c.max_uses}` : `${c.uses_count} (Ilimitado)`}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {c.valid_until ? new Date(c.valid_until).toLocaleDateString('pt-BR') : 'Sem validade'}

@@ -4,6 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { Subject, Topic } from '@/types';
 
 interface DayActivity {
   date: Date;
@@ -18,7 +19,7 @@ interface DayActivity {
 }
 
 interface StreakVisualBarProps {
-  subjects: unknown[];
+  subjects: Subject[];
   onDayClick: (date: Date) => void;
   className?: string;
 }
@@ -42,7 +43,7 @@ export const StreakVisualBar: React.FC<StreakVisualBarProps> = ({
 
       // Verificar atividades do dia
       subjects.forEach(subject => {
-        subject.topics.forEach((topic: unknown) => {
+        subject.topics.forEach((topic: Topic) => {
           // Verificar primeiro contato (first_studied_at)
           if (topic.first_studied_at || topic.firstStudiedAt) {
             const firstStudyDate = startOfDay(new Date(topic.first_studied_at || topic.firstStudiedAt));

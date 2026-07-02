@@ -21,7 +21,7 @@ interface NextSubjectsProps {
     'no-topics': SubjectWithStatus[];
     unavailable: SubjectWithStatus[];
   };
-  nextCycleSubjects: unknown[];
+  nextCycleSubjects: SubjectWithStatus[];
   viewMode: 'list' | 'card';
 }
 
@@ -64,7 +64,7 @@ const getStatusColor = (status: SubjectWithStatus['status']) => {
 const SubjectStatusCard: React.FC<{ item: SubjectWithStatus; isMobile: boolean }> = ({ item, isMobile }) => {
   // Calcular progresso
   const progress = item.subject.topics && item.subject.topics.length > 0 
-    ? (item.subject.topics.filter((topic: unknown) => topic.status === 'completed').length / item.subject.topics.length) * 100
+    ? (item.subject.topics.filter(topic => topic.completed).length / item.subject.topics.length) * 100
     : 0;
 
   // Obter estilos baseados no status

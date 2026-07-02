@@ -3,7 +3,7 @@ import { useCycleStatus } from '@/hooks/useCycleStatus';
 
 export const CycleStats: React.FC = () => {
   const { getCycleStats } = useCycleStatus();
-  const [stats, setStats] = useState<unknown>(null);
+  const [stats, setStats] = useState<Awaited<ReturnType<typeof getCycleStats>>>(null);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -17,9 +17,9 @@ export const CycleStats: React.FC = () => {
     let lastStatsUpdateTime = 0;
     const STATS_DEBOUNCE_TIME = 1000; // 1 segundo
     
-    const handleCycleUpdate = (event: unknown) => {
+    const handleCycleUpdate = (event: Event) => {
       const now = Date.now();
-      const eventDetail = event?.detail;
+      const eventDetail = (event as CustomEvent<{ source?: string; type?: string }>).detail;
       
       // Permitir eventos de revisão de tópicos sem debounce
       const isTopicReview = eventDetail?.source === 'topicReview' || eventDetail?.type === 'topicReview';

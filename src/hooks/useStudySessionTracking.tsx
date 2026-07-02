@@ -52,7 +52,7 @@ export const useStudySessionTracking = () => {
 
       // Atualizar progresso diário (se a função existir)
       try {
-        await supabase.rpc('update_daily_progress' as unknown, {
+        await supabase.rpc('update_daily_progress' as never, {
           p_user_id: user.id,
           p_subject_id: sessionData.subjectId
         });
@@ -62,7 +62,7 @@ export const useStudySessionTracking = () => {
 
       // Recalcular analytics do usuário
       try {
-        await supabase.rpc('calculate_user_analytics' as unknown, {
+        await supabase.rpc('calculate_user_analytics' as never, {
           p_user_id: user.id
         });
       } catch (rpcError) {
@@ -198,7 +198,7 @@ export const useStudySessionTracking = () => {
     if (!user) return false;
 
     try {
-      const { error } = await supabase.rpc('calculate_user_analytics' as unknown, {
+      const { error } = await supabase.rpc('calculate_user_analytics' as never, {
         p_user_id: user.id
       });
 

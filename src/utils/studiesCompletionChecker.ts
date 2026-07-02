@@ -1,5 +1,5 @@
 
-import { Subject } from '@/types';
+import { Subject, type Topic } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
 export const checkAllStudiesCompleted = (subjects: Subject[]): boolean => {
@@ -47,7 +47,7 @@ export const checkAllStudiesCompleted = (subjects: Subject[]): boolean => {
   return allSubjectsCompleted;
 };
 
-export const isTopicDominated = (topic: unknown): boolean => {
+export const isTopicDominated = (topic: Topic): boolean => {
   // CORRIGIDO: Verificação mais rigorosa para tópicos dominados
   const isDominated = topic.reviewStage === 'Concluído' || (topic.reviewCount && topic.reviewCount >= 5);
   console.log(`🔍 Tópico "${topic.name}": reviewStage=${topic.reviewStage}, reviewCount=${topic.reviewCount}, isDominated=${isDominated}`);

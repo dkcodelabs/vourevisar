@@ -15,11 +15,22 @@ interface ClassificationResult {
     userMessage?: string;
 }
 
+function getErrorDetails(error: unknown): { code?: string; status?: string | number; message?: string } {
+    if (!error || typeof error !== 'object') return {};
+    const candidate = error as Record<string, unknown>;
+    return {
+        code: typeof candidate.code === 'string' ? candidate.code : undefined,
+        status: typeof candidate.status === 'string' || typeof candidate.status === 'number' ? candidate.status : undefined,
+        message: typeof candidate.message === 'string' ? candidate.message : undefined,
+    };
+}
+
 export function classifyError(input: ErrorReportInput): ClassificationResult {
     // 1. Extrair código e mensagem técnica para análise
     const error = input.originalError;
-    const code = input.errorCode || error?.code || error?.status?.toString() || 'UNKNOWN';
-    const technicalMessage = (input.technicalMessage || error?.message || '').toLowerCase();
+    const details = getErrorDetails(error);
+    const code = input.errorCode || details.code || details.status?.toString() || 'UNKNOWN';
+    const technicalMessage = (input.technicalMessage || details.message || '').toLowerCase();
 
     // 2. Default: Unknown / Medium / Non-retryable
     const result: ClassificationResult = {

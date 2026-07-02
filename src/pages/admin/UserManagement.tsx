@@ -80,12 +80,12 @@ const UserAiUsageBadge = ({ userId }: { userId: string }) => {
             const isOwnerOrAdmin = (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin'));
 
             const { data: subData } = await supabase
-                .from('user_subscriptions' as unknown)
+                .from('user_subscriptions')
                 .select('plan, status')
                 .eq('user_id', userId)
                 .maybeSingle();
             
-            const sub = subData as unknown;
+            const sub = subData;
             const isPaidActive = sub && ['monthly', 'annual'].includes(sub.plan) && sub.status === 'active';
             const limit = isPaidActive ? 5 : 1;
             
@@ -381,7 +381,7 @@ const UserManagement = () => {
             toast.success(`Usuário ${userToObject.name} excluído completamente do sistema.`);
         } catch (error: unknown) {
             console.error('Error purging user:', error);
-            const message = error?.message || 'Erro desconhecido ao excluir usuário.';
+            const message = error instanceof Error ? error.message : 'Erro desconhecido ao excluir usuário.';
             toastGate.notifyError(message, 'USER-PURGE-ERR', { severity: 'critical' });
             await errorService.report(error, {
                 module: 'users',

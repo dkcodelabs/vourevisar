@@ -107,7 +107,7 @@ Ignore cabeçalhos e rodapés irrelevantes.
             console.error('Erro geral:', error);
             const message = isConnectionError(error)
                 ? getConnectionErrorMessage(error)
-                : `Erro ao processar: ${error.message}`;
+                : `Erro ao processar: ${error instanceof Error ? error.message : 'falha desconhecida'}`;
             toastGate.notifyError(message, 'COMPONENTS-IMPORTADORQUESTOES-02', { severity: 'medium' });
         } finally {
             setIsProcessing(false);

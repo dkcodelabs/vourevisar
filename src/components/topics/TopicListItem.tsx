@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
 import { StatusBadge } from '@/components/reviews/new/StatusBadge';
 import { RevisionStatus } from '@/types/revision';
+import type { TopicNotes } from '@/types';
 
 interface TopicListItemProps {
   topic: {
@@ -19,7 +20,7 @@ interface TopicListItemProps {
     reviewCount: number;
     completed: boolean;
     reviewStage?: string;
-    notes?: unknown;
+    notes?: string | TopicNotes;
     isMarkedForReview?: boolean;
     difficulty_level?: number;
     maxReviews?: number;
@@ -38,6 +39,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(topic.name);
+  const notesContent = typeof topic.notes === 'string' ? topic.notes : topic.notes?.content;
 
   const getStatus = (): RevisionStatus => {
     if (topic.completed) return RevisionStatus.COMPLETED;
@@ -81,7 +83,7 @@ const TopicListItem: React.FC<TopicListItemProps> = ({
     }
   };
 
-  const hasNotes = topic.notes && topic.notes.content && topic.notes.content.trim().length > 0;
+  const hasNotes = Boolean(notesContent?.trim());
 
   const getStatusColor = () => {
     switch (status) {

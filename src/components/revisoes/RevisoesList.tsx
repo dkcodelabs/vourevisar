@@ -10,6 +10,7 @@ import { TrendIcon } from '@/components/mentor/TrendIcon';
 
 import { MentorBadge } from '@/components/mentor/MentorBadge';
 import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
+import type { ActiveTimer } from '@/contexts/TimerContext';
 
 interface RevisoesListProps {
     activeTab: string;
@@ -24,7 +25,7 @@ interface RevisoesListProps {
         totalSubjects: number;
         startedTopicsCount: number;
     };
-    activeTimer: unknown;
+    activeTimer: ActiveTimer | null;
     highlightedTopicId: string | null;
     loadingActions: Record<string, string>;
     handleMarkCompleted: (id: string) => void;

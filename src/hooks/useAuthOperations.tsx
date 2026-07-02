@@ -118,7 +118,7 @@ export function useAuthOperations() {
       return { ...data, confirmationPending };
     } catch (error: unknown) {
       console.error('Sign up error:', error);
-      toastManager.error(error.message || 'Erro ao criar conta');
+      toastManager.error(error instanceof Error ? error.message : 'Erro ao criar conta');
       throw error;
     } finally {
       setLoading(false);

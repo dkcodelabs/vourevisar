@@ -119,7 +119,6 @@ describe('getDashboardEditalIdentity', () => {
     expect(
       getDashboardEditalIdentity({
         name: 'TRF 4 - Concurso Público',
-        organ: 'TRF 4',
         position: 'Analista Judiciário',
       }),
     ).toEqual({

@@ -10,8 +10,15 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 
 interface CalendarAndStatsProps {
   subjects: Subject[];
-  reviewData?: unknown[];
+  reviewData?: ReviewHistoryRow[];
   onDayClick?: (date: Date) => void;
+}
+
+interface ReviewHistoryRow {
+  reviewed_at: string;
+  review_stage: string | null;
+  topic_id: string;
+  topic_name?: string | null;
 }
 
 export const CalendarAndStats: React.FC<CalendarAndStatsProps> = ({

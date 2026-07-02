@@ -14,7 +14,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '@/components/SortableItem';
-import { Subject, Topic, UserEdital } from '@/types';
+import { Subject, Topic, UserCycle, UserEdital } from '@/types';
 import type { UserEdital as EditalModalData } from '@/pages/Editais';
 import { supabase } from '@/integrations/supabase/client';
 import { transformSubjectsData } from '@/contexts/utils/dataTransformers';
@@ -310,7 +310,19 @@ const Subjects = () => {
 
   const location = useLocation();
 
-  const toEditalModalData = (edital: unknown): EditalModalData => ({
+  type EditalModalSource = Partial<EditalModalData> & {
+    exam_date?: string;
+    created_at?: string;
+    updated_at?: string;
+    is_imported?: boolean;
+    source_id?: string;
+    subject_ids?: string[];
+    active_subject_ids?: string[];
+    merged_with?: string[];
+    merged_into_cycle?: boolean;
+  };
+
+  const toEditalModalData = (edital: EditalModalSource): EditalModalData => ({
     id: edital.id,
     name: edital.name,
     organ: edital.organ,
@@ -709,7 +721,13 @@ const Subjects = () => {
 
 
   // Estado para armazenar o ciclo atual e contar visualizações
-  const [userCycle, setUserCycle] = useState<unknown>(null);
+  type SubjectsUserCycle = UserCycle & {
+    data_ultimo_reset?: string | null;
+    materias_estudadas_hoje?: string[];
+    materias_por_dia?: number;
+  };
+
+  const [userCycle, setUserCycle] = useState<SubjectsUserCycle | null>(null);
 
   // expandedSubjectList agora é um useMemo (definido mais abaixo)
 
@@ -719,7 +737,7 @@ const Subjects = () => {
     const cacheKey = `user_cycle_cache_${user.id}`;
     try {
       const { data, error } = await withTimeout(
-        (supabase as unknown)
+        supabase
           .from('user_cycles')
           .select('*')
           .eq('user_id', user.id)
@@ -1062,7 +1080,7 @@ const Subjects = () => {
     }
 
     try {
-      const { data, error } = await (supabase as unknown)
+      const { data, error } = await supabase
         .from('cycle_rotation_snapshots')
         .select('*')
         .eq('user_id', user.id)
@@ -1089,7 +1107,7 @@ const Subjects = () => {
     }
 
     try {
-      const { data, error } = await (supabase as unknown)
+      const { data, error } = await supabase
         .from('cycle_study_events')
         .select('id,event_type,subject_id,topic_id,subject_position,created_at')
         .eq('user_id', user.id)
@@ -1251,13 +1269,13 @@ const Subjects = () => {
     setConfirmHideSubjectId(null);
     try {
       // 1. Persistir ocultação na tabela subjects (Manual ou Edital)
-      await (supabase as unknown)
+      await supabase
         .from('subjects')
         .update({ is_visible: false })
         .eq('id', id);
 
       // 2. Se pertencer a editais, remover de active_subject_ids
-      const { data: relatedEditais } = await (supabase as unknown)
+      const { data: relatedEditais } = await supabase
         .from('user_editais')
         .select('id, active_subject_ids')
         .contains('active_subject_ids', [id]);
@@ -1265,7 +1283,7 @@ const Subjects = () => {
       if (relatedEditais && relatedEditais.length > 0) {
         for (const edital of relatedEditais) {
           const newActiveIds = (edital.active_subject_ids as string[]).filter(sid => sid !== id);
-          await (supabase as unknown)
+          await supabase
             .from('user_editais')
             .update({ active_subject_ids: newActiveIds })
             .eq('id', edital.id);
@@ -2207,8 +2225,8 @@ const Subjects = () => {
 	      editais: editaisNoCiclo.map(edital => ({
 	        id: edital.id,
 	        name: edital.organ || edital.name || 'Edital',
-	        exam_date: edital.exam_date || edital.examDate || null,
-	        subject_ids: edital.subject_ids || edital.subjectIds || [],
+		        exam_date: edital.exam_date || null,
+		        subject_ids: edital.subject_ids || [],
 	      })),
 	      hasCycleHistory: cycleSnapshots.length > 0,
 	      maxAlerts: 3,
@@ -2226,7 +2244,7 @@ const Subjects = () => {
 	    return getStudyCycleMetrics({
 	      subjects: expandedSubjectList.map(item => item.subject),
 	      editais: editaisNoCiclo.map(edital => ({
-	        exam_date: edital.exam_date || edital.examDate || null,
+		        exam_date: edital.exam_date || null,
 	      })),
 	      cycleStart: userCycle?.data_inicio_ciclo || null,
 	      hasCycleHistory: cycleSnapshots.length > 0,
@@ -4424,7 +4442,7 @@ const Subjects = () => {
                         user_id: user.id,
                         subject_id: newSubj.id,
                         name: t.name,
-                        position: (t as unknown).position ?? idx
+                        position: t.position ?? idx
                       }));
                       
                       const { error: tErr } = await supabase
@@ -4439,7 +4457,7 @@ const Subjects = () => {
                 // 3. Vincular ao Edital
                 if (edital) {
                   const combinedIds = [...(edital.subject_ids || []), ...newSubjectIds];
-                  await (supabase as unknown)
+                  await supabase
                     .from('user_editais')
                     .update({ subject_ids: combinedIds })
                     .eq('id', edital.id);
@@ -4539,7 +4557,10 @@ const Subjects = () => {
                   setIsRevertModalOpen(false);
                 } catch (error: unknown) {
                   console.error('Erro ao desfazer mesclagem:', error);
-                  toastGate.notifyError('Erro ao desfazer mesclagem', error?.message || 'Erro desconhecido');
+                  toastGate.notifyError(
+                    'Erro ao desfazer mesclagem',
+                    error instanceof Error ? error.message : 'Erro desconhecido'
+                  );
                 } finally {
                   setIsReverting(false);
                   setSelectedMergeId(null);

@@ -6,6 +6,7 @@ import { UserCycle } from '@/types';
 import { loadUserCycle } from '@/utils/cycleUtils';
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { toastGate } from '@/lib/errors/toastGate';
+import type { Dispatch, SetStateAction } from 'react';
 
 export const useSessionCompletion = () => {
   const { user } = useAuth();
@@ -15,8 +16,8 @@ export const useSessionCompletion = () => {
     subjectId: string, 
     userCycle: UserCycle, 
     tempMarkedTopics: Record<string, string[]>, 
-    setUserCycle: unknown,
-    setTempMarkedTopics: unknown
+    setUserCycle: Dispatch<SetStateAction<UserCycle | null>>,
+    setTempMarkedTopics: Dispatch<SetStateAction<Record<string, string[]>>>
   ) => {
     console.log('🔵 handleCompleteSession INICIADO:', {
       subjectId,

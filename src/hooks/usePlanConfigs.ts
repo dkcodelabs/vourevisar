@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 
 export interface PlanConfig {
   id: string;
@@ -41,11 +42,18 @@ export function usePlanConfigs(): UsePlanConfigsReturn {
 
       if (fetchError) throw fetchError;
 
-      const parsed: PlanConfig[] = (data || []).map((row: unknown) => ({
-        ...row,
-        value: parseFloat(row.value),
-        features: Array.isArray(row.features) ? row.features : JSON.parse(row.features || '[]'),
-      }));
+      const parsed: PlanConfig[] = (data || [])
+        .filter((row): row is Tables<'plan_configs'> & { slug: PlanConfig['slug'] } =>
+          row.slug === 'monthly' || row.slug === 'annual')
+        .map((row) => ({
+          ...row,
+          created_at: row.created_at ?? '',
+          updated_at: row.updated_at ?? '',
+          value: Number(row.value),
+          features: Array.isArray(row.features)
+            ? row.features.filter((feature): feature is string => typeof feature === 'string')
+            : [],
+        }));
 
       setPlans(parsed);
     } catch (err) {

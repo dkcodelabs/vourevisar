@@ -148,7 +148,7 @@ export function useSubscription(): UseSubscriptionReturn {
 
       const duration = plan === 'annual' ? 12 : 1
 
-      const { data, error } = await (supabase as unknown)
+      const { data, error } = await supabase
         .rpc('start_paid_subscription', {
           target_user_id: user.id,
           new_plan: plan,
@@ -171,7 +171,7 @@ export function useSubscription(): UseSubscriptionReturn {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Usuário não autenticado')
 
-      const { data, error } = await (supabase as unknown)
+      const { data, error } = await supabase
         .rpc('cancel_subscription', {
           target_user_id: user.id,
           immediate

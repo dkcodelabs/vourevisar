@@ -141,7 +141,7 @@ export function useCycleStatsData(open: boolean) {
 
         const { data: reviewsData, error: revErr } = await reviewQuery.order('reviewed_at', { ascending: true });
         if (revErr) throw revErr;
-        reviews = (reviewsData ?? []) as CycleReviewHistoryRow[];
+        reviews = (reviewsData ?? []) as unknown as CycleReviewHistoryRow[];
       }
 
       // 5. Agrupar por matéria

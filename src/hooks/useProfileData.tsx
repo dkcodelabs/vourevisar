@@ -38,7 +38,7 @@ export function useProfileData() {
       }
     } catch (error: unknown) {
       console.error('Error in fetchProfile:', error);
-      setError(error);
+      setError(error instanceof Error ? error : new Error('Erro desconhecido ao buscar perfil'));
       return null;
     } finally {
       setIsLoading(false);

@@ -303,7 +303,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
           const { data: reviewHistoryData, error: reviewHistoryError } = await reviewHistoryQuery;
           if (reviewHistoryError) throw reviewHistoryError;
 
-          (reviewHistoryData as ReviewHistoryStudyRow[] | null || []).forEach((row) => {
+          ((reviewHistoryData as unknown as ReviewHistoryStudyRow[] | null) || []).forEach((row) => {
             const duration = Math.max(0, Number(row.study_duration_minutes || 0));
             if (duration <= 0) return;
 

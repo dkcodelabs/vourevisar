@@ -64,16 +64,16 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
       console.log('✅ Ciclo arquivado e novo criado');
 
       // 2. Buscar todas as matérias do usuário para resetar status
-      const { data: subjectsData, error: subjectsError } = await (supabase as unknown)
+      const { data: subjectsData, error: subjectsError } = await supabase
         .from('subjects')
         .select('id')
         .eq('user_id', user?.id || '');
       
       if (subjectsError) throw subjectsError;
-      const subjectIds = (subjectsData || []).map((s: unknown) => s.id);
+      const subjectIds = (subjectsData || []).map(subject => subject.id);
       
       if (subjectIds.length > 0) {
-        const { error: topicsError } = await (supabase as unknown)
+        const { error: topicsError } = await supabase
           .from('topics')
           .update({
             review_stage: null,
@@ -87,7 +87,7 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
         
         if (topicsError) throw topicsError;
         
-        const { error: subjectsUpdateError } = await (supabase as unknown)
+        const { error: subjectsUpdateError } = await supabase
           .from('subjects')
           .update({ 
             status: 'Nova',

@@ -227,7 +227,7 @@ const Settings = () => {
       await supabase.from('general_notes').delete().eq('user_id', user.id);
       
       // Também excluir user_editais (Agrupamentos/Editais importados)
-      await (supabase as unknown).from('user_editais').delete().eq('user_id', user.id);
+      await supabase.from('user_editais').delete().eq('user_id', user.id);
 
       // Limpar os caches locais para não exibir dados "fantasmas" na montagem
       localStorage.removeItem(`subjects_${user.id} `);

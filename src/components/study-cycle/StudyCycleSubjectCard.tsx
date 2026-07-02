@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import type { StudyCycleSubject } from '@/types/study-cycle';
+import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
 import { ReviewInterval } from '@/types/study-cycle';
 import { StudyCycleTopicItem } from './StudyCycleTopicItem';
 import { ChevronDownIcon } from './Icons';
@@ -28,7 +28,7 @@ interface StudyCycleSubjectCardProps {
   onCheckboxClick: (topicId: string) => void;
   cyclePosition?: number | null;
   searchQuery?: string;
-  filterTopicsBySearch?: (topics: unknown[]) => unknown[];
+  filterTopicsBySearch?: (topics: StudyCycleTopic[]) => StudyCycleTopic[];
   mentorAlert?: MentorAlert;
   criticalByTopic?: Map<string, MentorAlert>;
   gargaloByTopic?: Map<string, MentorAlert>;

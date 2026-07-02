@@ -4,11 +4,25 @@ import { useMentorInsights } from '@/hooks/useMentorInsights';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
+interface SubjectInsight {
+    name: string;
+    completionPercentage: number;
+}
+
+interface TopicInsight {
+    name: string;
+    difficulty: number;
+}
+
+interface StudyHabitsInsight {
+    mostProductiveHour?: number | null;
+}
+
 // ──────────────────────────────────────────────
 // NeedsFocusCard — alimentado pelo Mentor IA
 // Mostra até 3 matérias críticas com dados reais
 // ──────────────────────────────────────────────
-export const NeedsFocusCard: React.FC<{ worstSubject?: unknown }> = ({ worstSubject }) => {
+export const NeedsFocusCard: React.FC<{ worstSubject?: SubjectInsight }> = ({ worstSubject }) => {
     const navigate = useNavigate();
     const { criticalAlerts, gargalos } = useMentorInsights();
 
@@ -143,7 +157,7 @@ export const NeedsFocusCard: React.FC<{ worstSubject?: unknown }> = ({ worstSubj
 // ──────────────────────────────────────────────
 // QuickWinCard — sem alterações de lógica
 // ──────────────────────────────────────────────
-export const QuickWinCard: React.FC<{ easyTopic: unknown }> = ({ easyTopic }) => {
+export const QuickWinCard: React.FC<{ easyTopic: TopicInsight | null }> = ({ easyTopic }) => {
     return (
         <div className="glow-card p-5 rounded-3xl relative overflow-hidden group h-full">
             <div className="flex items-center justify-between mb-4">
@@ -178,7 +192,7 @@ export const QuickWinCard: React.FC<{ easyTopic: unknown }> = ({ easyTopic }) =>
 // ──────────────────────────────────────────────
 // GoldenHourCard — sem alterações de lógica
 // ──────────────────────────────────────────────
-export const GoldenHourCard: React.FC<{ studyHabits: unknown }> = ({ studyHabits }) => {
+export const GoldenHourCard: React.FC<{ studyHabits: StudyHabitsInsight | null }> = ({ studyHabits }) => {
     return (
         <div className="glow-card p-5 rounded-3xl relative overflow-hidden group h-full">
             <div className="flex items-center justify-between mb-4">

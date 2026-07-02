@@ -7,6 +7,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { useAuth } from './AuthContext';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { Tables } from '@/integrations/supabase/types';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -97,7 +99,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         let isCancelled = false;
-        let channel: unknown = null;
+        let channel: RealtimeChannel | null = null;
 
         const initTimer = async () => {
             // 1. Carrega estado inicial do Supabase
@@ -131,7 +133,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
                         if (payload.eventType === 'DELETE') {
                             applyTimer(null);
                         } else {
-                            const row = payload.new as unknown;
+                            const row = payload.new as Tables<'active_study_timers'>;
                             const remoteTimer = dbRowToTimer(row);
                             applyTimer(remoteTimer);
                         }

@@ -71,7 +71,7 @@ export const usePomodoroTimer = () => {
         .lte('date', today)
         .limit(1);
 
-      const existingSession = (sessionData as unknown[])?.[0] || null;
+      const existingSession = sessionData?.[0] || null;
 
       if (existingSession) {
         // Atualizar sessão existente

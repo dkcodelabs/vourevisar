@@ -30,7 +30,7 @@ const Dashboard = () => {
           actionIcon={RefreshCw}
           onAction={() => window.location.reload()}
           helperText="Se voltar sozinho, é só continuar de onde parou."
-          technicalDetail={model.error}
+          technicalDetail={model.error instanceof Error ? model.error.message : String(model.error)}
         />
       </div>
     );

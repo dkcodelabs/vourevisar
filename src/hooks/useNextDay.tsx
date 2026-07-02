@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,9 +14,9 @@ export const useNextDay = () => {
 
   const handleNextDay = async (
     userCycle: UserCycle, 
-    setUserCycle: unknown,
-    setShowNewCycleMessage: unknown,
-    setIsCycleCompleted: unknown
+    setUserCycle: Dispatch<SetStateAction<UserCycle | null>>,
+    setShowNewCycleMessage: Dispatch<SetStateAction<boolean>>,
+    setIsCycleCompleted: Dispatch<SetStateAction<boolean>>
   ) => {
     if (!user || !userCycle) return;
 

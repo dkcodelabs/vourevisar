@@ -1,13 +1,13 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface GlassCardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
-  whileHover?: unknown;
-  whileTap?: unknown;
+  whileHover?: HTMLMotionProps<'div'>['whileHover'];
+  whileTap?: HTMLMotionProps<'div'>['whileTap'];
 }
 
 const GlassCard: React.FC<GlassCardProps> = ({ 
@@ -32,4 +32,4 @@ const GlassCard: React.FC<GlassCardProps> = ({
   );
 };
 
-export default GlassCard; 
+export default GlassCard;

@@ -9,7 +9,7 @@ import type { Database, Json } from '@/integrations/supabase/types';
 import {
     Plus, PlusCircle, Library, Trash2, Play, Eye, Clock,
     BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, Sparkles, Loader2,
-    AlertCircle, Info, GraduationCap, Database, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText, PencilLine, ArrowRight, CalendarDays
+    AlertCircle, Info, GraduationCap, Database as DatabaseIcon, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText, PencilLine, ArrowRight, CalendarDays
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -89,7 +89,10 @@ type StudySessionSummary = {
 };
 
 type PublicEditalRow = Database['public']['Tables']['public_editais']['Row'];
-type PublicEditalSource = Omit<PublicEditalRow, 'subjects'> & { subjects: Subject[] };
+type PublicEditalSource = Pick<
+    PublicEditalRow,
+    'id' | 'updated_at' | 'organ' | 'position' | 'year' | 'category' | 'exam_date' | 'exam_board'
+> & { subjects: Subject[] };
 type ManualCycleOrigin = { name: string; isManual: true };
 type CycleOrigin = UserEdital | ManualCycleOrigin;
 
@@ -580,9 +583,6 @@ const Editais = () => {
         if (!user) return;
         try {
             const dataToSave = { ...state };
-            delete dataToSave.isOpen;
-            delete dataToSave.edital;
-
             const { error } = await supabase
                 .from('pending_cycle_merges')
                 .upsert({
@@ -1024,7 +1024,11 @@ const Editais = () => {
                 setCycleConflict({
                     isOpen: true,
                     edital: edital,
-                    ...pending
+                    existingIds: pending.existingIds ?? [],
+                    currentOrigins: pending.currentOrigins ?? [],
+                    step: pending.step ?? 'select',
+                    action: pending.action ?? null,
+                    ...pending,
                 });
                 setProcessingId(null);
                 return;
@@ -1062,7 +1066,7 @@ const Editais = () => {
             // 3. Identificar origens e conflitos
             // 3. Identificar origens e conflitos
             const realExistingIdsInCycle = Array.from(expandedExistingIds).filter(id => subjects.some(s => s.id === id));
-            const origins: (UserEdital | { name: string; isManual: boolean })[] = [];
+            const origins: CycleOrigin[] = [];
 
             // Buscar matérias do edital atual para o preview
             const { data: editalSubjectsData } = await supabase
@@ -1948,7 +1952,7 @@ const Editais = () => {
                     .from('subjects')
                     .insert({
                         user_id: user.id,
-                        name: ss.name || ss.title,
+                        name: ss.name,
                         status: 'Nova',
                         edital_id: edital.id
                     })
@@ -2147,7 +2151,7 @@ const Editais = () => {
                     {/* Badge de filtro ciclo (ao vir do Ciclo de Estudos) */}
                     {filterCycle && (
                         <div className="flex items-center gap-3 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
-                            <Database size={14} className="text-primary shrink-0" />
+                            <DatabaseIcon size={14} className="text-primary shrink-0" />
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs font-bold text-foreground">
                                     Mostrando editais do ciclo
@@ -3031,7 +3035,7 @@ const Editais = () => {
                                                 </button>
                                             </div>
                                             <div className="flex flex-col gap-2">
-                                                {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && cycleConflict.unificationMap ? (
+                                                {((cycleConflict.action as CycleConflictState['action']) === 'merge' || (cycleConflict.action as CycleConflictState['action']) === 'hybrid') && cycleConflict.unificationMap ? (
                                                     [
                                                         ...(cycleConflict.unificationMap.unifiedSubjects || []).map(us => ({ ...us, type: 'unified' as const })),
                                                         ...subjects.filter(s => cycleConflict.unificationMap?.standaloneSubjectIds.includes(s.id)).map(s => ({

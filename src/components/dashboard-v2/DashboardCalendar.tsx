@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 interface DashboardCalendarProps {
     subjects: Subject[];
-    reviewData?: unknown[];
+    reviewData?: Array<{ reviewed_at: string | null }>;
     onDayClick?: (date: Date) => void;
     onMonthChange?: (date: Date) => void;
     className?: string;
@@ -39,6 +39,7 @@ export const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
         // Verificar se teve atividade (histórico)
         reviewData.forEach(review => {
+            if (!review.reviewed_at) return;
             const reviewDate = startOfDay(new Date(review.reviewed_at));
             if (isSameDay(reviewDate, dayStart)) {
                 hasActivity = true;

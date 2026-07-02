@@ -258,7 +258,13 @@ export const useDashboardDecisionModel = () => {
         .order('reviewed_at', { ascending: true });
 
       if (error) throw error;
-      return buildActivityDays(filterHistoryRowsByActiveTopicIds(data || [], activeTopicScope.activeTopicIds), activityRange);
+      return buildActivityDays(
+        filterHistoryRowsByActiveTopicIds(
+          (data || []) as unknown as DashboardActivityHistoryRow[],
+          activeTopicScope.activeTopicIds,
+        ),
+        activityRange,
+      );
     },
     enabled: Boolean(user?.id && hasActiveCycle),
   });

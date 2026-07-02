@@ -24,13 +24,29 @@ interface TopicEvolutionChartProps {
   compact?: boolean;
 }
 
+interface TooltipEntry {
+  value?: number;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+}
+
+interface DotProps {
+  cx?: number;
+  cy?: number;
+  payload?: { difficulty: number };
+}
+
 const DIFFICULTY_LABEL: Record<number, string> = {
   1: 'Fácil',
   2: 'Médio',
   3: 'Difícil',
 };
 
-const CustomTooltip = ({ active, payload, label }: unknown) => {
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (!active || !payload?.length) return null;
   const value = payload[0]?.value as number;
   return (
@@ -111,8 +127,9 @@ export function TopicEvolutionChart({ history, compact = false }: TopicEvolution
             dataKey="difficulty"
             stroke="url(#diffGradient)"
             strokeWidth={2.5}
-            dot={(props: unknown) => {
+            dot={(props: DotProps) => {
               const { cx, cy, payload } = props;
+              if (cx == null || cy == null || !payload) return <circle r={0} />;
               const color =
                 payload.difficulty >= 3
                   ? '#f43f5e'

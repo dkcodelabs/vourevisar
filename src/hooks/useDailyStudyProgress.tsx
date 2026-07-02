@@ -3,6 +3,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { debounceEvent, getCachedData, setCachedData, devLog, errorLog } from '@/utils/performanceOptimizations';
+import type { Tables } from '@/integrations/supabase/types';
+
+type DailyCycle = Tables<'user_cycles'>;
 
 export interface DailyProgress {
   studiedCount: number;
@@ -30,7 +33,7 @@ export const useDailyStudyProgress = () => {
     remainingCount: 2
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [userCycle, setUserCycle] = useState<unknown>(null);
+  const [userCycle, setUserCycle] = useState<DailyCycle | null>(null);
   const [resetReason, setResetReason] = useState<'new_cycle' | 'new_day' | 'continue' | null>(null);
 
   const loadDailyProgress = useCallback(async () => {
@@ -71,7 +74,7 @@ export const useDailyStudyProgress = () => {
 
       if (cycleData) {
         // DETECÇÃO INTELIGENTE CORRIGIDA: Verificar condições de reset
-        const data: unknown = cycleData; // Temporário para evitar erros de tipagem
+        const data: DailyCycle = { ...cycleData };
         const lastResetDate = data.data_ultimo_reset;
         const isNewDay = !lastResetDate || lastResetDate !== today;
         const currentStudiedCount = data.materias_estudadas_hoje?.length || 0;
@@ -219,7 +222,7 @@ export const useDailyStudyProgress = () => {
       // Inserir sessão na tabela study_sessions
       const { error: sessionError } = await supabase
         .from('study_sessions')
-        .insert(sessionData as unknown);
+        .insert(sessionData);
 
       if (sessionError) {
         console.error('Erro ao salvar sessão:', sessionError);
@@ -228,7 +231,6 @@ export const useDailyStudyProgress = () => {
 
       // Atualizar progresso diário no user_cycles
 
-      // @ts-expect-error Campo existe mas pode estar faltando na definição de tipos
       const { data: currentCycleData, error: fetchError } = await supabase
         .from('user_cycles')
         .select('materias_estudadas_hoje')
@@ -243,8 +245,7 @@ export const useDailyStudyProgress = () => {
 
       const currentCycleRow = currentCycleData?.[0] || null;
 
-      // @ts-expect-error Campo existe mas pode estar faltando na definição de tipos
-      const currentStudied = (currentCycleRow?.materias_estudadas_hoje as string[]) || [];
+      const currentStudied = currentCycleRow?.materias_estudadas_hoje || [];
 
       if (!currentStudied.includes(session.subjectId)) {
         const updatedStudied = [...currentStudied, session.subjectId];
@@ -282,7 +283,7 @@ export const useDailyStudyProgress = () => {
 
   // Obter próxima matéria sugerida
   const getNextSuggestedSubject = useCallback(() => {
-    const data: unknown = userCycle;
+    const data = userCycle;
     if (!data?.ciclo_atual || !Array.isArray(data.ciclo_atual)) {
       return null;
     }
@@ -311,7 +312,7 @@ export const useDailyStudyProgress = () => {
 
   // Verificar se matéria foi estudada hoje
   const isSubjectStudiedToday = useCallback((subjectId: string) => {
-    const data: unknown = userCycle;
+    const data = userCycle;
     const studiedToday = data?.materias_estudadas_hoje || [];
     return studiedToday.includes(subjectId);
   }, [userCycle]);
@@ -321,7 +322,6 @@ export const useDailyStudyProgress = () => {
     if (!user) return null;
 
     try {
-      // @ts-expect-error Tipo inferido muito complexo, mas funciona corretamente
       const { data, error } = await supabase
         .from('study_sessions')
         .select('completed_at')
@@ -331,9 +331,10 @@ export const useDailyStudyProgress = () => {
         .order('completed_at', { ascending: false })
         .limit(1);
 
-      if (error || !data) return null;
+      const latestSession = data?.[0];
+      if (error || !latestSession?.completed_at) return null;
 
-      return new Date((data as unknown).completed_at).toLocaleTimeString('pt-BR', {
+      return new Date(latestSession.completed_at).toLocaleTimeString('pt-BR', {
         hour: '2-digit',
         minute: '2-digit'
       });

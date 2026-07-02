@@ -41,9 +41,10 @@ export interface StudyCycleTopic {
   /** Contexto da última análise de incidência quando disponível */
   lastSearchContext?: string | null;
   strategicIncidence?: {
-    level: 'analyzed' | 'not_analyzed';
+    level: 'high' | 'analyzed' | 'not_analyzed';
     label: string;
     hasIncidence: boolean;
+    showToStudent?: boolean;
   };
 }
 

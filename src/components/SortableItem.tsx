@@ -1,12 +1,18 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
+
+interface SortableHandleProps {
+  listeners: DraggableSyntheticListeners;
+  attributes: DraggableAttributes;
+}
 
 interface SortableItemProps {
   id: string;
   lockAxis?: 'vertical' | 'free';
   disabled?: boolean;
-  children: React.ReactNode | ((props: { listeners: unknown; attributes: unknown }) => React.ReactNode);
+  children: React.ReactNode | ((props: SortableHandleProps) => React.ReactNode);
 }
 
 export const SortableItem = ({ id, lockAxis = 'vertical', disabled = false, children }: SortableItemProps) => {
@@ -40,7 +46,7 @@ export const SortableItem = ({ id, lockAxis = 'vertical', disabled = false, chil
       style={style}
     >
       {typeof children === 'function'
-        ? (children as (props: { listeners: unknown; attributes: unknown }) => React.ReactNode)({ listeners, attributes })
+        ? children({ listeners, attributes })
         : children}
     </div>
   );

@@ -95,7 +95,7 @@ export const StudyCycleContent: React.FC = () => {
     if (!user) return;
     setUnloadingEditalId(editalId);
     try {
-      const { data: existingCycle } = await (supabase as unknown)
+      const { data: existingCycle } = await supabase
         .from('user_cycles')
         .select('id, ciclo_atual')
         .eq('user_id', user.id)
@@ -117,7 +117,7 @@ export const StudyCycleContent: React.FC = () => {
         if (error) throw error;
       }
 
-      const { error: editalErr } = await (supabase as unknown)
+      const { error: editalErr } = await supabase
         .from('user_editais')
         .update({ merged_into_cycle: false, active_subject_ids: [] })
         .eq('id', editalId);
@@ -148,9 +148,9 @@ export const StudyCycleContent: React.FC = () => {
     let lastUpdateTime = 0;
     const UPDATE_DEBOUNCE_TIME = 1000; // 1 segundo
 
-    const handleCycleUpdate = (event: unknown) => {
+    const handleCycleUpdate = (event: Event) => {
       const now = Date.now();
-      const eventDetail = event?.detail;
+      const eventDetail = (event as CustomEvent<Record<string, unknown>>).detail;
 
       console.log('🔄 MODAL: handleCycleUpdate disparado', {
         eventDetail,
@@ -202,8 +202,8 @@ export const StudyCycleContent: React.FC = () => {
 
 
 
-    const handleForceRerender = (event: unknown) => {
-      console.log('🔄 StudyCycleContent: Forçando re-render por evento externo', event.detail);
+    const handleForceRerender = (event: Event) => {
+      console.log('🔄 StudyCycleContent: Forçando re-render por evento externo', (event as CustomEvent).detail);
 
       // Forçar refresh imediato dos dados
       console.log('🔄 MODAL: Executando refreshCycleData em handleForceRerender');
