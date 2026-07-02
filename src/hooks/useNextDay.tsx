@@ -14,9 +14,9 @@ export const useNextDay = () => {
 
   const handleNextDay = async (
     userCycle: UserCycle, 
-    setUserCycle: any, 
-    setShowNewCycleMessage: any, 
-    setIsCycleCompleted: any
+    setUserCycle: unknown,
+    setShowNewCycleMessage: unknown,
+    setIsCycleCompleted: unknown
   ) => {
     if (!user || !userCycle) return;
 

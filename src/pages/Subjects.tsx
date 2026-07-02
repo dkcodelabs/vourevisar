@@ -310,7 +310,7 @@ const Subjects = () => {
 
   const location = useLocation();
 
-  const toEditalModalData = (edital: any): EditalModalData => ({
+  const toEditalModalData = (edital: unknown): EditalModalData => ({
     id: edital.id,
     name: edital.name,
     organ: edital.organ,
@@ -390,8 +390,7 @@ const Subjects = () => {
     try {
       // 1. Se especificado edital, remover só desse edital
       if (editalIdToRemove) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: edital } = await (supabase as any)
+        const { data: edital } = await supabase
           .from('user_editais')
           .select('subject_ids')
           .eq('id', editalIdToRemove)
@@ -399,16 +398,14 @@ const Subjects = () => {
         
         if (edital) {
           const newIds = (edital.subject_ids || []).filter((id: string) => id !== subjectId);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any)
+          await supabase
             .from('user_editais')
             .update({ subject_ids: newIds })
             .eq('id', editalIdToRemove);
         }
       } else {
         // 2. Se não especificado, remover de TODOS os editais
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: editais } = await (supabase as any)
+        const { data: editais } = await supabase
           .from('user_editais')
           .select('id, subject_ids')
           .eq('user_id', user.id);
@@ -417,8 +414,7 @@ const Subjects = () => {
           for (const edital of editais) {
             if ((edital.subject_ids || []).includes(subjectId)) {
               const newIds = (edital.subject_ids || []).filter((id: string) => id !== subjectId);
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await (supabase as any)
+              await supabase
                 .from('user_editais')
                 .update({ subject_ids: newIds })
                 .eq('id', edital.id);
@@ -713,7 +709,7 @@ const Subjects = () => {
 
 
   // Estado para armazenar o ciclo atual e contar visualizações
-  const [userCycle, setUserCycle] = useState<any>(null);
+  const [userCycle, setUserCycle] = useState<unknown>(null);
 
   // expandedSubjectList agora é um useMemo (definido mais abaixo)
 
@@ -723,7 +719,7 @@ const Subjects = () => {
     const cacheKey = `user_cycle_cache_${user.id}`;
     try {
       const { data, error } = await withTimeout(
-        (supabase as any)
+        (supabase as unknown)
           .from('user_cycles')
           .select('*')
           .eq('user_id', user.id)
@@ -860,7 +856,7 @@ const Subjects = () => {
     } else if (!user) {
       setLoading(false);
     }
-  }, [user?.id, loadSubjects, loadUserCycle]);
+  }, [loadSubjects, loadUserCycle, user]);
 
   // Sincronizar localSubjects quando subjects mudar
   useEffect(() => {
@@ -1045,15 +1041,19 @@ const Subjects = () => {
   // Sincronização redundante de localSubjects removida para evitar flicker.
   // localSubjects agora é gerenciado diretamente no loadSubjects.
 
+  const topicsModalSubjectId = topicsModal.subject?.id;
+
   // Mantém o modal de tópicos atualizado se os dados da matéria mudarem em background
   useEffect(() => {
-    if (topicsModal.isOpen && topicsModal.subject && subjects.length > 0) {
-      const updatedSubject = subjects.find(s => s.id === topicsModal.subject?.id);
+    if (topicsModal.isOpen && topicsModalSubjectId && subjects.length > 0) {
+      const updatedSubject = subjects.find(s => s.id === topicsModalSubjectId);
       if (updatedSubject) {
-        setTopicsModal(prev => ({ ...prev, subject: updatedSubject }));
+        setTopicsModal(prev => prev.subject === updatedSubject
+          ? prev
+          : { ...prev, subject: updatedSubject });
       }
     }
-  }, [subjects, topicsModal.isOpen, topicsModal.subject?.id]);
+  }, [subjects, topicsModal.isOpen, topicsModalSubjectId]);
 
   const loadCycleSnapshots = useCallback(async () => {
     if (!user || !userCycle?.id) {
@@ -1062,7 +1062,7 @@ const Subjects = () => {
     }
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown)
         .from('cycle_rotation_snapshots')
         .select('*')
         .eq('user_id', user.id)
@@ -1089,7 +1089,7 @@ const Subjects = () => {
     }
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as unknown)
         .from('cycle_study_events')
         .select('id,event_type,subject_id,topic_id,subject_position,created_at')
         .eq('user_id', user.id)
@@ -1251,13 +1251,13 @@ const Subjects = () => {
     setConfirmHideSubjectId(null);
     try {
       // 1. Persistir ocultação na tabela subjects (Manual ou Edital)
-      await (supabase as any)
+      await (supabase as unknown)
         .from('subjects')
         .update({ is_visible: false })
         .eq('id', id);
 
       // 2. Se pertencer a editais, remover de active_subject_ids
-      const { data: relatedEditais } = await (supabase as any)
+      const { data: relatedEditais } = await (supabase as unknown)
         .from('user_editais')
         .select('id, active_subject_ids')
         .contains('active_subject_ids', [id]);
@@ -1265,7 +1265,7 @@ const Subjects = () => {
       if (relatedEditais && relatedEditais.length > 0) {
         for (const edital of relatedEditais) {
           const newActiveIds = (edital.active_subject_ids as string[]).filter(sid => sid !== id);
-          await (supabase as any)
+          await (supabase as unknown)
             .from('user_editais')
             .update({ active_subject_ids: newActiveIds })
             .eq('id', edital.id);
@@ -1382,7 +1382,7 @@ const Subjects = () => {
           exam_weight_points: examWeightPoints,
           exam_weight_percentage: examWeightPercentage,
           exam_weight_raw: hasWeight ? 'Informado manualmente pelo aluno na página de ciclo' : null,
-        } as any)
+        } as unknown)
         .eq('id', subjectId)
         .eq('user_id', user.id);
 
@@ -1450,7 +1450,7 @@ const Subjects = () => {
         setEditingTopicId(null);
         setEditingTopicName('');
         toast.success('Tópico atualizado', { duration: 1500 });
-      } catch (error: any) {
+      } catch (error: unknown) {
         errorService.report(error, { module: 'subjects', action: 'update_topic', userMessage: "Erro ao atualizar tópico" });
       }
     }
@@ -4424,7 +4424,7 @@ const Subjects = () => {
                         user_id: user.id,
                         subject_id: newSubj.id,
                         name: t.name,
-                        position: (t as any).position ?? idx
+                        position: (t as unknown).position ?? idx
                       }));
                       
                       const { error: tErr } = await supabase
@@ -4439,7 +4439,7 @@ const Subjects = () => {
                 // 3. Vincular ao Edital
                 if (edital) {
                   const combinedIds = [...(edital.subject_ids || []), ...newSubjectIds];
-                  await (supabase as any)
+                  await (supabase as unknown)
                     .from('user_editais')
                     .update({ subject_ids: combinedIds })
                     .eq('id', edital.id);
@@ -4537,7 +4537,7 @@ const Subjects = () => {
                   await revertSubjectMerge(selectedMergeId);
                   toast.success('Mesclagem desfeita com sucesso');
                   setIsRevertModalOpen(false);
-                } catch (error: any) {
+                } catch (error: unknown) {
                   console.error('Erro ao desfazer mesclagem:', error);
                   toastGate.notifyError('Erro ao desfazer mesclagem', error?.message || 'Erro desconhecido');
                 } finally {

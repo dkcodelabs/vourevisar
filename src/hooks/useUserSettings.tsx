@@ -80,7 +80,7 @@ export const useUserSettings = () => {
             subjects_per_day: newSettings.subjects_per_day,
             notifications_enabled: newSettings.notifications_enabled,
             notification_time: newSettings.notification_time,
-            data_prova_meta: (newSettings as any).data_prova_meta || null
+            data_prova_meta: (newSettings as unknown).data_prova_meta || null
           });
         } else {
           setSettings({
@@ -88,7 +88,7 @@ export const useUserSettings = () => {
             subjects_per_day: settingsData.subjects_per_day,
             notifications_enabled: settingsData.notifications_enabled,
             notification_time: settingsData.notification_time,
-            data_prova_meta: (settingsData as any).data_prova_meta || null
+            data_prova_meta: (settingsData as unknown).data_prova_meta || null
           });
         }
 
@@ -103,7 +103,7 @@ export const useUserSettings = () => {
           'Carregamento de ciclo em configuracoes'
         );
 
-        const cycleData = (cycleDataResult as any)?.[0] || null;
+        const cycleData = (cycleDataResult as unknown)?.[0] || null;
 
         if (cycleError && cycleError.code !== 'PGRST116') {
           console.warn('Erro ao buscar ciclo:', cycleError);
@@ -194,7 +194,7 @@ export const useUserSettings = () => {
     try {
       const { error: updateError } = await supabase
         .from('user_settings')
-        .update({ data_prova_meta: date ? date.toISOString().split('T')[0] : null } as any)
+        .update({ data_prova_meta: date ? date.toISOString().split('T')[0] : null } as unknown)
         .eq('user_id', user.id);
 
       if (updateError) throw updateError;

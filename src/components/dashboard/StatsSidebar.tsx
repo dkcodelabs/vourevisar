@@ -5,7 +5,7 @@ import { BookOpen, CheckCircle, Clock, Calendar, AlertTriangle, BarChart2 } from
 
 interface StatsSidebarProps {
     subjects: Subject[];
-    reviewData: any[];
+    reviewData: unknown[];
     overdueCount: number;
     todayCount: number;
     futureCount: number;

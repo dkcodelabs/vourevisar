@@ -18,7 +18,7 @@ interface DayActivity {
 }
 
 interface StreakVisualBarProps {
-  subjects: any[];
+  subjects: unknown[];
   onDayClick: (date: Date) => void;
   className?: string;
 }
@@ -42,7 +42,7 @@ export const StreakVisualBar: React.FC<StreakVisualBarProps> = ({
 
       // Verificar atividades do dia
       subjects.forEach(subject => {
-        subject.topics.forEach((topic: any) => {
+        subject.topics.forEach((topic: unknown) => {
           // Verificar primeiro contato (first_studied_at)
           if (topic.first_studied_at || topic.firstStudiedAt) {
             const firstStudyDate = startOfDay(new Date(topic.first_studied_at || topic.firstStudiedAt));

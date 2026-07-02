@@ -35,7 +35,7 @@ export const useTopicActions = () => {
     });
   };
 
-  const markTopicAsReviewed = async (topicId: string, subjects: any[]) => {
+  const markTopicAsReviewed = async (topicId: string, subjects: unknown[]) => {
     try {
       const { data: topic } = await supabase
         .from('topics')

@@ -14,10 +14,9 @@ export const useOptimisticTopics = (
   const [isLoading, setIsLoading] = useState(false);
 
   // Sincronizar com props quando elas mudarem (ex: após refresh do pai)
-  // Usamos JSON.stringify para evitar loops se as referências mudarem mas o conteúdo for igual
   useEffect(() => {
     setLocalTopics(initialTopics);
-  }, [JSON.stringify(initialTopics)]);
+  }, [initialTopics]);
 
   const addTopic = useCallback(async (name: string) => {
     if (!name.trim()) {
@@ -120,7 +119,7 @@ export const useOptimisticTopics = (
 
     try {
       // Converter campos de Date para string para o Supabase
-      const supabaseUpdates: any = { ...updates };
+      const supabaseUpdates: unknown = { ...updates };
 
       if (updates.firstStudiedAt) {
         supabaseUpdates.first_studied_at = updates.firstStudiedAt.toISOString();

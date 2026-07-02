@@ -12,7 +12,7 @@ export interface AppErrorNormalized {
     retryable: boolean;
     actorUserId?: string;
     targetUserId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     createdAt: string;
     scope: 'admin' | 'core';
     environment: 'development' | 'staging' | 'production';
@@ -47,7 +47,7 @@ export interface ErrorLogRecord {
     status: ErrorStatus;
     actor_user_id?: string;
     target_user_id?: string;
-    metadata: any;
+    metadata: unknown;
     occurrence_count: number;
     first_seen_at: string;
     last_seen_at: string;
@@ -88,7 +88,7 @@ export interface AlertEvent {
     id: string;
     alert_type: string;
     message: string;
-    metadata: any;
+    metadata: unknown;
     status: 'active' | 'acknowledged' | 'resolved';
     created_at: string;
 }

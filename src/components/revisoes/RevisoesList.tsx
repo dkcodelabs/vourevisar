@@ -24,7 +24,7 @@ interface RevisoesListProps {
         totalSubjects: number;
         startedTopicsCount: number;
     };
-    activeTimer: any;
+    activeTimer: unknown;
     highlightedTopicId: string | null;
     loadingActions: Record<string, string>;
     handleMarkCompleted: (id: string) => void;

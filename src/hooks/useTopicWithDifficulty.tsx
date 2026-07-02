@@ -48,7 +48,7 @@ export const useTopicWithDifficulty = () => {
   ) => {
     try {
       await updateTopic(subjectId, topicId, {
-        difficulty_level: difficulty as any,
+        difficulty_level: difficulty as unknown,
       });
 
       if (difficulty) {

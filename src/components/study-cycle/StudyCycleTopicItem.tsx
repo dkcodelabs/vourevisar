@@ -16,7 +16,7 @@ interface StudyCycleTopicItemProps {
   onEditingChange?: (topicId: string | null) => void;
   searchQuery?: string;
   isConsolidated?: boolean;
-  mentorAlert?: any;
+  mentorAlert?: unknown;
 }
 
 // Componente para destacar texto da busca
@@ -301,7 +301,7 @@ export const StudyCycleTopicItem: React.FC<StudyCycleTopicItemProps> = ({
           </div>
           <button
             onClick={onOpenNotes}
-            className={`p-1 transition-colors ${(typeof topic.notes === 'string' ? topic.notes : (topic.notes as any)?.content)?.trim() && (typeof topic.notes === 'string' ? topic.notes : (topic.notes as any)?.content) !== '<p><br></p>'
+            className={`p-1 transition-colors ${(typeof topic.notes === 'string' ? topic.notes : (topic.notes as unknown)?.content)?.trim() && (typeof topic.notes === 'string' ? topic.notes : (topic.notes as unknown)?.content) !== '<p><br></p>'
               ? 'text-primary/50 hover:text-primary'
               : 'text-gray-400 hover:text-primary/70'
               }`}

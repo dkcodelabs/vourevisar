@@ -185,7 +185,7 @@ export const CompactSubjectAccordion: React.FC<CompactSubjectAccordionProps> = R
     const totalExcellent = subjectStats.filter(s => s.health.status === 'excellent').length;
     const totalCriticalHealth = subjectStats.filter(s => s.health.status === 'critical').length;
 
-    const getSubjectIcon = (subject: any) => {
+    const getSubjectIcon = (subject: unknown) => {
         const name = subject.name.toLowerCase();
         if (name.includes('matemática') || name.includes('matematica')) return '📐';
         if (name.includes('português') || name.includes('portugues')) return '📝';

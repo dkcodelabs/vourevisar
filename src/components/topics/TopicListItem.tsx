@@ -19,7 +19,7 @@ interface TopicListItemProps {
     reviewCount: number;
     completed: boolean;
     reviewStage?: string;
-    notes?: any;
+    notes?: unknown;
     isMarkedForReview?: boolean;
     difficulty_level?: number;
     maxReviews?: number;

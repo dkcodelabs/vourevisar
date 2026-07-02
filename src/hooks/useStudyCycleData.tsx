@@ -179,7 +179,7 @@ export const useStudyCycleData = () => {
           .order('priority', { ascending: true })
           .order('position', { foreignTable: 'topics', ascending: true })
           .order('created_at', { foreignTable: 'topics', ascending: true }),
-        (supabase as any)
+        (supabase as unknown)
           .from('user_editais')
           .select('*')
           .eq('user_id', user.id)
@@ -190,7 +190,7 @@ export const useStudyCycleData = () => {
         return;
       }
 
-      const newSubjects = (subjectsRes.data as any) || [];
+      const newSubjects = (subjectsRes.data as unknown) || [];
       setSubjects(newSubjects);
       localStorage.setItem(cacheKey, JSON.stringify(newSubjects));
       setIsSubjectsLoaded(true);
@@ -209,7 +209,7 @@ export const useStudyCycleData = () => {
     loadSubjects();
   }, [loadSubjects]);
 
-  const updateTopic = useCallback(async (topicId: string, updates: any) => {
+  const updateTopic = useCallback(async (topicId: string, updates: unknown) => {
     try {
       await supabase.from('topics').update(updates).eq('id', topicId);
       await loadSubjects();
@@ -369,7 +369,7 @@ export const useStudyCycleData = () => {
     });
 
     return cycleSubjects;
-  }, [unifiedSubjects, userCycle, subjects, getUnifiedTopicName]);
+  }, [getUnifiedSubjectName, getUnifiedTopicName, subjects, unifiedSubjects, userCycle]);
 
   // Busca em lote as estatísticas de revisão (reviewCount + hardReviewCount) ao mudar o conjunto de tópicos
   useEffect(() => {
@@ -457,7 +457,7 @@ export const useStudyCycleData = () => {
 
   const handleSaveNotes = useCallback(async (subjectId: string, topicId: string, updatedData: Partial<StudyCycleTopic>) => {
     try {
-      const updatePayload: any = {};
+      const updatePayload: unknown = {};
       if (updatedData.notes !== undefined) updatePayload.notes = { content: updatedData.notes };
       if (updatedData.difficulty !== undefined) {
         updatePayload.difficulty_level = mapDifficultyToNumericLevel(updatedData.difficulty);

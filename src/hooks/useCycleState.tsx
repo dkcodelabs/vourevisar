@@ -71,7 +71,7 @@ export const useCycleState = () => {
     }
   };
 
-  const createInitialUserCycle = async (subjectsPerDay: number, currentSubjects: any[]) => {
+  const createInitialUserCycle = async (subjectsPerDay: number, currentSubjects: unknown[]) => {
     if (!user) return;
 
     try {

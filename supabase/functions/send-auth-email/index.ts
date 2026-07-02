@@ -6,6 +6,7 @@ import { ConfirmationEmail } from './_templates/confirmation.tsx'
 import { RecoveryEmail } from './_templates/recovery.tsx'
 import { MagicLinkEmail } from './_templates/magic-link.tsx'
 import { EmailChangeEmail } from './_templates/email-change.tsx'
+import type { JsonBoundary } from '../_shared/jsonBoundary.ts'
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
@@ -106,7 +107,7 @@ Deno.serve(async (req) => {
 
     console.log('✅ Webhook signature verified')
     console.log('Email type:', webhookData.email_data.email_action_type)
-  } catch (error: any) {
+  } catch (error: JsonBoundary) {
     console.error('❌ Webhook signature verification failed:', error.message)
 
     console.log('Webhook headers present:', {
@@ -285,7 +286,7 @@ Deno.serve(async (req) => {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })
-  } catch (error: any) {
+  } catch (error: JsonBoundary) {
     console.error('❌ Error sending email:', error)
     return new Response(
       JSON.stringify({

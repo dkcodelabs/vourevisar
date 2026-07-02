@@ -71,7 +71,7 @@ export const usePomodoroTimer = () => {
         .lte('date', today)
         .limit(1);
 
-      const existingSession = (sessionData as any[])?.[0] || null;
+      const existingSession = (sessionData as unknown[])?.[0] || null;
 
       if (existingSession) {
         // Atualizar sessão existente
@@ -151,7 +151,7 @@ export const usePomodoroTimer = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isActive, timeLeft, initialTime, sessionsToday, totalMinutesToday, updateSessionInDB, wasReset]);
+  }, [isActive, timeLeft, initialTime, recordPomodoroSession, sessionsToday, totalMinutesToday, updateSessionInDB, wasReset]);
 
   // Carregar dados ao inicializar
   useEffect(() => {

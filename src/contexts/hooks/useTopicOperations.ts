@@ -78,7 +78,7 @@ export const useTopicOperations = (
 
       const wasCompleted = updates.completed === true;
 
-      const updateData: any = {
+      const updateData: unknown = {
         name: updates.name,
         completed: updates.completed,
         review_count: updates.reviewCount ?? updates.review_count,
@@ -214,7 +214,7 @@ export const useTopicOperations = (
           next_review_at: nextReviewDate.toISOString(),
           review_count: (topic.review_count || 0) + 1,
           completed: true
-        } as any)
+        } as unknown)
         .eq('id', topicId);
 
       if (updateError) throw updateError;

@@ -249,7 +249,7 @@ ${content}`;
         // Validate subject name
         try {
           subjectNameSchema.parse(subjectName);
-        } catch (error: any) {
+        } catch (error: unknown) {
           toastGate.notifyError(`Matéria "${subjectName}": ${error.errors[0]?.message}`, 'COMPONENTS-CONTENTUPLOADMODAL-06', { severity: 'medium' });
           continue;
         }
@@ -291,7 +291,7 @@ ${content}`;
           // Validate topic name
           try {
             topicNameSchema.parse(topicName);
-          } catch (error: any) {
+          } catch (error: unknown) {
             toastGate.notifyError(`Tópico "${topicName}": ${error.errors[0]?.message}`, 'COMPONENTS-CONTENTUPLOADMODAL-07', { severity: 'medium' });
             continue;
           }

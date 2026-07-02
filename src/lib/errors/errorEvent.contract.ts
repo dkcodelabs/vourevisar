@@ -83,7 +83,7 @@ export interface ErrorReportInput {
     userId?: string;
     metadata?: Record<string, unknown>;
     showToast?: boolean; // Controle de UI
-    originalError?: any; // O erro original para extração
+    originalError?: unknown; // O erro original para extração
 
     // Opcionais na entrada (o classificador irá preencher)
     category?: ErrorCategory;

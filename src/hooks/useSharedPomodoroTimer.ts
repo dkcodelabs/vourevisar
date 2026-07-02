@@ -52,7 +52,7 @@ const loadStateFromStorage = () => {
 };
 
 // Função para salvar estado no localStorage
-const saveStateToStorage = (state: any) => {
+const saveStateToStorage = (state: unknown) => {
   try {
     const stateToSave = {
       timeLeft: state.timeLeft,

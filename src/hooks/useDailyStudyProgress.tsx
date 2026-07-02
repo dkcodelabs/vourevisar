@@ -30,11 +30,10 @@ export const useDailyStudyProgress = () => {
     remainingCount: 2
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [userCycle, setUserCycle] = useState<any>(null);
+  const [userCycle, setUserCycle] = useState<unknown>(null);
   const [resetReason, setResetReason] = useState<'new_cycle' | 'new_day' | 'continue' | null>(null);
 
-  // Carregar progresso diário - SEM useCallback
-  const loadDailyProgress = async () => {
+  const loadDailyProgress = useCallback(async () => {
     console.log('🔄 useDailyStudyProgress loadDailyProgress CALLED:', {
       user: !!user,
       userId: user?.id,
@@ -72,7 +71,7 @@ export const useDailyStudyProgress = () => {
 
       if (cycleData) {
         // DETECÇÃO INTELIGENTE CORRIGIDA: Verificar condições de reset
-        const data: any = cycleData; // Temporário para evitar erros de tipagem
+        const data: unknown = cycleData; // Temporário para evitar erros de tipagem
         const lastResetDate = data.data_ultimo_reset;
         const isNewDay = !lastResetDate || lastResetDate !== today;
         const currentStudiedCount = data.materias_estudadas_hoje?.length || 0;
@@ -182,7 +181,7 @@ export const useDailyStudyProgress = () => {
       console.log('✅ Setting isLoading FALSE in finally');
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   // Salvar sessão de estudo
   const saveStudySession = useCallback(async (session: StudySession) => {
@@ -220,7 +219,7 @@ export const useDailyStudyProgress = () => {
       // Inserir sessão na tabela study_sessions
       const { error: sessionError } = await supabase
         .from('study_sessions')
-        .insert(sessionData as any);
+        .insert(sessionData as unknown);
 
       if (sessionError) {
         console.error('Erro ao salvar sessão:', sessionError);
@@ -283,7 +282,7 @@ export const useDailyStudyProgress = () => {
 
   // Obter próxima matéria sugerida
   const getNextSuggestedSubject = useCallback(() => {
-    const data: any = userCycle;
+    const data: unknown = userCycle;
     if (!data?.ciclo_atual || !Array.isArray(data.ciclo_atual)) {
       return null;
     }
@@ -308,14 +307,14 @@ export const useDailyStudyProgress = () => {
       position: 1,
       isNext: false
     };
-  }, []);
+  }, [userCycle]);
 
   // Verificar se matéria foi estudada hoje
   const isSubjectStudiedToday = useCallback((subjectId: string) => {
-    const data: any = userCycle;
+    const data: unknown = userCycle;
     const studiedToday = data?.materias_estudadas_hoje || [];
     return studiedToday.includes(subjectId);
-  }, []);
+  }, [userCycle]);
 
   // Obter horário de conclusão de uma matéria
   const getSubjectCompletionTime = useCallback(async (subjectId: string): Promise<string | null> => {
@@ -334,7 +333,7 @@ export const useDailyStudyProgress = () => {
 
       if (error || !data) return null;
 
-      return new Date((data as any).completed_at).toLocaleTimeString('pt-BR', {
+      return new Date((data as unknown).completed_at).toLocaleTimeString('pt-BR', {
         hour: '2-digit',
         minute: '2-digit'
       });
@@ -372,12 +371,11 @@ export const useDailyStudyProgress = () => {
     }
   };
 
-  // Carregar dados quando o componente monta - SEM DEPENDÊNCIAS
   useEffect(() => {
     if (user) {
       loadDailyProgress();
     }
-  }, [user?.id]); // Apenas user.id
+  }, [loadDailyProgress, user]);
 
   // Função para forçar refresh dos dados - SEM useCallback
   const forceRefresh = async () => {

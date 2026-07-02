@@ -128,7 +128,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
     return (
       <div className="flex items-center gap-2 flex-1">
         <Input
-          ref={textareaRef as any} // Cast to any since Input ref might expect HTMLInputElement
+          ref={textareaRef as unknown} // Cast to any since Input ref might expect HTMLInputElement
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="h-8 text-sm flex-1 min-w-0"

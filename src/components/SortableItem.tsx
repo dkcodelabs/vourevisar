@@ -6,7 +6,7 @@ interface SortableItemProps {
   id: string;
   lockAxis?: 'vertical' | 'free';
   disabled?: boolean;
-  children: React.ReactNode | ((props: { listeners: any; attributes: any }) => React.ReactNode);
+  children: React.ReactNode | ((props: { listeners: unknown; attributes: unknown }) => React.ReactNode);
 }
 
 export const SortableItem = ({ id, lockAxis = 'vertical', disabled = false, children }: SortableItemProps) => {
@@ -40,7 +40,7 @@ export const SortableItem = ({ id, lockAxis = 'vertical', disabled = false, chil
       style={style}
     >
       {typeof children === 'function'
-        ? (children as (props: { listeners: any; attributes: any }) => React.ReactNode)({ listeners, attributes })
+        ? (children as (props: { listeners: unknown; attributes: unknown }) => React.ReactNode)({ listeners, attributes })
         : children}
     </div>
   );

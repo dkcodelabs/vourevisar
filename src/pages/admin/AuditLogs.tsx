@@ -131,7 +131,7 @@ export default function AuditLogs() {
         setAiError(null);
         try {
             const { data: logsData, error: logsError } = await supabase
-                .from('ai_usage_logs' as any)
+                .from('ai_usage_logs' as unknown)
                 .select('*')
                 .order('created_at', { ascending: false });
 
@@ -139,14 +139,14 @@ export default function AuditLogs() {
 
             const mappedLogs: AiUsageLog[] = [];
             if (logsData && logsData.length > 0) {
-                const userIds = Array.from(new Set(logsData.map((log: any) => log.user_id)));
+                const userIds = Array.from(new Set(logsData.map((log: unknown) => log.user_id)));
                 
                 const { data: profiles } = await supabase
                     .from('profiles')
                     .select('id, name, email')
                     .in('id', userIds);
 
-                logsData.forEach((log: any) => {
+                logsData.forEach((log: unknown) => {
                     const profile = profiles?.find(p => p.id === log.user_id);
                     mappedLogs.push({
                         ...log,
@@ -168,7 +168,7 @@ export default function AuditLogs() {
                 .eq('key', 'ai_edital_config')
                 .maybeSingle();
 
-            const config = (setting?.value || {}) as any;
+            const config = (setting?.value || {}) as unknown;
             const dailyBudget = typeof config.daily_budget_usd === 'number' ? config.daily_budget_usd : 5.0;
 
             setAiStats({
@@ -178,7 +178,7 @@ export default function AuditLogs() {
                 failedCount: failedCount
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error fetching AI usage logs:', error);
             setAiError(error?.message || 'A tabela de logs de IA não foi localizada. Certifique-se de que a migração SQL foi instalada no seu banco.');
         } finally {

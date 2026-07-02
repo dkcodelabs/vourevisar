@@ -13,7 +13,7 @@ interface UserEvent {
     id: number;
     event_type: string;
     occurred_at: string;
-    metadata: any;
+    metadata: unknown;
     source?: string;
     status?: string;
     actor_user_id?: string;

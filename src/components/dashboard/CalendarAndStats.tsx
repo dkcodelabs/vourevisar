@@ -10,7 +10,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 
 interface CalendarAndStatsProps {
   subjects: Subject[];
-  reviewData?: any[];
+  reviewData?: unknown[];
   onDayClick?: (date: Date) => void;
 }
 

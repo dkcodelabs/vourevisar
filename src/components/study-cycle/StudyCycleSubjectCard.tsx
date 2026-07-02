@@ -28,7 +28,7 @@ interface StudyCycleSubjectCardProps {
   onCheckboxClick: (topicId: string) => void;
   cyclePosition?: number | null;
   searchQuery?: string;
-  filterTopicsBySearch?: (topics: any[]) => any[];
+  filterTopicsBySearch?: (topics: unknown[]) => unknown[];
   mentorAlert?: MentorAlert;
   criticalByTopic?: Map<string, MentorAlert>;
   gargaloByTopic?: Map<string, MentorAlert>;

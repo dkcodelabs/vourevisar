@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import md5 from 'https://esm.sh/crypto-js@4.2.0/md5';
 import { getIncidenceLevelFromScore, type TopicIncidenceLevel } from './incidenceScore.ts';
+import type { JsonBoundary } from '../_shared/jsonBoundary.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -85,6 +86,12 @@ type IncidenceScoreMetadata = {
   score_updated_at: string;
 };
 
+type IncidenceVolumeRow = {
+  id: string;
+  total_volume: number;
+  incidence_context: Record<string, unknown>;
+};
+
 type PaidUserCandidate = {
   user_id: string;
   subscription_started_at?: string | null;
@@ -94,7 +101,7 @@ type PaidUserCandidate = {
 };
 
 const updateTopicOrThrow = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   topicId: string,
   values: Record<string, unknown>,
 ) => {
@@ -111,13 +118,13 @@ const updateTopicOrThrow = async (
 };
 
 const getDailyGoogleUsage = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   userId: string,
 ) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (supabase as JsonBoundary)
     .from('topics')
     .select('last_audit_log,incidence_source,incidence_applied_at,subjects!inner(user_id)')
     .eq('subjects.user_id', userId)
@@ -126,7 +133,7 @@ const getDailyGoogleUsage = async (
 
   if (error) throw error;
 
-  return (data || []).reduce((total: number, row: any) => {
+  return (data || []).reduce((total: number, row: JsonBoundary) => {
     return total + Number(row.last_audit_log?.total_api_calls || 0);
   }, 0);
 };
@@ -161,7 +168,7 @@ const contextHash = (subjectName: string, topicName: string, context?: AnalysisC
   ].join('|')).toString();
 
 const callAiHandler = async (
-  _supabase: ReturnType<typeof createClient>,
+  _supabase: JsonBoundary,
   body: Record<string, unknown>,
   authToken?: string | null,
 ) => {
@@ -188,7 +195,7 @@ const callAiHandler = async (
     body: JSON.stringify(body),
   });
   const responseText = await response.text();
-  let data: any = null;
+  let data: JsonBoundary = null;
 
   try {
     data = responseText ? JSON.parse(responseText) : null;
@@ -281,7 +288,7 @@ const buildQueryCandidates = (
   return [...candidates].filter(Boolean);
 };
 
-const hasPaidSubscription = async (supabase: ReturnType<typeof createClient>, userId: string) => {
+const hasPaidSubscription = async (supabase: JsonBoundary, userId: string) => {
   const { data, error } = await supabase
     .from('user_subscriptions')
     .select('plan,status,subscription_ends_at')
@@ -323,13 +330,13 @@ const hasCurrentPaidEntitlement = (candidate: PaidUserCandidate) => {
 };
 
 const attachCycleSnapshotPriority = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   candidates: PaidUserCandidate[],
 ) => {
   const userIds = candidates.map(candidate => candidate.user_id).filter(Boolean);
   if (userIds.length === 0) return candidates;
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (supabase as JsonBoundary)
     .from('cycle_rotation_snapshots')
     .select('user_id,created_at,completed_at')
     .in('user_id', userIds)
@@ -353,7 +360,7 @@ const attachCycleSnapshotPriority = async (
 };
 
 const generateSearchTerms = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   subjectName: string,
   topicName: string,
   context?: AnalysisContext | null,
@@ -425,7 +432,7 @@ Responda somente JSON:
 };
 
 const validateTopicForIncidence = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   subjectName: string,
   topicName: string,
   authToken?: string | null,
@@ -498,7 +505,7 @@ Responda somente JSON:
 };
 
 const searchGoogleVolume = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   query: string,
   anosPreferencia = DEFAULT_YEARS_WINDOW,
   authToken?: string | null,
@@ -513,13 +520,13 @@ const searchGoogleVolume = async (
 };
 
 const findCatalogMatch = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   topicKey: string,
   subjectKey: string,
   context: AnalysisContext,
 ) => {
   const baseSelect = 'id,total_volume,importance_score,search_context,winner_query,audit_log';
-  const makeBaseQuery = () => (supabase as any)
+  const makeBaseQuery = () => (supabase as JsonBoundary)
     .from('topic_incidence_catalog')
     .select(baseSelect)
     .eq('topic_key', topicKey)
@@ -550,12 +557,12 @@ const findCatalogMatch = async (
 };
 
 const countTopicsForMap = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   userId: string,
   editalId: string,
-  applyFilter?: (query: any) => any,
+  applyFilter?: (query: JsonBoundary) => JsonBoundary,
 ) => {
-  let query = (supabase as any)
+  let query = (supabase as JsonBoundary)
     .from('topics')
     .select('id,subjects!inner(user_id,edital_id)', { count: 'exact', head: true })
     .eq('subjects.user_id', userId)
@@ -571,7 +578,7 @@ const countTopicsForMap = async (
 };
 
 const refreshIncidenceMapStatus = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   userId: string,
   editalId?: string | null,
   editalName?: string | null,
@@ -610,14 +617,14 @@ const refreshIncidenceMapStatus = async (
         : 'concluido';
 
   const now = new Date().toISOString();
-  const { data: currentMap } = await (supabase as any)
+  const { data: currentMap } = await (supabase as JsonBoundary)
     .from('edital_incidence_maps')
     .select('id,notification_sent_at,status')
     .eq('user_id', userId)
     .eq('edital_id', editalId)
     .maybeSingle();
 
-  const { data: savedMap, error } = await (supabase as any)
+  const { data: savedMap, error } = await (supabase as JsonBoundary)
     .from('edital_incidence_maps')
     .upsert({
       user_id: userId,
@@ -655,7 +662,7 @@ const refreshIncidenceMapStatus = async (
       ? `Mapa de cobrança do edital ${displayName} pronto: ${totalTopics} tópicos analisados, ${withSignalCount} com sinal.`
       : `Mapa de cobrança do edital ${displayName} finalizado parcialmente: ${withSignalCount} com sinal, ${noSignalCount} sem sinal encontrado, ${errorCount} com erro para retentar.`;
 
-    await (supabase as any)
+    await (supabase as JsonBoundary)
       .from('user_notifications')
       .insert({
         user_id: userId,
@@ -675,7 +682,7 @@ const refreshIncidenceMapStatus = async (
         },
       });
 
-    await (supabase as any)
+    await (supabase as JsonBoundary)
       .from('edital_incidence_maps')
       .update({ notification_sent_at: now })
       .eq('id', savedMap.id);
@@ -701,13 +708,13 @@ const getScoreFromPercentile = (percentile: number | null, volume: number, minVo
 };
 
 const normalizeIncidenceScoresForSubject = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   userId: string,
   subjectId?: string | null,
 ) => {
   if (!subjectId) return {} as Record<string, IncidenceScoreMetadata>;
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (supabase as JsonBoundary)
     .from('topics')
     .select('id,total_volume,incidence_context,subjects!inner(user_id,edital_id)')
     .eq('subjects.user_id', userId)
@@ -717,15 +724,15 @@ const normalizeIncidenceScoresForSubject = async (
 
   if (error) throw error;
 
-  const rows = (data || [])
-    .map((row: any) => ({
+  const rows: IncidenceVolumeRow[] = ((data || []) as JsonBoundary[])
+    .map((row: JsonBoundary): IncidenceVolumeRow => ({
       id: String(row.id),
       total_volume: Number(row.total_volume || 0),
       incidence_context: row.incidence_context && typeof row.incidence_context === 'object'
         ? row.incidence_context
         : {},
     }))
-    .filter((row: any) => row.total_volume > 0);
+    .filter((row: IncidenceVolumeRow) => row.total_volume > 0);
 
   if (rows.length === 0) return {};
 
@@ -771,7 +778,7 @@ const normalizeIncidenceScoresForSubject = async (
 };
 
 const calculateIncidence = async (
-  supabase: ReturnType<typeof createClient>,
+  supabase: JsonBoundary,
   subjectName: string,
   topicName: string,
   analysisContext?: AnalysisContext | null,
@@ -986,7 +993,7 @@ serve(async (req) => {
       );
 
       for (const paidUser of paidUserCandidates) {
-        const { count, error: pendingCountError } = await (supabase as any)
+        const { count, error: pendingCountError } = await (supabase as JsonBoundary)
           .from('topics')
           .select('id,subjects!inner(user_id)', { count: 'exact', head: true })
           .eq('subjects.user_id', paidUser.user_id)
@@ -1030,7 +1037,7 @@ serve(async (req) => {
     }
 
     const topicSelect = 'id,name,subject_id,subjects!inner(id,name,user_id,edital_id,user_editais(id,name,exam_board,organ,position,year,created_at))';
-    const applyQueueScope = (query: any) => {
+    const applyQueueScope = (query: JsonBoundary) => {
       let scopedQuery = query.eq('subjects.user_id', targetUserId);
 
       if (requestedEditalId) {
@@ -1044,7 +1051,7 @@ serve(async (req) => {
       return scopedQuery;
     };
 
-    const pendingTopicFilter = (query: any) => {
+    const pendingTopicFilter = (query: JsonBoundary) => {
       const filteredQuery = query
         .neq('is_active', false)
         .eq('is_skipped', false);
@@ -1063,14 +1070,14 @@ serve(async (req) => {
     };
 
     const firstCandidateQuery = requestedTopicId
-      ? (supabase as any)
+      ? (supabase as JsonBoundary)
         .from('topics')
         .select(topicSelect)
         .eq('subjects.user_id', targetUserId)
         .eq('id', requestedTopicId)
       : pendingTopicFilter(
         applyQueueScope(
-          (supabase as any)
+          (supabase as JsonBoundary)
             .from('topics')
             .select(topicSelect)
         )
@@ -1106,7 +1113,7 @@ serve(async (req) => {
 
     const firstSubject = getTopicSubject(firstCandidate);
     const topicQuery = requestedTopicId
-      ? (supabase as any)
+      ? (supabase as JsonBoundary)
         .from('topics')
         .select(topicSelect)
         .eq('subjects.user_id', targetUserId)
@@ -1114,7 +1121,7 @@ serve(async (req) => {
         .limit(1)
       : pendingTopicFilter(
         applyQueueScope(
-          (supabase as any)
+          (supabase as JsonBoundary)
             .from('topics')
             .select(topicSelect)
         )
@@ -1430,7 +1437,7 @@ serve(async (req) => {
       }
     }
 
-    const enrichedResults = results.map((result: any) => {
+    const enrichedResults = results.map((result: JsonBoundary) => {
       const score = result.topic_id ? scoreByTopic[result.topic_id] : null;
       return score
         ? {

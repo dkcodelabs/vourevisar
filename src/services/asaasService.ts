@@ -20,7 +20,7 @@ export interface CheckoutPayload {
 
 export interface CheckoutResponse {
   success: boolean;
-  subscription?: Record<string, any>;
+  subscription?: Record<string, unknown>;
   pix?: Record<string, unknown>;
   billingType?: 'PIX' | 'CREDIT_CARD';
   value?: number;
