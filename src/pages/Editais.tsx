@@ -48,6 +48,7 @@ import {
 import { mergeService } from '@/services/mergeService';
 import { recalculatePendingReviewsForEdital } from '@/services/topicReviewScheduleService';
 import { unloadEditalFromCycle } from '@/services/cycleUnloadService';
+import { importEdital, type EditalImportExtraInfo } from '@/services/editalImportService';
 import { getPendingMergeForCycleLoad } from '@/utils/cycleLoadPendingMerge';
 import {
     CycleUnificationMap,
@@ -1666,11 +1667,8 @@ const Editais = () => {
         editalName?: string,
         isImported: boolean = false,
         sourceId?: string,
-        extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; exam_board?: string | null; source_updated_at?: string | null }
+        extraInfo?: EditalImportExtraInfo
     ) => {
-        console.log("🚀 handleImportDone acionado - Versão 2.3 (Correção P0001)");
-        console.log("Parâmetros:", { editalName, isImported, sourceId, extraInfo });
-
         if (!user) {
             throw new Error('Usuário não autenticado para importar edital.');
         }
@@ -1681,125 +1679,45 @@ const Editais = () => {
         setIsSaving(true);
 
         try {
-            // 1. Criar o Edital primeiro (com lista de IDs vazia)
-            const finalName = editalName || 'Novo Edital';
-            // Sanitização robusta da data da prova
-            const sanitizedExamDate = sanitizeExamDate(extraInfo?.exam_date);
+            const finalName = editalName?.trim() || 'Novo Edital';
+            const { editalId, subjectIds: realSubjectIds } = await importEdital({
+                editalName: finalName,
+                extraInfo,
+                isImported,
+                sourceId,
+                subjects: importedSubjects,
+                userId: user.id,
+            });
 
-            const { data: newEditalRow, error: editalErr } = await editaisTable().insert({
-                user_id: user.id,
-                name: finalName,
-                is_imported: isImported,
-                source_id: sourceId,
-                last_sync_snapshot: sourceId ? {
-                    source_id: sourceId,
-                    source_updated_at: extraInfo?.source_updated_at ?? null,
-                    synced_at: new Date().toISOString()
-                } : null,
-                organ: extraInfo?.organ,
-                position: extraInfo?.position,
-                year: extraInfo?.year,
-                category: extraInfo?.category,
-                exam_date: sanitizedExamDate,
-                exam_board: extraInfo?.exam_board?.trim() || null,
-                subject_ids: [], // Será atualizado no final
-                active_subject_ids: [],
-                merged_into_cycle: false,
-            }).select().single();
-
-            if (editalErr) throw editalErr;
-            if (!newEditalRow) throw new Error('Falha ao criar edital base.');
-
-            const realSubjectIds: string[] = [];
-
-            // 2. Loop de matérias já com o edital_id
-            for (const subj of importedSubjects) {
-                // Criar matéria no Supabase vinculada ao edital
-                const { data: newSubject, error: subjErr } = await supabase
-                    .from('subjects')
-                    .insert({
-                        user_id: user.id,
-                        edital_id: newEditalRow.id, // OBRIGATÓRIO agora
-                        name: subj.name,
-                        status: 'Nova',
-                        color: subj.color || '#3b82f6',
-                        exam_weight_points: subj.exam_weight_points ?? null,
-                        exam_weight_questions: subj.exam_weight_questions ?? null,
-                        exam_weight_percentage: subj.exam_weight_percentage ?? null,
-                        exam_weight_raw: subj.exam_weight_raw ?? null,
-                    })
-                    .select('id')
+            let finalEdital: UserEdital | null = null;
+            if (!isImported) {
+                const { data: createdEdital, error: createdEditalError } = await editaisTable()
+                    .select('*')
+                    .eq('id', editalId)
+                    .eq('user_id', user.id)
                     .single();
-
-                if (subjErr) throw subjErr;
-                if (!newSubject) continue;
-
-                realSubjectIds.push(newSubject.id);
-
-                // Criar tópicos da matéria vinculados ao edital e à matéria
-                const topicsToInsert = subj.topics
-                    .filter(t => t.name?.trim())
-                    .map((t, idx) => ({
-                        subject_id: newSubject.id,
-                        edital_id: newEditalRow.id, // OBRIGATÓRIO agora
-                        name: t.name,
-                        completed: false,
-                        review_count: 0,
-                        position: t.position ?? idx,
-                        is_active: true
-                    }));
-
-                if (topicsToInsert.length > 0) {
-                    const { error: topicErr } = await supabase
-                        .from('topics')
-                        .insert(topicsToInsert);
-                    if (topicErr) throw topicErr;
-                }
+                if (createdEditalError) throw createdEditalError;
+                if (!createdEdital) throw new Error('Edital criado, mas não foi possível carregá-lo.');
+                finalEdital = rowToEdital(createdEdital);
             }
 
-            // 3. Atualizar o Edital com a lista final de UUIDs de matérias
-            if (realSubjectIds.length > 0) {
-                const { error: updateErr } = await editaisTable()
-                    .update({
-                        subject_ids: realSubjectIds,
-                        active_subject_ids: realSubjectIds
-                    })
-                    .eq('id', newEditalRow.id);
-
-                if (updateErr) throw updateErr;
-            }
-
-            // 4. Atualizar tudo
             await fetchEditais();
             await refreshData();
 
-            // Forçamos o despacho do evento para garantir que outros componentes saibam da mudança
             window.dispatchEvent(new CustomEvent('subjectUpdated'));
             window.dispatchEvent(new CustomEvent('topicUpdated'));
 
             setIsImportModalOpen(false);
 
-            // CONSTRUIR O EDITAL FINAL COM OS DADOS ATUALIZADOS
-            // Isso evita que o modal de matérias abra "vazio" (sem os IDs das matérias recém-criadas)
-            const finalEdital = rowToEdital({
-                ...newEditalRow,
-                subject_ids: realSubjectIds,
-                active_subject_ids: realSubjectIds,
-                exam_date: sanitizedExamDate,
-                updated_at: new Date().toISOString()
-            });
-
-            // Abrir automaticamente o modal de matérias se for criação manual 
-            // ou se o usuário desejar (no caso manual é obrigatório abrir agora)
-            if (!isImported) {
+            if (!isImported && finalEdital) {
                 setSubjectsModal({ isOpen: true, edital: finalEdital });
                 toast.success(`Edital "${finalName}" criado! Agora adicione as matérias.`);
             } else {
-                // No caso de importado por IA, também garantimos que os dados estão refletidos
                 toast.success(`Edital "${finalName}" com ${realSubjectIds.length} matéria(s) importado com sucesso!`);
             }
         } catch (err) {
-            errorService.report(err, { module: 'editais', action: 'import', userMessage: 'Erro ao importar edital.' });
+            await errorService.report(err, { module: 'editais', action: 'import', userMessage: 'Erro ao importar edital.' });
+            throw err;
         } finally {
             setIsSaving(false);
         }
