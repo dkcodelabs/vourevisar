@@ -51,6 +51,23 @@ Este arquivo é a fonte principal de instruções para agentes neste projeto. Se
 - Evite abstração prematura. Crie abstração apenas quando reduzir duplicação real ou isolar regra de domínio importante.
 - Não misture refatoração grande com feature pequena. Se encontrar problema estrutural, sinalize e proponha recorte.
 
+## Anti-monólito de páginas
+
+- Não implemente fluxo grande concentrando tudo em uma página. Página deve orquestrar dados, estado de rota e composição; não deve virar depósito de UI, regra de negócio, cálculo, handlers, modais e chamadas Supabase ao mesmo tempo.
+- Ao iniciar uma tela nova ou uma expansão relevante, defina os limites antes de codar:
+  - `page`: rota, composição e estado mínimo de tela.
+  - `components`: blocos visuais reutilizáveis ou isoláveis.
+  - `hooks`: derivação de estado, queries, mutations e coordenação de dados.
+  - `services`: regra de domínio, persistência, Supabase, RPCs e efeitos externos.
+  - `utils`: funções puras, cálculo e formatação sem estado React.
+- Se uma página passar de aproximadamente 700 linhas ou começar a ter múltiplos blocos independentes, pare e extraia antes de adicionar nova feature. Não espere "terminar a tela" para organizar; isso vira dívida cara.
+- Não coloque `useMemo` grande, cálculo de métricas, regra de status, montagem de alertas ou sugestão estratégica dentro do JSX da página. Extraia para hook ou util tipado assim que o cálculo tiver nome de domínio.
+- Não deixe handlers críticos espalhados no meio do render. Ações como iniciar revisão, marcar ciclo, reordenar fila, aplicar sugestão, resetar ciclo e persistir dados devem ficar em hook/service quando crescerem além de callbacks simples.
+- Componentes de apresentação não devem buscar Supabase nem conhecer detalhes de RLS, usuário, tabela ou Edge Function. Eles recebem dados e callbacks.
+- Hooks não devem esconder efeito destrutivo ou financeiro atrás de nome genérico. Use nomes explícitos, trate loading/erro e mantenha fallback visível para o usuário.
+- Quando uma tela tiver dois modos de visualização, como fila e edital verticalizado, trate cada modo como componente próprio desde o começo. Compartilhe cálculo via hook, não duplicando JSX ou regras na página.
+- Regra prática para revisar PR: se o diff adiciona muita lógica nova diretamente em `src/pages/*.tsx`, questione. O padrão esperado é página fina + hooks/services/componentes pequenos.
+
 ## Supabase, banco e dados
 
 - Use sempre o cliente de `src/integrations/supabase/client.ts` no frontend.
