@@ -50,6 +50,7 @@ import { recalculatePendingReviewsForEdital } from '@/services/topicReviewSchedu
 import { unloadEditalFromCycle } from '@/services/cycleUnloadService';
 import { importEdital, type EditalImportExtraInfo } from '@/services/editalImportService';
 import { getPendingMergeForCycleLoad } from '@/utils/cycleLoadPendingMerge';
+import { shouldBlockCycleConflictClose } from '@/utils/cycleConflictModalClose';
 import { formatRecoveredMergeTimestamp } from '@/utils/recoveredMergeTimestamp';
 import {
     CycleUnificationMap,
@@ -1638,10 +1639,13 @@ const Editais = () => {
     }, [cycleConflict.action, cycleConflict.edital?.name, cycleExamDateDraft, cycleNameCandidates, cycleNameDraft, navigate, user?.id]);
 
     const closeCycleConflictModal = useCallback((source: 'button' | 'backdrop' = 'button') => {
-        if ((isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success') return;
-        if (cycleConflict.step === 'success' && cycleConflict.action !== 'replace') {
-            if (source === 'backdrop') return;
-            toast.info('Finalize o ciclo para salvar nome e data antes de fechar.');
+        if (shouldBlockCycleConflictClose({
+            action: cycleConflict.action,
+            isAnalyzingTopics,
+            isMerging,
+            source,
+            step: cycleConflict.step,
+        })) {
             return;
         }
 
