@@ -90,7 +90,7 @@ export const EditalCard = ({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className="glow-card group relative flex h-full w-full max-w-[420px] mx-auto flex-col overflow-hidden rounded-3xl border border-border bg-card transition-all duration-300 hover:border-border-strong dark:border-white/5 dark:bg-zinc-900/40 dark:hover:border-white/10 xl:mx-0"
+            className="glow-card group relative mx-auto flex h-full w-full max-w-[460px] flex-col overflow-hidden rounded-3xl border border-border bg-card transition-all duration-300 hover:border-border-strong dark:border-white/5 dark:bg-zinc-900/40 dark:hover:border-white/10 xl:mx-0"
         >
             {/* Destaque (Highlight) via Div Absoluta para evitar recortes */}
             {isHighlighted && (
@@ -135,7 +135,7 @@ export const EditalCard = ({
                     </div>
                 </div>
 
-                <div className="mx-auto mb-4 grid w-[94%] grid-cols-2 overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.09] via-background/70 to-incidence/[0.08] shadow-[inset_0_1px_0_hsl(var(--foreground)/0.06),0_10px_30px_hsl(var(--primary)/0.05)] dark:border-primary/20 dark:from-primary/[0.10] dark:via-white/[0.025] dark:to-incidence/[0.08]">
+                <div className="mx-auto mb-4 grid w-full grid-cols-1 overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.09] via-background/70 to-incidence/[0.08] shadow-[inset_0_1px_0_hsl(var(--foreground)/0.06),0_10px_30px_hsl(var(--primary)/0.05)] min-[360px]:w-[94%] min-[360px]:grid-cols-2 dark:border-primary/20 dark:from-primary/[0.10] dark:via-white/[0.025] dark:to-incidence/[0.08]">
                     <div className="flex min-h-[92px] flex-col px-3 py-3">
                         <div className="mb-2 flex items-center justify-between gap-2">
                             <div className="flex min-w-0 items-center gap-1">
@@ -172,7 +172,7 @@ export const EditalCard = ({
                         </div>
                     </div>
                     
-                    <div className="flex min-h-[92px] flex-col border-l border-border/70 px-3 py-3 dark:border-white/10">
+                    <div className="flex min-h-[92px] flex-col border-t border-border/70 px-3 py-3 min-[360px]:border-l min-[360px]:border-t-0 dark:border-white/10">
                         <div className="mb-2 flex items-center gap-1.5">
                             <Clock
                                 size={12}
@@ -213,13 +213,13 @@ export const EditalCard = ({
                     </motion.div>
                 )}
 
-                <div className="mt-auto flex min-h-11 items-center justify-between gap-3 border-t border-border/80 pt-3 dark:border-white/5">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div className="mt-auto flex min-h-11 items-center justify-between gap-2 border-t border-border/80 pt-3 dark:border-white/5">
+                    <div className="grid min-w-0 flex-1 grid-cols-2 items-center gap-2">
                         {metrics.subjectsCount > 0 ? (
                             <>
                                 <button
                                     onClick={onViewSubjects}
-                                    className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-primary/25 bg-primary/[0.08] px-3 text-[10px] font-bold text-primary transition-colors duration-200 hover:border-primary/40 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                                    className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-primary/25 bg-primary/[0.08] px-2 text-[10px] font-bold text-primary transition-colors duration-200 hover:border-primary/40 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:px-3"
                                 >
                                     <Eye size={13} className="shrink-0" />
                                     <span className="truncate">Ver Matérias</span>
@@ -227,7 +227,7 @@ export const EditalCard = ({
                                 <button
                                     onClick={edital.mergedIntoCycle ? onUnloadCycle : onLoadCycle}
                                     disabled={isProcessing}
-                                    className={`relative flex h-8 min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-3 text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-80 ${
+                                    className={`relative flex h-8 min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-2 text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-80 sm:px-3 ${
                                         edital.mergedIntoCycle
                                             ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400'
                                             : 'bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90'
@@ -267,13 +267,13 @@ export const EditalCard = ({
                             <>
                                 <button
                                     onClick={onViewSubjects}
-                                    className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 text-[10px] font-bold text-content-muted transition-colors hover:bg-secondary-strong hover:text-foreground dark:border-white/5 dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
+                                    className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2 text-[10px] font-bold text-content-muted transition-colors hover:bg-secondary-strong hover:text-foreground sm:px-3 dark:border-white/5 dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
                                 >
                                     <Eye size={13} className="shrink-0" />
                                     <span className="truncate">Ver</span>
                                 </button>
 
-                                <div className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 text-center">
+                                <div className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 text-center sm:px-3">
                                     <AlertTriangle size={13} className="shrink-0 text-amber-400" />
                                     <span className="truncate text-[10px] font-bold text-amber-400">Sem matérias</span>
                                 </div>
