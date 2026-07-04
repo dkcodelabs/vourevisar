@@ -1071,7 +1071,7 @@ As partes pesadas ficam para depois: motor definitivo de cobranca/incidencia, au
 
 - [ ] Corrigir o perfil de execucao das conversas locais do Codex para permitir escrita em `.git`: a nova conversa local foi criada, mas tambem iniciou com `.git` somente leitura e aguarda aprovacao explicita para escrita no repositorio e acesso de rede. Nao tentar contornar por script, alterar permissoes Unix do repositorio ou ampliar acesso global sem necessidade.
 - [x] Reconciliar com cuidado o historico de migrations local e remoto do Supabase. Verificado em 2026-07-03 com `supabase migration list --linked`: todas as versoes locais/remotas estavam alinhadas ate `20260627162043`, sem lacunas e sem necessidade de `migration repair`. Evidencia registrada em `docs/supabase-migration-reconciliation-2026-07-03.md`.
-- [ ] Regenerar e revisar `src/integrations/supabase/types.ts` em entrega dedicada: `supabase gen types typescript --linked` revelou drift amplo de tabelas/colunas antigas além desta RPC. Nesta correção foi adicionada somente a assinatura confirmada de `atomic_delete_subject` para evitar misturar uma atualização global de tipos sem auditoria dos consumidores.
+- [x] Regenerar e revisar `src/integrations/supabase/types.ts` em entrega dedicada. Concluído em 2026-07-03: `supabase gen types --linked --lang=typescript --schema public` atualizou o arquivo com o schema remoto real, incluindo `ai_usage_logs`, `cycle_rotation_snapshots`, `cycle_study_events`, `edital_incidence_maps`, `topic_incidence_catalog`, `ai_status.model_name`, `check_ai_circuit_breaker`, `get_user_ai_limits` e a RPC `atomic_delete_subject`; `npm run typecheck` validou os consumidores.
 
 ## Plano transversal: motor de revisao adaptativa
 
