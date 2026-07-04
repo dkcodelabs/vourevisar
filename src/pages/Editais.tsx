@@ -2018,7 +2018,7 @@ const Editais = () => {
                                 )}
                             </AnimatePresence>
 
-                            <div className="grid grid-cols-1 min-[460px]:grid-cols-3 gap-2 w-full lg:w-auto">
+                            <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))] gap-2 lg:w-auto lg:min-w-[560px]">
                                 {quickCreateOptions.map((option) => {
                                     const Icon = option.icon;
                                     const accent = quickCreateAccentClasses[option.accent];
@@ -2032,7 +2032,7 @@ const Editais = () => {
                                                 setImportModalTab(option.id);
                                                 setIsImportModalOpen(true);
                                             }}
-                                            className={`group relative flex h-12 min-w-0 items-center gap-2 rounded-lg border border-border/70 bg-secondary/60 px-3 text-left shadow-sm transition-all duration-200 hover:shadow-lg dark:border-white/[0.06] dark:bg-white/[0.03] ${accent.hover} sm:min-w-[132px] lg:min-w-[146px]`}
+                                            className={`group relative flex min-h-12 min-w-0 items-center gap-2 rounded-lg border border-border/70 bg-secondary/60 px-3 py-2 text-left shadow-sm transition-all duration-200 hover:shadow-lg dark:border-white/[0.06] dark:bg-white/[0.03] ${accent.hover}`}
                                         >
                                             <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-transform duration-200 group-hover:scale-110 ${accent.icon}`}>
                                                 <Icon size={14} />
@@ -2048,7 +2048,7 @@ const Editais = () => {
                                                         </span>
                                                     )}
                                                 </span>
-                                                <span className="block truncate text-[10px] font-semibold text-content-muted">
+                                                <span className="block text-[10px] font-semibold leading-snug text-content-muted line-clamp-2">
                                                     {option.description}
                                                 </span>
                                             </span>
@@ -2258,7 +2258,7 @@ const Editais = () => {
                     )}
                 </motion.div>
             ) : (
-                <div className="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-4">
+                <div className="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(min(100%,380px),1fr))] gap-4">
                     {filteredEditais.map(edital => {
                         const metrics = getEditalMetrics(edital);
                         const daysLeft = getDaysUntilExam(edital.examDate);
