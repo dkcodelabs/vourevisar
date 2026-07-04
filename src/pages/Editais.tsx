@@ -2454,12 +2454,12 @@ const Editais = () => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive dark:border-red-400/35 dark:bg-red-500/15 dark:text-red-100">
                                         <div className="flex items-start gap-3">
-                                            <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                                            <AlertTriangle size={18} className="shrink-0 mt-0.5 text-destructive dark:text-red-200" />
                                             <div>
-                                                <p className="font-bold uppercase text-[10px] tracking-widest mb-1">Criação Manual</p>
-                                                <p className="opacity-90 leading-normal">
+                                                <p className="font-bold uppercase text-[10px] tracking-widest mb-1 text-destructive dark:text-red-100">Criação Manual</p>
+                                                <p className="leading-normal text-destructive/90 dark:text-red-100/90">
                                                     Este edital foi criado manualmente. A exclusão é <strong>permanente</strong> e todos os registros vinculados serão removidos ("já era").
                                                 </p>
                                             </div>
@@ -3451,7 +3451,7 @@ const Editais = () => {
                             <div className={`${cycleConflict.step === 'preview' && cycleConflict.action === 'merge' ? 'hidden' : ''} shrink-0 border-t border-border bg-modal/95 px-6 py-2.5 backdrop-blur-xl md:px-8`}>
                                 {cycleConflict.step === 'select' ? (
                                     cycleConflict.existingIds.length === 0 ? (
-                                        <div className="flex items-center justify-between gap-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                                             <div className="flex items-center gap-5 text-[10px] font-black uppercase tracking-widest text-content-muted">
                                                 <div className="flex items-baseline gap-1.5">
                                                     <span className="text-base leading-none text-foreground">{cycleConflictStats.subjects}</span>
@@ -3465,7 +3465,7 @@ const Editais = () => {
                                             <button
                                                 onClick={() => handleCycleConflictAction('replace')}
                                                 disabled={isMerging}
-                                                className="app-button-success group flex h-11 min-w-[210px] items-center justify-center px-5 text-center transition-colors disabled:cursor-not-allowed"
+                                                className="app-button-success group flex h-11 w-full items-center justify-center px-5 text-center transition-colors disabled:cursor-not-allowed sm:w-auto sm:min-w-[210px]"
                                             >
                                                 {isMerging && <Loader2 size={16} className="mr-2 animate-spin" />}
                                                 <div className="flex flex-col items-start text-left">
@@ -3479,7 +3479,7 @@ const Editais = () => {
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="flex items-center justify-between gap-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                                             <div className="flex items-center gap-5 text-[10px] font-black uppercase tracking-widest text-content-muted">
                                                 <div className="flex items-baseline gap-1.5">
                                                     <span className="text-base leading-none text-foreground">{cycleConflictStats.subjects}</span>
@@ -3490,34 +3490,34 @@ const Editais = () => {
                                                     <span>tópicos</span>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center justify-end gap-3">
+                                            <div className="grid w-full grid-cols-2 items-center gap-2 sm:flex sm:w-auto sm:justify-end sm:gap-3">
                                                 <button
                                                     onClick={() => {
                                                         setExpandedPreviewSubjects(new Set(replacePreviewSubjectIds));
                                                         setCycleConflict(prev => ({ ...prev, step: 'preview', action: 'replace' }));
                                                     }}
-                                                    className="group flex h-10 items-center justify-center gap-2.5 rounded-xl border border-destructive/45 bg-modal px-3 text-center text-destructive shadow-sm shadow-black/10 transition-all hover:border-destructive hover:bg-destructive hover:text-destructive-foreground active:scale-[0.98] disabled:opacity-50 dark:border-white/70"
+                                                    className="group flex h-10 min-w-0 items-center justify-center gap-2 rounded-xl border border-destructive/45 bg-modal px-2 text-center text-destructive shadow-sm shadow-black/10 transition-all hover:border-destructive hover:bg-destructive hover:text-destructive-foreground active:scale-[0.98] disabled:opacity-50 sm:gap-2.5 sm:px-3 dark:border-white/70"
                                                 >
                                                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive transition-colors group-hover:border-destructive-foreground/25 group-hover:bg-destructive-foreground/10 group-hover:text-destructive-foreground">
                                                         <RefreshCw size={14} />
                                                     </span>
-                                                    <div className="flex flex-col items-start text-left">
+                                                    <div className="flex min-w-0 flex-col items-start text-left">
                                                         <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider text-destructive transition-colors group-hover:text-destructive-foreground">SUBSTITUIR</span>
-                                                        <span className="text-[9px] font-bold leading-none text-content-muted transition-colors group-hover:text-destructive-foreground/85">Trocar ciclo</span>
+                                                        <span className="truncate text-[9px] font-bold leading-none text-content-muted transition-colors group-hover:text-destructive-foreground/85">Trocar ciclo</span>
                                                     </div>
                                                 </button>
 
                                                 <button
                                                     onClick={handleHybridPreview}
                                                     disabled={isMerging}
-                                                    className="group flex h-10 items-center justify-center gap-2.5 rounded-xl border border-success/45 bg-modal px-3 text-center text-success shadow-sm shadow-black/10 transition-all hover:border-success hover:bg-success hover:text-success-foreground active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/70"
+                                                    className="group flex h-10 min-w-0 items-center justify-center gap-2 rounded-xl border border-success/45 bg-modal px-2 text-center text-success shadow-sm shadow-black/10 transition-all hover:border-success hover:bg-success hover:text-success-foreground active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2.5 sm:px-3 dark:border-white/70"
                                                 >
                                                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success transition-colors group-hover:border-success-foreground/25 group-hover:bg-success-foreground/10 group-hover:text-success-foreground">
                                                         <CheckCircle2 size={14} />
                                                     </span>
-                                                    <div className="flex flex-col items-start text-left">
+                                                    <div className="flex min-w-0 flex-col items-start text-left">
                                                         <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider text-success transition-colors group-hover:text-success-foreground">MESCLAR</span>
-                                                        <span className="text-[9px] font-bold leading-none text-content-muted transition-colors group-hover:text-success-foreground/85">Ver como o ciclo ficará</span>
+                                                        <span className="truncate text-[9px] font-bold leading-none text-content-muted transition-colors group-hover:text-success-foreground/85">Ver como o ciclo ficará</span>
                                                     </div>
                                                 </button>
                                             </div>
