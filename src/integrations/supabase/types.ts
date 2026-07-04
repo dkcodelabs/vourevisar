@@ -303,6 +303,7 @@ export type Database = {
           error_message: string | null
           id: string
           last_check: string | null
+          model_name: string | null
           status: string | null
           updated_at: string | null
         }
@@ -310,6 +311,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           last_check?: string | null
+          model_name?: string | null
           status?: string | null
           updated_at?: string | null
         }
@@ -317,8 +319,45 @@ export type Database = {
           error_message?: string | null
           id?: string
           last_check?: string | null
+          model_name?: string | null
           status?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ai_usage_logs: {
+        Row: {
+          candidates_tokens: number | null
+          cost_estimate: number | null
+          created_at: string | null
+          id: string
+          mode: string
+          model_name: string
+          prompt_tokens: number | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          candidates_tokens?: number | null
+          cost_estimate?: number | null
+          created_at?: string | null
+          id?: string
+          mode: string
+          model_name: string
+          prompt_tokens?: number | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          candidates_tokens?: number | null
+          cost_estimate?: number | null
+          created_at?: string | null
+          id?: string
+          mode?: string
+          model_name?: string
+          prompt_tokens?: number | null
+          status?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -516,6 +555,75 @@ export type Database = {
         }
         Relationships: []
       }
+      cycle_rotation_snapshots: {
+        Row: {
+          completed_at: string
+          created_at: string
+          cycle_number: number
+          cycle_subject_ids: string[]
+          edital_ids: string[]
+          id: string
+          per_subject: Json
+          started_at: string | null
+          studied_subject_count: number
+          studied_subject_ids: string[]
+          subject_count: number
+          topics_completed_count: number
+          topics_started_count: number
+          user_cycle_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          created_at?: string
+          cycle_number: number
+          cycle_subject_ids?: string[]
+          edital_ids?: string[]
+          id?: string
+          per_subject?: Json
+          started_at?: string | null
+          studied_subject_count?: number
+          studied_subject_ids?: string[]
+          subject_count?: number
+          topics_completed_count?: number
+          topics_started_count?: number
+          user_cycle_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          created_at?: string
+          cycle_number?: number
+          cycle_subject_ids?: string[]
+          edital_ids?: string[]
+          id?: string
+          per_subject?: Json
+          started_at?: string | null
+          studied_subject_count?: number
+          studied_subject_ids?: string[]
+          subject_count?: number
+          topics_completed_count?: number
+          topics_started_count?: number
+          user_cycle_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_rotation_snapshots_user_cycle_id_fkey"
+            columns: ["user_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "user_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cycle_rotation_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cycle_rotations: {
         Row: {
           completed_at: string | null
@@ -544,6 +652,73 @@ export type Database = {
             columns: ["cycle_id"]
             isOneToOne: false
             referencedRelation: "study_cycles_v2"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cycle_study_events: {
+        Row: {
+          created_at: string
+          cycle_number: number
+          cycle_order_snapshot: string[]
+          edital_id: string | null
+          event_type: string
+          id: string
+          metadata: Json
+          subject_id: string | null
+          subject_position: number | null
+          topic_id: string | null
+          user_cycle_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cycle_number?: number
+          cycle_order_snapshot?: string[]
+          edital_id?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json
+          subject_id?: string | null
+          subject_position?: number | null
+          topic_id?: string | null
+          user_cycle_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cycle_number?: number
+          cycle_order_snapshot?: string[]
+          edital_id?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json
+          subject_id?: string | null
+          subject_position?: number | null
+          topic_id?: string | null
+          user_cycle_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_study_events_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cycle_study_events_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cycle_study_events_user_cycle_id_fkey"
+            columns: ["user_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "user_cycles"
             referencedColumns: ["id"]
           },
         ]
@@ -631,6 +806,93 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      edital_incidence_maps: {
+        Row: {
+          ai_count: number
+          catalog_count: number
+          completed_at: string | null
+          created_at: string
+          edital_id: string
+          error_count: number
+          id: string
+          last_error: string | null
+          last_processed_at: string | null
+          metadata: Json
+          no_signal_count: number
+          notification_sent_at: string | null
+          pending_count: number
+          skipped_count: number
+          started_at: string | null
+          status: string
+          total_topics: number
+          updated_at: string
+          user_cycle_id: string | null
+          user_id: string
+          with_signal_count: number
+        }
+        Insert: {
+          ai_count?: number
+          catalog_count?: number
+          completed_at?: string | null
+          created_at?: string
+          edital_id: string
+          error_count?: number
+          id?: string
+          last_error?: string | null
+          last_processed_at?: string | null
+          metadata?: Json
+          no_signal_count?: number
+          notification_sent_at?: string | null
+          pending_count?: number
+          skipped_count?: number
+          started_at?: string | null
+          status?: string
+          total_topics?: number
+          updated_at?: string
+          user_cycle_id?: string | null
+          user_id: string
+          with_signal_count?: number
+        }
+        Update: {
+          ai_count?: number
+          catalog_count?: number
+          completed_at?: string | null
+          created_at?: string
+          edital_id?: string
+          error_count?: number
+          id?: string
+          last_error?: string | null
+          last_processed_at?: string | null
+          metadata?: Json
+          no_signal_count?: number
+          notification_sent_at?: string | null
+          pending_count?: number
+          skipped_count?: number
+          started_at?: string | null
+          status?: string
+          total_topics?: number
+          updated_at?: string
+          user_cycle_id?: string | null
+          user_id?: string
+          with_signal_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edital_incidence_maps_edital_id_fkey"
+            columns: ["edital_id"]
+            isOneToOne: false
+            referencedRelation: "user_editais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edital_incidence_maps_user_cycle_id_fkey"
+            columns: ["user_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "user_cycles"
             referencedColumns: ["id"]
           },
         ]
@@ -1639,6 +1901,90 @@ export type Database = {
         }
         Relationships: []
       }
+      topic_incidence_catalog: {
+        Row: {
+          analysis_metadata: Json
+          audit_log: Json
+          career_key: string | null
+          career_name: string | null
+          confidence_status: string
+          context_hash: string
+          created_at: string
+          created_by: string | null
+          exam_board_key: string | null
+          exam_board_name: string | null
+          id: string
+          importance_score: number | null
+          last_analyzed_at: string
+          organization_key: string | null
+          organization_name: string | null
+          sample_count: number
+          search_context: string | null
+          source: string
+          subject_key: string
+          subject_name: string
+          topic_key: string
+          topic_name: string
+          total_volume: number
+          updated_at: string
+          winner_query: string | null
+        }
+        Insert: {
+          analysis_metadata?: Json
+          audit_log?: Json
+          career_key?: string | null
+          career_name?: string | null
+          confidence_status?: string
+          context_hash: string
+          created_at?: string
+          created_by?: string | null
+          exam_board_key?: string | null
+          exam_board_name?: string | null
+          id?: string
+          importance_score?: number | null
+          last_analyzed_at?: string
+          organization_key?: string | null
+          organization_name?: string | null
+          sample_count?: number
+          search_context?: string | null
+          source?: string
+          subject_key: string
+          subject_name: string
+          topic_key: string
+          topic_name: string
+          total_volume?: number
+          updated_at?: string
+          winner_query?: string | null
+        }
+        Update: {
+          analysis_metadata?: Json
+          audit_log?: Json
+          career_key?: string | null
+          career_name?: string | null
+          confidence_status?: string
+          context_hash?: string
+          created_at?: string
+          created_by?: string | null
+          exam_board_key?: string | null
+          exam_board_name?: string | null
+          id?: string
+          importance_score?: number | null
+          last_analyzed_at?: string
+          organization_key?: string | null
+          organization_name?: string | null
+          sample_count?: number
+          search_context?: string | null
+          source?: string
+          subject_key?: string
+          subject_name?: string
+          topic_key?: string
+          topic_name?: string
+          total_volume?: number
+          updated_at?: string
+          winner_query?: string | null
+        }
+        Relationships: []
+      }
       topic_merges: {
         Row: {
           created_at: string | null
@@ -1924,6 +2270,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "topics_incidence_catalog_id_fkey"
+            columns: ["incidence_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "topic_incidence_catalog"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "topics_parent_topic_id_fkey"
             columns: ["parent_topic_id"]
             isOneToOne: false
@@ -1946,10 +2299,10 @@ export type Database = {
           ciclos_realizados: number | null
           created_at: string | null
           data_fim_ciclo: string | null
-          exam_date: string | null
           data_inicio_ciclo: string | null
           data_ultimo_reset: string | null
           disciplinas_do_dia: string[] | null
+          exam_date: string | null
           id: string
           indice_atual: number | null
           materias_estudadas_ciclo: string[] | null
@@ -1969,10 +2322,10 @@ export type Database = {
           ciclos_realizados?: number | null
           created_at?: string | null
           data_fim_ciclo?: string | null
-          exam_date?: string | null
           data_inicio_ciclo?: string | null
           data_ultimo_reset?: string | null
           disciplinas_do_dia?: string[] | null
+          exam_date?: string | null
           id?: string
           indice_atual?: number | null
           materias_estudadas_ciclo?: string[] | null
@@ -1992,10 +2345,10 @@ export type Database = {
           ciclos_realizados?: number | null
           created_at?: string | null
           data_fim_ciclo?: string | null
-          exam_date?: string | null
           data_inicio_ciclo?: string | null
           data_ultimo_reset?: string | null
           disciplinas_do_dia?: string[] | null
+          exam_date?: string | null
           id?: string
           indice_atual?: number | null
           materias_estudadas_ciclo?: string[] | null
@@ -2516,8 +2869,8 @@ export type Database = {
       }
       atomic_cycle_load: {
         Args: {
-          p_cycle_name?: string | null
-          p_exam_date?: string | null
+          p_cycle_name?: string
+          p_exam_date?: string
           p_mode: string
           p_new_edital_id: string
           p_new_subject_ids: string[]
@@ -2532,17 +2885,8 @@ export type Database = {
       }
       atomic_delete_subject: {
         Args: {
-          p_edital_id_to_remove?: string | null
+          p_edital_id_to_remove?: string
           p_subject_id: string
-          p_user_id: string
-        }
-        Returns: Json
-      }
-      sync_topic_merge_progress: {
-        Args: {
-          p_history?: Json | null
-          p_progress: Json
-          p_topic_id: string
           p_user_id: string
         }
         Returns: Json
@@ -2560,6 +2904,10 @@ export type Database = {
       calculate_user_analytics: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      check_ai_circuit_breaker: {
+        Args: { p_daily_limit_usd: number }
+        Returns: boolean
       }
       check_email_exists: {
         Args: { email_to_check: string }
@@ -2681,6 +3029,7 @@ export type Database = {
         Args: { topic_id: string; user_id: string }
         Returns: string
       }
+      get_user_ai_limits: { Args: { p_user_id: string }; Returns: Json }
       get_user_difficulty_stats: {
         Args: { p_user_id: string }
         Returns: {
@@ -2875,6 +3224,15 @@ export type Database = {
           topic_id: string
           topic_name: string
         }[]
+      }
+      sync_topic_merge_progress: {
+        Args: {
+          p_history?: Json
+          p_progress: Json
+          p_topic_id: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       test_difficulty_system: { Args: never; Returns: string }
       test_owner_access: { Args: never; Returns: boolean }
