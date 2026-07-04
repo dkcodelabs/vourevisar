@@ -99,6 +99,33 @@ describe('studyCycleAlerts', () => {
     }));
   });
 
+  it('creates a critical alert when the active cycle exam date is already past', () => {
+    const alerts = getStudyCycleAlerts({
+      subjects: [
+        {
+          id: 'subject-1',
+          name: 'Português',
+          topics: [
+            { id: 'topic-1', name: 'Interpretação', completed: false, reviewCount: 1 },
+          ],
+        },
+      ],
+      cycleExamDate: '2026-06-01',
+      hasCycleHistory: true,
+      now,
+    });
+
+    expect(alerts[0]).toEqual(expect.objectContaining({
+      id: 'cycle-exam-date-past',
+      severity: 'critical',
+      title: 'Data da prova vencida',
+      message: 'A data do ciclo já passou. Atualize a prova para recalcular ritmo e prioridades.',
+      evidence: 'Data atual do ciclo: 01/06/2026.',
+      actionLabel: 'Atualizar data',
+      actionType: 'open_edital',
+    }));
+  });
+
   it('does not turn missing cycle history into a strategic alert by itself', () => {
     const alerts = getStudyCycleAlerts({
       subjects: [],

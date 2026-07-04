@@ -66,6 +66,7 @@ export type StudyCycleAlert = {
 
 type GetStudyCycleAlertsInput = {
   subjects: AlertSubject[];
+  cycleExamDate?: string | null;
   editais?: AlertEdital[];
   hasCycleHistory?: boolean;
   now?: Date;
@@ -153,12 +154,28 @@ const getSubjectStartedRatio = (subject: AlertSubject) => {
 
 export const getStudyCycleAlerts = ({
   subjects,
+  cycleExamDate = null,
   editais = [],
   hasCycleHistory = true,
   now = new Date(),
   maxAlerts = 4,
 }: GetStudyCycleAlertsInput): StudyCycleAlert[] => {
   const alerts: StudyCycleAlert[] = [];
+  const cycleDaysUntilExam = getDaysUntil(cycleExamDate, now);
+
+  if (cycleDaysUntilExam !== null && cycleDaysUntilExam < 0) {
+    const cycleExamDateLabel = formatExamDate(cycleExamDate);
+    alerts.push({
+      id: 'cycle-exam-date-past',
+      severity: 'critical',
+      title: 'Data da prova vencida',
+      message: 'A data do ciclo já passou. Atualize a prova para recalcular ritmo e prioridades.',
+      evidence: cycleExamDateLabel ? `Data atual do ciclo: ${cycleExamDateLabel}.` : 'Data atual do ciclo inválida.',
+      actionLabel: 'Atualizar data',
+      actionType: 'open_edital',
+    });
+  }
+
   const weightTotals = getExamWeightTotals(subjects);
   const weightedSubjects = subjects
     .filter(hasSubjectExamWeight)
