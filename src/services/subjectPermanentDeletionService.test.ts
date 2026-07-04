@@ -1,68 +1,69 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  deleteSubjectPermanently,
-  type SubjectDeletionRepository,
-} from './subjectPermanentDeletionService';
+const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 
-const createRepository = (): SubjectDeletionRepository => ({
-  deleteSubject: vi.fn(),
-  deleteTopicHistory: vi.fn(),
-  deleteTopics: vi.fn(),
-  listTopicIds: vi.fn().mockResolvedValue(['topic-1']),
-  listUserEditais: vi.fn().mockResolvedValue([
-    { id: 'edital-1', subjectIds: ['subject-1'] },
-    { id: 'edital-2', subjectIds: ['subject-1'] },
-  ]),
-  updateEditalSubjectIds: vi.fn(),
-});
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: { rpc: mocks.rpc },
+}));
+
+import { deleteSubjectPermanently } from './subjectPermanentDeletionService';
 
 describe('deleteSubjectPermanently', () => {
-  it('removes only the selected edital link while another edital still uses the subject', async () => {
-    const repository = createRepository();
-
-    const result = await deleteSubjectPermanently({
-      editalIdToRemove: 'edital-1',
-      repository,
-      subjectId: 'subject-1',
-      userId: 'user-1',
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.rpc.mockResolvedValue({
+      data: { ok: true, subject_deleted: true },
+      error: null,
     });
-
-    expect(repository.updateEditalSubjectIds).toHaveBeenCalledWith('edital-1', []);
-    expect(repository.deleteTopicHistory).not.toHaveBeenCalled();
-    expect(repository.deleteTopics).not.toHaveBeenCalled();
-    expect(repository.deleteSubject).not.toHaveBeenCalled();
-    expect(result).toEqual({ subjectDeleted: false });
   });
 
-  it('deletes history, topics and subject after removing every edital link', async () => {
-    const repository = createRepository();
-
-    const result = await deleteSubjectPermanently({
-      repository,
+  it('deletes the subject through one atomic RPC', async () => {
+    await expect(deleteSubjectPermanently({
       subjectId: 'subject-1',
       userId: 'user-1',
-    });
+    })).resolves.toEqual({ subjectDeleted: true });
 
-    expect(repository.updateEditalSubjectIds).toHaveBeenCalledTimes(2);
-    expect(repository.deleteTopicHistory).toHaveBeenCalledWith(['topic-1'], 'user-1');
-    expect(repository.deleteTopics).toHaveBeenCalledWith('subject-1');
-    expect(repository.deleteSubject).toHaveBeenCalledWith('subject-1', 'user-1');
-    expect(result).toEqual({ subjectDeleted: true });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith('atomic_delete_subject', {
+      p_edital_id_to_remove: null,
+      p_subject_id: 'subject-1',
+      p_user_id: 'user-1',
+    });
   });
 
-  it('stops destructive writes when unlinking an edital fails', async () => {
-    const repository = createRepository();
-    vi.mocked(repository.updateEditalSubjectIds).mockRejectedValueOnce(new Error('update failed'));
+  it('reports when only one edital link was removed', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: { ok: true, subject_deleted: false },
+      error: null,
+    });
 
     await expect(deleteSubjectPermanently({
-      repository,
+      editalIdToRemove: 'edital-1',
       subjectId: 'subject-1',
       userId: 'user-1',
-    })).rejects.toThrow('update failed');
+    })).resolves.toEqual({ subjectDeleted: false });
+  });
 
-    expect(repository.deleteTopicHistory).not.toHaveBeenCalled();
-    expect(repository.deleteTopics).not.toHaveBeenCalled();
-    expect(repository.deleteSubject).not.toHaveBeenCalled();
+  it('propagates database errors without a fallback write', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('transaction failed') });
+
+    await expect(deleteSubjectPermanently({
+      subjectId: 'subject-1',
+      userId: 'user-1',
+    })).rejects.toThrow('transaction failed');
+
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an explicit unsuccessful RPC result', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: { ok: false, error: 'subject not found' },
+      error: null,
+    });
+
+    await expect(deleteSubjectPermanently({
+      subjectId: 'subject-1',
+      userId: 'user-1',
+    })).rejects.toThrow('subject not found');
   });
 });
