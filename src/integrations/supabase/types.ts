@@ -2530,6 +2530,14 @@ export type Database = {
         Args: { p_edital_id: string; p_user_id: string }
         Returns: Json
       }
+      atomic_delete_subject: {
+        Args: {
+          p_edital_id_to_remove?: string | null
+          p_subject_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       sync_topic_merge_progress: {
         Args: {
           p_history?: Json | null
