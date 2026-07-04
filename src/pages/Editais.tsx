@@ -50,6 +50,7 @@ import { recalculatePendingReviewsForEdital } from '@/services/topicReviewSchedu
 import { unloadEditalFromCycle } from '@/services/cycleUnloadService';
 import { importEdital, type EditalImportExtraInfo } from '@/services/editalImportService';
 import { getPendingMergeForCycleLoad } from '@/utils/cycleLoadPendingMerge';
+import { formatRecoveredMergeTimestamp } from '@/utils/recoveredMergeTimestamp';
 import {
     CycleUnificationMap,
     HybridMergeResult,
@@ -583,14 +584,15 @@ const Editais = () => {
     const savePendingMerge = useCallback(async (editalId: string, state: PendingMergeDraft) => {
         if (!user) return;
         try {
-            const dataToSave = { ...state };
+            const updatedAt = new Date().toISOString();
+            const dataToSave = { ...state, updatedAt };
             const { error } = await supabase
                 .from('pending_cycle_merges')
                 .upsert({
                     user_id: user.id,
                     edital_id: editalId,
                     state_data: serializeJson(dataToSave),
-                    updated_at: new Date().toISOString()
+                    updated_at: updatedAt
                 });
 
             if (error) throw error;
@@ -2727,7 +2729,7 @@ const Editais = () => {
                                                     Mesclagem recuperada
                                                 </p>
                                                 <p className="text-[10px] font-medium text-warning/80">
-                                                    Restauramos sua última análise · {new Date(cycleConflict.updatedAt!).toLocaleString('pt-BR')}
+                                                    Restauramos sua última análise · {formatRecoveredMergeTimestamp(cycleConflict.updatedAt)}
                                                 </p>
                                             </div>
                                         </div>

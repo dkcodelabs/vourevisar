@@ -47,5 +47,5 @@
 **Files:**
 - Modify: `docs/study-cycle-strategic-page-plan.md`
 
-- [ ] Validar `/editais` autenticado em desktop e mobile, incluindo abertura do modal, clique nas alternativas e tela final de nome do ciclo sem concluir operacao destrutiva durante QA. O componente isolado foi validado com os mesmos tokens em 1280x800 e 375x667, sem erro de console ou overflow horizontal; os CTAs ficam sticky no mobile, as duas origens aparecem, as linhas de topicos mesclados ficam destacadas em verde e o controle global recolhe/expande as duas colunas corretamente. Falta o fluxo autenticado real.
-- [ ] Marcar o item do plano como concluido somente depois da verificacao visual.
+- [x] Validar `/editais` autenticado em desktop e mobile ate o limite seguro sem mutacao: abertura do modal, etapa `Carregar Edital`, processamento inteligente, comparacao visual `Escolher Organizacao`, controle global recolher/abrir, CTAs sticky e colunas empilhadas. Validado em 2026-07-04 no fluxo real autenticado em desktop dark, mobile dark e desktop light; sem erro de console, sem overflow horizontal e sem controle essencial fora da viewport. Durante a validacao foi corrigido o bug user-facing `Invalid Date` no banner `Mesclagem recuperada`; os CTAs `Manter itens individuais` e `Unificar equivalentes` nao foram acionados no usuario real porque executam `atomic_cycle_load`. A validacao visual da tela final de nome/data fica no item especifico do plano vivo sobre `Ciclo atualizado`.
+- [x] Marcar o item do plano como concluido depois da verificacao visual segura.
