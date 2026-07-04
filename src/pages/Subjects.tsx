@@ -1297,6 +1297,11 @@ const Subjects = () => {
   };
 
   const handleStrategicAlertAction = (alert: StudyCycleAlert) => {
+    if (alert.actionType === 'open_edital') {
+      navigate('/meus-editais');
+      return;
+    }
+
     if (alert.actionType === 'fill_weight' && alert.subjectId) {
       const subject = expandedSubjectList.find(item => item.subject.id === alert.subjectId)?.subject;
       if (subject) {

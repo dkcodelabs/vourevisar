@@ -305,6 +305,7 @@ export function useStudyCycleStrategicData({
 
     const alerts = getStudyCycleAlerts({
       subjects: cycleSubjects,
+      cycleExamDate: userCycle?.exam_date || null,
       editais: editaisNoCiclo.map(edital => ({
         id: edital.id,
         name: edital.organ || edital.name || 'Edital',
@@ -321,7 +322,7 @@ export function useStudyCycleStrategicData({
     }
 
     return alerts;
-  }, [cycleMaturity.phase, cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, getUnifiedSubjectName]);
+  }, [cycleMaturity.phase, cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, getUnifiedSubjectName, userCycle?.exam_date]);
 
   const cycleMetrics = useMemo(() => {
     return getStudyCycleMetrics({
