@@ -122,7 +122,7 @@ describe('studyCycleAlerts', () => {
       message: 'A data do ciclo já passou. Atualize a prova para recalcular ritmo e prioridades.',
       evidence: 'Data atual do ciclo: 01/06/2026.',
       actionLabel: 'Atualizar data',
-      actionType: 'open_edital',
+      actionType: 'edit_cycle_exam_date',
     }));
   });
 

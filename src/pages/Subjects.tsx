@@ -25,6 +25,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import { CreateTopicModal } from '@/components/topics/CreateTopicModal';
 import { EditalSubjectsModal } from '@/components/editais/EditalSubjectsModal';
 import { CycleEmptyState } from '@/components/study-cycle/CycleEmptyState';
+import { CycleExamDateDialog } from '@/components/study-cycle/CycleExamDateDialog';
 import { CycleFirstContactFinishedPanel } from '@/components/study-cycle/CycleFirstContactFinishedPanel';
 import { CycleSubjectCard } from '@/components/study-cycle/CycleSubjectCard';
 import { CycleTopicRow } from '@/components/study-cycle/CycleTopicRow';
@@ -43,6 +44,7 @@ import { useCycleQueueOrderActions } from '@/hooks/useCycleQueueOrderActions';
 import { useCycleStudyEventRecorder } from '@/hooks/useCycleStudyEventRecorder';
 import { useCycleSubjectCompletionActions } from '@/hooks/useCycleSubjectCompletionActions';
 import { useCycleEditalUnload } from '@/hooks/useCycleEditalUnload';
+import { useCycleExamDateEditor } from '@/hooks/useCycleExamDateEditor';
 import { usePermanentSubjectDeletion } from '@/hooks/usePermanentSubjectDeletion';
 import { useEditalImport } from '@/hooks/useEditalImport';
 import { useStudyCyclePageData } from '@/hooks/useStudyCyclePageData';
@@ -290,6 +292,20 @@ const Subjects = () => {
     resetCycleConfirmOpen,
     setResetCycleConfirmOpen,
   } = useStudyCycleReset({
+    setUserCycle,
+    userCycle,
+    userId: user?.id,
+  });
+  const {
+    editorOpen: cycleExamDateEditorOpen,
+    errorMessage: cycleExamDateError,
+    examDateDraft: cycleExamDateDraft,
+    handleEditorOpenChange: handleCycleExamDateEditorOpenChange,
+    isSaving: isSavingCycleExamDate,
+    openEditor: openCycleExamDateEditor,
+    saveExamDate: saveCycleExamDate,
+    setExamDateDraft: setCycleExamDateDraft,
+  } = useCycleExamDateEditor({
     setUserCycle,
     userCycle,
     userId: user?.id,
@@ -1297,6 +1313,11 @@ const Subjects = () => {
   };
 
   const handleStrategicAlertAction = (alert: StudyCycleAlert) => {
+    if (alert.actionType === 'edit_cycle_exam_date') {
+      openCycleExamDateEditor();
+      return;
+    }
+
     if (alert.actionType === 'open_edital') {
       navigate('/meus-editais');
       return;
@@ -1958,6 +1979,16 @@ const Subjects = () => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          <CycleExamDateDialog
+            errorMessage={cycleExamDateError}
+            examDate={cycleExamDateDraft}
+            isOpen={cycleExamDateEditorOpen}
+            isSaving={isSavingCycleExamDate}
+            onExamDateChange={setCycleExamDateDraft}
+            onOpenChange={handleCycleExamDateEditorOpenChange}
+            onSave={saveCycleExamDate}
+          />
 
           <AlertDialog
             open={resetCycleConfirmOpen}

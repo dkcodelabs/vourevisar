@@ -49,6 +49,7 @@ export type StudyCycleAlertActionType =
   | 'start_topic'
   | 'fill_weight'
   | 'review_cycle'
+  | 'edit_cycle_exam_date'
   | 'open_edital'
   | 'none';
 
@@ -172,7 +173,7 @@ export const getStudyCycleAlerts = ({
       message: 'A data do ciclo já passou. Atualize a prova para recalcular ritmo e prioridades.',
       evidence: cycleExamDateLabel ? `Data atual do ciclo: ${cycleExamDateLabel}.` : 'Data atual do ciclo inválida.',
       actionLabel: 'Atualizar data',
-      actionType: 'open_edital',
+      actionType: 'edit_cycle_exam_date',
     });
   }
 
