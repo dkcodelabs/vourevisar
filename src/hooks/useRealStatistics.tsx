@@ -20,6 +20,7 @@ import {
 } from 'date-fns';
 import { Subject, Topic } from '@/types';
 import { isVisibleCycleTopic, getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
+import { getStudySessionDurationMinutes } from '@/utils/studySessionDuration';
 import { getStatisticsStudyTime } from '@/utils/statisticsStudyTime';
 
 export interface RealStatisticsData {
@@ -143,8 +144,7 @@ interface StudySession {
   started_at: string;
   completed_at: string;
   study_date: string;
-  duration_minutes?: number;
-  session_duration_minutes?: number; // Campo alternativo do banco
+  session_duration_minutes?: number | null;
   topics_studied: string[];
   topics_count: number;
   hour_of_day: number;
@@ -346,7 +346,6 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
         // Transformar dados do banco para o formato esperado
         const transformedSessions = (sessionsData as StudySession[] | null || []).map((session) => ({
           ...session,
-          duration_minutes: session.duration_minutes || session.session_duration_minutes || 0,
           topics_studied: Array.isArray(session.topics_studied) ? session.topics_studied : []
         })) as StudySession[];
         
@@ -418,7 +417,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
 
     // Calcular visão geral com dados reais
     const totalStudyTimeFromSessions = studySessions.reduce((sum, session) => 
-      sum + (session.duration_minutes || session.session_duration_minutes || 0), 0);
+      sum + getStudySessionDurationMinutes(session.session_duration_minutes), 0);
     const totalStudyTimeFromPomodoro = pomodoroSessions.reduce((sum, session) => 
       sum + (session.total_minutes_studied || 0), 0);
     
@@ -489,7 +488,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
       const current = subjectSessionsMap.get(session.subject_id) || { sessions: 0, totalTime: 0 };
       subjectSessionsMap.set(session.subject_id, {
         sessions: current.sessions + 1,
-        totalTime: current.totalTime + (session.duration_minutes || session.session_duration_minutes || 0)
+        totalTime: current.totalTime + getStudySessionDurationMinutes(session.session_duration_minutes)
       });
     });
 
@@ -583,7 +582,7 @@ export const useRealStatistics = (filter: StatisticsFilter = { type: 'cycle' }):
       mostProductiveDay: dayNames[mostProductiveDayNum] || 'Segunda',
       mostProductiveHour: mostProductiveHourNum !== null ? `${mostProductiveHourNum.toString().padStart(2, '0')}:00` : null,
       averageSessionTime: userAnalytics?.media_duracao_sessao || 
-        (studySessions.length > 0 ? Math.round(studySessions.reduce((sum, s) => sum + (s.duration_minutes || s.session_duration_minutes || 0), 0) / studySessions.length) : 45),
+        (studySessions.length > 0 ? Math.round(studySessions.reduce((sum, session) => sum + getStudySessionDurationMinutes(session.session_duration_minutes), 0) / studySessions.length) : 45),
       averageTopicsPerDay: userAnalytics?.media_sessoes_por_dia || 
         (studySessions.length > 0 ? Math.round(studySessions.reduce((sum, s) => sum + (s.topics_count || 0), 0) / daysWithSessions) : 3),
       consistencyRate: daysWithSessions > 0 ? Math.round((daysWithSessions / 30) * 100) : 0,

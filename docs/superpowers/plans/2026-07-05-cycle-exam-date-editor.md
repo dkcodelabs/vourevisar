@@ -52,4 +52,4 @@
 - [x] Rodar testes focados, `npm run typecheck`, `npm run lint`, `npm run test:run`, `npm run build` e `git diff --check`.
 - [x] Validar desktop/mobile no navegador autenticado.
 - [x] Marcar o debito como concluido somente apos todas as verificacoes.
-- [ ] Commitar, enviar branch, abrir PR, mergear e confirmar Vercel/Quality Gate em producao.
+- [x] Commitar, enviar branch, abrir PR, mergear e confirmar Vercel/Quality Gate em producao. Concluido no PR #23, commit `d74d395b`.
