@@ -472,7 +472,7 @@ Esta camada transforma o ciclo em orientacao diaria concreta: quantos topicos in
 - [x] Eventos especificos da fila/ciclo existem para: iniciar topico novo, revisar/retomar topico antigo, marcar materia, devolver materia, reordenar fila.
 - [x] O sistema salva `cycle_number` e `subject_position` em cada acao de estudo registrada no ciclo.
 - [ ] `study_sessions` registra sessoes, mas nao diferencia bem evento de primeiro contato vs revisao/retorno a topico ja aberto.
-- [ ] Confirmar schema atual de `study_sessions`: o hook usa `session_duration_minutes`, enquanto a migracao base mostra `duration_minutes`; corrigir antes de depender desse dado.
+- [x] Confirmar schema atual de `study_sessions`: concluido em 2026-07-05. A migration de criacao `20250608011928_563f1fe1-c11e-46a4-a248-a50ef31e0374.sql`, os tipos gerados e consulta direta ao `information_schema.columns` no banco de producao confirmaram somente `session_duration_minutes` (`integer`, nullable); `duration_minutes` nao existe. `useRealStatistics` deixou de declarar/criar fallback para a coluna fantasma e passou a normalizar todos os agregados pela fonte real com utilitario puro e teste focado.
 - [ ] Ainda nao existe uma tabela/agregado diario especifico para meta calculada do ciclo.
 
 ### Calculos viaveis agora
