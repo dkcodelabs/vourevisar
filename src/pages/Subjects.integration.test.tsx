@@ -1,4 +1,5 @@
 import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -228,19 +229,30 @@ const makeCycle = (): UserCycle => ({
   created_at: '2026-07-01T10:00:00.000Z',
 });
 
-const renderSubjects = () => render(
-  <MemoryRouter
-    initialEntries={['/ciclo-estudos']}
-    future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-  >
-    <Routes>
-      <Route path="/ciclo-estudos" element={<Subjects />} />
-      <Route path="/meus-editais" element={<div>Destino Meus Editais</div>} />
-      <Route path="/revisoes" element={<div>Destino Revisões</div>} />
-      <Route path="/estatisticas" element={<div>Destino Estatísticas</div>} />
-    </Routes>
-  </MemoryRouter>,
-);
+const renderSubjects = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter
+        initialEntries={['/ciclo-estudos']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/ciclo-estudos" element={<Subjects />} />
+          <Route path="/meus-editais" element={<div>Destino Meus Editais</div>} />
+          <Route path="/revisoes" element={<div>Destino Revisões</div>} />
+          <Route path="/estatisticas" element={<div>Destino Estatísticas</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+};
 
 describe('Subjects cycle integration', () => {
   beforeEach(() => {
