@@ -1631,6 +1631,7 @@ export type Database = {
       study_sessions: {
         Row: {
           completed_at: string
+          contact_type: string
           created_at: string | null
           cycle_id: string | null
           cycle_position: number | null
@@ -1651,6 +1652,7 @@ export type Database = {
         }
         Insert: {
           completed_at?: string
+          contact_type?: string
           created_at?: string | null
           cycle_id?: string | null
           cycle_position?: number | null
@@ -1671,6 +1673,7 @@ export type Database = {
         }
         Update: {
           completed_at?: string
+          contact_type?: string
           created_at?: string | null
           cycle_id?: string | null
           cycle_position?: number | null

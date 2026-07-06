@@ -332,7 +332,8 @@ export const completeStudySession = async (
         session_date: new Date().toISOString().split('T')[0],
         topics_studied: markedTopicIds.length,
         subjects_worked: [subjectId],
-        session_duration_minutes: 30 // Default duration
+        session_duration_minutes: 30, // Default duration
+        contact_type: 'subject_session',
       } as unknown);
 
     if (sessionError) {

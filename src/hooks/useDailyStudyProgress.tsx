@@ -211,6 +211,7 @@ export const useDailyStudyProgress = () => {
         day_of_week: dayOfWeek,
         is_weekend: isWeekend,
         completed_at: session.completedAt,
+        contact_type: session.topicsStudied.length > 1 ? 'mixed' : 'unclassified',
         // Campos legados (manter compatibilidade)
         session_date: now.toISOString().split('T')[0],
         topics_studied: session.topicsStudied.length,
