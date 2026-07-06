@@ -19,6 +19,7 @@ import { syncMergedTopicProgress } from '@/services/topicMergeProgressService';
 import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 import { fetchTopicExamDate, getOverdueDays } from '@/services/topicReviewScheduleService';
 import { getReviewStage } from '@/utils/reviewStage';
+import { getTopicStudySessionContactType } from '@/utils/studySessionContactType';
 
 export const useTopicReview = () => {
   const { user } = useAuth();
@@ -318,10 +319,15 @@ export const useTopicReview = () => {
             subjectData.name,
             topicId,
             topic.name,
-            undefined,
-            durationOverride ?? difficultyModalData.duration,
-            cycleId,
-            topic.edital_id || topic.origin_id
+            {
+              durationMinutes: durationOverride ?? difficultyModalData.duration,
+              cycleId,
+              editalId: topic.edital_id || topic.origin_id,
+              contactType: getTopicStudySessionContactType({
+                firstStudiedAt: topic.first_studied_at,
+                previousReviewCount: topic.review_count,
+              }),
+            },
           );
         }
       } catch (sessionError) {

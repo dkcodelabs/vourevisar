@@ -8,6 +8,7 @@ import { REVIEW_PROFILES, ReviewProfile } from '@/types/study'; // mantido para 
 import { useStudySessionTracking } from './useStudySessionTracking';
 import { toastGate } from '@/lib/errors/toastGate';
 import type { TablesUpdate } from '@/integrations/supabase/types';
+import { getTopicStudySessionContactType } from '@/utils/studySessionContactType';
 
 export const useStudyCycle = () => {
   const { user } = useAuth();
@@ -113,7 +114,13 @@ export const useStudyCycle = () => {
             topic.subject_id,
             subjectData.name,
             topicId,
-            topic.name
+            topic.name,
+            {
+              contactType: getTopicStudySessionContactType({
+                firstStudiedAt: topic.first_studied_at,
+                previousReviewCount: topic.review_count,
+              }),
+            },
           );
         }
       } catch (sessionError) {

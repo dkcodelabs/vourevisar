@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { getDay, getHours } from 'date-fns';
+import type { StudySessionContactType } from '@/utils/studySessionContactType';
 
 interface StudySessionData {
   subjectId: string;
@@ -12,7 +13,16 @@ interface StudySessionData {
   startedAt?: Date;
   cycleId?: string;
   editalId?: string;
+  contactType?: StudySessionContactType;
 }
+
+type RecordTopicCompletionOptions = {
+  contactType?: StudySessionContactType;
+  cycleId?: string;
+  durationMinutes?: number;
+  editalId?: string;
+  startedAt?: Date;
+};
 
 export const useStudySessionTracking = () => {
   const { user } = useAuth();
@@ -40,7 +50,8 @@ export const useStudySessionTracking = () => {
           day_of_week: getDay(now) === 0 ? 7 : getDay(now), // Domingo = 7, Segunda = 1
           is_weekend: getDay(now) === 0 || getDay(now) === 6,
           cycle_id: sessionData.cycleId,
-          edital_id: sessionData.editalId
+          edital_id: sessionData.editalId,
+          contact_type: sessionData.contactType || 'unclassified',
         })
         .select()
         .single();
@@ -81,20 +92,18 @@ export const useStudySessionTracking = () => {
     subjectName: string,
     topicId: string,
     topicName: string,
-    sessionStartTime?: Date,
-    durationMinutes?: number,
-    cycleId?: string,
-    editalId?: string
+    options: RecordTopicCompletionOptions = {},
   ) => {
     return await recordStudySession({
       subjectId,
       subjectName,
       topicsStudied: [topicId],
       topicsCount: 1,
-      durationMinutes: durationMinutes ?? (sessionStartTime ? Math.round((Date.now() - sessionStartTime.getTime()) / 60000) : 0),
-      startedAt: sessionStartTime,
-      cycleId,
-      editalId
+      durationMinutes: options.durationMinutes ?? (options.startedAt ? Math.round((Date.now() - options.startedAt.getTime()) / 60000) : 0),
+      startedAt: options.startedAt,
+      cycleId: options.cycleId,
+      editalId: options.editalId,
+      contactType: options.contactType || 'unclassified',
     });
   }, [recordStudySession]);
 
@@ -112,6 +121,7 @@ export const useStudySessionTracking = () => {
       topicsCount: topicsCompleted.length,
       durationMinutes: sessionDurationMinutes,
       startedAt: sessionStartTime,
+      contactType: 'subject_session',
     });
   }, [recordStudySession]);
 
