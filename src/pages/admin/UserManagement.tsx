@@ -33,6 +33,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { invokeAdminRpc } from '@/services/adminRpcService';
 import { formatLastAccess, formatJoinDate } from '@/utils/adminDateFormatter';
 import {
     AlertDialog,
@@ -371,11 +372,9 @@ const UserManagement = () => {
         if (purgeConfirmText !== 'EXCLUIR') return;
 
         try {
-            const { error } = await supabase.rpc('admin_purge_user', {
+            await invokeAdminRpc('admin_purge_user', {
                 p_target_user_id: userToObject.id
             });
-
-            if (error) throw error;
 
             setUsers(users.filter(u => u.id !== userToObject.id));
             toast.success(`Usuário ${userToObject.name} excluído completamente do sistema.`);
@@ -417,8 +416,7 @@ const UserManagement = () => {
 
         try {
             // 1. Call RPC to toggle access (Security Layer)
-            const { error: rpcError } = await supabase.rpc(rpcFunction, { target_user_id: user.id });
-            if (rpcError) throw rpcError;
+            await invokeAdminRpc(rpcFunction, { target_user_id: user.id });
 
             // 2. Update Subscription Status (Business Layer)
             const newSubStatus = newActiveState ? 'active' : 'canceled';

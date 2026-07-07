@@ -6,11 +6,19 @@ import {
     ChevronUp,
     CornerDownRight,
     Layers3,
+    Link2,
     Merge,
+    X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { buildCycleMergeComparison, type CycleMergeComparisonSubject } from '@/components/editais/cycleMergeComparisonModel';
+import {
+    addManualTopicEquivalence,
+    buildCycleMergeComparison,
+    removeManualTopicEquivalence,
+    type CycleMergeComparisonSubject,
+    type CycleMergeComparisonTopic,
+} from '@/components/editais/cycleMergeComparisonModel';
 import type { Subject } from '@/types';
 import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
 
@@ -26,19 +34,45 @@ interface CycleMergeComparisonProps {
     }>;
     disabled?: boolean;
     onKeepIndividual: () => void;
+    onUnificationMapChange?: (unificationMap: CycleUnificationMap) => void;
     onUnify: () => void;
 }
+
+type ManualSelection = {
+    candidateTopicId?: string;
+    subjectGroupId: string;
+    topicId: string;
+};
 
 interface PreviewColumnProps {
     description: string;
     expanded: boolean;
     isUnifiedResult: boolean;
+    manualCandidateTopics?: CycleMergeComparisonTopic[];
+    manualSelection?: ManualSelection | null;
+    onCancelManualSelection?: () => void;
+    onConfirmManualSelection?: (candidateTopicId: string) => void;
+    onRemoveManualEquivalence?: (subjectGroupId: string, topicIds: string[]) => void;
+    onStartManualSelection?: (subjectGroupId: string, topicId: string, candidateTopicId?: string) => void;
     sourceNameById: Map<string, string>;
     subjects: CycleMergeComparisonSubject[];
     title: string;
 }
 
-function PreviewColumn({ description, expanded, isUnifiedResult, sourceNameById, subjects, title }: PreviewColumnProps) {
+function PreviewColumn({
+    description,
+    expanded,
+    isUnifiedResult,
+    manualCandidateTopics = [],
+    manualSelection,
+    onCancelManualSelection,
+    onConfirmManualSelection,
+    onRemoveManualEquivalence,
+    onStartManualSelection,
+    sourceNameById,
+    subjects,
+    title,
+}: PreviewColumnProps) {
     const Icon = isUnifiedResult ? Merge : Layers3;
 
     return (
@@ -98,13 +132,18 @@ function PreviewColumn({ description, expanded, isUnifiedResult, sourceNameById,
                         </div>
 
                         {expanded && <div data-testid={`${isUnifiedResult ? 'unified' : 'individual'}-topics-${subject.id}`} className="flex flex-col gap-0.5 px-2 pb-1.5 pl-4 pt-0.5">
-                            {subject.topics.length > 0 ? subject.topics.map(topic => (
+                            {subject.topics.length > 0 ? subject.topics.map(topic => {
+                                const topicIds = topic.id.split(':');
+                                const isManual = topic.matchType === 'manual';
+                                const isManualSelectionActive = manualSelection?.subjectGroupId === subject.id && manualSelection.topicId === topic.id;
+
+                                return (
                                 <div
                                     key={topic.id}
                                     data-testid={topic.isUnified && isUnifiedResult ? `unified-topic-${topic.id}` : undefined}
                                     className={topic.isUnified && isUnifiedResult
-                                        ? 'flex min-w-0 items-center gap-1.5 px-2 py-0.5 text-content-muted'
-                                        : 'flex min-w-0 items-center gap-1.5 px-2 py-0.5 text-content-muted'}
+                                        ? 'flex min-w-0 flex-wrap items-center gap-1.5 px-2 py-0.5 text-content-muted'
+                                        : 'flex min-w-0 flex-wrap items-center gap-1.5 px-2 py-0.5 text-content-muted'}
                                 >
                                     <CornerDownRight size={10} aria-hidden="true" className="shrink-0 opacity-65" />
                                     <span className={topic.isUnified && isUnifiedResult
@@ -113,8 +152,77 @@ function PreviewColumn({ description, expanded, isUnifiedResult, sourceNameById,
                                     >
                                         {topic.name}
                                     </span>
+                                    {isManual && isUnifiedResult && (
+                                        <>
+                                            <span className="rounded-full border border-success/20 bg-success/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-success">
+                                                Manual
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => onRemoveManualEquivalence?.(subject.id, topicIds)}
+                                                aria-label={`Desfazer equivalência manual de ${topic.name}`}
+                                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-destructive/15 text-destructive transition-colors hover:bg-destructive/10"
+                                            >
+                                                <X size={11} aria-hidden="true" />
+                                            </button>
+                                        </>
+                                    )}
+                                    {!topic.isUnified && isUnifiedResult && onStartManualSelection && (
+                                        <button
+                                            type="button"
+                                            onClick={() => onStartManualSelection(subject.id, topic.id)}
+                                            aria-label={`Marcar ${topic.name} como equivalente`}
+                                            className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-primary/15 bg-primary/5 px-1.5 text-[8px] font-black uppercase tracking-[0.08em] text-primary transition-colors hover:bg-primary/10"
+                                        >
+                                            <Link2 size={10} aria-hidden="true" />
+                                            Marcar equivalente
+                                        </button>
+                                    )}
+                                    {isManualSelectionActive && (
+                                        <div className="basis-full rounded-lg border border-primary/15 bg-primary/5 p-2">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {manualCandidateTopics.length > 0 ? manualCandidateTopics.map(candidateTopic => (
+                                                    <button
+                                                        key={candidateTopic.id}
+                                                        type="button"
+                                                        onClick={() => onStartManualSelection?.(subject.id, topic.id, candidateTopic.id)}
+                                                        aria-label={`Selecionar ${candidateTopic.name} como equivalente`}
+                                                        className={`rounded-md border px-2 py-1 text-[9px] font-bold transition-colors ${
+                                                            manualSelection?.candidateTopicId === candidateTopic.id
+                                                                ? 'border-primary/40 bg-primary/15 text-primary'
+                                                                : 'border-border bg-background/70 text-foreground hover:border-primary/30 hover:bg-primary/10'
+                                                        }`}
+                                                    >
+                                                        {candidateTopic.name}
+                                                    </button>
+                                                )) : (
+                                                    <span className="text-[9px] font-medium text-content-muted">
+                                                        Nao ha outro topico livre de edital diferente neste grupo.
+                                                    </span>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={onCancelManualSelection}
+                                                    className="rounded-md px-2 py-1 text-[9px] font-bold text-content-muted transition-colors hover:bg-background/60 hover:text-foreground"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                            {manualCandidateTopics.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onConfirmManualSelection?.(manualSelection?.candidateTopicId || manualCandidateTopics[0].id)}
+                                                    aria-label="Confirmar equivalência manual"
+                                                    className="mt-2 inline-flex h-7 items-center rounded-md bg-primary px-2 text-[9px] font-black uppercase tracking-[0.08em] text-primary-foreground"
+                                                >
+                                                    Confirmar equivalencia manual
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                            )) : (
+                            );
+                            }) : (
                                 <span className="px-2 py-1 text-[10px] italic text-content-muted/70">Sem tópicos cadastrados</span>
                             )}
                         </div>}
@@ -134,9 +242,11 @@ export function CycleMergeComparison({
     editalSources,
     disabled = false,
     onKeepIndividual,
+    onUnificationMapChange,
     onUnify,
 }: CycleMergeComparisonProps) {
     const [isExpanded, setIsExpanded] = useState(true);
+    const [manualSelection, setManualSelection] = useState<ManualSelection | null>(null);
     const comparison = useMemo(
         () => buildCycleMergeComparison(subjects, unificationMap),
         [subjects, unificationMap],
@@ -155,6 +265,43 @@ export function CycleMergeComparison({
     const sourceNameById = useMemo(() => (
         new Map(visibleSources.map(source => [source.id, source.name]))
     ), [visibleSources]);
+    const topicSourceIdById = useMemo(() => {
+        const sourceByTopic = new Map<string, string | undefined>();
+        for (const subject of subjects) {
+            for (const topic of subject.topics || []) {
+                sourceByTopic.set(topic.id, topic.edital_id || subject.edital_id || undefined);
+            }
+        }
+        return sourceByTopic;
+    }, [subjects]);
+    const manualCandidateTopics = useMemo(() => {
+        if (!manualSelection) return [];
+        const selectedSubject = comparison.unifiedSubjects.find(subject => subject.id === manualSelection.subjectGroupId);
+        if (!selectedSubject) return [];
+        const selectedSourceId = topicSourceIdById.get(manualSelection.topicId);
+
+        return selectedSubject.topics.filter(topic => {
+            if (topic.id === manualSelection.topicId || topic.isUnified) return false;
+            const sourceId = topicSourceIdById.get(topic.id);
+            return Boolean(sourceId && selectedSourceId && sourceId !== selectedSourceId);
+        });
+    }, [comparison.unifiedSubjects, manualSelection, topicSourceIdById]);
+
+    const handleConfirmManualSelection = (candidateTopicId: string) => {
+        if (!manualSelection || !onUnificationMapChange) return;
+        const nextMap = addManualTopicEquivalence(unificationMap, subjects, {
+            subjectGroupId: manualSelection.subjectGroupId,
+            topicIds: [manualSelection.topicId, candidateTopicId],
+        });
+        setManualSelection(null);
+        if (nextMap !== unificationMap) onUnificationMapChange(nextMap);
+    };
+
+    const handleRemoveManualEquivalence = (subjectGroupId: string, topicIds: string[]) => {
+        if (!onUnificationMapChange) return;
+        const nextMap = removeManualTopicEquivalence(unificationMap, { subjectGroupId, topicIds });
+        if (nextMap !== unificationMap) onUnificationMapChange(nextMap);
+    };
 
     return (
         <div className="space-y-3 py-1">
@@ -219,6 +366,14 @@ export function CycleMergeComparison({
                     subjects={comparison.unifiedSubjects}
                     expanded={isExpanded}
                     isUnifiedResult
+                    manualCandidateTopics={manualCandidateTopics}
+                    manualSelection={manualSelection}
+                    onCancelManualSelection={() => setManualSelection(null)}
+                    onConfirmManualSelection={handleConfirmManualSelection}
+                    onRemoveManualEquivalence={handleRemoveManualEquivalence}
+                    onStartManualSelection={onUnificationMapChange
+                        ? (subjectGroupId, topicId, candidateTopicId) => setManualSelection({ subjectGroupId, topicId, candidateTopicId })
+                        : undefined}
                     sourceNameById={sourceNameById}
                 />
             </div>

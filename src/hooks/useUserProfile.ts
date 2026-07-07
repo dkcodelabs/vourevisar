@@ -3,6 +3,7 @@
 // =====================================================
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
+import { invokeUserRpc } from '@/services/userRpcService'
 
 interface UserProfile {
   id: string
@@ -73,9 +74,10 @@ export function useUserProfile(): UseUserProfileReturn {
           .eq('user_id', user.id)
           .maybeSingle(),
 
-        // Consulta 2: Assinatura (RPC)
-        supabase
-          .rpc('get_subscription_info', { check_user_id: user.id }),
+        // Consulta 2: Assinatura via Edge Function, sem expor RPC SECURITY DEFINER no REST
+        invokeUserRpc<UserProfile['subscription'] | { error?: string } | null>('get_subscription_info', {
+          check_user_id: user.id,
+        }),
 
         // Consulta 3: Perfil (Avatar + Nome)
         supabase
@@ -91,8 +93,8 @@ export function useUserProfile(): UseUserProfileReturn {
         name: profileResult.data?.name || user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
         avatar_url: profileResult.data?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
         role: roleResult.data?.role || 'user',
-        subscription: subscriptionResult.data && typeof subscriptionResult.data === 'object' && !Array.isArray(subscriptionResult.data) && !('error' in subscriptionResult.data)
-          ? subscriptionResult.data as UserProfile['subscription']
+        subscription: subscriptionResult && typeof subscriptionResult === 'object' && !Array.isArray(subscriptionResult) && !('error' in subscriptionResult)
+          ? subscriptionResult as UserProfile['subscription']
           : null
       }
 

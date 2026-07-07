@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { SubjectMerge, TopicMerge } from '@/types/merges';
 import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
+import { invokeUserRpc } from '@/services/userRpcService';
 
 const clearLocalCache = (userId: string) => {
   if (typeof window === 'undefined') return;
@@ -12,16 +13,10 @@ const clearLocalCache = (userId: string) => {
 export const mergeService = {
   async getUnifiedSubjectName(subjectId: string, userId: string): Promise<string | null> {
     try {
-      const { data, error } = await supabase
-        .rpc('get_unified_subject_name', {
-          subject_id: subjectId,
-          user_id: userId
-        });
-
-      if (error) {
-        console.error('[mergeService] Erro ao buscar nome unificado:', error);
-        return null;
-      }
+      const data = await invokeUserRpc<string | null>('get_unified_subject_name', {
+        subject_id: subjectId,
+        user_id: userId
+      });
       return data;
     } catch (err) {
       console.error('[mergeService] Erro:', err);
@@ -31,16 +26,10 @@ export const mergeService = {
 
   async getUnifiedTopicName(topicId: string, userId: string): Promise<string | null> {
     try {
-      const { data, error } = await supabase
-        .rpc('get_unified_topic_name', {
-          topic_id: topicId,
-          user_id: userId
-        });
-
-      if (error) {
-        console.error('[mergeService] Erro ao buscar nome unificado de tópico:', error);
-        return null;
-      }
+      const data = await invokeUserRpc<string | null>('get_unified_topic_name', {
+        topic_id: topicId,
+        user_id: userId
+      });
       return data;
     } catch (err) {
       console.error('[mergeService] Erro:', err);
@@ -516,7 +505,7 @@ export const mergeService = {
           merged_subject_ids: mergedIds,
           source_edital_ids: unified.sourceEditalIds || [],
           display_name: unified.displayName,
-          created_by_ai: unified.matchType !== 'exact',
+          created_by_ai: unified.matchType === 'semantic',
           match_type: unified.matchType
         });
         subjectMergeId = newMerge.id;
@@ -589,7 +578,7 @@ export const mergeService = {
             merged_topic_ids: topicMergedIds,
             source_edital_ids: topicMap.sourceEditalIds || unified.sourceEditalIds || [], 
             display_name: topicMap.displayName,
-            created_by_ai: topicMap.matchType !== 'exact',
+            created_by_ai: topicMap.matchType === 'semantic',
             match_type: topicMap.matchType
           });
         }

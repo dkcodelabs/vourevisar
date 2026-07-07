@@ -32,6 +32,7 @@ import { asaasAdminService, AsaasSubscription, AsaasPayment } from '@/services/a
 import { errorService } from '@/lib/errors/errorService';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { invokeAdminRpc } from '@/services/adminRpcService';
 
 interface UserWithSubscription {
     id: string;
@@ -178,23 +179,20 @@ const SubscriptionManagement = () => {
             setError(null);
 
             if (action === 'deactivate') {
-                const { error } = await supabase.rpc('deactivate_subscription', { target_user_id: userId });
-                if (error) throw error;
+                await invokeAdminRpc('deactivate_subscription', { target_user_id: userId });
             } else if (action === 'activate_trial') {
-                const { error } = await supabase.rpc('activate_trial_subscription', {
+                await invokeAdminRpc('activate_trial_subscription', {
                     target_user_id: userId,
                     trial_days: 7
                 });
-                if (error) throw error;
             } else {
                 const planMap = { 'activate_monthly': 'monthly', 'activate_annual': 'annual' };
                 const plan = planMap[action];
 
-                const { error } = await supabase.rpc('activate_paid_subscription', {
+                await invokeAdminRpc('activate_paid_subscription', {
                     target_user_id: userId,
                     plan_type: plan
                 });
-                if (error) throw error;
             }
 
             await new Promise(resolve => setTimeout(resolve, 500));

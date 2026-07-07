@@ -10,6 +10,7 @@ import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { errorService } from '@/lib/errors/errorService';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeUserRpc } from '@/services/userRpcService';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { mergeRecoveredCesgranrioBasicSubjects, recoverCesgranrioBasicSubjects } from '@/utils/cesgranrioContentStructure';
 import { detectCargoOptionsFromEditalText, type DetectedCargoOption } from '@/utils/editalCargoDetector';
@@ -132,15 +133,6 @@ interface UserAiLimits {
     has_bypass: boolean;
     can_import: boolean;
 }
-
-type AiLimitsRpcClient = {
-    rpc: (
-        functionName: 'get_user_ai_limits',
-        args: { p_user_id: string },
-    ) => PromiseLike<{ data: UserAiLimits | null; error: unknown }>;
-};
-
-const aiLimitsRpcClient = supabase as unknown as AiLimitsRpcClient;
 
 interface MappedSubjectAnchor {
     chave: string;
@@ -378,8 +370,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         if (!user) return;
         setLoadingAiLimits(true);
         try {
-            const { data: rpcLimits, error: rpcError } = await aiLimitsRpcClient
-                .rpc('get_user_ai_limits', { p_user_id: user.id });
+            let rpcLimits: UserAiLimits | null = null;
+            let rpcError: unknown = null;
+            try {
+                rpcLimits = await invokeUserRpc<UserAiLimits | null>('get_user_ai_limits', { p_user_id: user.id });
+            } catch (error) {
+                rpcError = error;
+            }
 
             if (!rpcError && rpcLimits) {
                 const parsed = rpcLimits;

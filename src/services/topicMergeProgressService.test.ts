@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  rpc: vi.fn(),
+  invokeUserRpc: vi.fn(),
 }));
 
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: {
-    rpc: mocks.rpc,
-  },
+vi.mock('@/services/userRpcService', () => ({
+  invokeUserRpc: mocks.invokeUserRpc,
 }));
 
 import { syncMergedTopicProgress } from './topicMergeProgressService';
@@ -15,10 +13,7 @@ import { syncMergedTopicProgress } from './topicMergeProgressService';
 describe('syncMergedTopicProgress', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.rpc.mockResolvedValue({
-      data: { ok: true, synced_topic_ids: ['topic-clicked', 'topic-primary', 'topic-sibling'] },
-      error: null,
-    });
+    mocks.invokeUserRpc.mockResolvedValue({ ok: true, synced_topic_ids: ['topic-clicked', 'topic-primary', 'topic-sibling'] });
   });
 
   it('delegates progress synchronization to the atomic Supabase RPC with only review progress fields', async () => {
@@ -37,7 +32,7 @@ describe('syncMergedTopicProgress', () => {
     });
 
     expect(syncedIds).toEqual(['topic-clicked', 'topic-primary', 'topic-sibling']);
-    expect(mocks.rpc).toHaveBeenCalledWith('sync_topic_merge_progress', {
+    expect(mocks.invokeUserRpc).toHaveBeenCalledWith('sync_topic_merge_progress', {
       p_user_id: 'user-1',
       p_topic_id: 'topic-clicked',
       p_progress: {
@@ -65,7 +60,7 @@ describe('syncMergedTopicProgress', () => {
       },
     });
 
-    expect(mocks.rpc).toHaveBeenCalledWith('sync_topic_merge_progress', {
+    expect(mocks.invokeUserRpc).toHaveBeenCalledWith('sync_topic_merge_progress', {
       p_user_id: 'user-1',
       p_topic_id: 'topic-clicked',
       p_progress: { review_count: 3 },
@@ -87,6 +82,6 @@ describe('syncMergedTopicProgress', () => {
     });
 
     expect(syncedIds).toEqual([]);
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.invokeUserRpc).not.toHaveBeenCalled();
   });
 });

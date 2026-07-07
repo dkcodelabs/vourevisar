@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeUserRpc } from '@/services/userRpcService';
 
 type EventType =
     | 'LOGIN' // Deprecated
@@ -100,9 +101,8 @@ export const useUserLogger = () => {
                 dedupe_key: lockKey // Send lock key to backend for extra safety
             };
 
-            // RPC call with NEW CANONICAL SIGNATURE
             // public.log_user_event(p_event_type, p_target_user_id, p_actor_user_id, p_origin, p_metadata, p_status)
-            const { data, error } = await supabase.rpc('log_user_event', {
+            const data = await invokeUserRpc<AuditLogResponse | null>('log_user_event', {
                 p_event_type: eventType,
                 p_target_user_id: userId,
                 p_actor_user_id: userId,
@@ -111,22 +111,18 @@ export const useUserLogger = () => {
                 p_status: 'SUCCESS'
             });
 
-            if (error) {
-                console.warn(`[Audit] Failed to log ${eventType} (RPC Error):`, error);
-            } else {
-                const res = data as AuditLogResponse | null;
-                if (res?.status === 'error') {
-                    // Check if it's a duplicate key error (safe to ignore as it means deduplication worked)
-                    if (res.message?.includes('duplicate key') || res.message?.includes('unique constraint')) {
-                        console.log(`[Audit] ${eventType} ignored (Duplicate): Deduplication gate active.`);
-                    } else {
-                        console.error(`[Audit] Failed to log ${eventType} (Backend Error):`, res.message);
-                    }
-                } else if (res?.status === 'skipped') {
-                    console.log(`[Audit] ${eventType} skipped: ${res.reason}`);
+            const res = data as AuditLogResponse | null;
+            if (res?.status === 'error') {
+                // Check if it's a duplicate key error (safe to ignore as it means deduplication worked)
+                if (res.message?.includes('duplicate key') || res.message?.includes('unique constraint')) {
+                    console.log(`[Audit] ${eventType} ignored (Duplicate): Deduplication gate active.`);
                 } else {
-                    console.log(`[Audit] Logging ${eventType}`, { requestId, logId: res?.log_id });
+                    console.error(`[Audit] Failed to log ${eventType} (Backend Error):`, res.message);
                 }
+            } else if (res?.status === 'skipped') {
+                console.log(`[Audit] ${eventType} skipped: ${res.reason}`);
+            } else {
+                console.log(`[Audit] Logging ${eventType}`, { requestId, logId: res?.log_id });
             }
 
             // Release lock after delay

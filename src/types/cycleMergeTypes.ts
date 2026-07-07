@@ -16,8 +16,8 @@ export interface UnifiedTopicMapping {
   originalSubjectIds: string[];
   /** IDs of the original editais involved in this specific mapping */
   sourceEditalIds?: string[];
-  /** Match type: 'exact' = identical names, 'semantic' = AI determined equivalence */
-  matchType: 'exact' | 'semantic';
+  /** Match type: exact = identical names, semantic = AI suggestion, manual = student confirmed */
+  matchType: 'exact' | 'semantic' | 'manual';
   /** AI confidence (0-1), only present for matchType='semantic' */
   confidence?: number;
 }
@@ -35,7 +35,7 @@ export interface UnifiedSubjectMapping {
   /** Topic-level unification mappings within this subject */
   topicMappings: UnifiedTopicMapping[];
   /** Match type */
-  matchType: 'exact' | 'semantic';
+  matchType: 'exact' | 'semantic' | 'manual';
   /** AI confidence (0-1), only present for matchType='semantic' */
   confidence?: number;
 }

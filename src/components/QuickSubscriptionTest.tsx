@@ -4,6 +4,7 @@
 import React, { useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import type { Json } from '@/integrations/supabase/types'
+import { invokeUserRpc } from '@/services/userRpcService'
 
 export function QuickSubscriptionTest() {
   const [result, setResult] = useState<Json | null>(null)
@@ -26,14 +27,8 @@ export function QuickSubscriptionTest() {
       
       console.log('User ID:', user.id)
       
-      // Testar a função RPC
-      const { data, error: rpcError } = await supabase
-        .rpc('get_subscription_info', { check_user_id: user.id })
-      
-      if (rpcError) {
-        console.error('RPC Error details:', rpcError)
-        throw rpcError
-      }
+      // Testar a função pela fronteira segura
+      const data = await invokeUserRpc<Json>('get_subscription_info', { check_user_id: user.id })
       
       console.log('Function result:', data)
       setResult(data)

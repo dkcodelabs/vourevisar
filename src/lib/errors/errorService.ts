@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { invokeUserRpc } from '@/services/userRpcService';
 import { toastGate } from './toastGate';
 import { toast } from '@/lib/toast';
 import {
@@ -283,9 +284,9 @@ class ErrorService {
             context_label: error.context_label
         };
 
-        // Usar RPC para logar com deduplicação server-side
-        const { error: dbError } = await supabase
-            .rpc('log_admin_error', {
+        // Usar fronteira segura para logar com deduplicação server-side
+        try {
+            await invokeUserRpc('log_admin_error', {
                 p_error_id: payload.error_id,
                 p_module: payload.module,
                 p_action: payload.action,
@@ -316,15 +317,8 @@ class ErrorService {
                 p_request_id: payload.request_id,
                 p_context_label: payload.context_label
             });
-
-        if (dbError) {
+        } catch (dbError) {
             console.error('Failed to log error to DB:', dbError);
-        } else {
-            // Trigger Alert Check (Fire and forget)
-            // Only for critical/high or regularly? Let's check always for now to catch recurrence
-            supabase.rpc('check_error_alerts').then(({ error }) => {
-                if (error) console.error('Failed to check alerts:', error);
-            });
         }
     }
 }
