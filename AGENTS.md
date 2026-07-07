@@ -11,6 +11,15 @@ Este arquivo é a fonte principal de instruções para agentes neste projeto. Se
 - Se não tiver certeza sobre algo técnico ou atual, diga que não tem certeza e verifique antes de afirmar.
 - Antes de editar, leia o contexto real do código. Não presuma arquitetura a partir de nomes de arquivos.
 
+## Comunicação e formato de resposta
+
+- Seja direto e operacional. Para pedidos simples de orientação, responda em passos curtos, sem cabeçalhos fixos.
+- Use seções como `Problema`, `Solução`, `Código` e `Débito técnico` apenas quando elas realmente ajudarem: decisões de arquitetura, revisão de risco, implementação relevante, segurança, banco, deploy ou entrega com validação.
+- Não repita um template rígido em toda resposta. O formato deve servir ao trabalho, não atrapalhar o usuário.
+- Quando o usuário estiver executando uma configuração em painel externo, diga exatamente onde clicar e o que não clicar.
+- Para perguntas como "onde?", "e agora?", "o que fazer?", priorize o próximo passo concreto antes de qualquer explicação.
+- Mantenha o tom crítico, mas sem teatralizar. Aponte risco real com clareza e siga para a correção.
+
 ## Contexto do produto
 
 - Produto: vouRevisar, uma plataforma de revisão inteligente para concursos públicos.
