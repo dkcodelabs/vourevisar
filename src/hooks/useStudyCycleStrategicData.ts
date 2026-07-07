@@ -327,13 +327,14 @@ export function useStudyCycleStrategicData({
   const cycleMetrics = useMemo(() => {
     return getStudyCycleMetrics({
       subjects: expandedSubjectList.map(item => item.subject),
+      cycleExamDate: userCycle?.exam_date || null,
       editais: editaisNoCiclo.map(edital => ({
         exam_date: edital.exam_date || null,
       })),
       cycleStart: userCycle?.data_inicio_ciclo || null,
       hasCycleHistory: cycleSnapshots.length > 0,
     });
-  }, [cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, userCycle?.data_inicio_ciclo]);
+  }, [cycleSnapshots.length, editaisNoCiclo, expandedSubjectList, userCycle?.data_inicio_ciclo, userCycle?.exam_date]);
 
   const cycleEventInsights = useMemo(() => {
     const currentOrder = (userCycle?.ciclo_atual || []).map((id: string) =>

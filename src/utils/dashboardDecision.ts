@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, format, parseISO, startOfDay } from 'date-fns';
+import { differenceInCalendarDays, format, startOfDay } from 'date-fns';
 import type {
   ChargeCoverageState,
   DashboardAction,
@@ -11,6 +11,7 @@ import type {
   DashboardProgressSummary,
   DashboardReviewTopic,
 } from '@/types/dashboardDecision';
+import { buildStudyCyclePaceMetrics } from './studyCycleMetrics';
 
 export function normalizeReminderDate(value: string | null | undefined) {
   if (!value) return null;
@@ -400,62 +401,15 @@ export function buildDashboardPace(params: {
   futureReviewsInWindow: number;
   hasActiveCycle: boolean;
 }): DashboardPace {
-  if (!params.hasActiveCycle) {
-    return {
-      state: 'missing_cycle',
-      daysRemaining: null,
-      newTopicsPerDay: null,
-      reviewsPerDay: null,
-      unstartedTopics: params.totalUnstartedTopics,
-      pendingReviews: params.overdueReviews + params.todayReviews + params.futureReviewsInWindow,
-      futureReviewsInWindow: params.futureReviewsInWindow,
-      explanation: 'Carregue um ciclo para calcular ritmo.',
-    };
-  }
-
-  if (!params.examDate) {
-    return {
-      state: 'missing_exam_date',
-      daysRemaining: null,
-      newTopicsPerDay: null,
-      reviewsPerDay: null,
-      unstartedTopics: params.totalUnstartedTopics,
-      pendingReviews: params.overdueReviews + params.todayReviews + params.futureReviewsInWindow,
-      futureReviewsInWindow: params.futureReviewsInWindow,
-      explanation: 'Defina uma data de prova para calcular o ritmo necessário.',
-    };
-  }
-
-  const today = params.today ?? new Date();
-  const examDate = params.examDate.length === 10 ? parseISO(params.examDate) : new Date(params.examDate);
-  const daysRemaining = differenceInCalendarDays(startOfDay(examDate), startOfDay(today));
-
-  if (daysRemaining < 0) {
-    return {
-      state: 'exam_date_past',
-      daysRemaining,
-      newTopicsPerDay: null,
-      reviewsPerDay: null,
-      unstartedTopics: params.totalUnstartedTopics,
-      pendingReviews: params.overdueReviews + params.todayReviews + params.futureReviewsInWindow,
-      futureReviewsInWindow: params.futureReviewsInWindow,
-      explanation: 'A data da prova já passou. Atualize a data para recalcular o ritmo.',
-    };
-  }
-
-  const divisor = Math.max(daysRemaining, 1);
-  const pendingReviews = params.overdueReviews + params.todayReviews + params.futureReviewsInWindow;
-
-  return {
-    state: 'ready',
-    daysRemaining,
-    newTopicsPerDay: params.totalUnstartedTopics / divisor,
-    reviewsPerDay: pendingReviews / divisor,
+  return buildStudyCyclePaceMetrics({
+    examDate: params.examDate,
+    today: params.today,
     unstartedTopics: params.totalUnstartedTopics,
-    pendingReviews,
+    overdueReviews: params.overdueReviews,
+    dueTodayReviews: params.todayReviews,
     futureReviewsInWindow: params.futureReviewsInWindow,
-    explanation: 'Cálculo baseado nos tópicos não iniciados, revisões pendentes e revisões futuras até a prova.',
-  };
+    hasActiveCycle: params.hasActiveCycle,
+  });
 }
 
 export function getDifficultySummary(subjects: DashboardCycleSubject[]): DashboardDifficultySummary {

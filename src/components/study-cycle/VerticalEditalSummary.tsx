@@ -22,6 +22,14 @@ type VerticalSummaryMetrics = {
   dueTodayReviews: number;
   estimatedDaysToFirstContact: number | null;
   overdueReviews: number;
+  pace?: {
+    recentFirstContact?: {
+      state: 'ready' | 'insufficient_data';
+      projectedDaysToFirstContact: number | null;
+      topicsPerDay: number | null;
+      windowDays: number;
+    };
+  };
   startedTopics: number;
   totalTopics: number;
   unstartedTopics: number;
@@ -64,8 +72,11 @@ export function VerticalEditalSummary({
     : metrics.dueTodayReviews > 0
       ? `${metrics.dueTodayReviews} hoje`
       : 'em dia';
+  const recentFirstContact = metrics.pace?.recentFirstContact;
   const paceText = metrics.daysUntilExam !== null && unstartedTopics > 0
     ? `${metrics.dailyNewTopicsGoal} tópico${metrics.dailyNewTopicsGoal === 1 ? '' : 's'}/dia para tocar tudo até a prova.`
+    : recentFirstContact?.state === 'ready' && recentFirstContact.projectedDaysToFirstContact !== null && unstartedTopics > 0
+      ? `No ritmo recente, o primeiro contato fecha em cerca de ${recentFirstContact.projectedDaysToFirstContact} dias.`
     : metrics.estimatedDaysToFirstContact !== null && unstartedTopics > 0
       ? `No ritmo atual, o primeiro contato fecha em cerca de ${metrics.estimatedDaysToFirstContact} dias.`
       : unstartedTopics === 0

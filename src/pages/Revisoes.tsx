@@ -17,6 +17,7 @@ import { useMergeData } from '@/hooks/useMergeData';
 import { getCanonicalSubjectName, getCanonicalTopicName } from '@/services/cycleMergeService';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
+import { getStudyCycleMetrics } from '@/utils/studyCycleMetrics';
 
 
 import { ReviewHistoryItem, RevisionItem, RevisionStatus } from '@/types/revision';
@@ -60,7 +61,7 @@ export const Revisoes = () => {
   const { subjects, refreshData } = useApp();
   const { userCycle, isLoading: isCycleLoading } = useCycleState();
   const { dynamicUnificationMap } = useMergeData();
-  const { editaisData } = useEditalOriginsWithMerge();
+  const { editaisData, editaisNoCiclo } = useEditalOriginsWithMerge();
   
   const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
   const hasAnyEdital = editaisData.length > 0 || subjects.length > 0;
@@ -99,6 +100,9 @@ export const Revisoes = () => {
   } = useReviewsData();
 
   const maxReviews = PROGRAMMED_REVIEW_COUNT;
+  const cycleExamDate = userCycle?.exam_date || null;
+  const hasCompositeCycle = editaisNoCiclo.length > 1;
+  const examDate = cycleExamDate || (!hasCompositeCycle ? editaisNoCiclo[0]?.exam_date ?? null : null);
   const activeTopicScope = useMemo(
     () =>
       buildActiveTopicScope(
@@ -155,6 +159,30 @@ export const Revisoes = () => {
       }
     },
     enabled: !!user
+  });
+
+  const { data: firstContactStudyDurationsMinutes = [] } = useQuery({
+    queryKey: ['reviews-first-contact-durations', user?.id, userCycle?.id],
+    queryFn: async () => {
+      if (!user?.id || !userCycle?.id) return [];
+
+      const { data, error } = await supabase
+        .from('study_sessions')
+        .select('session_duration_minutes')
+        .eq('user_id', user.id)
+        .eq('cycle_id', userCycle.id)
+        .eq('contact_type', 'first_contact')
+        .not('session_duration_minutes', 'is', null);
+
+      if (error) throw error;
+
+      return (data || [])
+        .map(session => session.session_duration_minutes)
+        .filter((minutes): minutes is number =>
+          typeof minutes === 'number' && Number.isFinite(minutes) && minutes > 0
+        );
+    },
+    enabled: Boolean(user?.id && userCycle?.id),
   });
 
   useEffect(() => {
@@ -318,6 +346,24 @@ export const Revisoes = () => {
       totalSubjects,
     };
   }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, subjects, topics.length]);
+
+  const reviewPace = useMemo(() => {
+    return getStudyCycleMetrics({
+      subjects: allTopics.map(topic => ({
+        id: topic.subject_id,
+        topics: [{
+          id: topic.id,
+          completed: topic.completed,
+          first_studied_at: topic.first_studied_at,
+          next_review: topic.next_review,
+          review_count: topic.review_count,
+        }],
+      })),
+      cycleExamDate: examDate,
+      firstContactStudyDurationsMinutes,
+      hasActiveCycle: Boolean(hasActiveCycle),
+    }).pace;
+  }, [allTopics, examDate, firstContactStudyDurationsMinutes, hasActiveCycle]);
 
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: RevisionItem[] } = {};
@@ -539,6 +585,7 @@ export const Revisoes = () => {
           <div className="mt-0 mb-4 shrink-0 px-4 md:px-8 w-full order-1">
             <RevisoesHeader
               stats={stats}
+              pace={reviewPace}
               isCollapsed={headerCardsCollapsed}
               onToggle={(val) => {
                 setHeaderCardsCollapsed(val);

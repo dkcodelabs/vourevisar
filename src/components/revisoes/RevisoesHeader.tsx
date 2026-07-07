@@ -1,5 +1,6 @@
 import React from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronUp, Gauge, Target } from 'lucide-react';
+import type { StudyCyclePaceMetrics } from '@/utils/studyCycleMetrics';
 
 interface RevisoesHeaderProps {
     stats: {
@@ -12,10 +13,43 @@ interface RevisoesHeaderProps {
     };
     isCollapsed: boolean;
     onToggle: (collapsed: boolean) => void;
+    pace?: StudyCyclePaceMetrics;
     className?: string; // Support for custom styling positioning
 }
 
-export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollapsed, onToggle, className }) => {
+const formatPaceValue = (value: number | null) => {
+    if (value === null) return '--';
+    if (value > 0 && value < 1) {
+        const intervalDays = Math.max(2, Math.round(1 / value));
+        return `1 a cada ${intervalDays} dias`;
+    }
+
+    return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}/dia`;
+};
+
+const getPaceSummary = (pace?: StudyCyclePaceMetrics) => {
+    if (!pace) return null;
+    if (pace.state !== 'ready') return pace.explanation;
+
+    return `${pace.daysRemaining} dias para a prova, ${pace.unstartedTopics} tópicos novos pendentes e ${pace.pendingReviews} revisões previstas.`;
+};
+
+const getRecentPaceText = (pace: StudyCyclePaceMetrics) => {
+    const recent = pace.recentFirstContact;
+    if (recent.state === 'ready' && recent.projectedDaysToFirstContact !== null) {
+        return `Ritmo recente: ${formatPaceValue(recent.topicsPerDay)}. Primeiro contato fecha em cerca de ${recent.projectedDaysToFirstContact} dias se esse ritmo continuar.`;
+    }
+
+    if (recent.averageStudyMinutes !== null) {
+        return `Tempo médio real por primeiro contato: ${Math.round(recent.averageStudyMinutes)} min. Ainda falta histórico recente para projetar fechamento.`;
+    }
+
+    return `Histórico recente insuficiente: ${recent.topicsStarted} primeiro${recent.topicsStarted === 1 ? '' : 's'} contato${recent.topicsStarted === 1 ? '' : 's'} nos últimos ${recent.windowDays} dias.`;
+};
+
+export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollapsed, onToggle, pace, className }) => {
+    const paceSummary = getPaceSummary(pace);
+
     return (
         <div className={`w-full ${className || ''}`}>
             {/* Toggle Button Row */}
@@ -41,6 +75,47 @@ export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollaps
                     )}
                 </button>
             </div>
+
+            {pace && (
+                <div className="mb-4 grid gap-2 rounded-2xl border border-border/70 bg-card/70 p-3 shadow-sm sm:grid-cols-[1.15fr_0.85fr]">
+                    <div className="flex min-w-0 items-start gap-2.5">
+                        <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                            <Gauge size={16} />
+                        </span>
+                        <div className="min-w-0">
+                            <p className="text-xs font-bold uppercase tracking-wider text-foreground">
+                                Ritmo até a prova
+                            </p>
+                            <p className="mt-1 text-xs leading-relaxed text-content-muted">
+                                {paceSummary}
+                            </p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-content-muted/90">
+                                {getRecentPaceText(pace)}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-xl border border-border/60 bg-surface/60 px-3 py-2">
+                            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-content-muted">
+                                <Target size={12} />
+                                Tópicos
+                            </div>
+                            <p className="mt-1 text-sm font-bold tabular-nums text-foreground">
+                                {formatPaceValue(pace.newTopicsPerDay)}
+                            </p>
+                        </div>
+                        <div className="rounded-xl border border-border/60 bg-surface/60 px-3 py-2">
+                            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-content-muted">
+                                <CalendarDays size={12} />
+                                Revisões
+                            </div>
+                            <p className="mt-1 text-sm font-bold tabular-nums text-foreground">
+                                {formatPaceValue(pace.reviewsPerDay)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Collapsed Summary Bar - Shown when Collapsed (Desktop) OR Always on Mobile as KPI Summary */}
             {/* Logic Refinement: In the new Mobile-First layout, this might represent the primary KPI view on mobile. */}
