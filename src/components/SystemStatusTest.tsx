@@ -3,6 +3,7 @@
 // =====================================================
 import React, { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
+import { invokeUserRpc } from '@/services/userRpcService'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useUserProfile } from '@/hooks/useUserProfile'
 import { useSubscriptionInfo } from '@/hooks/useSubscriptionInfo'
@@ -28,7 +29,7 @@ interface SystemDiagnosticResults {
   }
   subscription?: {
     rpcData: Json
-    rpcError: PostgrestError | null
+    rpcError: DiagnosticError
     hookData: ReturnType<typeof useSubscriptionInfo>['subscriptionInfo']
   }
   directSubscription?: {
@@ -79,9 +80,14 @@ export function SystemStatusTest() {
           isAdmin
         }
 
-        // 3. Verificar assinatura via RPC
-        const { data: subData, error: subError } = await supabase
-          .rpc('get_subscription_info', { check_user_id: currentUser.id })
+        // 3. Verificar assinatura via fronteira segura
+        let subData: Json = null
+        let subError: DiagnosticError = null
+        try {
+          subData = await invokeUserRpc<Json>('get_subscription_info', { check_user_id: currentUser.id })
+        } catch (error) {
+          subError = error
+        }
 
         results.subscription = {
           rpcData: subData,
@@ -101,15 +107,14 @@ export function SystemStatusTest() {
           error: directSubError
         }
 
-        // 5. Testar função get_subscription_info diretamente
+        // 5. Testar função get_subscription_info pela fronteira segura
         try {
-          const { data: testRpc, error: testRpcError } = await supabase
-            .rpc('get_subscription_info')
+          const testRpc = await invokeUserRpc<Json>('get_subscription_info', { check_user_id: currentUser.id })
 
           results.rpcTest = {
             data: testRpc,
-            error: testRpcError,
-            status: testRpcError ? 'Função não encontrada ou com erro' : 'Função funcionando'
+            error: null,
+            status: 'Função funcionando'
           }
         } catch (err) {
           results.rpcTest = {
@@ -206,7 +211,9 @@ export function SystemStatusTest() {
                   <span className="text-gray-500"> Nenhuma</span>
                 )}
                 {testResults.subscription?.rpcError && (
-                  <p className="text-red-600 ml-2">Erro: {testResults.subscription.rpcError.message}</p>
+                  <p className="text-red-600 ml-2">
+                    Erro: {testResults.subscription.rpcError instanceof Error ? testResults.subscription.rpcError.message : String(testResults.subscription.rpcError)}
+                  </p>
                 )}
               </div>
 
@@ -252,8 +259,9 @@ export function SystemStatusTest() {
                 onClick={async () => {
                   // Testar função SQL diretamente
                   try {
-                    const { data, error } = await supabase.rpc('get_subscription_info')
-                    alert(`Resultado: ${JSON.stringify({ data, error }, null, 2)}`)
+                    if (!user?.id) throw new Error('Usuário não está logado')
+                    const data = await invokeUserRpc('get_subscription_info', { check_user_id: user.id })
+                    alert(`Resultado: ${JSON.stringify({ data, error: null }, null, 2)}`)
                   } catch (err) {
                     alert(`Erro: ${err}`)
                   }

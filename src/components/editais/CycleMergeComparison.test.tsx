@@ -2,8 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CycleMergeComparison } from '@/components/editais/CycleMergeComparison';
-import type { Subject } from '@/types';
 import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
+import type { Subject } from '@/types';
 
 const subjects: Subject[] = [
     {
@@ -98,5 +98,75 @@ describe('CycleMergeComparison', () => {
 
         expect(onKeepIndividual).toHaveBeenCalledOnce();
         expect(onUnify).toHaveBeenCalledOnce();
+    });
+
+    it('lets the student add and undo a manual topic equivalence', () => {
+        const onUnificationMapChange = vi.fn();
+        const manualSubjects: Subject[] = [
+            {
+                id: 'subject-a',
+                name: 'Direito Constitucional',
+                status: 'Nova',
+                edital_id: 'edital-a',
+                topics: [{ id: 'topic-a', name: 'Direitos fundamentais', completed: false, reviewCount: 0, review_count: 0 }],
+            },
+            {
+                id: 'subject-b',
+                name: 'Direito Constitucional',
+                status: 'Nova',
+                edital_id: 'edital-b',
+                topics: [{ id: 'topic-b', name: 'Direitos e garantias fundamentais', completed: false, reviewCount: 0, review_count: 0 }],
+            },
+        ];
+        const manualMap: CycleUnificationMap = {
+            version: 1,
+            createdAt: '2026-06-22T00:00:00.000Z',
+            editalIds: ['edital-a', 'edital-b'],
+            standaloneSubjectIds: [],
+            unifiedSubjects: [{
+                displayName: 'Direito Constitucional',
+                originalSubjectIds: ['subject-a', 'subject-b'],
+                matchType: 'exact',
+                topicMappings: [],
+            }],
+        };
+
+        const { rerender } = render(
+            <CycleMergeComparison
+                subjects={manualSubjects}
+                unificationMap={manualMap}
+                editalName="PMES - Soldado"
+                onKeepIndividual={vi.fn()}
+                onUnify={vi.fn()}
+                onUnificationMapChange={onUnificationMapChange}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: 'Marcar Direitos fundamentais como equivalente' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Selecionar Direitos e garantias fundamentais como equivalente' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Confirmar equivalência manual' }));
+
+        const nextMap = onUnificationMapChange.mock.calls[0][0] as CycleUnificationMap;
+        expect(nextMap.unifiedSubjects[0].topicMappings).toEqual([expect.objectContaining({
+            matchType: 'manual',
+            originalTopicIds: ['topic-a', 'topic-b'],
+        })]);
+
+        rerender(
+            <CycleMergeComparison
+                subjects={manualSubjects}
+                unificationMap={nextMap}
+                editalName="PMES - Soldado"
+                onKeepIndividual={vi.fn()}
+                onUnify={vi.fn()}
+                onUnificationMapChange={onUnificationMapChange}
+            />,
+        );
+
+        expect(screen.getByText('Manual')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Desfazer equivalência manual de Direitos fundamentais' }));
+
+        const removedMap = onUnificationMapChange.mock.calls[1][0] as CycleUnificationMap;
+        expect(removedMap.unifiedSubjects[0].topicMappings).toEqual([]);
     });
 });

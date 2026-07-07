@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Subject, Topic } from '@/types';
 import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
+import { invokeUserRpc } from '@/services/userRpcService';
 import { cn } from '@/lib/utils';
 import { withTimeout } from '@/utils/withTimeout';
 import {
@@ -1387,6 +1388,32 @@ const Editais = () => {
         }
     }, [cycleConflict, subjects, savePendingMerge, user?.id, loadPendingSuggestions]);
 
+    const handleManualTopicEquivalenceChange = useCallback((nextUnificationMap: CycleUnificationMap) => {
+        if (!cycleConflict.edital) return;
+
+        const nextState = {
+            unificationMap: nextUnificationMap,
+            topicMergeResult: undefined,
+        };
+
+        setCycleConflict(prev => ({
+            ...prev,
+            ...nextState,
+        }));
+
+        savePendingMerge(cycleConflict.edital.id, {
+            existingIds: cycleConflict.existingIds,
+            currentOrigins: cycleConflict.currentOrigins,
+            action: cycleConflict.action,
+            hybridResult: cycleConflict.hybridResult,
+            aiStatus: cycleConflict.aiStatus,
+            finalSubjectIds: cycleConflict.finalSubjectIds,
+            subjectDisplayNameOverrides: cycleConflict.subjectDisplayNameOverrides,
+            step: cycleConflict.step,
+            ...nextState,
+        });
+    }, [cycleConflict, savePendingMerge]);
+
     const handleCycleConflictAction = useCallback(async (
         action: 'replace' | 'merge' | 'hybrid',
         organizationMode: 'individual' | 'unified' = 'unified',
@@ -1508,7 +1535,7 @@ const Editais = () => {
                 ? sanitizeExamDate(edital.examDate)
                 : defaultCycleExamDate;
             
-            const { data: rpcData, error: rpcError } = await supabase.rpc('atomic_cycle_load', {
+            const rpcData = await invokeUserRpc<unknown>('atomic_cycle_load', {
                 p_user_id: user.id,
                 p_new_edital_id: edital.id,
                 p_new_subject_ids: finalIdsToLoad,
@@ -1518,8 +1545,7 @@ const Editais = () => {
                 p_exam_date: defaultRpcExamDate,
             });
 
-            if (rpcError) throw rpcError;
-            const rpcResult = getJsonRecord(rpcData);
+            const rpcResult = getJsonRecord(rpcData as Json);
             if (rpcResult?.ok === false) throw new Error(typeof rpcResult.error === 'string' ? rpcResult.error : 'Falha ao carregar ciclo.');
             const resumedReviewCount = Number(rpcResult?.resumed_reviews || 0);
 
@@ -2922,6 +2948,7 @@ const Editais = () => {
                                         editalSources={cycleMergeSources}
                                         disabled={isMerging || isAnalyzingTopics || processingId === cycleConflict.edital?.id}
                                         onKeepIndividual={() => handleCycleConflictAction('merge', 'individual')}
+                                        onUnificationMapChange={handleManualTopicEquivalenceChange}
                                         onUnify={() => handleCycleConflictAction('merge', 'unified')}
                                     />
                                 )}

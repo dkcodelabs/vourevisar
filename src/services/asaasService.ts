@@ -43,16 +43,26 @@ export const asaasService = {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Usuário não autenticado');
 
-      const { data, error } = await supabase.rpc('validate_coupon', {
-        target_coupon_code: code,
+      const { data, error } = await supabase.functions.invoke<{
+        data?: CouponValidationResponse;
+        error?: string;
+      }>('billing-rpc', {
+        body: {
+          action: 'validate_coupon',
+          args: { target_coupon_code: code },
+        },
       });
 
       if (error) {
-         console.error('Erro na RPC validate_coupon:', error);
+         console.error('Erro na Function billing-rpc:', error);
          throw error;
       }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
       
-      return data as unknown as CouponValidationResponse;
+      return data?.data || { success: false, error: 'Resposta inválida do servidor' };
     } catch (err: unknown) {
       console.error('Erro ao validar cupom:', err);
       const message = err instanceof Error ? err.message : 'Falha ao conectar com servidor';

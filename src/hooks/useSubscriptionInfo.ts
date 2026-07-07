@@ -3,6 +3,7 @@
 // =====================================================
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/integrations/supabase/client'
+import { invokeUserRpc } from '@/services/userRpcService'
 
 interface SubscriptionInfo {
   user_id: string
@@ -52,9 +53,10 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
 
       // Log removido para otimização
 
-      // Chamar a função RPC para obter informações da assinatura
-      const { data, error: rpcError } = await supabase
-        .rpc('get_subscription_info', { check_user_id: user.id })
+      // Chamar a fronteira segura para obter informações da assinatura
+      const dataPromise = invokeUserRpc<SubscriptionInfo | { error?: string } | null>('get_subscription_info', {
+        check_user_id: user.id,
+      })
 
       // Verificar se o usuário possui a role de admin ou owner ou se é email protegido
       const { data: rolesData } = await supabase
@@ -83,10 +85,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
         return
       }
 
-      if (rpcError) {
-        console.error('RPC Error:', rpcError)
-        throw rpcError
-      }
+      const data = await dataPromise
 
       // Log removido para otimização
 

@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
 import type { Json } from '@/integrations/supabase/types';
+import { invokeAdminRpc } from '@/services/adminRpcService';
 
 interface Topic {
     id: string;
@@ -134,10 +135,12 @@ export const AdminEditalSubjectsModal = ({
             if (shouldNotify) {
                 try {
                     console.log('Iniciando disparos de notificações globais...');
-                    const { data: rpcData, error: usersErr } = await supabase
-                        .rpc('get_users_by_edital_source', { source_uuid: edital?.id });
+                    const rpcData = await invokeAdminRpc<Array<{ user_id: string }>>(
+                        'get_users_by_edital_source',
+                        { source_uuid: edital?.id },
+                    );
 
-                    if (!usersErr && rpcData && rpcData.length > 0) {
+                    if (rpcData && rpcData.length > 0) {
                         const uniqueUserIds = Array.from(new Set(rpcData.map((u) => u.user_id)));
                         const notificationsToInsert = uniqueUserIds.map(userId => ({
                             user_id: userId,

@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useUserRole, AppRole } from '@/hooks/useUserRole'
+import { invokeAdminRpc } from '@/services/adminRpcService'
 import { X, Crown, Shield, Users, User, AlertTriangle, Check } from 'lucide-react'
 import { SubscriptionManagementModal } from './SubscriptionManagementModal'
 import { UserAvatar } from '@/components/ui/UserAvatar'
@@ -72,12 +73,11 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
       if (profilesError) throw profilesError
 
       // Buscar roles usando RPC administrativa tipada.
-      const { data: userRoles, error: rolesError } = await supabase
-        .rpc('get_all_user_roles_admin')
+      const userRoles = await invokeAdminRpc<UserRoleRow[]>('get_all_user_roles_admin')
 
       // Se RPC não funcionar, usar query SQL direta
       let rolesData: UserRoleRow[] = userRoles || []
-      if (rolesError || !userRoles) {
+      if (!userRoles) {
         console.log('Tentando query SQL direta...')
         const { data: directRoles } = await supabase
           .from('user_roles')
@@ -117,12 +117,10 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
       setActionLoading(`assign-${userId}-${role}`)
       
       // Usa RPC security definer tipada para respeitar RLS e manter a role única por usuário.
-      const { error } = await supabase.rpc('set_user_role', {
+      await invokeAdminRpc('set_user_role', {
         _target_user_id: userId,
         _role: role
       })
-
-      if (error) throw error
 
       await fetchUsers()
       await refetch()
@@ -142,12 +140,10 @@ export function UserManagementModal({ isOpen, onClose, mode, title }: UserManage
       setActionLoading(`remove-${userId}-${role}`)
       
       // Usa RPC administrativa tipada para remoção respeitando RLS.
-      const { error } = await supabase.rpc('remove_user_role_admin', {
+      await invokeAdminRpc('remove_user_role_admin', {
         target_user_id: userId,
         role_to_remove: role
       })
-
-      if (error) throw error
 
       await fetchUsers()
       await refetch()

@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-toastify';
 import { AdminUser } from '@/hooks/useAdminUsers';
 import { toastGate } from '@/lib/errors/toastGate';
+import { invokeAdminRpc } from '@/services/adminRpcService';
 
 interface EditRoleModalProps {
     isOpen: boolean;
@@ -59,12 +60,10 @@ export function EditRoleModal({ isOpen, onClose, user, onRoleUpdated }: EditRole
 
             // 2. Perform Update via RPC
             // Using 'set_user_role' security definer function to handle RLS and ensure atomic update
-            const { error: rpcError } = await supabase.rpc('set_user_role', {
+            await invokeAdminRpc('set_user_role', {
                 _target_user_id: user.id,
                 _role: selectedRole as "admin" | "moderator" | "owner" | "user"
             });
-
-            if (rpcError) throw rpcError;
 
             toast.success(`Permissão atualizada para ${selectedRole}`);
             onRoleUpdated();

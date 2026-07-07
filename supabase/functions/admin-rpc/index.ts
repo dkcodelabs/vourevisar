@@ -1,0 +1,95 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const ALLOWED_ACTIONS = new Set([
+  "activate_paid_subscription",
+  "activate_trial_subscription",
+  "admin_deactivate_user",
+  "admin_purge_user",
+  "admin_reactivate_user",
+  "calculate_slo_metrics",
+  "check_error_alerts",
+  "cleanup_error_logs",
+  "deactivate_subscription",
+  "get_all_user_roles_admin",
+  "get_audit_logs",
+  "get_users_by_edital_source",
+  "remove_user_role_admin",
+  "set_user_role",
+]);
+
+type AdminRpcRequest = {
+  action?: string;
+  args?: Record<string, unknown>;
+};
+
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return json({ error: "Nao autorizado" }, 401);
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error("Configuracao Supabase ausente");
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const user = userData.user;
+    if (userError || !user) {
+      return json({ error: "Sessao invalida" }, 401);
+    }
+
+    const { action, args = {} } = (await req.json()) as AdminRpcRequest;
+    if (!action || !ALLOWED_ACTIONS.has(action)) {
+      return json({ error: "Acao administrativa nao permitida" }, 400);
+    }
+
+    const { data: roleRows, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .in("role", ["admin", "owner"]);
+
+    if (roleError) throw roleError;
+    if (!roleRows || roleRows.length === 0) {
+      return json({ error: "Permissao administrativa obrigatoria" }, 403);
+    }
+
+    const { data, error } = await supabase.rpc("admin_rpc_dispatch", {
+      p_action: action,
+      p_args: args,
+      p_actor_user_id: user.id,
+    });
+    if (error) {
+      return json({ error: error.message, code: error.code }, 400);
+    }
+
+    return json({ data });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro interno";
+    return json({ error: message }, 500);
+  }
+});
+
+const json = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });

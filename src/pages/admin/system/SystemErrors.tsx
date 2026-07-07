@@ -22,6 +22,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { invokeAdminRpc } from '@/services/adminRpcService';
 import {
     AlertCircle,
     Activity,
@@ -159,11 +160,11 @@ export default function SystemErrors() {
 
     const fetchOperationalData = React.useCallback(async () => {
         // Fetch SLO Metrics
-        const { data: sloData } = await supabase.rpc('calculate_slo_metrics', { p_days_window: 7 });
+        const sloData = await invokeAdminRpc<SLOMetrics>('calculate_slo_metrics', { p_days_window: 7 });
         if (sloData) setSloMetrics(sloData as unknown as SLOMetrics);
 
         // Fetch Active Alerts (check for new ones first)
-        await supabase.rpc('check_error_alerts'); // Trigger check
+        await invokeAdminRpc('check_error_alerts'); // Trigger check
         const { data: alertsData } = await supabase
             .from('admin_alert_events')
             .select('*')
@@ -248,8 +249,7 @@ export default function SystemErrors() {
         if (!window.confirm("Isso apagará logs com mais de 30 dias. Confirmar?")) return;
 
         try {
-            const { data, error } = await supabase.rpc('cleanup_error_logs', { p_days_retention: 30 });
-            if (error) throw error;
+            const data = await invokeAdminRpc<number>('cleanup_error_logs', { p_days_retention: 30 });
             toast.success(`${data} logs antigos removidos.`);
             fetchErrors();
         } catch (err: unknown) {

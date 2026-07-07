@@ -12,6 +12,7 @@ import { ptBR } from 'date-fns/locale';
 import PageContainer from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { withTimeout } from '@/utils/withTimeout';
+import { invokeAdminRpc } from '@/services/adminRpcService';
 
 // Types
 interface AuditLog {
@@ -236,8 +237,8 @@ export default function AuditLogs() {
             const { startDate, endDate } = getDateRange();
             const offset = (currentPage - 1) * PAGE_SIZE;
 
-            const { data, error } = await withTimeout(
-                supabase.rpc('get_audit_logs', {
+            const data = await withTimeout(
+                invokeAdminRpc<AuditLog[]>('get_audit_logs', {
                     p_limit: PAGE_SIZE,
                     p_offset: offset,
                     p_event_type: eventType || null,
@@ -250,8 +251,6 @@ export default function AuditLogs() {
                 12000,
                 'Carregamento da auditoria'
             );
-
-            if (error) throw error;
 
             if (data && data.length > 0) {
                 setLogs(data);
@@ -292,8 +291,8 @@ export default function AuditLogs() {
         try {
             const { startDate, endDate } = getDateRange();
 
-            const { data, error } = await withTimeout(
-                supabase.rpc('get_audit_logs', {
+            const data = await withTimeout(
+                invokeAdminRpc<AuditLog[]>('get_audit_logs', {
                     p_limit: 10000, // Max export
                     p_offset: 0,
                     p_event_type: eventType || null,
@@ -306,8 +305,6 @@ export default function AuditLogs() {
                 12000,
                 'Exportação da auditoria'
             );
-
-            if (error) throw error;
             if (!data || data.length === 0) return;
 
             // Build CSV with status_code and status_label

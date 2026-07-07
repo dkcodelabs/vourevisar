@@ -3,6 +3,7 @@
 // =====================================================
 import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
+import { invokeUserRpc } from '@/services/userRpcService'
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -22,6 +23,7 @@ import {
 import { UserCheck, User, Crown, Shield, Users, Calendar, DollarSign, XCircle } from 'lucide-react'
 import { useSubscriptionStats } from '@/hooks/useSubscriptionStats'
 import type { Database } from '@/integrations/supabase/types'
+import { invokeAdminRpc } from '@/services/adminRpcService'
 
 type AppRole = Database['public']['Enums']['app_role']
 type SubscriptionPlan = Database['public']['Enums']['subscription_plan']
@@ -169,12 +171,9 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
 
       if (action === 'deactivate') {
         // Desativar assinatura - usar deactivate_subscription
-        const { data, error } = await supabase
-          .rpc('deactivate_subscription', {
-            target_user_id: userId
-          })
-
-        if (error) throw error
+        await invokeAdminRpc('deactivate_subscription', {
+          target_user_id: userId
+        })
         console.log('Subscription deactivated successfully')
       } else if (action === 'activate_trial') {
         // Ativar Free - 7 dias
@@ -485,10 +484,15 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
                   const { data: { user } } = await supabase.auth.getUser()
                   if (user) {
                     console.log('🧪 Testing SQL function for user:', user.id)
+                    let rpcData: unknown = null
                     
-                    // Testar get_subscription_info
-                    const { data, error } = await supabase.rpc('get_subscription_info', { check_user_id: user.id })
-                    console.log('📊 SQL Result:', { data, error })
+                    // Testar get_subscription_info pela fronteira segura
+                    try {
+                      rpcData = await invokeUserRpc('get_subscription_info', { check_user_id: user.id })
+                      console.log('📊 SQL Result:', { data: rpcData, error: null })
+                    } catch (error) {
+                      console.log('📊 SQL Result:', { data: null, error })
+                    }
                     
                     // Testar busca direta na tabela
                     const { data: directData, error: directError } = await supabase
@@ -499,7 +503,7 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
                     
                     console.log('📋 Direct table query:', { directData, directError })
                     
-                    alert(`SQL Function: ${JSON.stringify(data, null, 2)}\n\nDirect Query: ${JSON.stringify(directData, null, 2)}`)
+                    alert(`SQL Function: ${JSON.stringify(rpcData, null, 2)}\n\nDirect Query: ${JSON.stringify(directData, null, 2)}`)
                   }
                 } catch (err) {
                   console.error('Erro no teste SQL:', err)

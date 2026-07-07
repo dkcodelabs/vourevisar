@@ -45,51 +45,6 @@ export function useAuthOperations() {
       const normalizedEmail = email.trim().toLowerCase();
       console.log('Attempting to sign up user:', normalizedEmail);
 
-      // Check if email already exists using secure function
-      const { data: emailCheckResult, error: emailCheckError } = await supabase
-        .rpc('check_email_exists', { email_to_check: normalizedEmail });
-
-      if (emailCheckError) {
-        console.error("Error checking existing email:", emailCheckError);
-        throw new Error('Erro ao verificar email. Tente novamente.');
-      }
-
-      // If email exists, handle based on provider type
-      if (emailCheckResult && emailCheckResult.length > 0) {
-        const { email_exists, provider_type, email_confirmed } = emailCheckResult[0];
-
-        if (email_exists) {
-          if (provider_type === 'Google' || provider_type === 'google') {
-            throw new Error('Este e-mail já está cadastrado com sua conta Google. Por favor, faça login com o Google ou use outro e-mail.');
-          } else if (!email_confirmed) {
-            const { error: resendError } = await supabase.auth.resend({
-              type: 'signup',
-              email: normalizedEmail,
-              options: {
-                emailRedirectTo: `${window.location.origin}/auth/callback`
-              }
-            });
-
-            if (resendError?.status === 429) {
-              throw new Error('Este e-mail já está cadastrado, mas ainda não foi confirmado. Aguarde alguns minutos antes de reenviar o link.');
-            }
-
-            if (resendError) {
-              throw new Error('Este e-mail já está cadastrado, mas ainda não foi confirmado. Use o link enviado anteriormente ou tente reenviar mais tarde.');
-            }
-
-            localStorage.setItem('pendingConfirmationEmail', normalizedEmail);
-            toastManager.success('Este e-mail já tinha um cadastro pendente. Reenviamos o link de confirmação.');
-            return { user: null, session: null, confirmationPending: true };
-          } else {
-            throw new Error('Este e-mail já está cadastrado. Por favor, faça login com sua senha ou recupere sua senha.');
-          }
-        }
-      }
-
-      console.log('Email available, proceeding with signup for:', normalizedEmail);
-
-      // Proceed with signup
       const { error, data } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
@@ -103,7 +58,8 @@ export function useAuthOperations() {
       });
 
       if (error) {
-        if (error.message.includes('already registered')) {
+        const message = error.message.toLowerCase();
+        if (message.includes('already registered') || message.includes('already exists')) {
           throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
         }
         throw error;

@@ -170,6 +170,43 @@ describe('mergeService', () => {
     expect(mergeDelete?.filters).toContainEqual(['id', topicMerge.id]);
   });
 
+  it('persists manual topic equivalence without marking it as AI-created', async () => {
+    vi.spyOn(mergeService, 'getSubjectMergeByPrimaryId').mockResolvedValue(null);
+    vi.spyOn(mergeService, 'getTopicMerge').mockResolvedValue(null);
+    const createSubjectMerge = vi.spyOn(mergeService, 'createSubjectMerge').mockResolvedValue(subjectMerge);
+    const createTopicMerge = vi.spyOn(mergeService, 'createTopicMerge').mockResolvedValue(topicMerge);
+    database.responses.push({ data: [], error: null });
+
+    await mergeService.saveMergeFromUnificationMap('user-1', 'cycle-1', {
+      version: 1,
+      createdAt: '2026-07-06T00:00:00.000Z',
+      editalIds: ['edital-a', 'edital-b'],
+      standaloneSubjectIds: [],
+      unifiedSubjects: [{
+        displayName: 'Direito Constitucional',
+        originalSubjectIds: ['subject-a', 'subject-b'],
+        sourceEditalIds: ['edital-a', 'edital-b'],
+        matchType: 'exact',
+        topicMappings: [{
+          displayName: 'Direitos fundamentais',
+          originalTopicIds: ['topic-a', 'topic-b'],
+          originalSubjectIds: ['subject-a', 'subject-b'],
+          sourceEditalIds: ['edital-a', 'edital-b'],
+          matchType: 'manual',
+        }],
+      }],
+    });
+
+    expect(createSubjectMerge).toHaveBeenCalledWith(expect.objectContaining({
+      created_by_ai: false,
+      match_type: 'exact',
+    }));
+    expect(createTopicMerge).toHaveBeenCalledWith(expect.objectContaining({
+      created_by_ai: false,
+      match_type: 'manual',
+    }));
+  });
+
   it('promotes surviving subject and topic primaries while cleaning removed references', async () => {
     vi.spyOn(mergeService, 'getActiveTopicMerges').mockResolvedValue([topicMerge]);
 

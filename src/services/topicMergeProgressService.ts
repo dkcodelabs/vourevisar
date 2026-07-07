@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { invokeUserRpc } from '@/services/userRpcService';
 
 type TopicProgressUpdate = Record<string, unknown>;
 type TopicReviewHistoryInput = Record<string, unknown>;
@@ -72,14 +72,12 @@ export async function syncMergedTopicProgress({
     return [];
   }
 
-  const { data, error } = await supabase.rpc('sync_topic_merge_progress', {
+  const data = await invokeUserRpc<{ synced_topic_ids?: unknown } | null>('sync_topic_merge_progress', {
     p_user_id: userId,
     p_topic_id: topicId,
     p_progress: progressUpdate,
     p_history: historyUpdate,
   });
-
-  if (error) throw error;
 
   if (data && typeof data === 'object' && !Array.isArray(data) && 'synced_topic_ids' in data) {
     const ids = (data as { synced_topic_ids?: unknown }).synced_topic_ids;
