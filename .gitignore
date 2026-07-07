@@ -39,3 +39,4 @@ src/backups/
 # Configurações locais/autogeradas
 .codex/
 supabase/.temp/linked-project.json
+.vercel
