@@ -20,7 +20,7 @@ describe('AccountSubscriptionTab', () => {
     mocks.useAccountSubscription.mockReturnValue({
       data: {
         subscription: {
-          plan: 'premium',
+          plan: 'monthly',
           status: 'active',
           billingType: 'CREDIT_CARD',
           subscriptionStartedAt: '2026-07-01',
@@ -55,10 +55,11 @@ describe('AccountSubscriptionTab', () => {
 
     render(<AccountSubscriptionTab />);
 
-    expect(screen.getByText('Premium')).toBeInTheDocument();
+    expect(screen.getAllByText('Mensal').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Ativa').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Cartão de crédito').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/R\$\s*49,90/)).toHaveLength(2);
+    expect(screen.getByText('Não aplicável')).toBeInTheDocument();
     expect(screen.getByText('Pagamento recebido')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /cancelar|trocar|segunda via/i })).not.toBeInTheDocument();
   });

@@ -21,8 +21,12 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const asaasApiKey = Deno.env.get('ASAAS_API_KEY');
-    // const asaasUrl = Deno.env.get('ASAAS_URL') || 'https://sandbox.asaas.com/api/v3';
-    const asaasUrl = 'https://sandbox.asaas.com/api/v3'; // Usando sandbox para testes
+    const asaasUrl = Deno.env.get('ASAAS_API_URL') || 'https://api-sandbox.asaas.com/v3';
+    const asaasHeaders = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'vourevisar/1.0 (Supabase Edge Function; sandbox)',
+      'access_token': asaasApiKey,
+    };
 
     if (!supabaseUrl || !supabaseKey || !asaasApiKey) {
       throw new Error('Configurações de ambiente ausentes');
@@ -91,7 +95,7 @@ serve(async (req: Request) => {
       // Tentar criar no Asaas
       const customerRes = await fetch(`${asaasUrl}/customers`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'access_token': asaasApiKey },
+        headers: asaasHeaders,
         body: JSON.stringify({
           name: name || user.user_metadata?.full_name || user.email,
           email: user.email,
@@ -107,7 +111,7 @@ serve(async (req: Request) => {
         if (customerJson.errors?.[0]?.description?.includes('e-mail informado já está em uso')) {
            console.log(`[Checkout] Cliente já existe no Asaas (${user.email}). Buscando por e-mail...`);
            const searchRes = await fetch(`${asaasUrl}/customers?email=${user.email}`, {
-             headers: { 'access_token': asaasApiKey }
+             headers: asaasHeaders
            });
            const searchJson = await searchRes.json();
            if (searchJson.data && searchJson.data.length > 0) {
@@ -167,7 +171,7 @@ serve(async (req: Request) => {
 
     const subRes = await fetch(`${asaasUrl}/subscriptions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'access_token': asaasApiKey },
+      headers: asaasHeaders,
       body: JSON.stringify(subscriptionPayload)
     });
     
@@ -203,14 +207,14 @@ serve(async (req: Request) => {
     let pixData = null;
     if (billingType === 'PIX') {
       const chargesRes = await fetch(`${asaasUrl}/subscriptions/${subJson.id}/payments`, {
-        headers: { 'access_token': asaasApiKey }
+        headers: asaasHeaders
       });
       const chargesJson = await chargesRes.json();
       
       if (chargesJson.data && chargesJson.data.length > 0) {
         const paymentId = chargesJson.data[0].id;
         const qrCodeRes = await fetch(`${asaasUrl}/payments/${paymentId}/pixQrCode`, {
-          headers: { 'access_token': asaasApiKey }
+          headers: asaasHeaders
         });
         pixData = await qrCodeRes.json();
       }

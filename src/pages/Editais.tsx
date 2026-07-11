@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database, Json } from '@/integrations/supabase/types';
 import {
@@ -53,6 +54,7 @@ import { importEdital, type EditalImportExtraInfo } from '@/services/editalImpor
 import { getPendingMergeForCycleLoad } from '@/utils/cycleLoadPendingMerge';
 import { shouldBlockCycleConflictClose } from '@/utils/cycleConflictModalClose';
 import { formatRecoveredMergeTimestamp } from '@/utils/recoveredMergeTimestamp';
+import { guardActiveTimerOperation } from '@/utils/activeTimerOperationGuard';
 import {
     CycleUnificationMap,
     HybridMergeResult,
@@ -227,6 +229,7 @@ const editaisTable = () => supabase.from('user_editais');
 // ─── Componente Principal ───────────────────────────────────────────────────
 const Editais = () => {
     const { user } = useAuth();
+    const { activeTimer } = useTimer();
     const { subjects, isLoading, refreshData } = useApp();
     const location = useLocation();
     const navigate = useNavigate();
@@ -262,11 +265,16 @@ const Editais = () => {
     const [isAnalyzingTopics, setIsAnalyzingTopics] = useState(false);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [isMerging, setIsMerging] = useState(false);
+    const [isCycleFinalizationLocked, setIsCycleFinalizationLocked] = useState(false);
     const [isSavingCycleName, setIsSavingCycleName] = useState(false);
     const [cycleNameDraft, setCycleNameDraft] = useState('');
     const [selectedCycleNameSourceIds, setSelectedCycleNameSourceIds] = useState<string[]>([]);
     const [cycleExamDateDraft, setCycleExamDateDraft] = useState<string>('');
     const [mergePhase, setMergePhase] = useState<'exact' | 'ai' | 'finalizing'>('exact');
+    const canRunCycleStructuralOperation = useCallback(
+        () => guardActiveTimerOperation(activeTimer),
+        [activeTimer],
+    );
     const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
     const [removalProgress, setRemovalProgress] = useState<{ editalId: string, message: string, percentage: number } | null>(null);
 
@@ -835,6 +843,7 @@ const Editais = () => {
 
     // ── CRUD Operations ──
     const handleDeleteEdital = useCallback(async (edital: UserEdital) => {
+        if (!canRunCycleStructuralOperation()) return;
         const userId = user?.id;
         if (!userId || processingId === edital.id) return;
 
@@ -980,9 +989,10 @@ const Editais = () => {
             setProcessingId(null);
             setRemovalProgress(null);
         }
-    }, [user?.id, processingId, discardPendingMerge]);
+    }, [canRunCycleStructuralOperation, user?.id, processingId, discardPendingMerge]);
 
     const handleUnloadCycle = useCallback(async (edital: UserEdital): Promise<boolean> => {
+        if (!canRunCycleStructuralOperation()) return false;
         if (!user || processingId === edital.id) return false;
         setProcessingId(edital.id);
 
@@ -1014,9 +1024,10 @@ const Editais = () => {
             setProcessingId(null);
             setRemovalProgress(null);
         }
-    }, [user, processingId, refreshData, discardPendingMerge]);
+    }, [canRunCycleStructuralOperation, user, processingId, refreshData, discardPendingMerge]);
 
     const handleLoadCycle = useCallback(async (edital: UserEdital, options: { ignorePendingMerge?: boolean } = {}) => {
+        if (!canRunCycleStructuralOperation()) return;
         if (!user) return;
         setProcessingId(edital.id);
 
@@ -1117,7 +1128,7 @@ const Editais = () => {
         } finally {
             setProcessingId(null);
         }
-    }, [user, editais, subjects, pendingMerges]);
+    }, [canRunCycleStructuralOperation, user, editais, subjects, pendingMerges]);
 
     const handleDiscardRecoveredMerge = useCallback(async () => {
         const edital = cycleConflict.edital;
@@ -1418,9 +1429,11 @@ const Editais = () => {
         action: 'replace' | 'merge' | 'hybrid',
         organizationMode: 'individual' | 'unified' = 'unified',
     ) => {
+        if (!canRunCycleStructuralOperation()) return;
         if (!cycleConflict.edital || !user) return;
         const edital = cycleConflict.edital;
         setProcessingId(edital.id);
+        setIsCycleFinalizationLocked(true);
 
         const individualSubjectIds = [...new Set([...cycleConflict.existingIds, ...edital.subjectIds])];
         let currentUnificationMap: CycleUnificationMap | undefined = organizationMode === 'individual'
@@ -1586,6 +1599,9 @@ const Editais = () => {
                 setCycleConflict(prev => ({ ...prev, step: 'success', action: 'replace', wasTopicMerged: false }));
                 setCycleNameDraft(defaultCycleName);
                 setCycleExamDateDraft(defaultRpcExamDate || '');
+                setIsMerging(false);
+                setProcessingProgress(null);
+                setIsCycleFinalizationLocked(false);
                 return;
             }
 
@@ -1595,14 +1611,18 @@ const Editais = () => {
 
             // Mesclagem de editais: aqui sim o aluno escolhe o nome do ciclo composto.
             setCycleConflict(prev => ({ ...prev, step: 'success', wasTopicMerged: organizationMode === 'unified' }));
+            setIsMerging(false);
+            setProcessingProgress(null);
+            setIsCycleFinalizationLocked(false);
         } catch (err) {
+            setIsCycleFinalizationLocked(false);
             errorService.report(err, { module: 'cycle', action: 'conflict_resolution', userMessage: 'Erro ao processar ação no ciclo.' });
         } finally {
             setProcessingId(null);
             setIsMerging(false);
             setProcessingProgress(null);
         }
-    }, [cycleConflict, editais, fetchEditais, refreshData, user, subjects, discardPendingMerge, cycleNameCandidates, cycleMergeSources, defaultCycleExamDate]);
+    }, [canRunCycleStructuralOperation, cycleConflict, editais, fetchEditais, refreshData, user, subjects, discardPendingMerge, cycleNameCandidates, cycleMergeSources, defaultCycleExamDate]);
 
     const handleGoToCycleAfterSuccess = useCallback(async () => {
         if (!user?.id) return;
@@ -2019,8 +2039,18 @@ const Editais = () => {
         }
     };
 
+    const keepCycleModalMountedDuringProcessing =
+        cycleConflict.isOpen && (
+            isMerging ||
+            isAnalyzingTopics ||
+            isCycleFinalizationLocked ||
+            processingId === cycleConflict.edital?.id
+        );
+
     // ── Loading ──
-    if (isLoading || loadingEditais || !dataLoaded) return <LoadingSpinner size="large" showText fullPage />;
+    if ((isLoading || loadingEditais || !dataLoaded) && !keepCycleModalMountedDuringProcessing) {
+        return <LoadingSpinner size="large" showText fullPage />;
+    }
 
     return (
         <div className="min-h-full p-2 md:p-3 lg:p-4 space-y-3">
@@ -2622,7 +2652,7 @@ const Editais = () => {
                             {/* Efeito de Profundidade Sutil */}
                             <div className="absolute inset-0 pointer-events-none border border-white/[0.03] rounded-[32px]" />
                             {/* Overlay de processamento */}
-                            {(isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success' && (
+                            {(isMerging || isAnalyzingTopics || isCycleFinalizationLocked) && cycleConflict.step !== 'success' && (
                                 <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-background/90 backdrop-blur-md animate-in fade-in duration-300 rounded-[28px]">
                                     <div className="flex flex-col items-center gap-6 text-center max-w-[280px]">
                                         <div className="relative">
@@ -2679,7 +2709,7 @@ const Editais = () => {
                                                         if (cycleConflict.step === 'preview') setCycleConflict(prev => ({ ...prev, step: 'select', action: null }));
                                                         else if (cycleConflict.step === 'topic-preview') setCycleConflict(prev => ({ ...prev, step: 'preview' }));
                                                     }}
-                                                    disabled={cycleConflict.step === 'select' || isMerging || isAnalyzingTopics}
+                                                    disabled={cycleConflict.step === 'select' || isMerging || isAnalyzingTopics || isCycleFinalizationLocked}
                                                     className="p-1.5 hover:bg-white/10 dark:hover:bg-white/10 disabled:opacity-20 rounded-md transition-all text-content-muted hover:text-foreground active:scale-95"
                                                     title="Voltar"
                                                 >
@@ -2690,7 +2720,7 @@ const Editais = () => {
                                                     onClick={() => {
                                                         if (cycleConflict.step === 'select') handleHybridPreview();
                                                     }}
-                                                    disabled={cycleConflict.step !== 'select' || isMerging || isAnalyzingTopics}
+                                                    disabled={cycleConflict.step !== 'select' || isMerging || isAnalyzingTopics || isCycleFinalizationLocked}
                                                     className="p-1.5 hover:bg-white/10 dark:hover:bg-white/10 disabled:opacity-20 rounded-md transition-all text-content-muted hover:text-foreground active:scale-95"
                                                     title="Próximo"
                                                 >
@@ -2733,7 +2763,7 @@ const Editais = () => {
 
                                 <button
                                     onClick={() => closeCycleConflictModal('button')}
-                                    disabled={(cycleConflict.step === 'success' && cycleConflict.action !== 'replace') || ((isMerging || isAnalyzingTopics) && cycleConflict.step !== 'success')}
+                                    disabled={(cycleConflict.step === 'success' && cycleConflict.action !== 'replace') || ((isMerging || isAnalyzingTopics || isCycleFinalizationLocked) && cycleConflict.step !== 'success')}
                                     title={cycleConflict.step === 'success' && cycleConflict.action !== 'replace' ? 'Finalize o ciclo antes de fechar' : 'Fechar'}
                                     className="p-2 hover:bg-secondary dark:hover:bg-white/5 rounded-xl transition-colors text-content-muted flex-shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
@@ -2946,7 +2976,7 @@ const Editais = () => {
                                         editalName={cycleConflict.edital?.name || 'Edital selecionado'}
                                         position={cycleConflict.edital?.position}
                                         editalSources={cycleMergeSources}
-                                        disabled={isMerging || isAnalyzingTopics || processingId === cycleConflict.edital?.id}
+                                        disabled={isMerging || isAnalyzingTopics || isCycleFinalizationLocked || processingId === cycleConflict.edital?.id}
                                         onKeepIndividual={() => handleCycleConflictAction('merge', 'individual')}
                                         onUnificationMapChange={handleManualTopicEquivalenceChange}
                                         onUnify={() => handleCycleConflictAction('merge', 'unified')}
@@ -3497,7 +3527,7 @@ const Editais = () => {
                                             </div>
                                             <button
                                                 onClick={() => handleCycleConflictAction('replace')}
-                                                disabled={isMerging}
+                                                disabled={isMerging || isCycleFinalizationLocked}
                                                 className="app-button-success group flex h-11 w-full items-center justify-center px-5 text-center transition-colors disabled:cursor-not-allowed sm:w-auto sm:min-w-[210px]"
                                             >
                                                 {isMerging && <Loader2 size={16} className="mr-2 animate-spin" />}
@@ -3542,7 +3572,7 @@ const Editais = () => {
 
                                                 <button
                                                     onClick={handleHybridPreview}
-                                                    disabled={isMerging}
+                                                    disabled={isMerging || isCycleFinalizationLocked}
                                                     className="group flex h-10 min-w-0 items-center justify-center gap-2 rounded-xl border border-success/45 bg-modal px-2 text-center text-success shadow-sm shadow-black/10 transition-all hover:border-success hover:bg-success hover:text-success-foreground active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2.5 sm:px-3 dark:border-white/70"
                                                 >
                                                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-success/30 bg-success/10 text-success transition-colors group-hover:border-success-foreground/25 group-hover:bg-success-foreground/10 group-hover:text-success-foreground">
@@ -3571,7 +3601,7 @@ const Editais = () => {
                                             {(cycleConflict.action === 'merge' || cycleConflict.action === 'hybrid') && (
                                                 <button
                                                     onClick={() => handleTopicPreview(true)}
-                                                    disabled={isMerging || isAnalyzingTopics}
+                                                    disabled={isMerging || isAnalyzingTopics || isCycleFinalizationLocked}
                                                     className="app-button-primary flex h-10 items-center justify-center gap-2.5 px-4 transition-colors disabled:cursor-not-allowed"
                                                 >
                                                     {isAnalyzingTopics ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -3584,7 +3614,7 @@ const Editais = () => {
 
                                             <button
                                                 onClick={() => handleCycleConflictAction(cycleConflict.action!)}
-                                                disabled={isMerging || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
+                                                disabled={isMerging || isCycleFinalizationLocked || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
                                                 className="app-button-success flex h-10 items-center justify-center gap-2.5 px-4 transition-colors disabled:cursor-not-allowed"
                                             >
                                                 {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
@@ -3611,7 +3641,7 @@ const Editais = () => {
                                     <div className="flex items-center justify-end">
                                         <button
                                             onClick={() => handleCycleConflictAction('merge')}
-                                            disabled={isMerging || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
+                                            disabled={isMerging || isCycleFinalizationLocked || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
                                             className="app-button-success flex h-10 items-center justify-center gap-2.5 px-5 transition-colors disabled:cursor-not-allowed"
                                         >
                                             {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'react-toastify';
+import { toast } from '@/lib/toast';
 import { Loader2, Upload, FileText, CheckCircle, Save } from 'lucide-react';
 import { toastGate } from '@/lib/errors/toastGate';
 import { getConnectionErrorMessage, isConnectionError } from '@/lib/errors/networkError';

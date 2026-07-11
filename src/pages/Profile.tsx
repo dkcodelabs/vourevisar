@@ -280,7 +280,16 @@ const Profile = () => {
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return '—';
-    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateString));
+    const [, year, month, day] = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/) ?? [];
+    if (!year || !month || !day) return '—';
+    return `${day}/${month}/${year}`;
+  };
+
+  const getDaysUntil = (dateString?: string | null) => {
+    if (!dateString) return null;
+    const target = new Date(dateString);
+    if (Number.isNaN(target.getTime())) return null;
+    return Math.max(0, Math.ceil((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
   };
 
   const getInitials = () => {
@@ -296,6 +305,10 @@ const Profile = () => {
   if (!user) return <LoadingSpinner size="large" fullPage />;
 
   const academic = ((profile?.preferences as Record<string, unknown>) || {}).academic as AcademicInfo | undefined;
+  const subscriptionRenewalDate = subscriptionInfo?.status === 'trial'
+    ? subscriptionInfo.trial_ends_at
+    : subscriptionInfo?.next_billing_date || subscriptionInfo?.subscription_ends_at;
+  const subscriptionDaysRemaining = getDaysUntil(subscriptionRenewalDate);
 
   // ═══════════════════════════════════════════════════════
   // RENDER
@@ -401,18 +414,24 @@ const Profile = () => {
                   />
                   <DataRow
                     icon={Calendar}
-                    label={subscriptionInfo.status === 'trial' ? 'Fim do teste' : 'Renovação'}
-                    value={formatDate(subscriptionInfo.trial_ends_at || subscriptionInfo.subscription_ends_at)}
+                    label={subscriptionInfo.status === 'trial' ? 'Fim do teste' : 'Próxima cobrança'}
+                    value={formatDate(subscriptionRenewalDate)}
                   />
-                  {subscriptionInfo.days_remaining !== null && (
+                  {subscriptionDaysRemaining !== null && (
                     <DataRow
                       icon={Clock}
                       label="Tempo restante"
-                      value={subscriptionInfo.days_remaining === 0 ? 'Último dia' : `${subscriptionInfo.days_remaining} dias`}
+                      value={
+                        subscriptionDaysRemaining === 0
+                          ? 'Vence hoje'
+                          : subscriptionDaysRemaining === 1
+                            ? '1 dia'
+                            : `${subscriptionDaysRemaining} dias`
+                      }
                       valueColor={
-                        subscriptionInfo.days_remaining <= 3
+                        subscriptionDaysRemaining <= 3
                           ? 'text-red-500'
-                          : subscriptionInfo.days_remaining <= 7
+                          : subscriptionDaysRemaining <= 7
                             ? 'text-amber-500'
                             : 'text-emerald-500 font-bold'
                       }

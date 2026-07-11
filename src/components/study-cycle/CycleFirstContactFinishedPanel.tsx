@@ -3,21 +3,33 @@ import { ArrowRight, BookOpen, CheckCircle2, Gauge } from 'lucide-react';
 import type { StudyCycleTransitionSummary } from '@/utils/studyCycleTransitionSummary';
 
 type CycleFirstContactFinishedPanelProps = {
+  cycleRoundComplete?: boolean;
   formatStudyMinutes: (minutes: number) => string;
   onNavigate: (to: string) => void;
+  onStartNextCycle?: () => void;
   summary: StudyCycleTransitionSummary;
   variant?: 'full' | 'compact';
 };
 
 export function CycleFirstContactFinishedPanel({
+  cycleRoundComplete = false,
   formatStudyMinutes,
   onNavigate,
+  onStartNextCycle,
   summary,
   variant = 'compact',
 }: CycleFirstContactFinishedPanelProps) {
   const action = summary.primaryAction;
   const reviewCounts = summary.reviewCounts;
   const topSubject = summary.topSubjectByStudyMinutes;
+  const shouldOfferNextCycle = cycleRoundComplete && action.kind === 'continue_cycle';
+  const title = shouldOfferNextCycle
+    ? 'Ciclo encerrado. Próxima rodada pronta'
+    : 'Agora a prioridade é revisão, não novo ciclo';
+  const description = shouldOfferNextCycle
+    ? 'Todas as matérias desta rodada foram fechadas. O próximo ciclo libera uma nova passagem pela fila sem exigir iniciar todos os tópicos de uma vez.'
+    : 'Todos os tópicos ativos do edital já foram iniciados. A fila de avanço cumpriu seu papel; daqui em diante o risco está em atrasar ou perder as revisões programadas.';
+  const primaryLabel = shouldOfferNextCycle ? 'Novo ciclo' : action.label;
 
   return (
     <div className={`app-gradient-panel w-full rounded-2xl text-left ${variant === 'full' ? 'max-w-3xl p-5 sm:p-6' : 'mb-4 p-4'}`}>
@@ -28,12 +40,14 @@ export function CycleFirstContactFinishedPanel({
               <CheckCircle2 size={21} />
             </div>
             <div className="min-w-0">
-              <p className="app-type-eyebrow text-primary">Primeiro contato finalizado</p>
+              <p className="app-type-eyebrow text-primary">
+                {shouldOfferNextCycle ? 'Ciclo encerrado' : 'Primeiro contato finalizado'}
+              </p>
               <h3 className="mt-1 text-lg font-black text-title-section">
-                Agora a prioridade é revisão, não novo ciclo
+                {title}
               </h3>
               <p className="mt-1 text-sm leading-relaxed text-content-muted">
-                Todos os tópicos ativos do edital já foram iniciados. A fila de avanço cumpriu seu papel; daqui em diante o risco está em atrasar ou perder as revisões programadas.
+                {description}
               </p>
             </div>
           </div>
@@ -77,9 +91,13 @@ export function CycleFirstContactFinishedPanel({
             <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
               <div className="mb-1 flex items-center gap-2 text-primary">
                 <BookOpen size={14} />
-                <p className="app-type-eyebrow">Próxima ação</p>
+                <p className="app-type-eyebrow">{shouldOfferNextCycle ? 'Resumo do ciclo' : 'Próxima ação'}</p>
               </div>
-              <p className="app-type-body-small text-title-card">{action.description}</p>
+              <p className="app-type-body-small text-title-card">
+                {shouldOfferNextCycle
+                  ? `${summary.firstContactClosedSubjects}/${summary.totalSubjects} matérias fechadas nesta rodada. ${summary.startedTopics}/${summary.totalTopics} tópicos já têm primeiro contato.`
+                  : action.description}
+              </p>
             </div>
             <div className="rounded-xl border app-hairline bg-surface/45 p-3">
               <div className="mb-1 flex items-center gap-2 text-content-muted">
@@ -101,10 +119,16 @@ export function CycleFirstContactFinishedPanel({
         <div className="flex shrink-0 flex-col gap-2 lg:w-44">
           <button
             type="button"
-            onClick={() => onNavigate(action.to)}
+            onClick={() => {
+              if (shouldOfferNextCycle && onStartNextCycle) {
+                onStartNextCycle();
+                return;
+              }
+              onNavigate(action.to);
+            }}
             className="app-primary-button justify-center gap-2 px-4 py-2.5"
           >
-            {action.label}
+            {primaryLabel}
             <ArrowRight size={14} />
           </button>
           {action.kind !== 'future_reviews' && reviewCounts.future > 0 && (
@@ -113,7 +137,7 @@ export function CycleFirstContactFinishedPanel({
               onClick={() => onNavigate('/revisoes?tab=futuras')}
               className="app-control justify-center gap-2 px-3 py-2"
             >
-              Próximas
+              Próximas revisões
             </button>
           )}
         </div>

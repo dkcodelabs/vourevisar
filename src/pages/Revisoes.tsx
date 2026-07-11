@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { format, startOfDay } from 'date-fns';
 import { AlertCircle, Loader2, Target, BookOpen } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -14,6 +14,7 @@ import { useTopicReview } from '@/hooks/useTopicReview';
 import { useTimer } from '@/contexts/TimerContext';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useMergeData } from '@/hooks/useMergeData';
+import { useTopicStudySessionFlow } from '@/hooks/useTopicStudySessionFlow';
 import { getCanonicalSubjectName, getCanonicalTopicName } from '@/services/cycleMergeService';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
@@ -29,6 +30,7 @@ import { RevisoesChartsWrapper } from '@/components/revisoes/RevisoesChartsWrapp
 import { RevisoesToolbar } from '@/components/revisoes/RevisoesToolbar';
 import { RevisoesList } from '@/components/revisoes/RevisoesList';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
+import { STUDY_SESSION_DISCARDED_MESSAGE } from '@/utils/studySessionFeedback';
 
 // Modals are still kept here or inside List/Toolbar depending on usage
 import { SpacedRepetitionInfoModal } from '@/components/reviews/SpacedRepetitionInfoModal';
@@ -46,13 +48,6 @@ const getFocusTopicId = (state: unknown): string | undefined => {
 
 const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : '';
-
-interface ActiveTimer {
-  topicId: string;
-  startTime: number;
-  status: 'RUNNING' | 'PAUSED';
-  accumulatedTime: number;
-}
 
 export const Revisoes = () => {
   const navigate = useNavigate();
@@ -98,6 +93,9 @@ export const Revisoes = () => {
     totalPendingCount,
     suggestedDailyReviews
   } = useReviewsData();
+  const { handleTopicStudyAction } = useTopicStudySessionFlow({
+    openReviewModal: openReviewModalHook,
+  });
 
   const maxReviews = PROGRAMMED_REVIEW_COUNT;
   const cycleExamDate = userCycle?.exam_date || null;
@@ -230,11 +228,12 @@ export const Revisoes = () => {
   const [aiExplanation, setAiExplanation] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [highlightedTopicId, setHighlightedTopicId] = useState<string | null>(null);
+  const lastReviewFocusPulseRef = useRef<{ key: string; topicId: string; at: number } | null>(null);
 
   // Header State
   const [headerCardsCollapsed, setHeaderCardsCollapsed] = useState<boolean>(false);
 
-  const { activeTimer, startTimer, pauseTimer, resumeTimer, stopTimer, resetTimer, setProcessedUpdate } = useTimer();
+  const { activeTimer, resumeTimer, stopTimer, resetTimer, setProcessedUpdate } = useTimer();
 
   // Modals Data State
   const [notesModalData, setNotesModalData] = useState<{ isOpen: boolean; topicId: string; topicName: string; subjectName: string; }>({
@@ -397,8 +396,11 @@ export const Revisoes = () => {
   }, [searchParams]);
 
   const location = useLocation();
+  const focusedTopicId = getFocusTopicId(location.state) || searchParams.get('topicId');
+  const focusPulseKey = focusedTopicId ? `${focusedTopicId}:${location.key}` : null;
+
   useEffect(() => {
-    const topicId = getFocusTopicId(location.state) || searchParams.get('topicId');
+    const topicId = focusedTopicId;
     if (topicId) {
       const raw = topics.find(t => t.id === topicId);
       if (raw) {
@@ -437,7 +439,7 @@ export const Revisoes = () => {
     setSearchParams,
     setSearchTerm,
     setReviewStageFilter,
-    location.state,
+    focusedTopicId,
     topics
   ]);
 
@@ -459,34 +461,56 @@ export const Revisoes = () => {
 
 
   useEffect(() => {
-    const topicId = searchParams.get('topicId');
-    if (topicId && !highlightedTopicId) {
-      const timer = setTimeout(() => {
-        const el = document.getElementById(`topic-${topicId}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          setHighlightedTopicId(topicId);
-        } else {
-          Object.entries(groupedItems).forEach(([k, v]) => {
-            if (v.some(i => i.id === topicId)) {
-              if (collapsedGroups[k]) setCollapsedGroups(prev => ({ ...prev, [k]: false }));
-            }
-          });
+    if (!focusedTopicId || !focusPulseKey) return undefined;
+
+    let frameId = 0;
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`topic-${focusedTopicId}`);
+      if (el) {
+        const now = Date.now();
+        const lastPulse = lastReviewFocusPulseRef.current;
+        if (
+          lastPulse?.key === focusPulseKey ||
+          (lastPulse?.topicId === focusedTopicId && now - lastPulse.at < 1800)
+        ) {
+          return;
         }
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [groupedItems, collapsedGroups, searchParams, highlightedTopicId]);
+
+        lastReviewFocusPulseRef.current = {
+          key: focusPulseKey,
+          topicId: focusedTopicId,
+          at: now,
+        };
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedTopicId(null);
+        frameId = window.requestAnimationFrame(() => setHighlightedTopicId(focusedTopicId));
+        return;
+      }
+
+      Object.entries(groupedItems).forEach(([k, v]) => {
+        if (v.some(i => i.id === focusedTopicId) && collapsedGroups[k]) {
+          setCollapsedGroups(prev => ({ ...prev, [k]: false }));
+        }
+      });
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [groupedItems, collapsedGroups, focusedTopicId, focusPulseKey]);
 
   useEffect(() => {
     if (highlightedTopicId) {
       const t = setTimeout(() => {
         setHighlightedTopicId(null);
-        setSearchParams(p => { p.delete('topicId'); return p; });
-      }, 3000);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('topicId');
+        window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+      }, 1700);
       return () => clearTimeout(t);
     }
-  }, [highlightedTopicId, setSearchParams]);
+  }, [highlightedTopicId]);
 
   useEffect(() => {
     if (searchTerm || reviewStageFilter !== 'all') setCollapsedGroups({});
@@ -500,43 +524,35 @@ export const Revisoes = () => {
 
   // Handler Wrappers
   const handleMarkCompleted = async (id: string) => {
-    if (activeTimer && activeTimer.topicId === id) {
-      if (activeTimer.status === 'RUNNING') {
-        pauseTimer();
-        setLoadingActions(prev => ({ ...prev, [id]: 'review' }));
-        try {
-          const currentSession = Date.now() - activeTimer.startTime;
-          const totalDurationMs = activeTimer.accumulatedTime + currentSession;
-          const totalMinutes = totalDurationMs < 60000 ? 1 : Math.ceil(totalDurationMs / 60000);
-          await openReviewModalHook(id, totalMinutes);
-        } catch (error) {
-          await errorService.report(
-            error,
-            {
-              module: 'Revisoes',
-              action: 'handleMarkCompleted',
-              userMessage: 'Erro ao abrir modal de revisão.',
-              severity: 'medium',
-              scope: 'core',
-              userId: user?.id
-            }
-          );
-          resumeTimer();
-        } finally {
-          setLoadingActions(prev => { const n = { ...prev }; delete n[id]; return n; });
+    const opensEvaluationModal = activeTimer?.topicId === id && activeTimer.status === 'RUNNING';
+
+    if (opensEvaluationModal) {
+      setLoadingActions(prev => ({ ...prev, [id]: 'review' }));
+    }
+
+    try {
+      await handleTopicStudyAction(id);
+    } catch (error) {
+      await errorService.report(
+        error,
+        {
+          module: 'Revisoes',
+          action: 'handleMarkCompleted',
+          userMessage: 'Erro ao abrir modal de revisão.',
+          severity: 'medium',
+          scope: 'core',
+          userId: user?.id
         }
-      } else {
-        resumeTimer();
-        toast.info("Cronômetro retomado!");
+      );
+    } finally {
+      if (opensEvaluationModal) {
+        setLoadingActions(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
       }
-      return;
     }
-    if (activeTimer && activeTimer.topicId !== id) {
-      toast.warning("Existe uma revisão em andamento. Finalize-a antes de iniciar outra.");
-      return;
-    }
-    startTimer(id);
-    toast.success('Cronômetro iniciado! Bons estudos.');
   };
 
   const handleAiAssist = async (item: RevisionItem) => {
@@ -758,7 +774,7 @@ export const Revisoes = () => {
             closeDifficultyModal(); stopTimer(); setTimeout(() => { refreshData(); refetch(); }, 500);
           }
         }}
-        onDiscard={() => { stopTimer(); resetTimer(); closeDifficultyModal(); toast.info("Descartada."); }}
+        onDiscard={() => { stopTimer(); resetTimer(); closeDifficultyModal(); toast.info(STUDY_SESSION_DISCARDED_MESSAGE); }}
         topicName={difficultyModalData.topicName}
         subjectName={difficultyModalData.subjectName}
         initialDifficulty={difficultyModalData.currentDifficulty}

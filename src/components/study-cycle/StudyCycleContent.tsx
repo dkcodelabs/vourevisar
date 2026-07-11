@@ -14,6 +14,7 @@ import { CycleStatsSheet } from './CycleStatsSheet';
 // REMOVIDO DailyStudyProgress - estava causando loops infinitos
 import { useCycleStatus } from '@/hooks/useCycleStatus';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { useTopicReview } from '@/hooks/useTopicReview';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -56,6 +57,7 @@ const CompletionMessage: React.FC<{ onStartNewCycle: () => void }> = ({ onStartN
 
 export const StudyCycleContent: React.FC = () => {
   const navigate = useNavigate();
+  const { setProcessedUpdate } = useTimer();
 
   // Use the new hook for real database data
   const {
@@ -839,6 +841,7 @@ export const StudyCycleContent: React.FC = () => {
         isSaving={isSaving}
         onSubmit={async (difficulty) => {
           try {
+            setProcessedUpdate(difficultyModalData.topicId);
             await submitDifficultyRating(difficulty);
             setTimeout(() => refreshCycleData(), 500);
           } catch (error) {
@@ -857,6 +860,7 @@ export const StudyCycleContent: React.FC = () => {
         }}
         onConfirmReview={difficultyModalData.reviewCount > 0 ? async (difficulty) => {
           try {
+            setProcessedUpdate(difficultyModalData.topicId);
             await markTopicAsReviewed(difficultyModalData.topicId, difficulty);
             closeDifficultyModal();
             setTimeout(() => refreshCycleData(), 500);

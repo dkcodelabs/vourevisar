@@ -206,6 +206,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
     const quillRef = useRef<Quill | null>(null);
     const isApplyingContentRef = useRef(false);
     const calendarRef = useRef<HTMLDivElement>(null);
+    const editorFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [notes, setNotes] = useState<TopicNotes | undefined>();
     const [currentContent, setCurrentContent] = useState('');
     const currentContentRef = useRef('');
@@ -232,6 +233,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
     const [activeTab, setActiveTab] = useState('notes');
     const [isTemporarilyHidden, setIsTemporarilyHidden] = useState(false);
     const [hasLoadedNotes, setHasLoadedNotes] = useState(false);
+    const [showPlainEditorFallback, setShowPlainEditorFallback] = useState(false);
 
     currentContentRef.current = currentContent;
 
@@ -330,6 +332,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
             loadReminders();
             // Resetar estado de ocultação quando modal é reaberto
             setIsTemporarilyHidden(false);
+            setShowPlainEditorFallback(false);
         } else if (!isOpen) {
             // Resetar aba quando modal fechar
             setActiveTab('notes');
@@ -337,6 +340,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
             setNewReminderText('');
             // Resetar estado de ocultação
             setIsTemporarilyHidden(false);
+            setShowPlainEditorFallback(false);
             // Resetar flag de carregamento para permitir recarregar na próxima vez
             setHasLoadedNotes(false);
         }
@@ -839,53 +843,85 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
     useEffect(() => {
         const editorContainer = editorContainerRef.current;
 
-        if (!isOpen || activeTab !== 'notes' || !editorContainer || quillRef.current) {
+        if (!isOpen || activeTab !== 'notes' || showPlainEditorFallback || !editorContainer || quillRef.current) {
             return;
         }
 
         const editorElement = document.createElement('div');
         editorContainer.appendChild(editorElement);
 
-        const isMobile = window.innerWidth < 640;
-        const quill = new Quill(editorElement, {
-            theme: 'snow',
-            readOnly: false,
-            placeholder: 'Comece a escrever suas anotações gerais...',
-            modules: {
-                toolbar: isMobile ? [
-                    ['bold', 'italic', 'underline'],
-                    [{ list: 'ordered' }, { list: 'bullet' }],
-                    ['link']
-                ] : [
-                    [{ header: [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ background: [] }],
-                    [{ list: 'ordered' }, { list: 'bullet' }],
-                    ['link'],
-                    ['clean']
-                ]
-            }
-        });
+        try {
+            const isMobile = window.innerWidth < 640;
+            const quill = new Quill(editorElement, {
+                theme: 'snow',
+                readOnly: false,
+                placeholder: 'Comece a escrever suas anotações gerais...',
+                modules: {
+                    toolbar: isMobile ? [
+                        ['bold', 'italic', 'underline'],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        ['link']
+                    ] : [
+                        [{ header: [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ background: [] }],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        ['link'],
+                        ['clean']
+                    ]
+                }
+            });
 
-        quillRef.current = quill;
-        isApplyingContentRef.current = true;
-        quill.root.innerHTML = currentContentRef.current || '';
-        isApplyingContentRef.current = false;
+            quillRef.current = quill;
+            setShowPlainEditorFallback(false);
+            isApplyingContentRef.current = true;
+            quill.root.innerHTML = currentContentRef.current || '';
+            isApplyingContentRef.current = false;
 
-        quill.on('text-change', () => {
-            if (isApplyingContentRef.current) return;
+            quill.on('text-change', () => {
+                if (isApplyingContentRef.current) return;
 
-            const html = quill.root.innerHTML;
-            handleContentChange(html === '<p><br></p>' ? '' : html);
-        });
+                const html = quill.root.innerHTML;
+                handleContentChange(html === '<p><br></p>' ? '' : html);
+            });
 
-        setTimeout(checkOverflow, 50);
+            setTimeout(checkOverflow, 50);
+        } catch (error) {
+            console.error('Erro ao inicializar editor de anotações gerais:', error);
+            editorContainer.innerHTML = '';
+            quillRef.current = null;
+            setShowPlainEditorFallback(true);
+        }
 
         return () => {
             quillRef.current = null;
             editorContainer.innerHTML = '';
         };
-    }, [activeTab, checkOverflow, handleContentChange, isOpen]);
+    }, [activeTab, checkOverflow, handleContentChange, isOpen, showPlainEditorFallback]);
+
+    useEffect(() => {
+        if (editorFallbackTimerRef.current) {
+            clearTimeout(editorFallbackTimerRef.current);
+            editorFallbackTimerRef.current = null;
+        }
+
+        if (!isOpen || activeTab !== 'notes' || showPlainEditorFallback) {
+            return;
+        }
+
+        editorFallbackTimerRef.current = setTimeout(() => {
+            if (!quillRef.current) {
+                setShowPlainEditorFallback(true);
+            }
+        }, 350);
+
+        return () => {
+            if (editorFallbackTimerRef.current) {
+                clearTimeout(editorFallbackTimerRef.current);
+                editorFallbackTimerRef.current = null;
+            }
+        };
+    }, [activeTab, isOpen, showPlainEditorFallback]);
 
     useEffect(() => {
         if (!quillRef.current) return;
@@ -1161,11 +1197,20 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
                             <TabsContent value="notes" className="flex-1 overflow-hidden mt-2 sm:mt-4">
                                 <div className="h-full max-h-[300px] sm:max-h-[400px]">
                                     <div className="bg-white dark:bg-slate-800 rounded-lg h-full">
-                                        <div
-                                            ref={editorContainerRef}
-                                            className="h-full text-sm sm:text-base"
-                                            style={{ height: window.innerWidth < 640 ? '300px' : '400px' }}
-                                        />
+                                        {showPlainEditorFallback ? (
+                                            <textarea
+                                                aria-label="Anotações gerais"
+                                                value={currentContent}
+                                                onChange={(event) => handleContentChange(event.target.value)}
+                                                placeholder="Comece a escrever suas anotações gerais..."
+                                                className="h-[300px] w-full resize-none rounded-lg border border-border bg-background p-3 text-sm leading-relaxed text-foreground outline-none transition-colors placeholder:text-content-muted focus:border-primary/40 sm:h-[400px] sm:text-base"
+                                            />
+                                        ) : (
+                                            <div
+                                                ref={editorContainerRef}
+                                                className="h-[300px] text-sm sm:h-[400px] sm:text-base"
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             </TabsContent>

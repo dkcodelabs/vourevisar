@@ -11,6 +11,7 @@ import { TrendIcon } from '@/components/mentor/TrendIcon';
 import { MentorBadge } from '@/components/mentor/MentorBadge';
 import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
 import type { ActiveTimer } from '@/contexts/TimerContext';
+import { getReviewTopicRowClassName } from './reviewTopicRowClassName';
 
 interface RevisoesListProps {
     activeTab: string;
@@ -349,15 +350,14 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 <div className="divide-y divide-border">
                                     {groupItems.map(item => {
                                         const isActive = activeTimer?.topicId === item.id;
+                                        const isHighlighted = highlightedTopicId === item.id;
                                         const gargaloAlert = gargaloByTopic.get(item.id);
                                         const trendLabel = trendByTopic.get(item.id);
                                         return (
                                             <div
                                                 id={`topic-${item.id}`}
                                                 key={item.id}
-                                                className={`group transition-all duration-300 ${isActive ? 'bg-primary/5' :
-                                                    highlightedTopicId === item.id ? 'highlight-blink z-10' :
-                                                        'hover:bg-accent/30'} min-w-0`}
+                                                className={getReviewTopicRowClassName({ isActive, isHighlighted })}
                                             >
                                                 {/* Mobile: Stacked / Desktop: Grid */}
                                                 <div className="grid grid-cols-1 lg:grid-cols-[1.5fr,120px,120px,140px] gap-4 p-4 md:px-6 md:py-5 items-center">

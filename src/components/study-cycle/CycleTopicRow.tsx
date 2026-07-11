@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   FileText,
   Play,
+  Square,
   Wand2,
 } from 'lucide-react';
 
@@ -23,13 +24,14 @@ type StartedTopicCta = {
 };
 
 type CycleTopicRowProps = {
+  activeStudySessionStatus: 'RUNNING' | 'PAUSED' | null;
   completed: boolean;
   hasStarted: boolean;
   incidenceDisplay: string | null;
   incidenceTitle: string;
   onGoToReview: () => void;
   onOpenNotes: () => void;
-  onOpenReviewModal: () => void;
+  onStudyAction: () => void;
   renderCycleTooltip: (
     content: ReactNode,
     trigger: ReactElement,
@@ -48,13 +50,14 @@ const hasTopicNotes = (topic: Topic) => {
 };
 
 export function CycleTopicRow({
+  activeStudySessionStatus,
   completed,
   hasStarted,
   incidenceDisplay,
   incidenceTitle,
   onGoToReview,
   onOpenNotes,
-  onOpenReviewModal,
+  onStudyAction,
   renderCycleTooltip,
   startedTopicCta,
   statusLabel,
@@ -65,6 +68,7 @@ export function CycleTopicRow({
   return (
     <div
       data-topic-item
+      data-topic-id={topic.id}
       className="app-cycle-topic-row relative grid min-h-10 cursor-default grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 border-t app-hairline py-2.5 pl-3 pr-3 transition-colors first:border-t-0 group/topic sm:gap-x-3 sm:pl-4 sm:pr-4"
     >
       {renderCycleTooltip(
@@ -149,6 +153,36 @@ export function CycleTopicRow({
               <Check size={11} />
               <span className="hidden sm:inline">Concluído</span>
             </span>
+          ) : activeStudySessionStatus === 'RUNNING' ? (
+            renderCycleTooltip(
+              'Parar estudo e abrir avaliação',
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onStudyAction();
+                }}
+                className="app-type-action-xs ml-0.5 flex h-7 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 text-primary transition-all"
+                aria-label={`Parar estudo do tópico ${topic.name} e abrir avaliação`}
+              >
+                <Square size={10} className="fill-current" />
+                <span className="hidden sm:inline">Parar</span>
+              </button>
+            )
+          ) : activeStudySessionStatus === 'PAUSED' ? (
+            renderCycleTooltip(
+              'Retomar estudo do tópico',
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onStudyAction();
+                }}
+                className="app-type-action-xs ml-0.5 flex h-7 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-warning/30 bg-warning/10 px-2.5 text-warning transition-all"
+                aria-label={`Retomar estudo do tópico ${topic.name}`}
+              >
+                <Play size={10} className="ml-[1px] fill-current" />
+                <span className="hidden sm:inline">Retomar</span>
+              </button>
+            )
           ) : hasStarted ? (
             renderCycleTooltip(
               startedTopicCta.tooltip,
@@ -170,7 +204,7 @@ export function CycleTopicRow({
               <button
                 onClick={(event) => {
                   event.stopPropagation();
-                  onOpenReviewModal();
+                  onStudyAction();
                 }}
                 className={`app-type-action-xs flex-shrink-0 h-7 px-2.5 rounded-lg border transition-all duration-300 flex items-center justify-center gap-1.5 ml-0.5 group ${statusVisual.actionClassName}`}
                 aria-label={`Iniciar estudo do tópico ${topic.name}`}

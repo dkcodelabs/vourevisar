@@ -59,6 +59,18 @@ const getRouteLabel = (pathname: string) =>
   Object.entries(routeTitles).find(([route]) => pathname.startsWith(route))?.[1] ||
   "Painel";
 
+const appDataOverlayRoutes = [
+  "/dashboard",
+  "/meus-editais",
+  "/ciclo-estudos",
+  "/revisoes",
+  "/cadernos",
+  "/estatisticas",
+];
+
+const shouldShowAppDataOverlay = (pathname: string) =>
+  appDataOverlayRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+
 export const AppLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -85,6 +97,7 @@ export const AppLayout = () => {
 
   const currentPath = location.pathname;
   const pageTitle = getRouteLabel(currentPath);
+  const showAppDataOverlay = shouldShowAppDataOverlay(currentPath);
   const routeDescription =
     routeDescriptions[currentPath] ||
     Object.entries(routeDescriptions).find(([route]) =>
@@ -92,11 +105,11 @@ export const AppLayout = () => {
     )?.[1];
 
   React.useEffect(() => {
-    logSessionStart();
+    if (!user) return;
+
+    logSessionStart(user);
 
     const checkActiveStatus = async () => {
-      if (!user) return;
-
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("is_active")
@@ -235,7 +248,7 @@ export const AppLayout = () => {
         />
       )}
 
-      <NetworkStatusOverlay appError={appError} />
+      <NetworkStatusOverlay appError={showAppDataOverlay ? appError : null} />
     </SidebarProvider>
   );
 };

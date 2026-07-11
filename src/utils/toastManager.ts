@@ -1,55 +1,41 @@
-import { toast, ToastOptions, Id } from 'react-toastify';
+import { toast, type ToastId } from '@/lib/toast';
 
-// Mapa para rastrear toasts ativos e evitar duplicatas
-const activeToasts = new Map<string, Id>();
+const activeToasts = new Map<string, ToastId>();
 
-// Função para limpar toast do mapa quando ele expira
-const clearToastFromMap = (key: string, toastId: Id) => {
-  // O react-toastify tem seu próprio gerenciamento, mas mantemos isso
-  // para garantir que nossa lógica de prevenção de duplicatas funcione
+const clearToastFromMap = (key: string, toastId: ToastId, duration = 5000) => {
   setTimeout(() => {
     if (activeToasts.get(key) === toastId) {
       activeToasts.delete(key);
     }
-  }, 5000);
+  }, duration);
+};
+
+const shouldReuseToast = (key: string) => {
+  const existingId = activeToasts.get(key);
+  return existingId && toast.isActive(existingId) ? existingId : null;
 };
 
 export const toastManager = {
   success: (message: string, options?: { duration?: number; id?: string }) => {
     const key = options?.id || message;
+    const existingId = shouldReuseToast(key);
+    if (existingId) return existingId;
 
-    // Se já existe um toast ativo com a mesma chave, verificar se ainda está ativo
-    if (activeToasts.has(key)) {
-      const existingId = activeToasts.get(key);
-      if (existingId && toast.isActive(existingId)) {
-        return existingId;
-      }
-    }
-
-    // Usar toastId para evitar duplicatas nativamente também
-    const toastId = toast.success(message, {
-      autoClose: options?.duration || 4000,
-      toastId: key,
-    });
-
+    const duration = options?.duration || 4000;
+    const toastId = toast.success(message, { duration, id: key });
     activeToasts.set(key, toastId);
-    clearToastFromMap(key, toastId);
-
+    clearToastFromMap(key, toastId, duration);
     return toastId;
   },
 
   error: (message: string, options?: { duration?: number; id?: string }) => {
-    // Para erros, geralmente queremos mostrar sempre, mas se especificar ID, respeitamos
     const key = options?.id || `error-${Date.now()}`;
-
-    const toastId = toast.error(message, {
-      autoClose: options?.duration || 6000,
-      toastId: key
-    });
+    const duration = options?.duration || 6000;
+    const toastId = toast.error(message, { duration, id: key });
 
     if (options?.id) {
       activeToasts.set(key, toastId);
-      clearToastFromMap(key, toastId);
+      clearToastFromMap(key, toastId, duration);
     }
 
     return toastId;
@@ -57,57 +43,34 @@ export const toastManager = {
 
   warning: (message: string, options?: { duration?: number; id?: string }) => {
     const key = options?.id || message;
+    const existingId = shouldReuseToast(key);
+    if (existingId) return existingId;
 
-    if (activeToasts.has(key)) {
-      const existingId = activeToasts.get(key);
-      if (existingId && toast.isActive(existingId)) {
-        return existingId;
-      }
-    }
-
-    const toastId = toast.warning(message, {
-      autoClose: options?.duration || 5000,
-      toastId: key,
-    });
-
+    const duration = options?.duration || 5000;
+    const toastId = toast.warning(message, { duration, id: key });
     activeToasts.set(key, toastId);
-    clearToastFromMap(key, toastId);
-
+    clearToastFromMap(key, toastId, duration);
     return toastId;
   },
 
   info: (message: string, options?: { duration?: number; id?: string }) => {
     const key = options?.id || message;
+    const existingId = shouldReuseToast(key);
+    if (existingId) return existingId;
 
-    if (activeToasts.has(key)) {
-      const existingId = activeToasts.get(key);
-      if (existingId && toast.isActive(existingId)) {
-        return existingId;
-      }
-    }
-
-    const toastId = toast.info(message, {
-      autoClose: options?.duration || 4000,
-      toastId: key,
-    });
-
+    const duration = options?.duration || 4000;
+    const toastId = toast.info(message, { duration, id: key });
     activeToasts.set(key, toastId);
-    clearToastFromMap(key, toastId);
-
+    clearToastFromMap(key, toastId, duration);
     return toastId;
   },
 
-  dismiss: (toastId?: string | number) => {
-    if (toastId) {
-      toast.dismiss(toastId);
-    } else {
-      toast.dismiss();
-    }
+  dismiss: (toastId?: ToastId) => {
+    toast.dismiss(toastId);
   },
 
-  // Função para limpar todos os toasts ativos
   clear: () => {
     activeToasts.clear();
     toast.dismiss();
-  }
+  },
 };

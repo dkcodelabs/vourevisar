@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { invokeUserRpc } from '@/services/userRpcService'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface UserProfile {
   id: string
@@ -45,6 +46,7 @@ interface UseUserProfileReturn {
 }
 
 export function useUserProfile(): UseUserProfileReturn {
+  const { user } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -54,10 +56,6 @@ export function useUserProfile(): UseUserProfileReturn {
     try {
       setLoading(true)
       setError(null)
-
-      // 1. Obter sessão atual de forma rápida
-      const { data: { session } } = await supabase.auth.getSession()
-      const user = session?.user
 
       if (!user) {
         setProfile(null)
@@ -106,7 +104,7 @@ export function useUserProfile(): UseUserProfileReturn {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user])
 
   const forceRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1)
@@ -120,17 +118,6 @@ export function useUserProfile(): UseUserProfileReturn {
   useEffect(() => {
     fetchProfile()
   }, [fetchProfile, refreshTrigger])
-
-  // Escutar mudanças de auth (otimizado)
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        forceRefresh()
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [forceRefresh])
 
   // Escutar mudanças nas tabelas e eventos customizados
   useEffect(() => {

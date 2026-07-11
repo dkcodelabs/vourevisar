@@ -1,7 +1,5 @@
 
 import { lazy, Suspense } from "react";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
@@ -15,6 +13,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RequireActiveSubscription } from "@/components/RequireActiveSubscription";
 import { AdminRoute } from "@/components/AdminRoute";
 import { AuthCallback } from "@/components/AuthCallback";
+import { PremiumToastViewport } from "@/components/PremiumToastViewport";
 import { shouldExposeDebugRoutes } from "@/utils/deploymentGuards";
 
 import { useBrowserCompatibility } from "@/hooks/useBrowserCompatibility";
@@ -81,20 +80,7 @@ const App = () => {
               <AuthProvider>
                 <AppProvider>
                   <TimerProvider>
-                    <ToastContainer
-                      position="bottom-right"
-                      autoClose={4000}
-                      hideProgressBar={false}
-                      newestOnTop={false}
-                      closeOnClick
-                      rtl={false}
-                      pauseOnFocusLoss
-                      draggable
-                      pauseOnHover
-                      theme="colored"
-                      stacked={false}
-                      toastClassName="!rounded-xl !shadow-lg !font-medium"
-                    />
+                    <PremiumToastViewport />
                     <Suspense fallback={<PageFallback />}>
                       <Routes>
                         <Route path="/" element={<LandingPage />} />

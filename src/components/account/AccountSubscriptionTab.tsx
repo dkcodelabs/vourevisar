@@ -5,7 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAccountSubscription } from '@/hooks/useAccountSubscription';
-import type { AccountAsaasPayment, LocalAccountSubscription } from '@/services/accountSubscriptionService';
+import type {
+  AccountAsaasPayment,
+  AccountAsaasSubscription,
+  LocalAccountSubscription,
+} from '@/services/accountSubscriptionService';
 
 const PLAN_LABELS: Record<string, string> = {
   free: 'Free',
@@ -66,6 +70,27 @@ const formatCurrency = (value?: number | null) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
+const isRecurringActiveSubscription = (
+  subscription: LocalAccountSubscription | null,
+  remoteSubscription: AccountAsaasSubscription | null | undefined,
+) => {
+  const hasActiveAsaasCycle = remoteSubscription?.status === 'ACTIVE' && Boolean(remoteSubscription.nextDueDate);
+  const hasActiveLocalCycle =
+    subscription?.status === 'active' &&
+    (subscription.plan === 'monthly' || subscription.plan === 'annual') &&
+    Boolean(subscription.nextBillingDate);
+
+  return hasActiveAsaasCycle || hasActiveLocalCycle;
+};
+
+const formatSubscriptionEndDate = (
+  subscription: LocalAccountSubscription | null,
+  remoteSubscription: AccountAsaasSubscription | null | undefined,
+) => {
+  if (isRecurringActiveSubscription(subscription, remoteSubscription)) return 'Não aplicável';
+  return formatDate(subscription?.subscriptionEndsAt);
+};
+
 const unavailableMessage = (reason?: string) => {
   if (reason === 'asaas_not_linked') {
     return 'Sua assinatura ainda não tem vínculo de cobrança no Asaas.';
@@ -73,8 +98,10 @@ const unavailableMessage = (reason?: string) => {
   if (reason === 'asaas_request_failed') {
     return 'Não foi possível consultar o Asaas agora. Os dados locais continuam disponíveis.';
   }
-  if (reason === 'asaas_http_error') {
-    return 'O Asaas recusou a consulta desta assinatura agora. Os dados locais continuam disponíveis.';
+  if (reason?.startsWith('asaas_http_error')) {
+    const statusCode = reason.replace('asaas_http_error_', '');
+    const suffix = statusCode && statusCode !== reason ? ` (${statusCode})` : '';
+    return `O Asaas recusou a consulta desta assinatura agora${suffix}. Os dados locais continuam disponíveis.`;
   }
   if (reason === 'asaas_not_configured') {
     return 'A integração de cobrança ainda não está configurada no ambiente.';
@@ -91,9 +118,11 @@ const InfoItem = ({ label, value }: { label: string; value: string }) => (
 
 const SubscriptionSummary = ({
   subscription,
+  remoteSubscription,
   remoteValue,
 }: {
   subscription: LocalAccountSubscription | null;
+  remoteSubscription: AccountAsaasSubscription | null | undefined;
   remoteValue: number | null | undefined;
 }) => (
   <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -103,7 +132,7 @@ const SubscriptionSummary = ({
     <InfoItem label="Valor" value={formatCurrency(remoteValue)} />
     <InfoItem label="Início" value={formatDate(subscription?.subscriptionStartedAt)} />
     <InfoItem label="Próxima cobrança" value={formatDate(subscription?.nextBillingDate)} />
-    <InfoItem label="Fim previsto" value={formatDate(subscription?.subscriptionEndsAt)} />
+    <InfoItem label="Fim previsto" value={formatSubscriptionEndDate(subscription, remoteSubscription)} />
     <InfoItem label="Último pagamento" value={formatDate(subscription?.lastPaymentAt)} />
   </dl>
 );
@@ -177,7 +206,11 @@ export function AccountSubscriptionTab() {
           </div>
         </CardHeader>
         <CardContent>
-          <SubscriptionSummary subscription={subscription} remoteValue={remoteSubscription?.value} />
+          <SubscriptionSummary
+            subscription={subscription}
+            remoteSubscription={remoteSubscription}
+            remoteValue={remoteSubscription?.value}
+          />
         </CardContent>
       </Card>
 

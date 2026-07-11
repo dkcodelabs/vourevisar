@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Guard for fetchProfile to avoid loop
   const isFetchingProfileRef = useRef(false);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string, authUser?: User | null) => {
     if (isFetchingProfileRef.current) return;
 
     try {
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!data) {
         console.warn("[AuthContext] Perfil não encontrado, tentando criar...");
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const currentUser = authUser ?? null;
         
         if (currentUser) {
           const { error: insertError } = await supabase
@@ -140,19 +140,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             logEvent('LOGIN_SUCCESS', {
               request_id: crypto.randomUUID(),
               source: 'auth_signed_in'
-            });
+            }, 'web_app', { user: session.user, accessToken: session.access_token });
           }
         }
 
         if (session?.user) {
-          if (session.user.id !== user?.id) {
-            setUser(session.user);
-          }
+          setUser(session.user);
           // Buscar perfil apenas se não estiver já carregando
           if (!isFetchingProfileRef.current) {
             setTimeout(() => {
               if (isMounted) {
-                fetchProfile(session.user.id);
+                fetchProfile(session.user.id, session.user);
               }
             }, 100);
           }
@@ -203,7 +201,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (session.access_token) {
             lastLoginSignature.current = session.access_token.slice(-16);
           }
-          await fetchProfile(session.user.id);
+          await fetchProfile(session.user.id, session.user);
           const duration = (performance.now() - startTime).toFixed(0);
           // Silencioso
         }
@@ -232,7 +230,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [logEvent, fetchProfile, user?.id]);
+  }, [logEvent, fetchProfile]);
 
   const signUp = useCallback(async (email: string, password: string, name: string, phone?: string) => {
     try {
@@ -284,7 +282,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setLoading(true);
 
-      try { await logEvent('LOGOUT', { source: 'signOut_handler_v2' }, 'web_app'); } catch (e) { /* ignore */ }
+      if (user) {
+        try { await logEvent('LOGOUT', { source: 'signOut_handler_v2' }, 'web_app', { user }); } catch (e) { /* ignore */ }
+      }
 
       // Clear sensitive storage
       clearSensitiveLocalStorage(user?.id);
@@ -305,7 +305,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Keep lock briefly to prevent bounces
       setTimeout(() => { isSigningOutRef.current = false; }, 2000);
     }
-  }, [user?.id, logEvent, authOps, navigate]);
+  }, [user, logEvent, authOps, navigate]);
 
   // Helper function to clear sensitive localStorage data on logout
   const clearSensitiveLocalStorage = (userId?: string) => {

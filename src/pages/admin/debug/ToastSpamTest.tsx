@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toastGate } from '@/lib/errors/toastGate';
+import { toast } from '@/lib/toast';
 
 export default function ToastSpamTest() {
     // Hardening: Only allow in Dev or if explictly enabled
@@ -55,7 +56,7 @@ export default function ToastSpamTest() {
     };
 
     const triggerScenarioD = () => {
-        // Prioridade: Low/Medium ativos, chega Critical
+        // Prioridade: Low/Medium ativos, chega High
         console.log('--- Triggering Scenario D ---');
         toastGate.notifyError("Aviso Baixo Risco", "ERR-LOW-01", { flowKey: 'low-flow', severity: 'low' });
 
@@ -64,9 +65,33 @@ export default function ToastSpamTest() {
         }, 500);
 
         setTimeout(() => {
-            // Critical deve "matar" o Low para aparecer, mantendo o Medium (ou o mais recente)
-            toastGate.notifyError("ERRO CRÍTICO DE SISTEMA", "ERR-CRIT-99", { flowKey: 'crit-flow', severity: 'critical' });
+            // High deve "matar" o Low para aparecer, mantendo o Medium, sem ficar preso como critical real.
+            toastGate.notifyError("ERRO DE ALTA PRIORIDADE", "ERR-HIGH-99", { flowKey: 'high-flow', severity: 'high' });
         }, 1500);
+    };
+
+    const triggerPremiumStates = () => {
+        toast.success('Ciclo salvo e pronto para estudar.');
+        setTimeout(() => toast.info('A fila foi atualizada com as prioridades mais recentes.'), 160);
+        setTimeout(() => toast.warning('Existe uma sessão de estudo em andamento.'), 320);
+        setTimeout(() => {
+            toastGate.notifyError('Não foi possível sincronizar agora. Tente novamente.', 'DEBUG-TOAST-01', {
+                flowKey: 'debug-premium-toast',
+                severity: 'medium',
+            });
+        }, 480);
+    };
+
+    const triggerLoadingState = () => {
+        const toastId = toast.loading('Finalizando ciclo...');
+        setTimeout(() => {
+            toast.update(toastId, {
+                render: 'Ciclo gerado com sucesso.',
+                type: 'success',
+                isLoading: false,
+                duration: 3600,
+            });
+        }, 1600);
     };
 
     return (
@@ -74,6 +99,26 @@ export default function ToastSpamTest() {
             <h1 className="text-2xl font-bold">Debug: Toast Anti-Spam Gate</h1>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Estados Premium</CardTitle>
+                        <CardDescription>Dispara sucesso, informação, alerta e erro com o novo visual.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={triggerPremiumStates}>Disparar todos os tipos</Button>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Loading + Update</CardTitle>
+                        <CardDescription>Valida estado de processamento e troca para sucesso.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={triggerLoadingState} variant="secondary">Disparar loading</Button>
+                    </CardContent>
+                </Card>
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Cenário A: Consolidação</CardTitle>
@@ -107,10 +152,10 @@ export default function ToastSpamTest() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Cenário D: Prioridade</CardTitle>
-                        <CardDescription>Critical deve substituir Low se cheio.</CardDescription>
+                        <CardDescription>Alta prioridade deve substituir Low se cheio. Critical real fica persistente.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button onClick={triggerScenarioD} variant="destructive">Disparar Low -&gt; Med -&gt; Critical</Button>
+                        <Button onClick={triggerScenarioD} variant="destructive">Disparar Low -&gt; Med -&gt; High</Button>
                     </CardContent>
                 </Card>
             </div>

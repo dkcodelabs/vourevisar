@@ -6,6 +6,7 @@ import {
   FileText,
   ListTodo,
   Play,
+  Square,
 } from 'lucide-react';
 
 import type { Subject, Topic } from '@/types';
@@ -47,8 +48,9 @@ type VerticalEditalViewProps = {
   isTopicNewlyStartedInCycle: (topic: Topic) => boolean;
   isTopicStarted: (topic: Topic) => boolean;
   isWeightLineActive: (subjectId: string) => boolean;
+  getTopicStudySessionStatus: (topicId: string) => 'RUNNING' | 'PAUSED' | null;
   onGoToReview: (topicId: string) => void;
-  onOpenReviewModal: (topicId: string) => void;
+  onStudyAction: (topicId: string) => void;
   onOpenTopicNotes: (subjectId: string, topicId: string) => void;
   renderCycleTooltip: (
     content: ReactNode,
@@ -89,8 +91,9 @@ export function VerticalEditalView({
   isTopicNewlyStartedInCycle,
   isTopicStarted,
   isWeightLineActive,
+  getTopicStudySessionStatus,
   onGoToReview,
-  onOpenReviewModal,
+  onStudyAction,
   onOpenTopicNotes,
   renderCycleTooltip,
   renderSubjectWeightControl,
@@ -145,6 +148,7 @@ export function VerticalEditalView({
                   const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
                   const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
                   const completed = isTopicCompleted(topic);
+                  const studySessionStatus = getTopicStudySessionStatus(topic.id);
                   const renderVerticalTopicNotesButton = () => renderCycleTooltip(
                     `Anotações para ${topic.name}`,
                     <button
@@ -177,6 +181,28 @@ export function VerticalEditalView({
                         <Check size={11} />
                       </span>
                     )
+                  ) : studySessionStatus === 'RUNNING' ? (
+                    renderCycleTooltip(
+                      'Parar estudo e abrir avaliação',
+                      <button
+                        onClick={() => onStudyAction(topic.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary transition-all"
+                        aria-label={`Parar estudo do tópico ${topic.name} e abrir avaliação`}
+                      >
+                        <Square size={10} className="fill-current" />
+                      </button>
+                    )
+                  ) : studySessionStatus === 'PAUSED' ? (
+                    renderCycleTooltip(
+                      'Retomar estudo do tópico',
+                      <button
+                        onClick={() => onStudyAction(topic.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-warning/30 bg-warning/10 text-warning transition-all"
+                        aria-label={`Retomar estudo do tópico ${topic.name}`}
+                      >
+                        <Play size={10} className="ml-[1px] fill-current" />
+                      </button>
+                    )
                   ) : hasStarted ? (
                     renderCycleTooltip(
                       startedTopicCta.tooltip,
@@ -192,7 +218,7 @@ export function VerticalEditalView({
                     renderCycleTooltip(
                       'Iniciar estudo do tópico',
                       <button
-                        onClick={() => onOpenReviewModal(topic.id)}
+                        onClick={() => onStudyAction(topic.id)}
                         className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all ${statusVisual.actionClassName}`}
                         aria-label={`Iniciar estudo do tópico ${topic.name}`}
                       >
@@ -249,6 +275,30 @@ export function VerticalEditalView({
                                 Concluído
                               </span>
                             )
+                          ) : studySessionStatus === 'RUNNING' ? (
+                            renderCycleTooltip(
+                              'Parar estudo e abrir avaliação',
+                              <button
+                                onClick={() => onStudyAction(topic.id)}
+                                className="app-type-action-xs flex h-7 w-[6.75rem] items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2 text-primary transition-all sm:w-[7.5rem]"
+                                aria-label={`Parar estudo do tópico ${topic.name} e abrir avaliação`}
+                              >
+                                <Square size={10} className="fill-current" />
+                                Parar
+                              </button>
+                            )
+                          ) : studySessionStatus === 'PAUSED' ? (
+                            renderCycleTooltip(
+                              'Retomar estudo do tópico',
+                              <button
+                                onClick={() => onStudyAction(topic.id)}
+                                className="app-type-action-xs flex h-7 w-[6.75rem] items-center justify-center gap-1.5 rounded-lg border border-warning/30 bg-warning/10 px-2 text-warning transition-all sm:w-[7.5rem]"
+                                aria-label={`Retomar estudo do tópico ${topic.name}`}
+                              >
+                                <Play size={10} className="ml-[1px] fill-current" />
+                                Retomar
+                              </button>
+                            )
                           ) : hasStarted ? (
                             renderCycleTooltip(
                               startedTopicCta.tooltip,
@@ -265,7 +315,7 @@ export function VerticalEditalView({
                             renderCycleTooltip(
                               'Iniciar estudo do tópico',
                               <button
-                                onClick={() => onOpenReviewModal(topic.id)}
+                                onClick={() => onStudyAction(topic.id)}
                                 className={`app-type-action-xs flex h-7 w-[5.75rem] items-center justify-center gap-1.5 rounded-lg border px-2 transition-all sm:w-[6.75rem] ${statusVisual.actionClassName}`}
                                 aria-label={`Iniciar estudo do tópico ${topic.name}`}
                               >

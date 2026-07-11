@@ -1,6 +1,6 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Subject, UserCycle } from '@/types';
@@ -25,10 +25,23 @@ const testState = vi.hoisted(() => ({
   revertSubjectMerge: vi.fn(),
   getSubjectMergeInfo: vi.fn(() => null),
   openReviewModal: vi.fn(),
+  handleTopicStudyAction: vi.fn(),
+  resetTimer: vi.fn(),
+  resumeTimer: vi.fn(),
+  setProcessedUpdate: vi.fn(),
+  stopTimer: vi.fn(),
   closeDifficultyModal: vi.fn(),
   markTopicAsReviewed: vi.fn(),
   mergeSnapshot: null as Record<string, unknown> | null,
   topicReviewSnapshot: null as Record<string, unknown> | null,
+  topicStudySessionSnapshot: null as Record<string, unknown> | null,
+  activeTimer: null as {
+    topicId: string;
+    startTime: number;
+    status: 'RUNNING' | 'PAUSED';
+    accumulatedTime: number;
+  } | null,
+  fetchActiveTopicContext: vi.fn(),
 }));
 
 const getScenario = () => {
@@ -53,6 +66,24 @@ vi.mock('@/hooks/useMergeData', () => ({
 
 vi.mock('@/hooks/useTopicReview', () => ({
   useTopicReview: () => testState.topicReviewSnapshot,
+}));
+
+vi.mock('@/hooks/useTopicStudySessionFlow', () => ({
+  useTopicStudySessionFlow: () => testState.topicStudySessionSnapshot,
+}));
+
+vi.mock('@/contexts/TimerContext', () => ({
+  useTimer: () => ({
+    activeTimer: testState.activeTimer,
+    resetTimer: testState.resetTimer,
+    resumeTimer: testState.resumeTimer,
+    setProcessedUpdate: testState.setProcessedUpdate,
+    stopTimer: testState.stopTimer,
+  }),
+}));
+
+vi.mock('@/services/activeTopicContextService', () => ({
+  fetchActiveTopicContext: testState.fetchActiveTopicContext,
 }));
 
 vi.mock('@/contexts/utils/dataTransformers', () => ({
@@ -117,7 +148,19 @@ vi.mock('@/components/subjects/ImportEditalModal', () => ({ ImportEditalModal: (
 vi.mock('@/components/ui/ConfirmModal', () => ({ default: () => null }));
 vi.mock('@/components/topics/CreateTopicModal', () => ({ CreateTopicModal: () => null }));
 vi.mock('@/components/editais/EditalSubjectsModal', () => ({ EditalSubjectsModal: () => null }));
-vi.mock('@/components/modals/DifficultyRatingModal', () => ({ DifficultyRatingModal: () => null }));
+vi.mock('@/components/modals/DifficultyRatingModal', () => ({
+  DifficultyRatingModal: ({
+    isOpen,
+    onConfirmReview,
+  }: {
+    isOpen: boolean;
+    onConfirmReview?: (difficulty: number | null, duration?: number) => Promise<void> | void;
+  }) => isOpen ? (
+    <button type="button" onClick={() => onConfirmReview?.(2, 25)}>
+      Confirmar modal
+    </button>
+  ) : null,
+}));
 
 type QueryResult = { data: unknown; error: Error | null };
 
@@ -191,6 +234,10 @@ const setScenario = (scenario: CyclePageScenario) => {
     markTopicAsReviewed: testState.markTopicAsReviewed,
     isLoading: false,
   };
+  testState.topicStudySessionSnapshot = {
+    activeTimer: testState.activeTimer,
+    handleTopicStudyAction: testState.handleTopicStudyAction,
+  };
 };
 
 const makeTopic = (overrides: Partial<Subject['topics'][number]> = {}): Subject['topics'][number] => ({
@@ -229,7 +276,7 @@ const makeCycle = (): UserCycle => ({
   created_at: '2026-07-01T10:00:00.000Z',
 });
 
-const renderSubjects = () => {
+const renderSubjects = (initialEntry: string | { pathname: string; state?: unknown } = '/ciclo-estudos') => {
   const queryClient = new QueryClient({
     defaultOptions: {
       mutations: { retry: false },
@@ -240,7 +287,7 @@ const renderSubjects = () => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter
-        initialEntries={['/ciclo-estudos']}
+        initialEntries={[initialEntry]}
         future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
         <Routes>
@@ -258,6 +305,14 @@ describe('Subjects cycle integration', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    testState.activeTimer = null;
+    testState.fetchActiveTopicContext.mockResolvedValue({
+      topicId: 'topic-1',
+      subjectId: 'subject-1',
+      topicName: 'Controle de Constitucionalidade',
+      subjectName: 'Direito Constitucional',
+      destination: 'cycle',
+    });
     setScenario({ subjects: [], cycle: null });
   });
 
@@ -309,6 +364,111 @@ describe('Subjects cycle integration', () => {
     expect(screen.getByText('Controle de Constitucionalidade')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Iniciar estudo do tópico Controle de Constitucionalidade' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Novo Ciclo/i })).not.toBeInTheDocument();
+  });
+
+  it('routes the cycle start button through the shared study-session flow', async () => {
+    setScenario({ subjects: [makeSubject()], cycle: makeCycle() });
+
+    renderSubjects();
+
+    const subjectName = await screen.findByText('Direito Constitucional');
+    fireEvent.click(subjectName);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Iniciar estudo do tópico Controle de Constitucionalidade' }),
+    );
+
+    expect(testState.handleTopicStudyAction).toHaveBeenCalledWith('topic-1');
+  });
+
+  it('marks the timer update as local and stops the timer before confirming a cycle first-contact session', async () => {
+    setScenario({ subjects: [makeSubject()], cycle: makeCycle() });
+    testState.topicReviewSnapshot = {
+      ...testState.topicReviewSnapshot,
+      difficultyModalData: {
+        isOpen: true,
+        topicId: 'topic-1',
+        topicName: 'Controle de Constitucionalidade',
+        subjectId: 'subject-1',
+        subjectName: 'Direito Constitucional',
+        currentDifficulty: null,
+        reviewStage: 'Primeiro Contato',
+        reviewCount: 1,
+        isCompleting: false,
+        duration: 25,
+      },
+    };
+
+    renderSubjects();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar modal' }));
+
+    await waitFor(() => {
+      expect(testState.setProcessedUpdate).toHaveBeenCalledWith('topic-1');
+    });
+    expect(testState.stopTimer).toHaveBeenCalledTimes(1);
+  });
+
+  it('expands and highlights the target subject when arriving from a first-contact timer', async () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: scrollIntoView,
+      configurable: true,
+    });
+
+    setScenario({ subjects: [makeSubject()], cycle: makeCycle() });
+
+    renderSubjects({
+      pathname: '/ciclo-estudos',
+      state: { focusSubjectId: 'subject-1', focusTopicId: 'topic-1' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Controle de Constitucionalidade')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+  });
+
+  it('routes the timer guard back to reviews when the active session is a review', async () => {
+    const reviewTopic = makeTopic({
+      reviewCount: 1,
+      review_count: 1,
+      first_studied_at: '2026-07-01T11:00:00.000Z',
+    });
+    const pendingTopic = makeTopic({
+      id: 'topic-2',
+      name: 'Poder Constituinte',
+    });
+    testState.activeTimer = {
+      topicId: 'topic-1',
+      startTime: Date.now(),
+      status: 'RUNNING',
+      accumulatedTime: 0,
+    };
+    testState.fetchActiveTopicContext.mockResolvedValue({
+      topicId: 'topic-1',
+      subjectId: 'subject-1',
+      topicName: 'Controle de Constitucionalidade',
+      subjectName: 'Direito Constitucional',
+      destination: 'reviews',
+    });
+    setScenario({
+      subjects: [{
+        ...makeSubject(reviewTopic),
+        topics: [reviewTopic, pendingTopic],
+      }],
+      cycle: makeCycle(),
+    });
+
+    renderSubjects();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Marcar Direito Constitucional como estudada' }));
+
+    expect(testState.fetchActiveTopicContext).toHaveBeenCalledWith('topic-1');
+    expect(await screen.findByText('Destino Revisões')).toBeInTheDocument();
   });
 
   it('prioritizes overdue reviews after every topic has started', async () => {

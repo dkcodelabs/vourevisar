@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { asaasService, CheckoutPayload } from '@/services/asaasService';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'react-toastify';
+import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { PlanConfig } from '@/hooks/usePlanConfigs';
 
@@ -110,7 +110,7 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
 
   const handleGoToEditais = () => {
     onClose();
-    navigate('/meus-editais');
+    navigate('/ciclo-estudos');
   };
 
   // Remove old price calculation to fix duplicate identifier errors
@@ -213,8 +213,8 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
         <>
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-6 w-full max-w-sm">
             <p className="text-xs text-blue-300 font-semibold leading-relaxed">
-              ASAAS: Seu pagamento no valor de R$ {subscriptionInfo.value?.toFixed(2).replace('.', ',')} para vouRevisar foi confirmado.
-              {subscriptionInfo.billing_type === 'CREDIT_CARD' ? ' (Cartão de Crédito)' : ' (Pix)'}
+              Pagamento confirmado via {subscriptionInfo.billing_type === 'CREDIT_CARD' ? 'cartão de crédito' : 'Pix'}.
+              Sua assinatura {subscriptionInfo.plan === 'annual' ? 'anual' : 'mensal'} já está ativa.
             </p>
           </div>
 
@@ -222,7 +222,7 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
             {[
               { label: 'Plano', value: subscriptionInfo.plan === 'annual' ? '🏆 Anual' : '📅 Mensal' },
               { label: 'Ativado em', value: new Date(subscriptionInfo.started_at).toLocaleDateString('pt-BR') },
-              { label: 'Método', value: subscriptionInfo.billing_type === 'CREDIT_CARD' ? '💳 Cartão' : '💎 Pix' },
+              { label: 'Método', value: subscriptionInfo.billing_type === 'CREDIT_CARD' ? 'Cartão de crédito' : 'Pix' },
               { label: 'Valor', value: `R$ ${subscriptionInfo.value?.toFixed(2).replace('.', ',')}` },
             ].map((item, i) => (
               <React.Fragment key={i}>
@@ -241,7 +241,7 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
         onClick={handleGoToEditais}
         className="w-full max-w-sm bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm py-3 rounded-xl transition-all active:scale-95 shadow-lg shadow-blue-600/20"
       >
-        Ir para Matriz de Estudos →
+        Ir para o Ciclo de Estudos →
       </button>
     </div>
   );

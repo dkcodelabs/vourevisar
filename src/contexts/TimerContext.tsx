@@ -9,6 +9,7 @@ import { toast } from '@/lib/toast';
 import { useAuth } from './AuthContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Tables } from '@/integrations/supabase/types';
+import { isExternalTopicCompletionUpdate } from './timerSync';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -299,10 +300,7 @@ export const TimerProvider = ({ children }: { children: React.ReactNode }) => {
                     return;
                 }
 
-                const isCompletedNow = newTopic.completed || newTopic.review_stage === 'Concluído';
-                const hasAdvanced = newTopic.review_count > (oldTopic?.review_count ?? -1);
-
-                if (isCompletedNow || hasAdvanced) {
+                if (isExternalTopicCompletionUpdate(newTopic, oldTopic)) {
                     setActiveTimerState(null);
                     writeToLocalStorage(null);
                     const userId = userIdRef.current;

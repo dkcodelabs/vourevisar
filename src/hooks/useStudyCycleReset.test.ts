@@ -95,4 +95,38 @@ describe('useStudyCycleReset', () => {
 
     window.removeEventListener('cycleUpdated', cycleUpdated);
   });
+
+  it('starts the next cycle without resetting historical cycle count', async () => {
+    const setUserCycle = vi.fn();
+    const cycleUpdated = vi.fn();
+    mocks.resetStudyCycle.mockResolvedValue(undefined);
+    window.addEventListener('cycleUpdated', cycleUpdated);
+
+    const { result } = renderHook(() => useStudyCycleReset({
+      setUserCycle,
+      userCycle,
+      userId: 'user-1',
+    }));
+
+    await act(async () => {
+      await result.current.startNextCycle();
+    });
+
+    expect(mocks.resetStudyCycle).toHaveBeenCalledWith({
+      fields: expect.objectContaining({
+        ciclos_realizados: 4,
+        data_fim_ciclo: null,
+        materias_estudadas_ciclo: [],
+      }),
+      userId: 'user-1',
+    });
+    expect(setUserCycle).toHaveBeenCalledWith(expect.objectContaining({
+      ciclos_realizados: 4,
+      materias_estudadas_ciclo: [],
+    }));
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('Ciclo 5 iniciado.');
+    expect(cycleUpdated).toHaveBeenCalledOnce();
+
+    window.removeEventListener('cycleUpdated', cycleUpdated);
+  });
 });

@@ -21,8 +21,9 @@ export function useUserAccess() {
   // Combinar loading states
   const loading = roleData.loading || subscriptionData.loading
 
-  // Combinar errors
-  const error = roleData.error || subscriptionData.error
+  // Falha ao buscar role não deve deixar usuário comum em limbo.
+  // A assinatura continua sendo a fonte de acesso para rotas pagas.
+  const error = subscriptionData.error
 
   // Verificações de acesso
   const hasFullAccess = () => {

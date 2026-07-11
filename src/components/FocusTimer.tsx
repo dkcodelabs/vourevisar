@@ -4,7 +4,10 @@ import { Hourglass } from 'lucide-react';
 import { usePiPTimer } from '@/hooks/usePiPTimer';
 import { useTimer } from '@/contexts/TimerContext';
 import { FocusModal } from './timer/FocusModal';
-import { supabase } from '@/integrations/supabase/client';
+import {
+  fetchActiveTopicContext,
+  type ActiveTopicContext,
+} from '@/services/activeTopicContextService';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface FocusTimerProps { }
@@ -19,6 +22,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
   const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
   const [topicDisplay, setTopicDisplay] = useState('Sessão de Estudos');
   const [subjectDisplay, setSubjectDisplay] = useState('Foco Total');
+  const [activeTopicContext, setActiveTopicContext] = useState<ActiveTopicContext | null>(null);
 
   // Calculate elapsed time
   useEffect(() => {
@@ -75,38 +79,53 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
   }, [videoRef]);
 
   // --- Fetch topic/subject name for the modal ---
-  const fetchTopicName = useCallback(async (topicId: string) => {
+  const fetchTopicContext = useCallback(async (topicId: string) => {
     try {
-      const { data } = await supabase
-        .from('topics')
-        .select('name, subjects(name)')
-        .eq('id', topicId)
-        .single();
-
-      if (data) {
-        setTopicDisplay(data.name || 'Tópico Ativo');
-        const subject = data.subjects as unknown as { name?: string | null } | null;
-        setSubjectDisplay(subject?.name || 'Revisão');
-      }
+      const nextContext = await fetchActiveTopicContext(topicId);
+      setTopicDisplay(nextContext.topicName);
+      setSubjectDisplay(nextContext.subjectName);
+      setActiveTopicContext(nextContext);
+      return nextContext;
     } catch {
       setTopicDisplay('Tópico Ativo');
       setSubjectDisplay('Revisão');
     }
+
+    const fallbackContext: ActiveTopicContext = {
+      topicId,
+      subjectId: null,
+      destination: 'reviews',
+    };
+    setActiveTopicContext(fallbackContext);
+    return fallbackContext;
   }, []);
 
   // Busca nome do tópico automaticamente quando o timer muda (necessário para o CSS PiP Overlay)
   useEffect(() => {
     if (activeTopicId) {
-      fetchTopicName(activeTopicId);
+      fetchTopicContext(activeTopicId);
     } else {
       setTopicDisplay('Sessão de Estudos');
       setSubjectDisplay('Foco Total');
+      setActiveTopicContext(null);
     }
-  }, [activeTopicId, fetchTopicName]);
+  }, [activeTopicId, fetchTopicContext]);
 
   // handlers
-  const handleClick = () => {
+  const handleClick = async () => {
     if (activeTopicId) {
+      const topicContext =
+        activeTopicContext?.topicId === activeTopicId
+          ? activeTopicContext
+          : await fetchTopicContext(activeTopicId);
+
+      if (topicContext.destination === 'cycle' && topicContext.subjectId) {
+        navigate('/ciclo-estudos', {
+          state: { focusSubjectId: topicContext.subjectId, focusTopicId: activeTopicId },
+        });
+        return;
+      }
+
       navigate(`/revisoes?topicId=${activeTopicId}`, {
         state: { focusTopicId: activeTopicId },
       });
@@ -119,7 +138,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
     if (activeTopicId) {
       e.stopPropagation();
       e.preventDefault();
-      fetchTopicName(activeTopicId);
+      fetchTopicContext(activeTopicId);
       setIsFocusModalOpen(true);
     }
   };

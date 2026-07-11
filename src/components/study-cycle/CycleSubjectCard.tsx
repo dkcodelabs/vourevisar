@@ -146,16 +146,19 @@ export function CycleSubjectCard({
                   </div>
 
                   {isMerged && renderCycleTooltip(
-                    'Desfazer mesclagem',
+                    'Esta matéria junta tópicos equivalentes de outros editais. Clique para revisar ou desfazer a mesclagem.',
                     <button
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenRevertMerge();
                       }}
-                      className="w-fit rounded p-1 text-warning transition-colors hover:bg-warning/10"
-                      aria-label={`Desfazer mesclagem de ${subjectDisplayName}`}
+                      className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-warning/25 bg-warning/8 text-warning/85 transition-all hover:border-warning/40 hover:bg-warning/12 hover:text-warning sm:h-5 sm:w-auto sm:gap-1 sm:px-1.5"
+                      aria-label={`${subjectDisplayName} é uma matéria unificada. Clique para revisar ou desfazer a mesclagem.`}
                     >
-                      <Link2Off size={14} />
+                      <Link2Off size={12} />
+                      <span className="hidden text-[9px] font-bold uppercase tracking-[0.06em] sm:inline">
+                        Unificada
+                      </span>
                     </button>
                   )}
                 </div>

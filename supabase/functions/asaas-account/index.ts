@@ -48,6 +48,32 @@ type AsaasPaymentsListResponse = {
   data?: AsaasPaymentResponse[];
 };
 
+type LocalSubscriptionStatus = 'trial' | 'active' | 'expired' | 'canceled' | 'suspended';
+type SyncedAsaasSubscription = {
+  status: string | null;
+  billingType: string | null;
+  nextDueDate: string | null;
+};
+type SyncedAsaasPayment = {
+  status: string | null;
+  paymentDate: string | null;
+};
+type SubscriptionUpdatePayload = {
+  status: string | null;
+  billing_type: string | null;
+  next_billing_date: string | null;
+  last_payment_at: string | null;
+  updated_at: string;
+};
+type SubscriptionUpdateQuery = PromiseLike<{ error: Error | null }> & {
+  eq: (column: string, value: string) => SubscriptionUpdateQuery;
+};
+type SupabaseSubscriptionSyncClient = {
+  from: (table: 'user_subscriptions') => {
+    update: (payload: SubscriptionUpdatePayload) => SubscriptionUpdateQuery;
+  };
+};
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -103,8 +129,14 @@ serve(async (req: Request) => {
       return json({ success: false, error: subscriptionError.message }, 400);
     }
 
-    const localSubscription = subscription ? mapLocalSubscription(subscription) : null;
     const asaas = await loadAsaasData(subscription);
+    let localSubscription = subscription ? mapLocalSubscription(subscription) : null;
+
+    if (subscription && asaas.available && asaas.subscription) {
+      const syncedSubscription = mergeLocalSubscriptionFromAsaas(subscription, asaas.subscription, asaas.payments);
+      await syncLocalSubscriptionFromAsaas(supabase, user.id, syncedSubscription);
+      localSubscription = mapLocalSubscription(syncedSubscription);
+    }
 
     return json({
       success: true,
@@ -130,28 +162,36 @@ async function loadAsaasData(subscription: UserSubscriptionRow | null) {
     return unavailable('asaas_not_configured');
   }
 
-  const asaasUrl = Deno.env.get('ASAAS_API_URL') || 'https://sandbox.asaas.com/api/v3';
+  const asaasUrl = Deno.env.get('ASAAS_API_URL') || 'https://api-sandbox.asaas.com/v3';
   const headers = {
     accept: 'application/json',
+    'Content-Type': 'application/json',
+    'User-Agent': 'vourevisar/1.0 (Supabase Edge Function; sandbox)',
     access_token: asaasApiKey,
   };
 
   try {
-    const [subscriptionResponse, paymentsResponse] = await Promise.all([
-      fetch(`${asaasUrl}/subscriptions/${subscription.asaas_subscription_id}`, { headers }),
-      fetch(`${asaasUrl}/subscriptions/${subscription.asaas_subscription_id}/payments?limit=5&offset=0`, { headers }),
-    ]);
+    const subscriptionResponse = await fetch(`${asaasUrl}/subscriptions/${subscription.asaas_subscription_id}`, { headers });
 
-    if (!subscriptionResponse.ok || !paymentsResponse.ok) {
+    if (!subscriptionResponse.ok) {
       console.error('[asaas-account] Asaas request failed', {
         subscriptionStatus: subscriptionResponse.status,
-        paymentsStatus: paymentsResponse.status,
       });
       return unavailable('asaas_http_error');
     }
 
     const asaasSubscription = (await subscriptionResponse.json()) as AsaasSubscriptionResponse;
-    const paymentsList = (await paymentsResponse.json()) as AsaasPaymentsListResponse;
+    const paymentsResponse = await fetch(`${asaasUrl}/subscriptions/${subscription.asaas_subscription_id}/payments`, { headers });
+    let payments: AsaasPaymentResponse[] = [];
+
+    if (paymentsResponse.ok) {
+      const paymentsList = (await paymentsResponse.json()) as AsaasPaymentsListResponse;
+      payments = Array.isArray(paymentsList.data) ? paymentsList.data.slice(0, 5) : [];
+    } else {
+      console.error('[asaas-account] Asaas payments request failed', {
+        paymentsStatus: paymentsResponse.status,
+      });
+    }
 
     return {
       available: true,
@@ -162,16 +202,14 @@ async function loadAsaasData(subscription: UserSubscriptionRow | null) {
         billingType: asaasSubscription.billingType ?? null,
         nextDueDate: asaasSubscription.nextDueDate ?? null,
       },
-      payments: Array.isArray(paymentsList.data)
-        ? paymentsList.data.slice(0, 5).map((payment) => ({
+      payments: payments.map((payment) => ({
           id: String(payment.id ?? crypto.randomUUID()),
           status: payment.status ?? null,
           value: typeof payment.value === 'number' ? payment.value : null,
           dueDate: payment.dueDate ?? null,
           paymentDate: payment.paymentDate ?? null,
           billingType: payment.billingType ?? null,
-        }))
-        : [],
+        })),
     };
   } catch (error) {
     console.error('[asaas-account] Asaas fetch failed', error);
@@ -193,6 +231,71 @@ function mapLocalSubscription(subscription: UserSubscriptionRow) {
     createdAt: subscription.created_at,
     updatedAt: subscription.updated_at,
   };
+}
+
+function mergeLocalSubscriptionFromAsaas(
+  subscription: UserSubscriptionRow,
+  asaasSubscription: SyncedAsaasSubscription,
+  payments: SyncedAsaasPayment[],
+): UserSubscriptionRow {
+  const localStatus = mapAsaasStatusToLocal(asaasSubscription.status) ?? subscription.status;
+  const lastPaymentAt = getMostRecentPaymentDate(payments) ?? subscription.last_payment_at;
+
+  return {
+    ...subscription,
+    status: localStatus,
+    billing_type: asaasSubscription.billingType ?? subscription.billing_type,
+    next_billing_date: asaasSubscription.nextDueDate ?? subscription.next_billing_date,
+    last_payment_at: lastPaymentAt,
+  };
+}
+
+async function syncLocalSubscriptionFromAsaas(
+  supabase: SupabaseSubscriptionSyncClient,
+  userId: string,
+  subscription: UserSubscriptionRow,
+) {
+  if (!subscription.asaas_subscription_id) return;
+
+  const { error } = await supabase
+    .from('user_subscriptions')
+    .update({
+      status: subscription.status,
+      billing_type: subscription.billing_type,
+      next_billing_date: subscription.next_billing_date,
+      last_payment_at: subscription.last_payment_at,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .eq('asaas_subscription_id', subscription.asaas_subscription_id);
+
+  if (error) {
+    console.error('[asaas-account] Failed to sync local subscription from Asaas', error);
+  }
+}
+
+function mapAsaasStatusToLocal(status?: string | null): LocalSubscriptionStatus | null {
+  const normalizedStatus = status?.toUpperCase();
+  if (!normalizedStatus) return null;
+
+  const statusMap: Record<string, LocalSubscriptionStatus> = {
+    ACTIVE: 'active',
+    SUSPENDED: 'suspended',
+    INACTIVE: 'expired',
+    EXPIRED: 'expired',
+    CANCELED: 'canceled',
+    CANCELLED: 'canceled',
+  };
+
+  return statusMap[normalizedStatus] ?? null;
+}
+
+function getMostRecentPaymentDate(payments: SyncedAsaasPayment[]) {
+  return payments
+    .filter((payment) => payment.status === 'RECEIVED' || payment.status === 'CONFIRMED')
+    .map((payment) => payment.paymentDate)
+    .filter((paymentDate): paymentDate is string => Boolean(paymentDate))
+    .sort((left, right) => right.localeCompare(left))[0] ?? null;
 }
 
 function unavailable(reason: string) {

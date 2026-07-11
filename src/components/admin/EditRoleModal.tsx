@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Shield, AlertTriangle, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'react-toastify';
+import { toast } from '@/lib/toast';
 import { AdminUser } from '@/hooks/useAdminUsers';
 import { toastGate } from '@/lib/errors/toastGate';
 import { invokeAdminRpc } from '@/services/adminRpcService';

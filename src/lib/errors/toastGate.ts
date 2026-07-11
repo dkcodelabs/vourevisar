@@ -47,7 +47,24 @@ class ToastGate {
         const flowKey = options.flowKey || 'default';
         const fingerprint = options.fingerprint || `${flowKey}|${message}`;
 
-        // 1. Throttle Check (Dedupe identical errors)
+        // 1. Consolidation Check (Group by Flow)
+        // Active toasts should update their counter before fingerprint throttling.
+        const existingToastKey = this.findActiveToastKey(flowKey);
+
+        if (existingToastKey) {
+            const state = this.activeToasts.get(existingToastKey)!;
+
+            if (toast.isActive(state.toastId) && (now - state.firstSeen < CONSOLIDATION_WINDOW_MS)) {
+                this.recentFingerprints.set(fingerprint, now);
+                this.updateToast(existingToastKey, state, message, errorId);
+                return;
+            }
+
+            // Toast expired or window passed, remove from tracking to allow a new one.
+            this.activeToasts.delete(existingToastKey);
+        }
+
+        // 2. Throttle Check (Dedupe identical errors)
         if (this.recentFingerprints.has(fingerprint)) {
             const lastSeen = this.recentFingerprints.get(fingerprint)!;
             if (now - lastSeen < THROTTLE_WINDOW_MS) {
@@ -56,24 +73,6 @@ class ToastGate {
             }
         }
         this.recentFingerprints.set(fingerprint, now);
-
-        // 2. Consolidation Check (Group by Flow)
-        // Check if there is an ACTIVE toast for this flowKey
-        const existingToastKey = this.findActiveToastKey(flowKey);
-
-        if (existingToastKey) {
-            const state = this.activeToasts.get(existingToastKey)!;
-
-            // If within consolidation window, just update the counter
-            // Or if it's the specific same toast ID still active
-            if (toast.isActive(state.toastId) && (now - state.firstSeen < CONSOLIDATION_WINDOW_MS)) {
-                this.updateToast(existingToastKey, state, message, errorId);
-                return;
-            } else {
-                // Toast expired or window passed, remove from tracking to allow new one
-                this.activeToasts.delete(existingToastKey);
-            }
-        }
 
         // 3. Concurrency Check (Max Limit)
         const allowed = this.enforceConcurrencyLimit(severity);
@@ -101,7 +100,7 @@ class ToastGate {
         toast.update(state.toastId, {
             render: consolidatedMessage,
             type: 'error',
-            autoClose: 5000 // Reset timer
+            duration: 5000 // Reset timer
         });
 
         console.debug('[ToastGate] Toast updated (Consolidation):', state.toastId, state.count);
@@ -185,7 +184,7 @@ class ToastGate {
 
         // Use a persistent ID if possible? No, let toast generate it.
         // Actually, we can't easily get the ID back from toast.error if we need it synchronously for the map?
-        // react-toastify returns id synchronously.
+        // The app toast store returns an id synchronously so the gate can track it.
 
         const toastId = toast.error(fullMessage, {
             autoClose: severity === 'critical' ? false : 6000, // Critical stays until dismissed

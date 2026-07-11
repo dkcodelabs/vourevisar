@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'react-toastify';
+import { toast } from '@/lib/toast';
 import { Tables } from '@/integrations/supabase/types';
 import { toastGate } from '@/lib/errors/toastGate';
 

@@ -50,6 +50,37 @@ describe('ToastGate Anti-Spam System', () => {
         expect(toast.error).toHaveBeenCalledTimes(2);
     });
 
+    it('should consolidate repeated errors in the same flow while the toast is active', () => {
+        vi.setSystemTime(new Date(2024, 1, 1, 10, 0, 0));
+
+        toastGate.notifyError('Erro de Conexão com Servidor', 'ERR-CON-0', {
+            severity: 'medium',
+            flowKey: 'connection-flow',
+        });
+
+        vi.setSystemTime(new Date(2024, 1, 1, 10, 0, 1));
+        toastGate.notifyError('Erro de Conexão com Servidor', 'ERR-CON-1', {
+            severity: 'medium',
+            flowKey: 'connection-flow',
+        });
+
+        expect(toast.error).toHaveBeenCalledTimes(1);
+        expect(toast.update).toHaveBeenCalledWith(
+            'test-toast-id',
+            expect.objectContaining({
+                duration: 5000,
+                render: expect.stringContaining('(+1 ocorrências similares)'),
+                type: 'error',
+            }),
+        );
+        expect(toast.update).toHaveBeenCalledWith(
+            'test-toast-id',
+            expect.objectContaining({
+                render: expect.stringContaining('Último código: ERR-CON-1'),
+            }),
+        );
+    });
+
     it('should respect max concurrency of 2', () => {
         vi.setSystemTime(new Date(2024, 1, 1, 10, 0, 0));
 

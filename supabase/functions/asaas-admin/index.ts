@@ -1,6 +1,4 @@
-// @ts-expect-error - Deno request type
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-// @ts-expect-error - Deno syntax
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
@@ -9,7 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// @ts-expect-error - Deno request type
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -21,13 +18,15 @@ serve(async (req: Request) => {
       throw new Error('Não autorizado (Missing Token)');
     }
 
-    // @ts-expect-error Deno runtime provides env in Edge Functions.
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    // @ts-expect-error Deno runtime provides env in Edge Functions.
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    // @ts-expect-error Deno runtime provides env in Edge Functions.
     const asaasApiKey = Deno.env.get('ASAAS_API_KEY');
-    const asaasUrl = 'https://sandbox.asaas.com/api/v3';
+    const asaasUrl = Deno.env.get('ASAAS_API_URL') || 'https://api-sandbox.asaas.com/v3';
+    const asaasHeaders = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'vourevisar/1.0 (Supabase Edge Function; sandbox)',
+      'access_token': asaasApiKey,
+    };
 
     if (!supabaseUrl || !supabaseKey || !asaasApiKey) {
       throw new Error('Configurações de ambiente ausentes');
@@ -63,28 +62,28 @@ serve(async (req: Request) => {
       const { id } = params;
       if (!id) throw new Error('Subscription ID is required');
       const res = await fetch(`${asaasUrl}/subscriptions/${id}`, {
-        headers: { 'access_token': asaasApiKey }
+        headers: asaasHeaders
       });
       responseData = await res.json();
     } else if (action === 'get_payments') {
       const { id } = params;
       if (!id) throw new Error('Subscription ID is required');
       const res = await fetch(`${asaasUrl}/subscriptions/${id}/payments`, {
-        headers: { 'access_token': asaasApiKey }
+        headers: asaasHeaders
       });
       responseData = await res.json();
     } else if (action === 'get_customer') {
       const { id } = params;
       if (!id) throw new Error('Customer ID is required');
       const res = await fetch(`${asaasUrl}/customers/${id}`, {
-        headers: { 'access_token': asaasApiKey }
+        headers: asaasHeaders
       });
       responseData = await res.json();
     } else if (action === 'get_payment') {
       const { id } = params;
       if (!id) throw new Error('Payment ID is required');
       const res = await fetch(`${asaasUrl}/payments/${id}`, {
-        headers: { 'access_token': asaasApiKey }
+        headers: asaasHeaders
       });
       responseData = await res.json();
     } else {

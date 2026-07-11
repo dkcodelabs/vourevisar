@@ -3,7 +3,7 @@
 // =====================================================
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
-import { User } from '@supabase/supabase-js'
+import { useAuth } from '@/contexts/AuthContext'
 
 export type SubscriptionPlan = 'free_trial' | 'monthly' | 'annual'
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'canceled' | 'suspended'
@@ -37,6 +37,7 @@ interface UseSubscriptionReturn {
 }
 
 export function useSubscription(): UseSubscriptionReturn {
+  const { user } = useAuth()
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -46,8 +47,6 @@ export function useSubscription(): UseSubscriptionReturn {
       setLoading(true)
       setError(null)
 
-      // Verificar se usuário está autenticado
-      const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setSubscription(null)
         return
@@ -139,11 +138,10 @@ export function useSubscription(): UseSubscriptionReturn {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user])
 
   const startPaidSubscription = useCallback(async (plan: SubscriptionPlan): Promise<boolean> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Usuário não autenticado')
 
       const duration = plan === 'annual' ? 12 : 1
@@ -164,11 +162,10 @@ export function useSubscription(): UseSubscriptionReturn {
       setError(err instanceof Error ? err.message : 'Erro ao iniciar assinatura')
       return false
     }
-  }, [fetchSubscription])
+  }, [fetchSubscription, user])
 
   const cancelSubscription = useCallback(async (immediate = false): Promise<boolean> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Usuário não autenticado')
 
       const { data, error } = await supabase
@@ -186,21 +183,10 @@ export function useSubscription(): UseSubscriptionReturn {
       setError(err instanceof Error ? err.message : 'Erro ao cancelar assinatura')
       return false
     }
-  }, [fetchSubscription])
+  }, [fetchSubscription, user])
 
   useEffect(() => {
     fetchSubscription()
-
-    // Escutar mudanças de autenticação
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-          fetchSubscription()
-        }
-      }
-    )
-
-    return () => authSubscription.unsubscribe()
   }, [fetchSubscription])
 
   // Computed values

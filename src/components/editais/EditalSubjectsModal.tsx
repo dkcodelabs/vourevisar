@@ -17,6 +17,7 @@ import { Subject, Topic, Status } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
+import { useTimer } from '@/contexts/TimerContext';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
@@ -40,6 +41,7 @@ import {
     editalHeaderExamBoardTypography,
     editalHeaderPositionTypography
 } from '@/components/editais/editalHeaderTypography';
+import { guardActiveTimerOperation } from '@/utils/activeTimerOperationGuard';
 
 interface AiSubject {
     title: string;
@@ -77,6 +79,7 @@ export const EditalSubjectsModal = ({
     isOpen, onClose, onBack, edital, editais, allSubjects, onUpdate, initialExpandedSubjectId
 }: EditalSubjectsModalProps) => {
     const { user } = useAuth();
+    const { activeTimer } = useTimer();
     const { refreshData } = useApp();
     const { refresh: refreshOrigins } = useEditalOriginsWithMerge();
 
@@ -88,6 +91,10 @@ export const EditalSubjectsModal = ({
     // Flag: só inicializa ao abrir, ignora mudanças externas enquanto modal está aberto
     const initializedRef = useRef(false);
     const hasPendingSync = useRef(false);
+    const canRunStructuralOperation = useCallback(
+        () => guardActiveTimerOperation(activeTimer),
+        [activeTimer],
+    );
 
     // ── Edital selecionado (para select de múltiplos editais) ──
     const [selectedEdital, setSelectedEdital] = useState<UserEdital>(edital);
@@ -653,6 +660,7 @@ export const EditalSubjectsModal = ({
 
     // ── Salvar nova matéria ───────────────────────────────────────────────
     const handleSaveSubject = useCallback(async () => {
+        if (!canRunStructuralOperation()) return;
         if (!user || isSavingSubject) return;
 
         const normalizedNames = newSubjectName
@@ -752,10 +760,11 @@ export const EditalSubjectsModal = ({
         } finally {
             setIsSavingSubject(false);
         }
-    }, [newSubjectName, user, isSavingSubject, localSubjects, localEditalIds, edital, onUpdate, focusSubject]);
+    }, [canRunStructuralOperation, newSubjectName, user, isSavingSubject, localSubjects, localEditalIds, edital, onUpdate, focusSubject]);
 
     // ── Excluir matéria permanentemente (só editais manuais) ──────────────
     const handleConfirmDeleteSubject = useCallback(async (subjectId: string, subjectName: string) => {
+        if (!canRunStructuralOperation()) return;
         setConfirmDeleteSubjectId(null);
         // Otimismo: remove da UI imediatamente
         setLocalSubjects(prev => prev.filter(s => s.id !== subjectId));
@@ -829,10 +838,11 @@ export const EditalSubjectsModal = ({
             setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'deleteSubject', userMessage: 'Erro ao excluir matéria.' });
         }
-    }, [localEditalIds, localActiveIds, edital, allSubjects, onUpdate, localSubjects, user]);
+    }, [canRunStructuralOperation, localEditalIds, localActiveIds, edital, allSubjects, onUpdate, localSubjects, user]);
 
     // ── Alternar ativo/inativo (visível/oculto no Ciclo de Estudos) ───────
     const handleToggleSubjectActive = useCallback(async (subjectId: string, subjectName: string) => {
+        if (!canRunStructuralOperation()) return;
         const isCurrentlyActive = localActiveIds.includes(subjectId);
         const newActiveIds = isCurrentlyActive
             ? localActiveIds.filter(id => id !== subjectId)
@@ -862,10 +872,11 @@ export const EditalSubjectsModal = ({
             setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'toggleActive', userMessage: 'Erro ao alterar visibilidade.' });
         }
-    }, [localActiveIds, edital, onUpdate]);
+    }, [canRunStructuralOperation, localActiveIds, edital, onUpdate]);
 
     // ── Salvar novo tópico inline ──────────────────────────────────────────
     const handleSaveNewTopic = useCallback(async (subjectId: string) => {
+        if (!canRunStructuralOperation()) return;
         const rawText = newTopicTexts[subjectId]?.trim();
         if (!rawText || savingTopics[subjectId] || !user) return;
         const text = rawText.charAt(0).toUpperCase() + rawText.slice(1);
@@ -911,7 +922,7 @@ export const EditalSubjectsModal = ({
         } finally {
             setSavingTopics(prev => ({ ...prev, [subjectId]: false }));
         }
-    }, [newTopicTexts, savingTopics, user, selectedEdital.id]);
+    }, [canRunStructuralOperation, newTopicTexts, savingTopics, user, selectedEdital.id]);
 
     // ── Editar tópico ──────────────────────────────────────────────────────
     const handleSaveTopicEdit = useCallback(async () => {
@@ -1022,6 +1033,7 @@ export const EditalSubjectsModal = ({
     }, []);
 
     const handleConfirmDeleteTopic = useCallback(async (topicId: string, subjectId: string) => {
+        if (!canRunStructuralOperation()) return;
         setConfirmDeleteTopicId(null);
         // Otimismo: remove da lista ativa imediatamente
         const topicToDeactivate = localSubjects
@@ -1061,10 +1073,11 @@ export const EditalSubjectsModal = ({
             setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'hardDeleteTopic', userMessage: 'Erro ao excluir tópico.' });
         }
-    }, [localSubjects]);
+    }, [canRunStructuralOperation, localSubjects]);
 
     // ── Restaurar tópico da lixeira ────────────────────────────────────────
     const handleRestoreTopic = useCallback(async (topicId: string, subjectId: string) => {
+        if (!canRunStructuralOperation()) return;
         const topicToRestore = inactiveTopics[subjectId]?.find(t => t.id === topicId);
         if (!topicToRestore) return;
 
@@ -1098,7 +1111,7 @@ export const EditalSubjectsModal = ({
             setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'restoreTopic', userMessage: 'Erro ao restaurar tópico.' });
         }
-    }, [inactiveTopics]);
+    }, [canRunStructuralOperation, inactiveTopics]);
 
     // ── Carregar tópicos inativos ao expandir matéria ─────────────────────
     const loadInactiveTopics = useCallback(async (subjectId: string) => {

@@ -107,7 +107,16 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
 
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return '—';
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateString));
+  const [, year, month, day] = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/) ?? [];
+  if (!year || !month || !day) return '—';
+  return `${day}/${month}/${year}`;
+};
+
+const getDaysUntil = (dateString?: string | null) => {
+  if (!dateString) return null;
+  const target = new Date(dateString);
+  if (Number.isNaN(target.getTime())) return null;
+  return Math.max(0, Math.ceil((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
 };
 
 const getSubscriptionView = (
@@ -154,13 +163,21 @@ const getSubscriptionView = (
   }
 
   const isAnnual = subscriptionInfo.plan === 'annual';
+  const renewalDate = subscriptionInfo.next_billing_date || subscriptionInfo.subscription_ends_at;
+  const daysUntilRenewal = getDaysUntil(renewalDate);
+  const renewalSummary = renewalDate
+    ? `Renova em ${formatDate(renewalDate)}`
+    : 'Assinatura ativa';
+
   return {
     badge: isAnnual ? 'ANUAL' : 'MENSAL',
     title: isAnnual ? 'Plano Anual' : 'Plano Mensal',
     status: 'Ativo',
     tone: 'text-emerald-400',
-    cta: isAnnual ? 'Gerenciar' : 'Ver anual',
-    summary: isAnnual ? 'Mais créditos e melhor custo.' : 'Considere o anual para mais créditos.',
+    cta: 'Gerenciar',
+    summary: daysUntilRenewal !== null
+      ? `${renewalSummary} (${daysUntilRenewal === 1 ? '1 dia' : `${daysUntilRenewal} dias`})`
+      : renewalSummary,
     compact: true,
   };
 };

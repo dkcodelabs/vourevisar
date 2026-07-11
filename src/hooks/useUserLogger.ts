@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeUserRpc } from '@/services/userRpcService';
 
@@ -25,6 +26,11 @@ interface AuditLogResponse {
     log_id?: string;
 }
 
+interface LoggerSessionContext {
+    user: User;
+    accessToken?: string | null;
+}
+
 // Global lock to prevent race conditions across hook instances
 const inFlightRequests = new Set<string>();
 
@@ -35,11 +41,14 @@ export const useUserLogger = () => {
     const logEvent = useCallback(async (
         eventType: EventType,
         metadata: Record<string, unknown> = {},
-        origin: string | null = 'web_app'
+        origin: string | null = 'web_app',
+        sessionContext?: LoggerSessionContext
     ) => {
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            // Allow logging if session exists.
+            const session = sessionContext
+                ? { user: sessionContext.user, access_token: sessionContext.accessToken ?? null }
+                : (await supabase.auth.getSession()).data.session;
+
             if (!session?.user) return;
 
             const userId = session.user.id;
@@ -144,19 +153,18 @@ export const useUserLogger = () => {
      * Prevents spamming SESSION_START on every refresh.
      * Checks localStorage to see if we already logged this session recently.
      */
-    const logSessionStart = useCallback(async () => {
+    const logSessionStart = useCallback(async (currentUser?: User | null) => {
         // Prevent concurrent calls in same instance
         if (sessionStartLock.current) return;
         sessionStartLock.current = true;
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user) {
+            if (!currentUser) {
                 sessionStartLock.current = false;
                 return;
             }
 
-            const userId = session.user.id;
+            const userId = currentUser.id;
             // New key format for the refactor
             const LAST_SESSION_LOG_KEY = `audit:last_session_start:${userId}`;
             const THROTTLE_MS = 30 * 60 * 1000; // 30 minutes
@@ -178,7 +186,7 @@ export const useUserLogger = () => {
                 source: 'app_boot',
                 url: window.location.href,
                 referrer: document.referrer
-            });
+            }, 'web_app', { user: currentUser });
             // We set the timestamp optimistically.
             localStorage.setItem(LAST_SESSION_LOG_KEY, now.toString());
 
