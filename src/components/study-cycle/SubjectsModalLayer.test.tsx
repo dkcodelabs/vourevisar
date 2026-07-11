@@ -2,12 +2,12 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  notesModal: vi.fn(() => <div data-testid="notes-modal" />),
-  importEditalModal: vi.fn(() => <div data-testid="import-modal" />),
-  difficultyRatingModal: vi.fn(() => <div data-testid="difficulty-modal" />),
-  confirmModal: vi.fn(() => <div data-testid="confirm-modal" />),
-  editalSubjectsModal: vi.fn(() => <div data-testid="edital-subjects-modal" />),
-  cycleExamDateDialog: vi.fn(() => <div data-testid="exam-date-dialog" />),
+  notesModal: vi.fn((props: unknown) => <div data-testid="notes-modal" data-props={JSON.stringify(Boolean(props))} />),
+  importEditalModal: vi.fn((props: unknown) => <div data-testid="import-modal" data-props={JSON.stringify(Boolean(props))} />),
+  difficultyRatingModal: vi.fn((props: unknown) => <div data-testid="difficulty-modal" data-props={JSON.stringify(Boolean(props))} />),
+  confirmModal: vi.fn((props: unknown) => <div data-testid="confirm-modal" data-props={JSON.stringify(Boolean(props))} />),
+  editalSubjectsModal: vi.fn((props: unknown) => <div data-testid="edital-subjects-modal" data-props={JSON.stringify(Boolean(props))} />),
+  cycleExamDateDialog: vi.fn((props: unknown) => <div data-testid="exam-date-dialog" data-props={JSON.stringify(Boolean(props))} />),
 }));
 
 vi.mock('@/components/reviews/NotesModal', () => ({
@@ -107,7 +107,7 @@ describe('SubjectsModalLayer', () => {
             name: 'Edital PC',
             organ: 'PC',
             position: 'Escrivão',
-            year: 2026,
+            year: '2026',
             examDate: '',
             createdAt: '',
             updatedAt: '',
@@ -120,7 +120,7 @@ describe('SubjectsModalLayer', () => {
           },
           initialExpandedSubjectId: 'subject-1',
         }}
-        unloadConfirm={{ isOpen: true, editalId: 'edital-1', editalName: 'Edital PC' }}
+        unloadConfirm={{ isOpen: true, editalId: 'edital-1', editalName: 'Edital PC', subjectIds: [] }}
         unloadingEditalId={null}
       />,
     );

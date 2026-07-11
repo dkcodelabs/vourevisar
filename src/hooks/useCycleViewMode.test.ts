@@ -10,13 +10,11 @@ describe('useCycleViewMode', () => {
 
     const { result } = renderHook(() => useCycleViewMode({
       activeTab: 'all',
-      cycleExpandedSubjectIds: [],
       expandedSubjectIds: [],
       filteredSubjectIds: ['subject-1'],
       setActiveTab,
       setCycleExpandedSubjectIds: vi.fn(),
       setVerticalExpandedSubjectIds,
-      verticalExpandedSubjectIds: [],
       verticalSubjectIds: ['subject-1', 'subject-2'],
     }));
 
@@ -34,13 +32,11 @@ describe('useCycleViewMode', () => {
 
     const { result, rerender } = renderHook((activeTab: 'all' | 'vertical') => useCycleViewMode({
       activeTab,
-      cycleExpandedSubjectIds: ['subject-1'],
       expandedSubjectIds: ['subject-1'],
       filteredSubjectIds: ['subject-1', 'subject-2'],
       setActiveTab: vi.fn(),
       setCycleExpandedSubjectIds,
       setVerticalExpandedSubjectIds,
-      verticalExpandedSubjectIds: ['subject-3'],
       verticalSubjectIds: ['subject-3', 'subject-4'],
     }), {
       initialProps: 'all',
@@ -75,13 +71,11 @@ describe('useCycleViewMode', () => {
       expandedSubjectIds: string[];
     }) => useCycleViewMode({
       activeTab: props.activeTab,
-      cycleExpandedSubjectIds: ['subject-1'],
       expandedSubjectIds: props.expandedSubjectIds,
       filteredSubjectIds: ['subject-1', 'subject-2'],
       setActiveTab: vi.fn(),
       setCycleExpandedSubjectIds,
       setVerticalExpandedSubjectIds,
-      verticalExpandedSubjectIds: ['subject-3'],
       verticalSubjectIds: ['subject-3', 'subject-4'],
     }), {
       initialProps: {

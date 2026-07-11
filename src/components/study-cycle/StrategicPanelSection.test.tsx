@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  strategicPanel: vi.fn(() => <div data-testid="strategic-panel" />),
+  strategicPanel: vi.fn((props: unknown) => <div data-testid="strategic-panel" data-props={JSON.stringify(Boolean(props))} />),
   scrollIntoView: vi.fn(),
 }));
 
@@ -33,8 +33,30 @@ describe('StrategicPanelSection', () => {
           hasSavedCycleHistory: false,
         }}
         cycleTransitionSummary={{
+          averageMinutesPerStartedTopic: null,
+          completedSubjects: 0,
+          completedTopics: 0,
+          firstContactClosedSubjects: 0,
           hasNoNewTopicsToStart: false,
           isEditalCompleted: false,
+          primaryAction: {
+            description: 'Continuar ciclo',
+            kind: 'continue_cycle',
+            label: 'Continuar ciclo',
+            to: '/ciclo-estudos',
+          },
+          reviewCounts: {
+            future: 0,
+            overdue: 0,
+            today: 0,
+            unscheduled: 0,
+          },
+          startedTopics: 0,
+          topSubjectByStudyMinutes: null,
+          totalStudyMinutes: 0,
+          totalSubjects: 0,
+          totalTopics: 0,
+          unstartedTopics: 0,
         }}
         cycleVisualStats={{ daysToFinish: 5 }}
         editaisNoCiclo={[]}

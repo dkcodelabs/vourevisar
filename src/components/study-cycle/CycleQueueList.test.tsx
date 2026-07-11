@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Subject, Topic } from '@/types';
 
 const mocks = vi.hoisted(() => ({
-  cycleSubjectCard: vi.fn(({ children }) => <div data-testid="subject-card">{children}</div>),
-  cycleTopicRow: vi.fn(() => <div data-testid="topic-row" />),
+  cycleSubjectCard: vi.fn((props: { children?: React.ReactNode }) => <div data-testid="subject-card">{props.children}</div>),
+  cycleTopicRow: vi.fn((props: unknown) => <div data-testid="topic-row" data-props={JSON.stringify(Boolean(props))} />),
 }));
 
 vi.mock('./CycleSubjectCard', () => ({

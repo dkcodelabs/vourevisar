@@ -78,7 +78,7 @@ const scheduleDismiss = (id: ToastId, options: CustomToastOptions | undefined, k
     ? false
     : options?.duration ?? options?.autoClose ?? DEFAULT_DURATION[kind];
 
-  if (!duration || duration === false) return;
+  if (duration === false || duration <= 0) return;
 
   durations.set(id, duration);
   timers.set(id, setTimeout(() => {

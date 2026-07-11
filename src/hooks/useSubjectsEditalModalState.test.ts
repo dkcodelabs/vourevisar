@@ -19,7 +19,7 @@ const edital = {
   name: 'Receita Federal',
   organ: 'RFB',
   position: 'Analista',
-  year: 2026,
+  year: '2026',
   exam_date: '2026-10-10',
   created_at: '2026-07-01T00:00:00Z',
   updated_at: '2026-07-02T00:00:00Z',

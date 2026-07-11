@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  cycleWorkspaceHeader: vi.fn(() => <div data-testid="workspace-header" />),
+  cycleWorkspaceHeader: vi.fn((props: unknown) => <div data-testid="workspace-header" data-props={JSON.stringify(Boolean(props))} />),
 }));
 
 vi.mock('./CycleWorkspaceHeader', () => ({

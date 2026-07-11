@@ -94,6 +94,8 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
     const fallbackContext: ActiveTopicContext = {
       topicId,
       subjectId: null,
+      topicName: 'Tópico Ativo',
+      subjectName: 'Revisão',
       destination: 'reviews',
     };
     setActiveTopicContext(fallbackContext);

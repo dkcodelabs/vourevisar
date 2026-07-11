@@ -30,6 +30,22 @@ import type { CycleEditalUnloadConfirmation } from '@/hooks/useCycleEditalUnload
 import type { Subject } from '@/types';
 import type { UserEdital as EditalModalData } from '@/pages/Editais';
 
+type ImportSubjectsHandler = (
+  subjects: Subject[],
+  editalName?: string,
+  isImported?: boolean,
+  sourceId?: string,
+  extraInfo?: {
+    organ: string;
+    position: string;
+    year: string;
+    category?: string;
+    exam_date?: string;
+    exam_board?: string;
+    source_updated_at?: string;
+  },
+) => void | Promise<void>;
+
 type SelectedTopicForNotes = {
   id: string;
   name: string;
@@ -91,7 +107,7 @@ type SubjectsModalLayerProps = {
   onCloseSubjectsModal: () => void;
   onCycleExamDateOpenChange: (open: boolean) => void;
   onDeletePermanentConfirmOpenChange: (open: boolean) => void;
-  onImportSubjects: (...args: unknown[]) => unknown;
+  onImportSubjects: ImportSubjectsHandler;
   onResetCycleConfirmOpenChange: (open: boolean) => void;
   onRevertMergeConfirm: () => Promise<void>;
   onSaveCycleExamDate: () => void;

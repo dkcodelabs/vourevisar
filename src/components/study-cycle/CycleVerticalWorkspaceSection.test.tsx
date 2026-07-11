@@ -4,9 +4,9 @@ import { render, screen } from '@testing-library/react';
 import type { Subject, Topic } from '@/types';
 
 const mocks = vi.hoisted(() => ({
-  verticalEditalSummary: vi.fn(() => <div data-testid="vertical-summary" />),
-  verticalEditalView: vi.fn(() => <div data-testid="vertical-view" />),
-  subjectWeightRenderer: vi.fn(() => <div data-testid="weight-renderer" />),
+  verticalEditalSummary: vi.fn((props: unknown) => <div data-testid="vertical-summary" data-props={JSON.stringify(Boolean(props))} />),
+  verticalEditalView: vi.fn((props: unknown) => <div data-testid="vertical-view" data-props={JSON.stringify(Boolean(props))} />),
+  subjectWeightRenderer: vi.fn((props: unknown) => <div data-testid="weight-renderer" data-props={JSON.stringify(Boolean(props))} />),
 }));
 
 vi.mock('./VerticalEditalSummary', () => ({
@@ -80,7 +80,7 @@ describe('CycleVerticalWorkspaceSection', () => {
         setWeightDraft={vi.fn()}
         subjects={[{ id: subject.id, subject, topics: [topic] }]}
         summaryEdital={null}
-        weightDraft={{ mode: 'questions', rawValue: '10' }}
+        weightDraft={{ questions: '10', points: '', percentage: '' }}
         weightSavedSubjectId={null}
       />,
     );
