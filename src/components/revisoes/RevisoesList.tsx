@@ -387,6 +387,14 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                     {isActive && <span className="inline-block text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full animate-pulse align-middle">Em andamento</span>}
                                                                 </div>
                                                                 {item.subject && <p className="text-xs text-content-muted mt-1 font-bold uppercase truncate">{item.subject}</p>}
+                                                                {item.showOrigin && item.originSummary && (
+                                                                    <p
+                                                                        className="mt-1 max-w-full truncate text-[11px] font-semibold text-content-muted/80"
+                                                                        title={item.originLabels?.join(' + ') || item.originSummary}
+                                                                    >
+                                                                        Origem: {item.originSummary}
+                                                                    </p>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>

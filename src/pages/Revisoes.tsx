@@ -19,6 +19,7 @@ import { getCanonicalSubjectName, getCanonicalTopicName } from '@/services/cycle
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
 import { getStudyCycleMetrics } from '@/utils/studyCycleMetrics';
+import { buildReviewOriginMetadata } from '@/utils/reviewOriginLabels';
 
 
 import { ReviewHistoryItem, RevisionItem, RevisionStatus } from '@/types/revision';
@@ -120,7 +121,7 @@ export const Revisoes = () => {
   const { subjects, refreshData } = useApp();
   const { userCycle, isLoading: isCycleLoading } = useCycleState();
   const { dynamicUnificationMap } = useMergeData();
-  const { editaisData, editaisNoCiclo } = useEditalOriginsWithMerge();
+  const { editaisData, editaisNoCiclo, getOriginsForTopic } = useEditalOriginsWithMerge();
   
   const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
   const hasAnyEdital = editaisData.length > 0 || subjects.length > 0;
@@ -330,6 +331,12 @@ export const Revisoes = () => {
       const rawSubjectName = subject?.name || 'Desconhecida';
       const canonicalSubjectName = getCanonicalSubjectName(topic.subject_id, rawSubjectName, dynamicUnificationMap);
       const canonicalTopicName = getCanonicalTopicName(topic.id, topic.name, dynamicUnificationMap);
+      const originMetadata = buildReviewOriginMetadata({
+        editais: editaisData,
+        sourceEditalIds: topic.source_edital_ids,
+        fallbackOrigins: getOriginsForTopic(topic.id, topic.subject_id, topic.edital_id || undefined),
+        showInCompositeCycle: hasCompositeCycle,
+      });
 
       // Determine Status Dynamically - Use local date strings for consistency with hook
       let status = RevisionStatus.UNSTARTED;
@@ -363,7 +370,11 @@ export const Revisoes = () => {
         reviewCount,
         maxReviews,
         learningStatus: topic.learningStatus,
-        memoryStability: topic.memory_stability
+        memoryStability: topic.memory_stability,
+        originSummary: originMetadata.summary,
+        originLabels: originMetadata.labels,
+        isMergedOrigin: originMetadata.isMergedOrigin,
+        showOrigin: originMetadata.shouldShow,
       };
     };
 
@@ -392,7 +403,7 @@ export const Revisoes = () => {
     }
 
     return result;
-  }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews, dynamicUnificationMap]);
+  }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews, dynamicUnificationMap, editaisData, getOriginsForTopic, hasCompositeCycle]);
 
 
   const stats = useMemo(() => {
