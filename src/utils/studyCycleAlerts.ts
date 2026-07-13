@@ -4,6 +4,7 @@ import {
   getSubjectExamWeightPercentage,
   hasSubjectExamWeight,
 } from '@/utils/examWeight';
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 import { getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
 
@@ -75,10 +76,7 @@ type GetStudyCycleAlertsInput = {
 };
 
 const isTopicCompleted = (topic: AlertTopic) =>
-  topic.completed === true ||
-  topic.is_completed === true ||
-  topic.reviewStage === 'Concluído' ||
-  topic.review_stage === 'Concluído';
+  isReviewProgramCompleted(topic);
 
 const hasMeaningfulReviewStage = (stage?: string | null) => {
   const normalized = String(stage || '').trim().toLowerCase();

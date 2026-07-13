@@ -26,6 +26,8 @@ import {
   TopicMergePhaseResult,
 } from '@/types/cycleMergeTypes';
 import { mergeService } from './mergeService';
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
+import { buildTopicEquivalenceGroups, getExplicitSiblingTopicIds } from '@/utils/topicEquivalenceGraph';
 
 // ============================================
 // HELPERS
@@ -344,7 +346,6 @@ REGRAS OBRIGATÓRIAS:
     }
 
     const text = (data.text || '');
-    console.log(`[IA] Resposta bruta da IA (Materia-Módulo 2):`, text.substring(0, 200));
 
     try {
       const parsed = extractJsonFromText(text) as Array<{ subjectIds?: string[]; suggestedName?: string; reason?: string }>;
@@ -614,8 +615,6 @@ Retorne um JSON no formato: { "groups": [ { "originalTopicsToMerge": ["ID1", "ID
 
   const fullPrompt = basePrompt.replace('{{subject}}', subjectName) + `\n\nLista de Tópicos:\n${topicList}`;
 
-  console.log(`[IA] Chamando agrupamento sequencial para: ${subjectName} (${topics.length} tópicos)`);
-
   const { data, error } = await supabase.functions.invoke('ai-handler', {
     body: {
       action: 'generateContent',
@@ -628,7 +627,6 @@ Retorne um JSON no formato: { "groups": [ { "originalTopicsToMerge": ["ID1", "ID
   if (!data?.success) throw new Error(data?.error || 'Erro desconhecido na Edge Function');
 
   const text = (data.text || '');
-  console.log(`[IA] Resposta bruta da IA (Topicos-Módulo 2) para "${subjectName}":`, text.substring(0, 100));
 
   interface AITopicGroup {
     originalTopicIds?: string[];
@@ -657,10 +655,6 @@ Retorne um JSON no formato: { "groups": [ { "originalTopicsToMerge": ["ID1", "ID
     if (matchingTopics.length >= 2) {
       const topicNames = matchingTopics.map(t => t.name);
       if (!isSafeSemanticTopicMerge(topicNames)) {
-        console.warn('[TopicMerge] Sugestão semântica bloqueada por regra segura:', {
-          suggestedName,
-          topicNames,
-        });
         continue;
       }
 
@@ -893,7 +887,6 @@ export function applyTopicMergeToMap(unificationMap: CycleUnificationMap, result
 
 export async function saveUnificationMap(userId: string, unificationMap: CycleUnificationMap): Promise<void> {
   // Disabling DB save for unification_map - now handled dynamically in frontend
-  console.log('[cycleMergeService] Unification Map created (Dynamic Only)');
 }
 
 export async function loadUnificationMap(userId: string): Promise<CycleUnificationMap | null> {
@@ -902,9 +895,6 @@ export async function loadUnificationMap(userId: string): Promise<CycleUnificati
 }
 
 export async function persistPhysicalSoftMerge(unificationMap: CycleUnificationMap): Promise<void> {
-  console.log('[SoftMerge] Função desabilitada - tabela topics é global. Usar unification_map para lógica de visualização.');
-  console.log('[SoftMerge] A unificação é handled exclusivamente via frontend usando o unification_map.');
-  
   // IMPORTANTE: A tabela 'topics' é GLOBAL (sem user_id).
   // NÃO alteramos is_hidden ou parent_topic_id para evitar afetar outros usuários.
   // A lógica de visualização deve usar APENAS o unification_map para determinar
@@ -914,16 +904,12 @@ export async function persistPhysicalSoftMerge(unificationMap: CycleUnificationM
 }
 
 export function findSiblingTopicIds(completedTopicId: string, map: CycleUnificationMap | null): string[] {
-  if (!map || !Array.isArray(map.unifiedSubjects)) return [];
-  for (const s of map.unifiedSubjects) for (const tm of s.topicMappings || []) {
-    if (tm.originalTopicIds.includes(completedTopicId)) return tm.originalTopicIds.filter(id => id !== completedTopicId);
-  }
-  return [];
+  return getExplicitSiblingTopicIds(completedTopicId, buildTopicEquivalenceGroups({ unificationMap: map }));
 }
 
 export async function registerDualProgress(id: string, data: Partial<Topic>, map: CycleUnificationMap | null): Promise<void> {
-  const siblings = findSiblingTopicIds(id, map);
-  if (siblings.length === 0) return;
+  const siblings = new Set(findSiblingTopicIds(id, map));
+  if (siblings.size === 0) return;
 
   // Propagar tanto dados SRS quanto dados de estudo (notas, dificuldade, subtópicos)
   const updatePayload: Record<string, unknown> = {};
@@ -978,6 +964,60 @@ export function getUnifiedSubjectId(originalId: string, map: CycleUnificationMap
   if (!map) return originalId;
   const u = map.unifiedSubjects.find(sub => sub.originalSubjectIds.includes(originalId));
   return u ? u.originalSubjectIds[0] : originalId;
+}
+
+function normalizeCycleTopicName(name: string): string {
+  return name.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function chooseCycleTopicRepresentative(current: Topic, candidate: Topic): Topic {
+  const currentCompleted = isReviewProgramCompleted(current);
+  const candidateCompleted = isReviewProgramCompleted(candidate);
+
+  if (currentCompleted !== candidateCompleted) {
+    return candidateCompleted ? candidate : current;
+  }
+
+  const currentContactCount = Math.max(current.reviewCount || 0, current.review_count || 0);
+  const candidateContactCount = Math.max(candidate.reviewCount || 0, candidate.review_count || 0);
+  if (currentContactCount !== candidateContactCount) {
+    return candidateContactCount > currentContactCount ? candidate : current;
+  }
+
+  const currentNextReview = current.next_review ? new Date(current.next_review).getTime() : Number.POSITIVE_INFINITY;
+  const candidateNextReview = candidate.next_review ? new Date(candidate.next_review).getTime() : Number.POSITIVE_INFINITY;
+  if (currentNextReview !== candidateNextReview) {
+    return candidateNextReview < currentNextReview ? candidate : current;
+  }
+
+  const currentLastReview = current.last_reviewed_at ? new Date(current.last_reviewed_at).getTime() : 0;
+  const candidateLastReview = candidate.last_reviewed_at ? new Date(candidate.last_reviewed_at).getTime() : 0;
+  return candidateLastReview > currentLastReview ? candidate : current;
+}
+
+function dedupeUnifiedCycleTopics(topics: Topic[]): Topic[] {
+  const order: string[] = [];
+  const topicByName = new Map<string, Topic>();
+
+  for (const topic of topics) {
+    const key = normalizeCycleTopicName(topic.name);
+    const current = topicByName.get(key);
+
+    if (!current) {
+      order.push(key);
+      topicByName.set(key, topic);
+      continue;
+    }
+
+    const representative = chooseCycleTopicRepresentative(current, topic);
+    topicByName.set(key, {
+      ...representative,
+      name: current.name,
+      is_hidden: false,
+    });
+  }
+
+  return order.map(key => topicByName.get(key)).filter((topic): topic is Topic => Boolean(topic));
 }
 
 export function applyUnificationMap(subjects: Subject[], map: CycleUnificationMap | null): Subject[] {
@@ -1041,7 +1081,7 @@ export function applyUnificationMap(subjects: Subject[], map: CycleUnificationMa
       }
     });
 
-    result.push({ ...primarySub, name: u.displayName, topics: virtualTopics });
+    result.push({ ...primarySub, name: u.displayName, topics: dedupeUnifiedCycleTopics(virtualTopics) });
     u.originalSubjectIds.forEach(id => usedSubIds.add(id));
   }
   

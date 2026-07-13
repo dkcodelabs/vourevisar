@@ -9,6 +9,7 @@ const corsHeaders = {
 const ALLOWED_ACTIONS = new Set([
   "atomic_archive_edital_from_cycle",
   "atomic_cycle_load",
+  "reset_edital_study_progress",
   "get_subscription_info",
   "get_unified_subject_name",
   "get_unified_topic_name",
@@ -84,6 +85,7 @@ function isAuthorizedForAction(action: string, args: Record<string, unknown>, us
   switch (action) {
     case "atomic_archive_edital_from_cycle":
     case "atomic_cycle_load":
+    case "reset_edital_study_progress":
     case "sync_topic_merge_progress":
       return getString(args, "p_user_id") === userId;
     case "get_subscription_info":

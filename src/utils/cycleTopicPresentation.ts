@@ -1,4 +1,5 @@
 import type { Topic } from '@/types';
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 
 export type CycleTopicStatusVisual = {
@@ -26,10 +27,7 @@ export const isTopicNewlyStartedInCycle = (topic: Topic, cycleStart?: string | n
 };
 
 export const isTopicCompleted = (topic: Topic) =>
-  topic.completed === true ||
-  topic.is_completed === true ||
-  topic.reviewStage === 'Concluído' ||
-  topic.review_stage === 'Concluído';
+  isReviewProgramCompleted(topic);
 
 export const hasMeaningfulReviewStage = (stage?: string | null) => {
   const normalized = String(stage || '').trim().toLowerCase();

@@ -1,3 +1,5 @@
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
+
 export type StudyCycleTransitionTopic = {
   id: string;
   first_studied_at?: string | Date | null;
@@ -6,6 +8,8 @@ export type StudyCycleTransitionTopic = {
   nextReview?: string | Date | null;
   completed?: boolean | null;
   is_completed?: boolean | null;
+  reviewCount?: number | null;
+  review_count?: number | null;
   reviewStage?: string | null;
   review_stage?: string | null;
   is_active?: boolean | null;
@@ -79,10 +83,7 @@ const isVisibleTopic = (topic: StudyCycleTransitionTopic) =>
   topic.is_active !== false && topic.is_hidden !== true;
 
 const isTopicCompleted = (topic: StudyCycleTransitionTopic) =>
-  topic.completed === true ||
-  topic.is_completed === true ||
-  topic.reviewStage === 'Concluído' ||
-  topic.review_stage === 'Concluído';
+  isReviewProgramCompleted(topic);
 
 const hasMeaningfulReviewStage = (stage?: string | null) => {
   const normalized = String(stage || '').trim().toLowerCase();

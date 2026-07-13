@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getStartedTopicCycleCta,
   getStudyCycleSubjectActionState,
+  isSubjectFullyStartedInCycle,
 } from './studyCycleSubjectState';
 
 describe('studyCycleSubjectState', () => {
@@ -30,5 +31,11 @@ describe('studyCycleSubjectState', () => {
       ariaLabel: 'Ir para revisão do tópico Controle externo',
       label: 'Ir para Revisão',
     });
+  });
+
+  it('treats topics with completed contact count as finished when checking cycle closure', () => {
+    expect(isSubjectFullyStartedInCycle([
+      { review_count: 5, completed: false, review_stage: 'Revisão 4', first_studied_at: null },
+    ], '2026-07-09T09:00:00Z')).toBe(true);
   });
 });

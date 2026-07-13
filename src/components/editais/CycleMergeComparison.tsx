@@ -8,6 +8,7 @@ import {
     Layers3,
     Link2,
     Merge,
+    Search,
     X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -42,6 +43,7 @@ type ManualSelection = {
     candidateTopicId?: string;
     subjectGroupId: string;
     topicId: string;
+    topicName: string;
 };
 
 interface PreviewColumnProps {
@@ -49,24 +51,36 @@ interface PreviewColumnProps {
     expanded: boolean;
     isUnifiedResult: boolean;
     manualCandidateTopics?: CycleMergeComparisonTopic[];
+    manualCandidateQuery?: string;
     manualSelection?: ManualSelection | null;
     onCancelManualSelection?: () => void;
     onConfirmManualSelection?: (candidateTopicId: string) => void;
+    onManualCandidateQueryChange?: (query: string) => void;
     onRemoveManualEquivalence?: (subjectGroupId: string, topicIds: string[]) => void;
-    onStartManualSelection?: (subjectGroupId: string, topicId: string, candidateTopicId?: string) => void;
+    onStartManualSelection?: (subjectGroupId: string, topicId: string, topicName: string, candidateTopicId?: string) => void;
     sourceNameById: Map<string, string>;
     subjects: CycleMergeComparisonSubject[];
     title: string;
 }
+
+const normalizeSearchText = (value: string): string => (
+    value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+);
 
 function PreviewColumn({
     description,
     expanded,
     isUnifiedResult,
     manualCandidateTopics = [],
+    manualCandidateQuery = '',
     manualSelection,
     onCancelManualSelection,
     onConfirmManualSelection,
+    onManualCandidateQueryChange,
     onRemoveManualEquivalence,
     onStartManualSelection,
     sourceNameById,
@@ -74,6 +88,10 @@ function PreviewColumn({
     title,
 }: PreviewColumnProps) {
     const Icon = isUnifiedResult ? Merge : Layers3;
+    const normalizedManualQuery = normalizeSearchText(manualCandidateQuery);
+    const visibleManualCandidateTopics = normalizedManualQuery
+        ? manualCandidateTopics.filter(topic => normalizeSearchText(topic.name).includes(normalizedManualQuery))
+        : manualCandidateTopics;
 
     return (
         <section
@@ -170,52 +188,88 @@ function PreviewColumn({
                                     {!topic.isUnified && isUnifiedResult && onStartManualSelection && (
                                         <button
                                             type="button"
-                                            onClick={() => onStartManualSelection(subject.id, topic.id)}
-                                            aria-label={`Marcar ${topic.name} como equivalente`}
+                                            onClick={() => onStartManualSelection(subject.id, topic.id, topic.name)}
+                                            aria-label={`Escolher equivalente para ${topic.name}`}
                                             className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-primary/15 bg-primary/5 px-1.5 text-[8px] font-black uppercase tracking-[0.08em] text-primary transition-colors hover:bg-primary/10"
                                         >
                                             <Link2 size={10} aria-hidden="true" />
-                                            Marcar equivalente
+                                            Escolher equivalente
                                         </button>
                                     )}
                                     {isManualSelectionActive && (
-                                        <div className="basis-full rounded-lg border border-primary/15 bg-primary/5 p-2">
-                                            <div className="flex flex-wrap items-center gap-1.5">
-                                                {manualCandidateTopics.length > 0 ? manualCandidateTopics.map(candidateTopic => (
+                                        <div className="basis-full rounded-lg border border-primary/20 bg-primary/5 p-2">
+                                            <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                                                <div className="min-w-0">
+                                                    <p className="text-[9px] font-black uppercase tracking-[0.08em] text-primary">
+                                                        Escolha o tópico equivalente
+                                                    </p>
+                                                    <p className="mt-0.5 text-[9px] font-medium leading-snug text-content-muted">
+                                                        Origem: <span className="font-bold text-foreground">{manualSelection.topicName}</span>
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={onCancelManualSelection}
+                                                    className="self-start rounded-md px-2 py-1 text-[9px] font-bold text-content-muted transition-colors hover:bg-background/60 hover:text-foreground sm:self-auto"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            </div>
+
+                                            {manualCandidateTopics.length > 0 ? (
+                                                <label className="mb-2 flex h-8 items-center gap-1.5 rounded-md border border-border bg-background/75 px-2 text-content-muted focus-within:border-primary/40 focus-within:text-primary">
+                                                    <Search size={12} aria-hidden="true" className="shrink-0" />
+                                                    <span className="sr-only">Pesquisar tópico equivalente</span>
+                                                    <input
+                                                        type="search"
+                                                        aria-label="Pesquisar tópico equivalente"
+                                                        value={manualCandidateQuery}
+                                                        onChange={event => onManualCandidateQueryChange?.(event.target.value)}
+                                                        placeholder="Pesquisar tópico equivalente"
+                                                        className="min-w-0 flex-1 bg-transparent text-[10px] font-semibold text-foreground outline-none placeholder:text-content-muted/70"
+                                                    />
+                                                    <span className="shrink-0 text-[8px] font-bold tabular-nums text-content-muted">
+                                                        {visibleManualCandidateTopics.length}/{manualCandidateTopics.length}
+                                                    </span>
+                                                </label>
+                                            ) : null}
+
+                                            <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
+                                                {manualCandidateTopics.length > 0 && visibleManualCandidateTopics.length > 0 ? visibleManualCandidateTopics.map(candidateTopic => (
                                                     <button
                                                         key={candidateTopic.id}
                                                         type="button"
-                                                        onClick={() => onStartManualSelection?.(subject.id, topic.id, candidateTopic.id)}
+                                                        onClick={() => onStartManualSelection?.(subject.id, topic.id, topic.name, candidateTopic.id)}
                                                         aria-label={`Selecionar ${candidateTopic.name} como equivalente`}
-                                                        className={`rounded-md border px-2 py-1 text-[9px] font-bold transition-colors ${
+                                                        className={`flex w-full items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-left text-[10px] font-bold transition-colors ${
                                                             manualSelection?.candidateTopicId === candidateTopic.id
                                                                 ? 'border-primary/40 bg-primary/15 text-primary'
                                                                 : 'border-border bg-background/70 text-foreground hover:border-primary/30 hover:bg-primary/10'
                                                         }`}
                                                     >
-                                                        {candidateTopic.name}
+                                                        <span className="min-w-0 break-words leading-snug">{candidateTopic.name}</span>
+                                                        {manualSelection?.candidateTopicId === candidateTopic.id && (
+                                                            <CheckCircle2 size={12} aria-hidden="true" className="mt-0.5 shrink-0" />
+                                                        )}
                                                     </button>
-                                                )) : (
+                                                )) : manualCandidateTopics.length > 0 ? (
+                                                    <span className="block rounded-md border border-dashed border-border bg-background/50 px-2 py-2 text-[9px] font-medium text-content-muted">
+                                                        Nenhum tópico encontrado com esse filtro.
+                                                    </span>
+                                                ) : (
                                                     <span className="text-[9px] font-medium text-content-muted">
                                                         Nao ha outro topico livre de edital diferente neste grupo.
                                                     </span>
                                                 )}
-                                                <button
-                                                    type="button"
-                                                    onClick={onCancelManualSelection}
-                                                    className="rounded-md px-2 py-1 text-[9px] font-bold text-content-muted transition-colors hover:bg-background/60 hover:text-foreground"
-                                                >
-                                                    Cancelar
-                                                </button>
                                             </div>
-                                            {manualCandidateTopics.length > 0 && (
+                                            {manualCandidateTopics.length > 0 && visibleManualCandidateTopics.length > 0 && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => onConfirmManualSelection?.(manualSelection?.candidateTopicId || manualCandidateTopics[0].id)}
+                                                    onClick={() => onConfirmManualSelection?.(manualSelection?.candidateTopicId || visibleManualCandidateTopics[0].id)}
                                                     aria-label="Confirmar equivalência manual"
                                                     className="mt-2 inline-flex h-7 items-center rounded-md bg-primary px-2 text-[9px] font-black uppercase tracking-[0.08em] text-primary-foreground"
                                                 >
-                                                    Confirmar equivalencia manual
+                                                    Confirmar equivalencia
                                                 </button>
                                             )}
                                         </div>
@@ -247,6 +301,7 @@ export function CycleMergeComparison({
 }: CycleMergeComparisonProps) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [manualSelection, setManualSelection] = useState<ManualSelection | null>(null);
+    const [manualCandidateQuery, setManualCandidateQuery] = useState('');
     const comparison = useMemo(
         () => buildCycleMergeComparison(subjects, unificationMap),
         [subjects, unificationMap],
@@ -294,6 +349,7 @@ export function CycleMergeComparison({
             topicIds: [manualSelection.topicId, candidateTopicId],
         });
         setManualSelection(null);
+        setManualCandidateQuery('');
         if (nextMap !== unificationMap) onUnificationMapChange(nextMap);
     };
 
@@ -367,12 +423,20 @@ export function CycleMergeComparison({
                     expanded={isExpanded}
                     isUnifiedResult
                     manualCandidateTopics={manualCandidateTopics}
+                    manualCandidateQuery={manualCandidateQuery}
                     manualSelection={manualSelection}
-                    onCancelManualSelection={() => setManualSelection(null)}
+                    onCancelManualSelection={() => {
+                        setManualSelection(null);
+                        setManualCandidateQuery('');
+                    }}
                     onConfirmManualSelection={handleConfirmManualSelection}
+                    onManualCandidateQueryChange={setManualCandidateQuery}
                     onRemoveManualEquivalence={handleRemoveManualEquivalence}
                     onStartManualSelection={onUnificationMapChange
-                        ? (subjectGroupId, topicId, candidateTopicId) => setManualSelection({ subjectGroupId, topicId, candidateTopicId })
+                        ? (subjectGroupId, topicId, topicName, candidateTopicId) => {
+                            setManualSelection({ subjectGroupId, topicId, topicName, candidateTopicId });
+                            setManualCandidateQuery('');
+                        }
                         : undefined}
                     sourceNameById={sourceNameById}
                 />

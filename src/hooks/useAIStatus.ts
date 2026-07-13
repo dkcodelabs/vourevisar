@@ -42,7 +42,6 @@ export async function checkAIStatusDirect(silent = true): Promise<AIStatus> {
     }
     
     const model = data?.model || null;
-    console.log('[AIStatus] Modelo retornado pela API:', model);
 
     const newStatus: AIStatus = {
       status: 'active',

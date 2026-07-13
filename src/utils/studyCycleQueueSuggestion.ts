@@ -3,6 +3,7 @@ import {
   getSubjectExamWeightPercentage,
   hasSubjectExamWeight,
 } from '@/utils/examWeight';
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
 
 type QueueTopic = {
@@ -54,10 +55,7 @@ const activeTopics = (subject: QueueSubject) =>
   getVisibleCycleTopics(subject.topics);
 
 const isTopicCompleted = (topic: QueueTopic) =>
-  topic.completed === true ||
-  topic.is_completed === true ||
-  topic.reviewStage === 'Concluído' ||
-  topic.review_stage === 'Concluído';
+  isReviewProgramCompleted(topic);
 
 const hasMeaningfulReviewStage = (stage?: string | null) => {
   const normalized = String(stage || '').trim().toLowerCase();

@@ -15,6 +15,7 @@ import {
   getVisibleCycleTopics,
   isVisibleCycleTopic,
 } from '@/utils/studyCycleTopicVisibility';
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { getStudyCycleTransitionSummary } from '@/utils/studyCycleTransitionSummary';
 import { getUnifiedSubjectId } from '@/services/cycleMergeService';
 
@@ -53,10 +54,7 @@ const getTopicFirstStudyDate = (topic: Subject['topics'][number]): string | Date
   topic.first_studied_at || topic.firstStudiedAt;
 
 const isTopicCompleted = (topic: Subject['topics'][number]) =>
-  topic.completed === true ||
-  topic.is_completed === true ||
-  topic.reviewStage === 'Concluído' ||
-  topic.review_stage === 'Concluído';
+  isReviewProgramCompleted(topic);
 
 const hasMeaningfulReviewStage = (stage?: string | null) => {
   const normalized = String(stage || '').trim().toLowerCase();

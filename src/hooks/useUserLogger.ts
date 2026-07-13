@@ -82,7 +82,6 @@ export const useUserLogger = () => {
 
             // Check Lock
             if (inFlightRequests.has(lockKey)) {
-                console.log(`[Audit] Blocked duplicate ${eventType} (Client Lock): ${lockKey}`);
                 return;
             }
             inFlightRequests.add(lockKey);
@@ -124,14 +123,10 @@ export const useUserLogger = () => {
             if (res?.status === 'error') {
                 // Check if it's a duplicate key error (safe to ignore as it means deduplication worked)
                 if (res.message?.includes('duplicate key') || res.message?.includes('unique constraint')) {
-                    console.log(`[Audit] ${eventType} ignored (Duplicate): Deduplication gate active.`);
+                    return;
                 } else {
                     console.error(`[Audit] Failed to log ${eventType} (Backend Error):`, res.message);
                 }
-            } else if (res?.status === 'skipped') {
-                console.log(`[Audit] ${eventType} skipped: ${res.reason}`);
-            } else {
-                console.log(`[Audit] Logging ${eventType}`, { requestId, logId: res?.log_id });
             }
 
             // Release lock after delay

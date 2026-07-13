@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-    CheckCircle2, Sparkles, BookOpen, Calendar, CalendarOff, ChevronRight,
-    Play, Square, FileText, Loader2
+    CheckCircle2, Sparkles, BookOpen, CalendarOff, ChevronRight,
+    Play, Square, FileText, Loader2, ClipboardList, FilterX
 } from 'lucide-react';
 import { RevisionItem, RevisionStatus } from '@/types/revision';
 import { useNavigate } from 'react-router-dom';
@@ -77,10 +77,10 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
             case RevisionStatus.OVERDUE: return { title: 'Atrasadas', color: 'border-red-400', text: 'text-rose-500' };
             case RevisionStatus.TODAY: return { title: 'Hoje', color: 'border-orange-500', text: 'text-orange-500' };
             case RevisionStatus.FUTURE: return { title: 'Futuras', color: 'border-blue-500', text: 'text-blue-500' };
-            case RevisionStatus.COMPLETED: return { title: 'Concluídas (Antigas)', color: 'border-emerald-500', text: 'text-emerald-500' };
+            case RevisionStatus.COMPLETED: return { title: 'Concluídas', color: 'border-emerald-500', text: 'text-emerald-500' };
             case RevisionStatus.CONSOLIDATED: return { title: 'Já dominados', color: 'border-border', text: 'text-emerald-500' };
             case RevisionStatus.UNSTARTED: return { title: 'Não Iniciados', color: 'border-border', text: 'text-blue-500' };
-            default: return { title: groupKey, color: 'border-purple-500', text: 'text-purple-600' };
+            default: return { title: groupKey, color: 'border-primary/40', text: 'text-primary' };
         }
     };
 
@@ -95,41 +95,41 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                         {/* Caso 1: Usuário não tem dados ainda */}
                         {stats.totalTopics === 0 ? (
                             <>
-                                <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                                    <span className="text-4xl">📚</span>
+                                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary">
+                                    <BookOpen size={30} />
                                 </div>
                                 <h3 className="text-xl font-bold text-foreground mb-3">
                                     {stats.totalSubjects === 0
-                                        ? "Comece sua jornada de revisões!"
-                                        : "Quase lá! Faltam os Tópicos"}
+                                        ? "Monte seu edital para liberar revisões"
+                                        : "Adicione tópicos para começar"}
                                 </h3>
                                 <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
                                     {stats.totalSubjects === 0 ? (
-                                        "Cadastre matéria, tópico e inicie o estudo de um tópico na página Ciclo de Estudos."
+                                        "Cadastre ou importe um edital. Depois, inicie o primeiro tópico no Ciclo de Estudos para gerar revisões automaticamente."
                                     ) : (
-                                        "Cadastre tópico e vá para a página Ciclo de Estudos para iniciar estudo e posteriormente as revisões aparecerem."
+                                        "Inclua tópicos nas matérias e inicie o estudo pelo Ciclo. As revisões entram aqui depois da primeira sessão concluída."
                                     )}
                                 </p>
                                 <button
                                     onClick={() => navigate('/meus-editais')}
-                                    className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                                    className="app-button-primary px-6 py-3 text-sm font-bold transition-colors"
                                 >
-                                    {stats.totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}
+                                    {stats.totalSubjects === 0 ? 'Ir para Meus Editais' : 'Gerenciar tópicos'}
                                 </button>
                             </>
                         ) : stats.startedTopicsCount === 0 ? (
                             /* Caso 2: Tem tópicos mas nunca iniciou nenhum estudo */
                             <>
-                                <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                                    <Sparkles size={32} className="text-indigo-600 dark:text-indigo-400" />
+                                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary">
+                                    <Sparkles size={30} />
                                 </div>
-                                <h3 className="text-xl font-bold text-foreground mb-3">Nenhuma revisão iniciada</h3>
+                                <h3 className="text-xl font-bold text-foreground mb-3">Nenhum tópico iniciado ainda</h3>
                                 <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
-                                    Ainda não foi iniciada nenhuma revisão deste ciclo. As revisões aparecerão automaticamente após você iniciar o estudo no Ciclo de Estudos e marcar como revisado.
+                                    As revisões aparecem depois que você inicia um tópico no Ciclo de Estudos e conclui a sessão com avaliação de dificuldade.
                                 </p>
                                 <button
                                     onClick={() => navigate('/ciclo-estudos')}
-                                    className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                                    className="app-button-primary px-6 py-3 text-sm font-bold transition-colors"
                                 >
                                     Ir para o Ciclo de Estudos
                                 </button>
@@ -140,34 +140,33 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50 dark:ring-emerald-900/10">
                                     <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400" />
                                 </div>
-                                <h3 className="text-lg font-bold text-foreground mb-2">Parabéns! Tudo em dia!</h3>
+                                <h3 className="text-lg font-bold text-foreground mb-2">Revisões em dia</h3>
                                 <p className="text-content-muted max-w-md mx-auto mb-6 leading-relaxed">
-                                    Você zerou suas revisões de hoje e atrasadas. <br /> Seu foco e disciplina estão rendendo frutos.
+                                    Você não tem revisões vencidas ou programadas para hoje.
                                 </p>
 
-                                {/* Frase Motivacional - Responsiva */}
-                                <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-success/20 px-5 py-3 rounded-2xl mb-8 shadow-sm">
-                                    <span className="text-xl flex-shrink-0">✅</span>
+                                <div className="mb-8 flex items-center gap-3 rounded-2xl border border-success/20 bg-success/8 px-5 py-3">
+                                    <CheckCircle2 size={18} className="flex-shrink-0 text-success" />
                                     <p className="text-sm md:text-base text-foreground font-medium whitespace-normal md:whitespace-nowrap">
-                                        Cada revisão concluída é uma etapa mais perto da sua conquista.
+                                        Continue pelo ciclo quando quiser avançar em novos tópicos.
                                     </p>
                                 </div>
 
                                 {(stats.totalTopics - stats.startedTopicsCount > 0) && (
-                                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo-estudos')}>
-                                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <div className="max-w-sm w-full rounded-2xl border border-primary/15 bg-primary/8 p-5 relative overflow-hidden group hover:border-primary/30 transition-all cursor-pointer" onClick={() => navigate('/ciclo-estudos')}>
+                                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
                                             <Sparkles size={80} />
                                         </div>
                                         <div className="flex items-start gap-4 relative z-10">
-                                            <div className="p-2.5 bg-indigo-100 dark:bg-indigo-800/50 rounded-xl shrink-0">
-                                                <Sparkles size={20} className="text-indigo-600 dark:text-indigo-400 fill-indigo-200 dark:fill-indigo-900" />
+                                            <div className="p-2.5 bg-primary/10 rounded-xl shrink-0">
+                                                <Sparkles size={20} className="text-primary" />
                                             </div>
                                             <div className="text-left">
-                                                <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-1">Mantenha o progresso!</p>
-                                                <p className="text-xs text-indigo-700 dark:text-indigo-400/90 mb-3 leading-relaxed">
-                                                    Você tem <span className="font-bold bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded text-indigo-800 dark:text-indigo-200">{stats.totalTopics - stats.startedTopicsCount} tópicos</span> ainda não iniciados. Que tal começar um agora?
+                                                <p className="text-sm font-bold text-foreground mb-1">Ainda há tópico novo no ciclo</p>
+                                                <p className="text-xs text-content-muted mb-3 leading-relaxed">
+                                                    {stats.totalTopics - stats.startedTopicsCount} {stats.totalTopics - stats.startedTopicsCount === 1 ? 'tópico ainda não foi iniciado' : 'tópicos ainda não foram iniciados'}.
                                                 </p>
-                                                <div className="flex items-center text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">
+                                                <div className="flex items-center text-xs font-bold text-primary group-hover:translate-x-1 transition-transform">
                                                     Ir para o Ciclo <ChevronRight size={14} className="ml-0.5" />
                                                 </div>
                                             </div>
@@ -193,20 +192,20 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                         </p>
 
                         {(stats.totalTopics - stats.startedTopicsCount > 0) && (
-                            <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-5 max-w-sm w-full relative overflow-hidden group hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer" onClick={() => navigate('/ciclo-estudos')}>
-                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <div className="max-w-sm w-full rounded-2xl border border-primary/15 bg-primary/8 p-5 relative overflow-hidden group hover:border-primary/30 transition-all cursor-pointer" onClick={() => navigate('/ciclo-estudos')}>
+                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
                                     <Sparkles size={80} />
                                 </div>
                                 <div className="flex items-start gap-4 relative z-10">
-                                    <div className="p-2.5 bg-indigo-100 dark:bg-indigo-800/50 rounded-xl shrink-0">
-                                        <BookOpen size={20} className="text-indigo-600 dark:text-indigo-400" />
+                                    <div className="p-2.5 bg-primary/10 rounded-xl shrink-0">
+                                        <BookOpen size={20} className="text-primary" />
                                     </div>
                                     <div className="text-left">
-                                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-1">Explore novos conteúdos</p>
-                                        <p className="text-xs text-indigo-700 dark:text-indigo-400/90 mb-3 leading-relaxed">
-                                            Existem <span className="font-bold bg-indigo-100 dark:bg-indigo-800 px-1.5 py-0.5 rounded text-indigo-800 dark:text-indigo-200">{stats.totalTopics - stats.startedTopicsCount} tópicos</span> aguardando início. Vá para o Ciclo de Estudos para testar seus conhecimentos e começar a jornada!
+                                        <p className="text-sm font-bold text-foreground mb-1">Avance pelo ciclo</p>
+                                        <p className="text-xs text-content-muted mb-3 leading-relaxed">
+                                            Existem {stats.totalTopics - stats.startedTopicsCount} {stats.totalTopics - stats.startedTopicsCount === 1 ? 'tópico aguardando primeiro contato' : 'tópicos aguardando primeiro contato'}.
                                         </p>
-                                        <div className="flex items-center text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform">
+                                        <div className="flex items-center text-xs font-bold text-primary group-hover:translate-x-1 transition-transform">
                                             Ir para o Ciclo <ChevronRight size={14} className="ml-0.5" />
                                         </div>
                                     </div>
@@ -236,45 +235,44 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                     <>
                         {stats.totalTopics === 0 ? (
                             <>
-                                <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-indigo-100 dark:from-slate-800 dark:to-indigo-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                                    <span className="text-4xl">📋</span>
+                                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary">
+                                    <ClipboardList size={30} />
                                 </div>
                                 <h3 className="text-xl font-bold text-foreground mb-3">Central de Revisões</h3>
                                 <p className="text-content-muted max-w-md mx-auto mb-6 leading-relaxed">
                                     {stats.totalSubjects === 0 ? (
-                                        "Cadastre matéria, tópico e inicie o estudo de um tópico na página Ciclo de Estudos."
+                                        "Cadastre ou importe um edital. Depois, inicie o primeiro tópico no Ciclo de Estudos."
                                     ) : (
-                                        "Cadastre tópico e vá para a página Ciclo de Estudos para iniciar estudo e posteriormente as revisões aparecerem."
+                                        "Cadastre tópicos nas matérias e inicie o estudo pelo Ciclo para criar sua fila de revisões."
                                     )}
                                 </p>
 
-                                {/* Features */}
                                 <div className="flex flex-wrap justify-center gap-3 max-w-lg mb-8">
                                     <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-1.5 rounded-full text-xs font-medium text-orange-700 dark:text-orange-300">
-                                        <span>⏰</span> Atrasados
+                                        Atrasadas
                                     </div>
                                     <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300">
-                                        <span>📅</span> Para Hoje
+                                        Hoje
                                     </div>
                                     <div className="flex items-center gap-2 bg-cyan-50 dark:bg-cyan-900/20 px-3 py-1.5 rounded-full text-xs font-medium text-cyan-700 dark:text-cyan-300">
-                                        <span>🔮</span> Futuros
+                                        Futuras
                                     </div>
                                     <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-full text-xs font-medium text-green-700 dark:text-green-300">
-                                        <span>✅</span> Concluídos
+                                        Dominadas
                                     </div>
                                 </div>
 
                                 <button
                                     onClick={() => navigate('/meus-editais')}
-                                    className="px-6 py-3 bg-gradient-to-r from-slate-700 to-indigo-600 hover:from-slate-800 hover:to-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                                    className="app-button-primary px-6 py-3 text-sm font-bold transition-colors"
                                 >
-                                    {stats.totalSubjects === 0 ? 'Adicionar Matérias' : 'Adicionar Tópicos'}
+                                    {stats.totalSubjects === 0 ? 'Ir para Meus Editais' : 'Gerenciar tópicos'}
                                 </button>
                             </>
                         ) : (
                             <>
-                                <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-green-100 dark:from-emerald-900/30 dark:to-green-900/30 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50 dark:ring-emerald-900/10">
-                                    <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400" />
+                                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-secondary text-content-muted">
+                                    <FilterX size={30} />
                                 </div>
                                 <h3 className="text-lg font-bold text-foreground mb-2">Nenhum tópico corresponde aos filtros</h3>
                                 <p className="text-content-muted max-w-md mx-auto mb-6 leading-relaxed">
@@ -282,7 +280,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                 </p>
                                 <button
                                     onClick={() => { setSearchTerm(''); setReviewStageFilter('all'); }}
-                                    className="px-5 py-2 bg-secondary hover:bg-accent text-foreground font-medium rounded-xl border border-border transition-all"
+                                    className="app-button-secondary px-5 py-2 text-sm font-bold transition-colors"
                                 >
                                     Limpar Filtros
                                 </button>
@@ -407,6 +405,14 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                 {(item.status === 'OVERDUE') && (
                                                                     <span className="text-rose-600 dark:text-rose-400 text-[11px] font-bold">Atrasada</span>
                                                                 )}
+                                                                <span
+                                                                    className="text-foreground text-[10px] font-black border border-primary/20 bg-primary/10 px-2 py-0.5 rounded w-full text-center tracking-wide"
+                                                                    title={`${item.reviewCount ?? 0} de ${item.maxReviews ?? 0} revisões programadas concluídas`}
+                                                                >
+                                                                    {item.reviewCount ?? 0}/{item.maxReviews ?? 0} revisões
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
                                                                 {item.learningStatus ? (
                                                                     <span
                                                                         className="text-content-muted text-[10px] font-semibold border border-border px-2 py-0.5 rounded cursor-help w-full text-center tracking-wide shadow-sm bg-secondary"
@@ -437,8 +443,8 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); handleAiAssist(item); }}
                                                                     disabled={!!loadingActions[item.id]}
-                                                                    className="h-10 w-10 flex items-center justify-center text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                    title="Assistente de Revisão"
+                                                                    className="h-10 w-10 flex items-center justify-center text-primary hover:bg-primary/10 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                    title="Assistente de revisão em preparação"
                                                                 >
                                                                     {loadingActions[item.id] === 'ai' ? (
                                                                         <Loader2 size={16} className="animate-spin" />

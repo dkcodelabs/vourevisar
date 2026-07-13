@@ -1,3 +1,4 @@
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { getVisibleCycleTopics } from './studyCycleTopicVisibility';
 
 type MetricTopic = {
@@ -239,10 +240,7 @@ export const buildStudyCyclePaceMetrics = ({
 };
 
 const isTopicCompleted = (topic: MetricTopic) =>
-  topic.completed === true ||
-  topic.is_completed === true ||
-  topic.reviewStage === 'Concluído' ||
-  topic.review_stage === 'Concluído';
+  isReviewProgramCompleted(topic);
 
 const hasMeaningfulReviewStage = (stage?: string | null) => {
   const normalized = String(stage || '').trim().toLowerCase();
