@@ -68,8 +68,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Listener para eventos de atualização de dados
   useEffect(() => {
-    const handleDataUpdate = (event: CustomEvent) => {
-      console.log(`🔄 AppContext: Event ${event.type} received, refreshing...`);
+    const handleDataUpdate = () => {
       refreshData();
     };
 

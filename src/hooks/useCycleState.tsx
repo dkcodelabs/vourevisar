@@ -208,7 +208,6 @@ export const useCycleState = () => {
       fetchUserCycle();
 
       const handleUpdate = () => {
-        console.log('🔄 [useCycleState] Global update detected. Refreshing...');
         fetchUserCycle();
       };
 

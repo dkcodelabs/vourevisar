@@ -15,8 +15,11 @@ const PROGRESS_FIELDS = new Set([
   'marked_for_review_at',
   'memory_stability',
   'next_review',
+  'notes',
+  'retention_score',
   'review_count',
   'review_stage',
+  'total_reviews',
 ]);
 
 const HISTORY_FIELDS = new Set([

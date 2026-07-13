@@ -4,6 +4,7 @@ import {
   getExamWeightTotals,
   hasSubjectExamWeight,
 } from '@/utils/examWeight';
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
 
 type EventTopic = {
@@ -82,8 +83,7 @@ const isTopicStarted = (topic: EventTopic) =>
   (topic.review_count || 0) > 0 ||
   hasMeaningfulReviewStage(topic.reviewStage) ||
   hasMeaningfulReviewStage(topic.review_stage) ||
-  topic.completed === true ||
-  topic.is_completed === true;
+  isReviewProgramCompleted(topic);
 
 const getStartedRatio = (subject: EventSubject) => {
   const topics = activeTopics(subject);

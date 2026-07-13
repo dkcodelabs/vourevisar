@@ -37,5 +37,7 @@ describe('getReviewStage', () => {
     })).toBe(false);
     expect(isReviewProgramCompleted({ completed: true, reviewStage: 'Revisão 3' })).toBe(true);
     expect(isReviewProgramCompleted({ completed: false, reviewStage: 'Concluído' })).toBe(true);
+    expect(isReviewProgramCompleted({ completed: false, reviewCount: 5, reviewStage: 'Revisão 4' })).toBe(true);
+    expect(isReviewProgramCompleted({ completed: false, review_count: 5, review_stage: 'Revisão 4' })).toBe(true);
   });
 });

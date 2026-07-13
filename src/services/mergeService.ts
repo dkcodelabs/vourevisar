@@ -2,13 +2,33 @@ import { supabase } from '@/integrations/supabase/client';
 import type { SubjectMerge, TopicMerge } from '@/types/merges';
 import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
 import { invokeUserRpc } from '@/services/userRpcService';
+import { buildConsolidatedTopicProgress, type TopicProgressRow } from '@/utils/topicProgressConsolidation';
 
 const clearLocalCache = (userId: string) => {
   if (typeof window === 'undefined') return;
-  console.log(`[mergeService] Limpando cache local para usuário ${userId}...`);
   localStorage.removeItem(`subjects_cache_${userId}_v2`);
   localStorage.removeItem(`user_cycle_cache_${userId}`);
 };
+
+const TOPIC_PROGRESS_SELECT = [
+  'id',
+  'completed',
+  'review_count',
+  'review_stage',
+  'next_review',
+  'first_studied_at',
+  'last_reviewed_at',
+  'difficulty_level',
+  'difficulty_set_at',
+  'notes',
+  'memory_stability',
+  'current_interval',
+  'retention_score',
+  'total_reviews',
+  'last_session_duration',
+  'is_marked_for_review',
+  'marked_for_review_at',
+].join(', ');
 
 export const mergeService = {
   async getUnifiedSubjectName(subjectId: string, userId: string): Promise<string | null> {
@@ -523,30 +543,16 @@ export const mergeService = {
         try {
           const { data: topicsData } = await supabase
               .from('topics')
-              .select('id, completed, review_count, next_review, last_reviewed_at, difficulty_level, notes, memory_stability, current_interval, retention_score, total_reviews')
+              .select(TOPIC_PROGRESS_SELECT)
               .in('id', allTids);
 
           if (topicsData && topicsData.length > 1) {
-              const masterTopic = [...topicsData].sort((a, b) => {
-                  if (a.completed && !b.completed) return -1;
-                  if (!a.completed && b.completed) return 1;
-                  return (b.review_count || 0) - (a.review_count || 0);
-              })[0];
+              const consolidatedProgress = buildConsolidatedTopicProgress(topicsData as TopicProgressRow[]);
+              if (!consolidatedProgress) continue;
 
               await supabase
                   .from('topics')
-                  .update({
-                      completed: masterTopic.completed,
-                      review_count: masterTopic.review_count,
-                      next_review: masterTopic.next_review,
-                      last_reviewed_at: masterTopic.last_reviewed_at,
-                      difficulty_level: masterTopic.difficulty_level,
-                      notes: masterTopic.notes,
-                      memory_stability: masterTopic.memory_stability,
-                      current_interval: masterTopic.current_interval,
-                      retention_score: masterTopic.retention_score,
-                      total_reviews: masterTopic.total_reviews
-                  })
+                  .update(consolidatedProgress)
                   .in('id', allTids);
           }
         } catch (syncErr) {
@@ -586,7 +592,6 @@ export const mergeService = {
     }
 
     // DISPARAR EVENTOS APÓS SALVAR UNIFICAÇÃO
-    console.log('[mergeService] Disparando eventos após salvar unificação do mapa...');
     clearLocalCache(userId);
     window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'save_map', timestamp: Date.now() } }));
     window.dispatchEvent(new CustomEvent('mergeUpdated', { detail: { type: 'save_map', timestamp: Date.now() } }));

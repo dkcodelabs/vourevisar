@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { format, startOfDay } from 'date-fns';
 import { AlertCircle, Loader2, Target, BookOpen } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -48,6 +48,70 @@ const getFocusTopicId = (state: unknown): string | undefined => {
 
 const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : '';
+
+const normalizeRevisionKeyPart = (value: string) =>
+  value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+const getRevisionItemKey = (item: RevisionItem) =>
+  `${normalizeRevisionKeyPart(item.subject)}::${normalizeRevisionKeyPart(item.topic)}`;
+
+const getRevisionStatusPriority = (status: RevisionStatus) => {
+  switch (status) {
+    case RevisionStatus.CONSOLIDATED:
+      return 6;
+    case RevisionStatus.COMPLETED:
+      return 5;
+    case RevisionStatus.OVERDUE:
+      return 4;
+    case RevisionStatus.TODAY:
+      return 3;
+    case RevisionStatus.FUTURE:
+      return 2;
+    case RevisionStatus.UNSTARTED:
+      return 1;
+    default:
+      return 0;
+  }
+};
+
+const chooseRevisionItemRepresentative = (current: RevisionItem, candidate: RevisionItem) => {
+  const currentPriority = getRevisionStatusPriority(current.status);
+  const candidatePriority = getRevisionStatusPriority(candidate.status);
+
+  if (currentPriority !== candidatePriority) {
+    return candidatePriority > currentPriority ? candidate : current;
+  }
+
+  const currentReviewCount = current.reviewCount || 0;
+  const candidateReviewCount = candidate.reviewCount || 0;
+  if (currentReviewCount !== candidateReviewCount) {
+    return candidateReviewCount > currentReviewCount ? candidate : current;
+  }
+
+  const currentDueTime = current.dueDate ? new Date(current.dueDate).getTime() : Number.POSITIVE_INFINITY;
+  const candidateDueTime = candidate.dueDate ? new Date(candidate.dueDate).getTime() : Number.POSITIVE_INFINITY;
+  return candidateDueTime < currentDueTime ? candidate : current;
+};
+
+const dedupeRevisionItemsByCanonicalName = (items: RevisionItem[]) => {
+  const order: string[] = [];
+  const itemByKey = new Map<string, RevisionItem>();
+
+  for (const item of items) {
+    const key = getRevisionItemKey(item);
+    const current = itemByKey.get(key);
+
+    if (!current) {
+      order.push(key);
+      itemByKey.set(key, item);
+      continue;
+    }
+
+    itemByKey.set(key, chooseRevisionItemRepresentative(current, item));
+  }
+
+  return order.map(key => itemByKey.get(key)).filter((item): item is RevisionItem => Boolean(item));
+};
 
 export const Revisoes = () => {
   const navigate = useNavigate();
@@ -195,7 +259,6 @@ export const Revisoes = () => {
     window.addEventListener('external-topic-completed', handleExternalCompletion as EventListener);
     
     const handleRefresh = () => {
-      console.log('🔔 [Revisoes] Refreshing due to cycle/merge update...');
       refetch();
       refreshData();
     };
@@ -224,9 +287,6 @@ export const Revisoes = () => {
     [RevisionStatus.COMPLETED]: true,
     [RevisionStatus.CONSOLIDATED]: true
   });
-  const [selectedItemForAI, setSelectedItemForAI] = useState<RevisionItem | null>(null);
-  const [aiExplanation, setAiExplanation] = useState<string>('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [highlightedTopicId, setHighlightedTopicId] = useState<string | null>(null);
   const lastReviewFocusPulseRef = useRef<{ key: string; topicId: string; at: number } | null>(null);
 
@@ -234,6 +294,15 @@ export const Revisoes = () => {
   const [headerCardsCollapsed, setHeaderCardsCollapsed] = useState<boolean>(false);
 
   const { activeTimer, resumeTimer, stopTimer, resetTimer, setProcessedUpdate } = useTimer();
+
+  const getCanonicalReviewTopicKey = useCallback((topic: ReviewTopic) => {
+    const subject = subjects.find(s => s.id === topic.subject_id);
+    const rawSubjectName = subject?.name || 'Desconhecida';
+    const canonicalSubjectName = getCanonicalSubjectName(topic.subject_id, rawSubjectName, dynamicUnificationMap);
+    const canonicalTopicName = getCanonicalTopicName(topic.id, topic.name, dynamicUnificationMap);
+
+    return `${normalizeRevisionKeyPart(canonicalSubjectName)}::${normalizeRevisionKeyPart(canonicalTopicName)}`;
+  }, [dynamicUnificationMap, subjects]);
 
   // Modals Data State
   const [notesModalData, setNotesModalData] = useState<{ isOpen: boolean; topicId: string; topicName: string; subjectName: string; }>({
@@ -300,7 +369,7 @@ export const Revisoes = () => {
 
     sourceList.forEach(t => allItems.push(mapTopicToItem(t)));
 
-    let result = allItems;
+    let result = dedupeRevisionItemsByCanonicalName(allItems);
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       result = result.filter(i => i.topic.toLowerCase().includes(lower) || i.subject.toLowerCase().includes(lower));
@@ -328,10 +397,11 @@ export const Revisoes = () => {
 
   const stats = useMemo(() => {
     const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics, ...consolidatedTopics];
-    const totalTopics = topics.length; // Modified to include all topics
+    const totalTopics = new Set(topics.map(getCanonicalReviewTopicKey)).size;
     const totalSubjects = subjects.length; // Added
     const completedReviews = completedTopics.length + consolidatedTopics.length;
     const totalScheduledReviews = delayedTopics.length + todayTopics.length + futureTopics.length + completedReviews;
+    const focusCount = new Set(focusTopics.map(getCanonicalReviewTopicKey)).size;
     return {
       today: todayTopics.length,
       overdue: delayedTopics.length,
@@ -340,11 +410,11 @@ export const Revisoes = () => {
       completedReviews,
       totalScheduledReviews,
       startedTopicsCount: allTopics.length,
-      focusCount: focusTopics.length,
+      focusCount,
       totalTopics,
       totalSubjects,
     };
-  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, subjects, topics.length]);
+  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, subjects, topics, getCanonicalReviewTopicKey]);
 
   const reviewPace = useMemo(() => {
     return getStudyCycleMetrics({
@@ -555,14 +625,8 @@ export const Revisoes = () => {
     }
   };
 
-  const handleAiAssist = async (item: RevisionItem) => {
-    setSelectedItemForAI(item);
-    setAiExplanation('');
-    setIsAiLoading(true);
-    setTimeout(() => {
-      setAiExplanation(`Esta é uma explicação simulada para o tópico: ** ${item.topic}**.\n\nO recurso de IA será integrado em breve.`);
-      setIsAiLoading(false);
-    }, 1500);
+  const handleAiAssist = () => {
+    toast.info('Assistente de revisão em preparação. Use as anotações e a dificuldade por enquanto.');
   };
 
   const areAllExpanded = Object.keys(groupedItems).length > 0 && Object.keys(groupedItems).every(k => !collapsedGroups[k]);
@@ -629,22 +693,15 @@ export const Revisoes = () => {
 
         {/* 3. Toolbar - Sticky - Order 3 */}
         <div className="sticky top-14 z-20 bg-transparent px-4 md:px-8 py-2 shrink-0 transition-all w-full order-3">
-          {/* 3. Recovery Mode Banner */}
           {isRecoveryMode && activeTab === 'FOCUS' && (
-            <div className="mb-4 p-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/20 text-amber-800 dark:text-amber-200 flex items-start gap-3 shadow-sm">
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+            <div className="mb-4 flex items-start gap-3 rounded-2xl border border-warning/25 bg-warning/10 p-4 text-warning shadow-sm">
+              <div className="shrink-0 rounded-xl bg-warning/12 p-2">
+                <AlertCircle size={18} />
               </div>
               <div>
-                <h3 className="font-bold text-sm mb-1">Modo Recuperação Ativo 🚑</h3>
-                <p className="text-xs opacity-90 leading-relaxed">
-                  {isRecoveryMode ? (
-                  `Você possui ${stats.overdue + stats.today} tópicos aguardando revisão. Priorizamos os mais urgentes para você focar agora.`
-                ) : (
-                  `Foco de hoje: ${focusTopics.length} ${focusTopics.length === 1 ? 'tópico' : 'tópicos'}.`
-                )}.
+                <h3 className="mb-1 text-sm font-bold text-foreground">Revisões prioritárias</h3>
+                <p className="text-xs leading-relaxed text-content-muted">
+                  Você possui {stats.overdue + stats.today} {stats.overdue + stats.today === 1 ? 'tópico aguardando revisão' : 'tópicos aguardando revisão'}. A lista prioriza o que está vencido ou previsto para hoje.
                 </p>
               </div>
             </div>

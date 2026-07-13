@@ -1,4 +1,6 @@
 import type { SubjectMerge, TopicMerge } from '@/types/merges';
+import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
+import { buildTopicEquivalenceGroups } from '@/utils/topicEquivalenceGraph';
 
 export type ReviewScopeTopic = {
   id: string;
@@ -13,9 +15,15 @@ export type ReviewScopeTopic = {
   current_interval?: number | null;
 };
 
+type ReviewTopicGroup = {
+  ids: string[];
+  displayName: string;
+};
+
 export function expandReviewSubjectScope(
   cycleSubjectIds: string[],
   subjectMerges: Pick<SubjectMerge, 'primary_subject_id' | 'merged_subject_ids'>[],
+  unificationMap?: CycleUnificationMap | null,
 ): string[] {
   const scopedIds = new Set(cycleSubjectIds);
 
@@ -25,7 +33,35 @@ export function expandReviewSubjectScope(
     mergeSubjectIds.forEach(id => scopedIds.add(id));
   }
 
+  for (const unified of unificationMap?.unifiedSubjects || []) {
+    if (!unified.originalSubjectIds.some(id => scopedIds.has(id))) continue;
+    unified.originalSubjectIds.forEach(id => scopedIds.add(id));
+  }
+
   return [...scopedIds];
+}
+
+export function buildReviewTopicMergesFromUnificationMap(
+  unificationMap?: CycleUnificationMap | null,
+  _topics: ReviewScopeTopic[] = [],
+): Pick<TopicMerge, 'primary_topic_id' | 'merged_topic_ids' | 'display_name'>[] {
+  return buildReviewTopicGroupsFromUnificationMap(unificationMap).map(group => {
+    const [primaryTopicId, ...mergedTopicIds] = group.ids;
+    return {
+      primary_topic_id: primaryTopicId,
+      merged_topic_ids: mergedTopicIds,
+      display_name: group.displayName,
+    };
+  });
+}
+
+function buildReviewTopicGroupsFromUnificationMap(
+  unificationMap?: CycleUnificationMap | null,
+): ReviewTopicGroup[] {
+  return buildTopicEquivalenceGroups({ unificationMap }).map(group => ({
+    ids: group.ids,
+    displayName: group.displayName || 'Tópico unificado',
+  }));
 }
 
 export function dedupeMergedReviewTopics<T extends ReviewScopeTopic>(
@@ -40,7 +76,7 @@ export function dedupeMergedReviewTopics<T extends ReviewScopeTopic>(
     const mergeTopicIds = [merge.primary_topic_id, ...(merge.merged_topic_ids || [])].filter(Boolean);
     const availableTopics = mergeTopicIds
       .map(id => topicById.get(id))
-      .filter((topic): topic is T => Boolean(topic));
+      .filter((topic): topic is T => Boolean(topic) && !consumedIds.has(topic.id));
 
     if (availableTopics.length === 0) continue;
 

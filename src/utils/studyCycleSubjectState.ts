@@ -1,3 +1,5 @@
+import { isReviewProgramCompleted } from '@/utils/reviewStage';
+
 export type StudyCycleSubjectActionState =
   | { kind: 'locked_completed'; tooltip: string }
   | { kind: 'locked_started'; tooltip: string }
@@ -9,6 +11,8 @@ export type StudyCycleSubjectTopicState = {
   firstStudiedAt?: string | Date | null;
   completed?: boolean | null;
   is_completed?: boolean | null;
+  reviewCount?: number | null;
+  review_count?: number | null;
   reviewStage?: string | null;
   review_stage?: string | null;
   is_active?: boolean | null;
@@ -26,10 +30,7 @@ const isVisibleCycleTopic = (topic: StudyCycleSubjectTopicState) =>
   topic.is_active !== false && topic.is_hidden !== true;
 
 const isTopicCompleted = (topic: StudyCycleSubjectTopicState) =>
-  topic.completed === true ||
-  topic.is_completed === true ||
-  topic.reviewStage === 'Concluído' ||
-  topic.review_stage === 'Concluído';
+  isReviewProgramCompleted(topic);
 
 const getTopicFirstStudyDate = (topic: StudyCycleSubjectTopicState) =>
   topic.first_studied_at || topic.firstStudiedAt;

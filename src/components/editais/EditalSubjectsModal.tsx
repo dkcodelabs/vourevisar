@@ -42,6 +42,17 @@ import {
     editalHeaderPositionTypography
 } from '@/components/editais/editalHeaderTypography';
 import { guardActiveTimerOperation } from '@/utils/activeTimerOperationGuard';
+import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
+import {
+    getEditalSubjectCycleProgress,
+    getEditalTopicCycleProgress,
+    getEditalTopicProgressBadge
+} from '@/utils/editalTopicProgress';
+import {
+    applyTopicProgressRepairPlan,
+    buildEditalTopicProgressRepairPlan,
+    toTopicProgressDatabasePatch
+} from '@/utils/editalTopicProgressRepair';
 
 interface AiSubject {
     title: string;
@@ -63,17 +74,14 @@ interface EditalSubjectsModalProps {
 const editaisTable = () => supabase.from('user_editais');
 const tmpId = () => `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-const getProgress = (subject: Subject) => {
-    if (!subject.topics?.length) return 0;
-    const completed = subject.topics.filter(t => t.completed).length;
-    return Math.round((completed / subject.topics.length) * 100);
+const parseCycleUnificationMap = (value: unknown): CycleUnificationMap | null => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const candidate = value as Partial<CycleUnificationMap>;
+    if (candidate.version !== 1 || !Array.isArray(candidate.editalIds) || !Array.isArray(candidate.unifiedSubjects)) {
+        return null;
+    }
+    return candidate as CycleUnificationMap;
 };
-
-function getTopicStatus(topic: Topic): { label: string; color: string } {
-    if (topic.completed) return { label: 'CONCLUÍDO', color: 'text-emerald-500' };
-    if ((topic.reviewCount ?? 0) > 0 || topic.first_studied_at) return { label: 'ESTUDADO', color: 'text-primary/60' };
-    return { label: 'NÃO INICIADO', color: 'text-primary/60' };
-}
 
 export const EditalSubjectsModal = ({
     isOpen, onClose, onBack, edital, editais, allSubjects, onUpdate, initialExpandedSubjectId
@@ -88,9 +96,11 @@ export const EditalSubjectsModal = ({
     const [localEditalIds, setLocalEditalIds] = useState<string[]>([]);
     // IDs das matérias ativas (visíveis no Ciclo de Estudos) — subconjunto de localEditalIds
     const [localActiveIds, setLocalActiveIds] = useState<string[]>([]);
+    const [cycleUnificationMap, setCycleUnificationMap] = useState<CycleUnificationMap | null>(null);
     // Flag: só inicializa ao abrir, ignora mudanças externas enquanto modal está aberto
     const initializedRef = useRef(false);
     const hasPendingSync = useRef(false);
+    const repairedProgressGroupsRef = useRef(new Set<string>());
     const canRunStructuralOperation = useCallback(
         () => guardActiveTimerOperation(activeTimer),
         [activeTimer],
@@ -111,6 +121,19 @@ export const EditalSubjectsModal = ({
             completed: t.completed || false,
             review_count: t.review_count || 0,
             reviewCount: t.review_count || 0,
+            review_stage: t.review_stage ?? null,
+            reviewStage: t.reviewStage,
+            first_studied_at: t.first_studied_at ?? null,
+            firstStudiedAt: t.firstStudiedAt,
+            last_reviewed_at: t.last_reviewed_at ?? null,
+            lastReviewedAt: t.lastReviewedAt,
+            next_review: t.next_review ?? null,
+            nextReview: t.nextReview,
+            is_completed: t.is_completed ?? false,
+            difficulty_level: t.difficulty_level ?? null,
+            incidence_level: t.incidence_level ?? null,
+            incidence_score: t.incidence_score ?? null,
+            total_volume: t.total_volume ?? null,
             subtopics: t.subtopics || []
         })),
         status: (s.status as Status) || 'Nova',
@@ -134,8 +157,53 @@ export const EditalSubjectsModal = ({
         if (!isOpen) {
             initializedRef.current = false;
             setSyncStatus(null);
+            setCycleUnificationMap(null);
+            repairedProgressGroupsRef.current.clear();
         }
     }, [isOpen, edital, allSubjects]);
+
+    useEffect(() => {
+        if (!isOpen || !user?.id) {
+            setCycleUnificationMap(null);
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadCycleUnificationMap = async () => {
+            const { data, error } = await supabase
+                .from('user_cycles')
+                .select('unification_map')
+                .eq('user_id', user.id)
+                .eq('status', 'active')
+                .limit(1)
+                .maybeSingle();
+
+            if (cancelled) return;
+
+            if (error) {
+                setCycleUnificationMap(null);
+                void errorService.report(error, {
+                    module: 'EditalSubjectsModal',
+                    action: 'loadCycleUnificationMap',
+                    userId: user.id,
+                    severity: 'low',
+                    scope: 'core',
+                    featureArea: 'study_cycle',
+                    showToast: false,
+                });
+                return;
+            }
+
+            setCycleUnificationMap(parseCycleUnificationMap(data?.unification_map ?? null));
+        };
+
+        void loadCycleUnificationMap();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, user?.id]);
 
     // ── Efeito para expandir e dar scroll na matéria inicial ──
     useEffect(() => {
@@ -601,6 +669,12 @@ export const EditalSubjectsModal = ({
     }, [user, iaSubjectName, aiResult, localSubjects, localEditalIds, edital, selectedEdital.id, onUpdate, focusSubject]);
 
     // ── Derivados ─────────────────────────────────────────────────────────
+    const cycleProgressSubjects = useMemo(() => {
+        const subjectsById = new Map(allSubjects.map(subject => [subject.id, subject]));
+        localSubjects.forEach(subject => subjectsById.set(subject.id, subject));
+        return Array.from(subjectsById.values());
+    }, [allSubjects, localSubjects]);
+
     const filteredSubjects = useMemo(() => {
         if (!searchQuery.trim()) return localSubjects;
         const q = searchQuery.toLowerCase();
@@ -616,7 +690,66 @@ export const EditalSubjectsModal = ({
     );
 
     const totalTopics = localSubjects.reduce((sum, s) => sum + s.topics.length, 0);
-    const completedTopics = localSubjects.reduce((sum, s) => sum + s.topics.filter(t => t.completed).length, 0);
+    const completedTopics = localSubjects.reduce(
+        (sum, subject) =>
+            sum + subject.topics.filter(topic =>
+                getEditalTopicCycleProgress(topic, cycleProgressSubjects, cycleUnificationMap).isCompleted
+            ).length,
+        0,
+    );
+
+    useEffect(() => {
+        if (!isOpen || !user?.id || !cycleUnificationMap) return;
+
+        const repairPlan = buildEditalTopicProgressRepairPlan(cycleProgressSubjects, cycleUnificationMap)
+            .filter(entry => !repairedProgressGroupsRef.current.has(entry.groupKey));
+
+        if (repairPlan.length === 0) return;
+
+        repairPlan.forEach(entry => repairedProgressGroupsRef.current.add(entry.groupKey));
+
+        const repairEquivalentProgress = async () => {
+            const failedGroups: string[] = [];
+
+            for (const entry of repairPlan) {
+                const patch = toTopicProgressDatabasePatch(entry.patch);
+                if (Object.keys(patch).length === 0) continue;
+
+                const { error } = await supabase
+                    .from('topics')
+                    .update(patch)
+                    .in('id', entry.targetTopicIds);
+
+                if (error) {
+                    failedGroups.push(entry.groupKey);
+                    void errorService.report(error, {
+                        module: 'EditalSubjectsModal',
+                        action: 'repairEquivalentTopicProgress',
+                        userId: user.id,
+                        severity: 'medium',
+                        scope: 'core',
+                        featureArea: 'study_cycle',
+                        showToast: false,
+                        metadata: {
+                            sourceTopicId: entry.sourceTopicId,
+                            targetTopicIds: entry.targetTopicIds,
+                        },
+                    });
+                }
+            }
+
+            if (failedGroups.length > 0) {
+                failedGroups.forEach(groupKey => repairedProgressGroupsRef.current.delete(groupKey));
+                return;
+            }
+
+            setLocalSubjects(prev => applyTopicProgressRepairPlan(prev, repairPlan));
+            hasPendingSync.current = true;
+        };
+
+        void repairEquivalentProgress();
+    }, [cycleProgressSubjects, cycleUnificationMap, isOpen, user?.id]);
+
     const displayOrgan = selectedEdital.organ || selectedEdital.name.split(' - ')[0];
     const displayPosition = selectedEdital.position || (
         selectedEdital.name.split(' - ').length > 1
@@ -1548,7 +1681,7 @@ export const EditalSubjectsModal = ({
                                     </div>
                                 </div>
                                 {filteredSubjects.map((subject) => {
-                                    const progress = getProgress(subject);
+                                    const progress = getEditalSubjectCycleProgress(subject, cycleProgressSubjects, cycleUnificationMap);
                                     const isExpanded = expandedIds.includes(subject.id);
                                     const isTemp = subject.id.startsWith('tmp_');
                                     const isPendingDelete = confirmDeleteSubjectId === subject.id;
@@ -1769,9 +1902,16 @@ export const EditalSubjectsModal = ({
                                                                 </p>
                                                             ) : (
                                                                 <div className="flex flex-col">
-                                                                    {subject.topics.map((topic, idx) => {
-                                                                        const status = getTopicStatus(topic);
+                                                                    {subject.topics.map((topic) => {
                                                                         const isTmpTopic = topic.id.startsWith('tmp_');
+                                                                        const progressBadge = isTmpTopic
+                                                                            ? null
+                                                                            : getEditalTopicProgressBadge(topic, cycleProgressSubjects, cycleUnificationMap);
+                                                                        const progressBadgeClass = progressBadge?.tone === 'success'
+                                                                            ? 'border-success/25 bg-success/10 text-success'
+                                                                            : progressBadge?.tone === 'primary'
+                                                                                ? 'border-primary/25 bg-primary/10 text-primary'
+                                                                                : 'border-border bg-secondary/55 text-content-muted';
                                                                         return (
                                                                             <div
                                                                                 key={topic.id}
@@ -1800,7 +1940,7 @@ export const EditalSubjectsModal = ({
                                                                                         ) : (
                                                                                             <span
                                                                                                 title={topic.name}
-                                                                                                className={`w-full text-left text-[13px] font-medium leading-relaxed line-clamp-2 [word-break:break-word] ${isTmpTopic || !isEditable ? '' : 'cursor-text group-hover/topic:text-primary transition-colors'} ${topic.completed ? 'text-content-muted line-through' : 'text-content-main'}`}
+                                                                                                className={`w-full text-left text-[13px] font-medium leading-relaxed line-clamp-2 text-content-main [word-break:break-word] ${isTmpTopic || !isEditable ? '' : 'cursor-text group-hover/topic:text-primary transition-colors'}`}
                                                                                                 onClick={(e) => {
                                                                                                     if (!isTmpTopic && isEditable) {
                                                                                                         e.stopPropagation();
@@ -1813,12 +1953,19 @@ export const EditalSubjectsModal = ({
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
-                                                                                    {!isTmpTopic && getIncidenceLevelLabel(topic.incidence_level) && (
-                                                                                        <div className="flex items-center pl-[2px]">
-                                                                                            <span className="text-[9px] font-bold tracking-widest uppercase text-content-muted/70 flex items-center gap-1">
-                                                                                                <BarChart2 size={10} className="text-primary/70" />
-                                                                                                {getIncidenceLevelLabel(topic.incidence_level)}
-                                                                                            </span>
+                                                                                    {!isTmpTopic && (progressBadge || getIncidenceLevelLabel(topic.incidence_level)) && (
+                                                                                        <div className="flex flex-wrap items-center gap-1.5 pl-[2px]">
+                                                                                            {progressBadge && (
+                                                                                                <span className={`inline-flex min-h-6 items-center rounded-md border px-1.5 text-[9px] font-black uppercase tracking-[0.08em] ${progressBadgeClass}`}>
+                                                                                                    {progressBadge.label}
+                                                                                                </span>
+                                                                                            )}
+                                                                                            {getIncidenceLevelLabel(topic.incidence_level) && (
+                                                                                                <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-content-muted/70">
+                                                                                                    <BarChart2 size={10} className="text-primary/70" />
+                                                                                                    {getIncidenceLevelLabel(topic.incidence_level)}
+                                                                                                </span>
+                                                                                            )}
                                                                                         </div>
                                                                                     )}
                                                                                 </div>

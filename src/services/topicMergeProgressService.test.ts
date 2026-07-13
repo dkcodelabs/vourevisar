@@ -74,6 +74,35 @@ describe('syncMergedTopicProgress', () => {
     });
   });
 
+  it('passes the full active progress payload used by merged review completion', async () => {
+    await syncMergedTopicProgress({
+      userId: 'user-1',
+      topicId: 'topic-clicked',
+      updateData: {
+        difficulty_level: 3,
+        difficulty_set_at: '2026-07-11T20:00:00.000Z',
+        last_session_duration: 25,
+        notes: { content: 'Resumo' },
+        retention_score: 0.8,
+        total_reviews: 4,
+      },
+    });
+
+    expect(mocks.invokeUserRpc).toHaveBeenCalledWith('sync_topic_merge_progress', {
+      p_user_id: 'user-1',
+      p_topic_id: 'topic-clicked',
+      p_progress: {
+        difficulty_level: 3,
+        difficulty_set_at: '2026-07-11T20:00:00.000Z',
+        last_session_duration: 25,
+        notes: { content: 'Resumo' },
+        retention_score: 0.8,
+        total_reviews: 4,
+      },
+      p_history: null,
+    });
+  });
+
   it('does not call the RPC when there are no progress fields', async () => {
     const syncedIds = await syncMergedTopicProgress({
       userId: 'user-1',

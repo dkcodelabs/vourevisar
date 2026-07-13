@@ -26,8 +26,6 @@ export const validateSubjectCreation = (subject: { edital_id?: string | null }) 
 };
 
 export const performGlobalCleanup = async (userId: string) => {
-  console.log('[DataIntegrity] Iniciando cleanup global para o usuário:', userId);
-  
   try {
     // 1. Reparar matérias órfãs
     await repairOrphanedSubjects(userId);
@@ -41,7 +39,6 @@ export const performGlobalCleanup = async (userId: string) => {
     // 4. Reparar integridade de unificações (Merges)
     await mergeService.repairIntegrity(userId);
     
-    console.log('[DataIntegrity] Cleanup global concluído.');
     return { success: true };
   } catch (err) {
     console.error('[DataIntegrity] Erro no cleanup global:', err);
@@ -54,8 +51,6 @@ export const performGlobalCleanup = async (userId: string) => {
  */
 export const cleanupOrphanedCycleIds = async (userId: string) => {
   try {
-    console.log('[DataIntegrity] Iniciando limpeza de IDs órfãos nos ciclos para o usuário:', userId);
-
     // 1. Buscar todas as matérias válidas do usuário
     const { data: subjects, error: subjectsError } = await supabase
       .from('subjects')
@@ -93,7 +88,6 @@ export const cleanupOrphanedCycleIds = async (userId: string) => {
         if (filteredArray.length !== currentArray.length) {
           updates[field] = filteredArray;
           hasChanges = true;
-          console.log(`[DataIntegrity] Limpando ${currentArray.length - filteredArray.length} IDs órfãos em ${field}`);
         }
       }
 
@@ -151,8 +145,6 @@ export const deleteOrphanedCycles = async (userId: string) => {
       });
 
       const preserved = typedCycles.length - deletableCycles.length;
-      console.log(`[DataIntegrity] Nenhum edital ativo encontrado. Deletando ${deletableCycles.length} ciclo(s) vazio(s) e preservando ${preserved} ciclo(s) com histórico recuperável.`);
-      
       for (const cycle of deletableCycles) {
         const { error: deleteError } = await supabase
           .from('user_cycles')
@@ -167,7 +159,6 @@ export const deleteOrphanedCycles = async (userId: string) => {
       return { success: true, deleted: deletableCycles.length, preserved };
     }
 
-    console.log(`[DataIntegrity] ${count} edital(is) ativo(s) no ciclo. Nenhum ciclo órfão.`);
     return { success: true, deleted: 0 };
   } catch (error) {
     console.error('[DataIntegrity] Erro ao verificar ciclos órfãos:', error);
@@ -181,8 +172,6 @@ export const deleteOrphanedCycles = async (userId: string) => {
  */
 export const repairOrphanedSubjects = async (userId: string) => {
   try {
-    console.log('[DataIntegrity] Iniciando reparo de matérias órfãs para o usuário:', userId);
-
     // 1. Buscar todos os editais do usuário
     const { data: editais, error: editaisError } = await supabase
       .from('user_editais')
@@ -200,12 +189,7 @@ export const repairOrphanedSubjects = async (userId: string) => {
       .is('edital_id', null);
 
     if (orphansError) throw orphansError;
-    if (!orphans || orphans.length === 0) {
-      console.log('[DataIntegrity] Nenhuma matéria órfã encontrada.');
-      return { success: true, fixed: 0, orphans: 0 };
-    }
-
-    console.log(`[DataIntegrity] Encontradas ${orphans.length} matérias órfãs. Tentando vincular...`);
+    if (!orphans || orphans.length === 0) return { success: true, fixed: 0, orphans: 0 };
 
     let fixedCount = 0;
     
@@ -218,8 +202,6 @@ export const repairOrphanedSubjects = async (userId: string) => {
       });
 
       if (ownerEdital) {
-        console.log(`[DataIntegrity] Vinculando matéria "${orphan.name}" (${orphan.id}) ao edital "${ownerEdital.name}"`);
-        
         const { error: updateError } = await supabase
           .from('subjects')
           .update({ edital_id: ownerEdital.id })
@@ -234,14 +216,12 @@ export const repairOrphanedSubjects = async (userId: string) => {
         // Se não encontrar em nenhum edital, tenta vincular ao "MEUS ESTUDOS"
         const meusEstudos = editais.find(e => e.name.toUpperCase() === 'MEUS ESTUDOS');
         if (meusEstudos) {
-          console.log(`[DataIntegrity] Matéria "${orphan.name}" não encontrada em editais. Movendo para "MEUS ESTUDOS"`);
           await supabase.from('subjects').update({ edital_id: meusEstudos.id }).eq('id', orphan.id);
           fixedCount++;
         }
       }
     }
 
-    console.log(`[DataIntegrity] Reparo concluído. Fixados: ${fixedCount}/${orphans.length}`);
     return { success: true, fixed: fixedCount, orphans: orphans.length };
   } catch (error) {
     console.error('[DataIntegrity] Erro crítico no reparo:', error);

@@ -63,6 +63,67 @@ describe('useCycleSubjectListState', () => {
     expect(Array.from(result.current.studiedCycleIdSet).sort()).toEqual(['subject-1', 'subject-2']);
   });
 
+  it('deduplicates equivalent topic rows inside a unified subject using the strongest progress', () => {
+    const unificationMap: CycleUnificationMap = {
+      createdAt: '2026-07-11T00:00:00Z',
+      editalIds: ['edital-1', 'edital-2'],
+      standaloneSubjectIds: [],
+      unifiedSubjects: [{
+        displayName: 'PORTUGUES',
+        matchType: 'exact',
+        originalSubjectIds: ['portugues-a', 'portugues-b'],
+        topicMappings: [
+          {
+            displayName: 'Crase',
+            originalTopicIds: ['crase-a'],
+            originalSubjectIds: ['portugues-a'],
+            matchType: 'exact',
+          },
+          {
+            displayName: 'Crase',
+            originalTopicIds: ['crase-b'],
+            originalSubjectIds: ['portugues-b'],
+            matchType: 'exact',
+          },
+        ],
+      }],
+      version: 1,
+    };
+
+    const { result } = renderHook(() => useCycleSubjectListState({
+      activeSubjectIdsSet: new Set<string>(),
+      dynamicUnificationMap: unificationMap,
+      isTopicCompleted: topic => topic.completed === true || topic.review_count >= 5,
+      isTopicStarted: topic => Boolean(topic.first_studied_at) || topic.review_count > 0,
+      localSubjects: [
+        makeSubject('portugues-a', [
+          makeTopic('crase-a', { name: 'Crase', completed: true, review_count: 5 }),
+        ]),
+        makeSubject('portugues-b', [
+          makeTopic('crase-b', {
+            name: 'Crase',
+            completed: false,
+            review_count: 1,
+            next_review: '2026-07-11T00:00:00.000Z',
+          }),
+        ]),
+      ],
+      userCycle: {
+        ciclo_atual: ['portugues-a'],
+        materias_estudadas_ciclo: [],
+      },
+    }));
+
+    const topics = result.current.expandedSubjectList[0].subject.topics;
+    expect(topics).toHaveLength(1);
+    expect(topics[0]).toMatchObject({
+      id: 'crase-a',
+      name: 'Crase',
+      completed: true,
+      review_count: 5,
+    });
+  });
+
   it('marks subjects as closed when all visible topics are started or completed', () => {
     const { result } = renderHook(() => useCycleSubjectListState({
       activeSubjectIdsSet: new Set<string>(),

@@ -7,10 +7,6 @@ const { url: SUPABASE_URL, publishableKey: SUPABASE_PUBLISHABLE_KEY } = resolveS
   env: import.meta.env,
 });
 
-if (import.meta.env.DEV) {
-  console.info("[Supabase] Client initialized with URL:", SUPABASE_URL);
-}
-
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 

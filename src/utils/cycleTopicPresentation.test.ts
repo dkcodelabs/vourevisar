@@ -25,6 +25,7 @@ const makeTopic = (overrides: Partial<Topic> = {}): Topic => ({
 describe('cycleTopicPresentation', () => {
   it('detects completed, started and newly started topics from current cycle fields', () => {
     expect(isTopicCompleted(makeTopic({ review_stage: 'Concluído' }))).toBe(true);
+    expect(isTopicCompleted(makeTopic({ review_count: 5 }))).toBe(true);
     expect(isTopicStarted(makeTopic({ first_studied_at: '2026-07-09T10:00:00Z' }))).toBe(true);
     expect(isTopicStarted(makeTopic({ review_stage: 'novo' }))).toBe(false);
     expect(isTopicNewlyStartedInCycle(

@@ -7,7 +7,17 @@ import { format, startOfDay } from 'date-fns';
 import { SRS_THRESHOLDS, LearningStatus } from '@/utils/calculateNextReview';
 import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { mergeService } from '@/services/mergeService';
-import { dedupeMergedReviewTopics, expandReviewSubjectScope } from '@/utils/reviewMergeScope';
+import {
+  buildReviewTopicMergesFromUnificationMap,
+  dedupeMergedReviewTopics,
+  expandReviewSubjectScope,
+} from '@/utils/reviewMergeScope';
+import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
+import type { Subject, Topic } from '@/types';
+import {
+  buildEditalTopicProgressRepairPlan,
+  toTopicProgressDatabasePatch,
+} from '@/utils/editalTopicProgressRepair';
 
 export interface ReviewTopic {
   id: string;
@@ -74,6 +84,57 @@ export const determineLearningStatus = (stability: number, interval: number, rev
   return 'Fixando';
 };
 
+const toRepairSubjects = (topics: ReviewTopic[]): Subject[] => {
+  const subjectsById = new Map<string, Subject>();
+
+  topics.forEach(topic => {
+    const subject = subjectsById.get(topic.subject_id) ?? {
+      id: topic.subject_id,
+      name: topic.subject_name || topic.subjects?.name || 'Sem disciplina',
+      status: 'Nova',
+      topics: [],
+    };
+
+    subject.topics.push({
+      id: topic.id,
+      name: topic.name,
+      subject_id: topic.subject_id,
+      completed: topic.completed,
+      review_count: topic.review_count ?? 0,
+      reviewCount: topic.review_count ?? 0,
+      review_stage: topic.review_stage,
+      next_review: topic.next_review,
+      first_studied_at: topic.first_studied_at,
+      last_reviewed_at: topic.last_reviewed_at,
+      memory_stability: topic.memory_stability ?? null,
+      current_interval: topic.current_interval ?? null,
+      difficulty_level: topic.difficulty_level ?? null,
+    } as Topic);
+
+    subjectsById.set(subject.id, subject);
+  });
+
+  return Array.from(subjectsById.values());
+};
+
+const applyProgressRepairToReviewTopics = (
+  topics: ReviewTopic[],
+  repairPlan: ReturnType<typeof buildEditalTopicProgressRepairPlan>,
+): ReviewTopic[] => {
+  if (repairPlan.length === 0) return topics;
+
+  const patchByTopicId = new Map<string, Record<string, unknown>>();
+  repairPlan.forEach(entry => {
+    const patch = toTopicProgressDatabasePatch(entry.patch);
+    entry.targetTopicIds.forEach(topicId => patchByTopicId.set(topicId, patch));
+  });
+
+  return topics.map(topic => {
+    const patch = patchByTopicId.get(topic.id);
+    return patch ? { ...topic, ...patch } : topic;
+  });
+};
+
 export const useReviewsData = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -94,7 +155,7 @@ export const useReviewsData = () => {
       const [{ data: cycleData }, subjectMerges, topicMerges] = await Promise.all([
         supabase
           .from('user_cycles')
-          .select('ciclo_atual')
+          .select('ciclo_atual, unification_map')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .maybeSingle(),
@@ -103,12 +164,13 @@ export const useReviewsData = () => {
       ]);
 
       const activeSubjectIds = cycleData?.ciclo_atual || [];
+      const unificationMap = (cycleData?.unification_map || null) as CycleUnificationMap | null;
 
       if (activeSubjectIds.length === 0) {
         return []; // Se não tem ciclo ativo, não tem revisões
       }
 
-      const reviewSubjectIds = expandReviewSubjectScope(activeSubjectIds, subjectMerges);
+      const reviewSubjectIds = expandReviewSubjectScope(activeSubjectIds, subjectMerges, unificationMap);
 
       // 2. Buscar tópicos das matérias do ciclo, incluindo matérias equivalentes unificadas.
       const { data, error } = await supabase
@@ -139,11 +201,56 @@ export const useReviewsData = () => {
 
       if (error) throw error;
 
-      const reviewScopedTopics = dedupeMergedReviewTopics(data, topicMerges);
+      const initialMappedTopics = data.map(topic => {
+        const subject = Array.isArray(topic.subjects) ? topic.subjects[0] : topic.subjects;
+        return {
+          id: topic.id,
+          name: topic.name,
+          subject_id: topic.subject_id,
+          review_stage: topic.review_stage,
+          next_review: topic.next_review,
+          review_count: topic.review_count ?? 0,
+          first_studied_at: topic.first_studied_at,
+          last_reviewed_at: topic.last_reviewed_at,
+          completed: isReviewProgramCompleted(topic),
+          difficulty_level: topic.difficulty_level,
+          memory_stability: topic.memory_stability,
+          current_interval: topic.current_interval,
+          notes: topic.notes,
+          subject_name: subject?.name || 'Sem disciplina',
+          subjects: {
+            id: subject?.id,
+            name: subject?.name,
+            color: subject?.color,
+            user_id: user.id
+          }
+        };
+      });
+
+      const repairPlan = buildEditalTopicProgressRepairPlan(toRepairSubjects(initialMappedTopics), unificationMap);
+
+      for (const entry of repairPlan) {
+        const patch = toTopicProgressDatabasePatch(entry.patch);
+        if (Object.keys(patch).length === 0) continue;
+
+        const { error: repairError } = await supabase
+          .from('topics')
+          .update(patch)
+          .in('id', entry.targetTopicIds);
+
+        if (repairError) throw repairError;
+      }
+
+      const repairedTopics = applyProgressRepairToReviewTopics(initialMappedTopics, repairPlan);
+
+      const reviewScopedTopics = dedupeMergedReviewTopics(repairedTopics, [
+        ...buildReviewTopicMergesFromUnificationMap(unificationMap, repairedTopics),
+        ...topicMerges,
+      ]);
 
       // Map to existing Topic structure and Sort locally
       const mappedTopics = reviewScopedTopics.map(topic => {
-        const subject = Array.isArray(topic.subjects) ? topic.subjects[0] : topic.subjects;
+        const completed = isReviewProgramCompleted(topic);
         return {
         id: topic.id,
         name: topic.name,
@@ -153,21 +260,18 @@ export const useReviewsData = () => {
         review_count: topic.review_count ?? 0,
         first_studied_at: topic.first_studied_at,
         last_reviewed_at: topic.last_reviewed_at,
-        completed: topic.completed ?? false,
+        completed,
         difficulty_level: topic.difficulty_level,
         memory_stability: topic.memory_stability,
         current_interval: topic.current_interval,
-        learningStatus: (topic.review_count > 0 || topic.first_studied_at) 
-          ? determineLearningStatus(topic.memory_stability || 0, topic.current_interval || 0, topic.review_count || 0) 
+        learningStatus: completed
+          ? 'Dominando'
+          : (topic.review_count > 0 || topic.first_studied_at)
+          ? determineLearningStatus(topic.memory_stability || 0, topic.current_interval || 0, topic.review_count || 0)
           : undefined,
         notes: topic.notes,
-        subject_name: subject?.name || 'Sem disciplina',
-        subjects: {
-          id: subject?.id,
-          name: subject?.name,
-          color: subject?.color,
-          user_id: user.id
-        }
+        subject_name: topic.subject_name,
+        subjects: topic.subjects,
       }});
 
       // Sort logic: 

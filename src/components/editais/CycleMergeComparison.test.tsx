@@ -142,7 +142,10 @@ describe('CycleMergeComparison', () => {
             />,
         );
 
-        fireEvent.click(screen.getByRole('button', { name: 'Marcar Direitos fundamentais como equivalente' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Escolher equivalente para Direitos fundamentais' }));
+        fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar tópico equivalente' }), {
+            target: { value: 'garantias' },
+        });
         fireEvent.click(screen.getByRole('button', { name: 'Selecionar Direitos e garantias fundamentais como equivalente' }));
         fireEvent.click(screen.getByRole('button', { name: 'Confirmar equivalência manual' }));
 

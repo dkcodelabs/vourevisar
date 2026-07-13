@@ -9,7 +9,6 @@ import { useCycleState } from './useCycleState';
 import {
   calculateNextReview,
   COMPLETION_CONTACT_COUNT,
-  describeCalculation,
   formatDateForDB,
   type ReviewIncidenceLevel,
 } from '@/utils/calculateNextReview';
@@ -63,8 +62,6 @@ export const useTopicReview = () => {
     if (!user) return;
 
     try {
-      console.log('🔵 openReviewModal chamado para topicId:', topicId);
-
       // Buscar o tópico atual para obter as métricas atuais
       const { data, error: topicError } = await supabase
         .from('topics')
@@ -130,8 +127,6 @@ export const useTopicReview = () => {
 
     setIsLoading(true);
     try {
-      console.log('🔵 markTopicAsReviewed iniciado para topicId:', topicId);
-
       // Buscar o tópico atual
       const { data, error: topicError } = await supabase
         .from('topics')
@@ -221,8 +216,6 @@ export const useTopicReview = () => {
         }
       });
 
-      console.log('🔵 SRS Calculation:', describeCalculation(calcResult));
-
       const reviewStage = getReviewStage(newReviewCount);
       const nextReview = calcResult.nextReviewDate
         ? formatDateForDB(calcResult.nextReviewDate)
@@ -237,9 +230,12 @@ export const useTopicReview = () => {
         review_stage: reviewStage,
         completed: isCycleCompleted,
         last_reviewed_at: now,
+        difficulty_level: numericDifficulty,
+        difficulty_set_at: now,
         // Métricas do programa adaptativo
         memory_stability: calcResult.newMemoryStability,
         current_interval: calcResult.newInterval,
+        total_reviews: newReviewCount,
         // ---
         last_session_duration: durationOverride ?? difficultyModalData.duration ?? 0,
       };
@@ -275,10 +271,8 @@ export const useTopicReview = () => {
         });
         mergedSiblingTopicIds = syncedTopicIds.filter(id => id !== topicId);
 
-        if (mergedSiblingTopicIds.length === 0) {
-          const unificationMap = userCycle?.unification_map ?? null;
-          await registerDualProgress(topicId, updateData, unificationMap);
-        }
+        const unificationMap = userCycle?.unification_map ?? null;
+        await registerDualProgress(topicId, updateData, unificationMap);
       } catch (dualErr) {
         console.error('❌ Falha ao atualizar progresso do tópico:', dualErr);
         throw dualErr;
@@ -288,14 +282,15 @@ export const useTopicReview = () => {
         // Fallback legado: topic_merges modernos ja sao registrados pela RPC.
         try {
           const unificationMap = userCycle?.unification_map ?? null;
-          const siblingIds = mergedSiblingTopicIds.length > 0 ? [] : findSiblingTopicIds(topicId, unificationMap);
+          const alreadySyncedIds = new Set(mergedSiblingTopicIds);
+          const siblingIds = findSiblingTopicIds(topicId, unificationMap)
+            .filter(siblingId => !alreadySyncedIds.has(siblingId));
           if (siblingIds.length > 0) {
             const siblingHistoryRows = siblingIds.map(sibId => ({
               ...historyPayload,
               topic_id: sibId,
             }));
             await supabase.from('topic_review_history').insert(siblingHistoryRows);
-            console.log(`[useTopicReview] Histórico propagado para ${siblingIds.length} irmão(s).`);
           }
         } catch (siblingErr) {
           // Non-blocking: sibling history failure shouldn't break the main flow

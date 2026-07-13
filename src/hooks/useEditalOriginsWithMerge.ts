@@ -61,7 +61,6 @@ export const useEditalOriginsWithMerge = () => {
             return;
         }
         try {
-            console.log('[useEditalOriginsWithMerge] Carregando editais para:', user.id);
             const { data, error } = await withTimeout(
                 supabase.from('user_editais')
                     .select('id, name, subject_ids, active_subject_ids, is_imported, merged_into_cycle, source_id, organ, position, year, exam_date, exam_board')
@@ -87,7 +86,6 @@ export const useEditalOriginsWithMerge = () => {
                 exam_board: row.exam_board,
             }));
             
-            console.log('[useEditalOriginsWithMerge] Editais carregados:', parsedEditais.length);
             setEditaisData(parsedEditais);
         } catch (err) {
             console.error('[useEditalOriginsWithMerge] Erro ao buscar origens:', err);

@@ -10,7 +10,7 @@ import type { Database, Json } from '@/integrations/supabase/types';
 import {
     Plus, PlusCircle, Library, Trash2, Play, Eye, Clock,
     BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, Sparkles, Loader2,
-    AlertCircle, Info, GraduationCap, Database as DatabaseIcon, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText, PencilLine, ArrowRight, CalendarDays
+    AlertCircle, Info, GraduationCap, Database as DatabaseIcon, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText, PencilLine, ArrowRight, CalendarDays, BriefcaseBusiness
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -51,10 +51,13 @@ import { mergeService } from '@/services/mergeService';
 import { recalculatePendingReviewsForEdital } from '@/services/topicReviewScheduleService';
 import { unloadEditalFromCycle } from '@/services/cycleUnloadService';
 import { importEdital, type EditalImportExtraInfo } from '@/services/editalImportService';
+import { resetEditalStudyProgress } from '@/services/editalStudyProgressResetService';
 import { getPendingMergeForCycleLoad } from '@/utils/cycleLoadPendingMerge';
 import { shouldBlockCycleConflictClose } from '@/utils/cycleConflictModalClose';
 import { formatRecoveredMergeTimestamp } from '@/utils/recoveredMergeTimestamp';
 import { guardActiveTimerOperation } from '@/utils/activeTimerOperationGuard';
+import { buildConsolidatedTopicProgress, type TopicProgressRow } from '@/utils/topicProgressConsolidation';
+import { buildEditalProgressSummary, type EditalProgressSummary } from '@/utils/editalProgressSummary';
 import {
     CycleUnificationMap,
     HybridMergeResult,
@@ -101,6 +104,7 @@ type PublicEditalSource = Pick<
 > & { subjects: Subject[] };
 type ManualCycleOrigin = { name: string; isManual: true };
 type CycleOrigin = UserEdital | ManualCycleOrigin;
+type CycleProgressMode = 'keep' | 'reset';
 
 type CycleConflictState = {
     isOpen: boolean;
@@ -119,6 +123,8 @@ type CycleConflictState = {
     wasTopicMerged?: boolean;
     showDetailedPreview?: boolean;
     updatedAt?: string | null;
+    progressMode?: CycleProgressMode;
+    progressSummary?: EditalProgressSummary;
 };
 
 type PendingMergeDraft = Partial<Omit<CycleConflictState, 'isOpen' | 'edital'>> & {
@@ -223,6 +229,16 @@ const rowToEdital = (row: Record<string, unknown>): UserEdital => ({
     isMergedWith: (row.merged_with as string[]) || undefined,
     mergedIntoCycle: (row.merged_into_cycle as boolean) || false,
 });
+
+const getTimestamp = (date?: string): number => {
+    if (!date) return Number.POSITIVE_INFINITY;
+    const time = new Date(date).getTime();
+    return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+};
+
+const compareEditaisByCreatedOrder = (left: UserEdital, right: UserEdital): number => (
+    getTimestamp(left.createdAt) - getTimestamp(right.createdAt)
+);
 
 const editaisTable = () => supabase.from('user_editais');
 
@@ -338,6 +354,134 @@ const Editais = () => {
         };
     }, [cycleConflict.edital?.subjectIds, loadedEditalSubjects, subjects]);
 
+    const shouldAskProgressMode = Boolean(
+        cycleConflict.progressSummary?.hasProgress
+        && (cycleConflict.existingIds.length === 0 || cycleConflict.action === 'replace')
+    );
+
+    const progressChoiceCard = shouldAskProgressMode && cycleConflict.progressSummary ? (
+        <div className="rounded-2xl border border-warning/25 bg-gradient-to-br from-warning/14 via-warning/8 to-background/65 p-3.5 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.06)]">
+            <div className="flex flex-col gap-3.5">
+                <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/18 text-warning ring-1 ring-warning/30">
+                        <Clock size={16} />
+                    </span>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-warning">
+                            Progresso anterior encontrado
+                        </p>
+                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-content-muted">
+                            Este edital já tem histórico próprio. Escolha se esse histórico entra no novo ciclo ou se este edital será reiniciado.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                    {[
+                        { label: 'Tópicos iniciados', value: `${cycleConflict.progressSummary.startedTopics}/${cycleConflict.progressSummary.topicCount}` },
+                        { label: 'Concluídos', value: cycleConflict.progressSummary.completedTopics },
+                        { label: 'Em revisão', value: cycleConflict.progressSummary.reviewingTopics },
+                        { label: 'Revisões agendadas', value: cycleConflict.progressSummary.scheduledReviewTopics },
+                    ].map(item => (
+                        <div key={item.label} className="rounded-xl border border-warning/15 bg-background/65 px-3 py-2 ring-1 ring-white/[0.03] dark:bg-modal/55">
+                            <span className="block text-[9px] font-black uppercase leading-tight tracking-[0.08em] text-content-muted">
+                                {item.label}
+                            </span>
+                            <span className="mt-1 block text-base font-black leading-none text-foreground tabular-nums">
+                                {item.value}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button
+                        type="button"
+                        onClick={() => setCycleConflict(prev => ({ ...prev, progressMode: 'keep' }))}
+                        className={cn(
+                            'group rounded-xl border p-3 text-left shadow-sm transition-all active:scale-[0.99]',
+                            cycleConflict.progressMode === 'keep'
+                                ? 'border-success/55 bg-success/16 text-success ring-1 ring-success/25'
+                                : 'border-success/25 bg-success/8 text-foreground hover:border-success/45 hover:bg-success/12',
+                        )}
+                    >
+                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success/12 text-success ring-1 ring-success/25 group-hover:bg-success/16">
+                                <CheckCircle2 size={14} />
+                            </span>
+                            Preservar histórico do edital
+                        </span>
+                        <span className="mt-2 block text-[10px] font-medium leading-relaxed text-content-muted">
+                            Mantém revisões, agenda e tópicos já iniciados deste edital. O ciclo anterior será substituído por uma fila nova.
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setCycleConflict(prev => ({ ...prev, progressMode: 'reset' }))}
+                        className={cn(
+                            'group rounded-xl border p-3 text-left shadow-sm transition-all active:scale-[0.99]',
+                            cycleConflict.progressMode === 'reset'
+                                ? 'border-destructive/55 bg-destructive/16 text-destructive ring-1 ring-destructive/25'
+                                : 'border-destructive/25 bg-destructive/8 text-foreground hover:border-destructive/45 hover:bg-destructive/12',
+                        )}
+                    >
+                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-destructive/12 text-destructive ring-1 ring-destructive/25 group-hover:bg-destructive/16">
+                                <RefreshCw size={14} />
+                            </span>
+                            Reiniciar este edital
+                        </span>
+                        <span className="mt-2 block text-[10px] font-medium leading-relaxed text-content-muted">
+                            Limpa revisões, sessões e agenda deste edital antes de criar a nova fila.
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    ) : null;
+
+    const shouldShowMergeProgressNotice = Boolean(
+        cycleConflict.progressSummary?.hasProgress
+        && cycleConflict.existingIds.length > 0
+        && cycleConflict.action !== 'replace'
+    );
+
+    const mergeProgressNoticeCard = shouldShowMergeProgressNotice && cycleConflict.progressSummary ? (
+        <div className="rounded-2xl border border-success/20 bg-success/8 p-3.5 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.04)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-success/12 text-success ring-1 ring-success/25">
+                        <CheckCircle2 size={15} />
+                    </span>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-success">
+                            Histórico detectado
+                        </p>
+                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-content-muted">
+                            Ao mesclar, revisões, agenda e progresso deste edital serão preservados automaticamente.
+                        </p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:w-[260px]">
+                    {[
+                        { label: 'Iniciados', value: `${cycleConflict.progressSummary.startedTopics}/${cycleConflict.progressSummary.topicCount}` },
+                        { label: 'Em revisão', value: cycleConflict.progressSummary.reviewingTopics },
+                    ].map(item => (
+                        <div key={item.label} className="rounded-xl border border-success/15 bg-background/60 px-3 py-2 dark:bg-modal/45">
+                            <span className="block text-[8px] font-black uppercase tracking-[0.08em] text-content-muted">
+                                {item.label}
+                            </span>
+                            <span className="mt-1 block text-sm font-black leading-none text-foreground tabular-nums">
+                                {item.value}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    ) : null;
+
     const quickCreateOptions: Array<{
         id: 'ready' | 'ia' | 'manual';
         title: string;
@@ -436,7 +580,7 @@ const Editais = () => {
                 editaisTable()
                     .select('*')
                     .eq('user_id', user.id)
-                    .order('created_at', { ascending: false }),
+                    .order('created_at', { ascending: true }),
                 10000,
                 'Carregamento de editais'
                 ),
@@ -452,7 +596,7 @@ const Editais = () => {
 
             if (error) throw error;
             if (sessionsError) throw sessionsError;
-            setEditais((data || []).map(rowToEdital));
+            setEditais((data || []).map(rowToEdital).sort(compareEditaisByCreatedOrder));
             setStudySessions((sessionsData || []) as StudySessionSummary[]);
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'fetch', userMessage: 'Erro ao carregar editais.' });
@@ -634,9 +778,6 @@ const Editais = () => {
                 return next;
             });
 
-            if (editalId === 'all') {
-                console.log('[Editais] Todos os rascunhos de mesclagem foram invalidados pois o ciclo mudou.');
-            }
         } catch (err) {
             console.error('Erro ao descartar mesclagem pendente:', err);
         }
@@ -717,36 +858,20 @@ const Editais = () => {
                 // 1. Buscar progresso de todos os tópicos envolvidos
                 const { data: topicsData } = await supabase
                     .from('topics')
-                    .select('id, completed, review_count, next_review, last_reviewed_at, difficulty_level, notes, memory_stability, current_interval, retention_score, total_reviews')
+                    .select('id, completed, review_count, review_stage, next_review, first_studied_at, last_reviewed_at, difficulty_level, difficulty_set_at, notes, memory_stability, current_interval, retention_score, total_reviews, last_session_duration, is_marked_for_review, marked_for_review_at')
                     .in('id', originalIds);
 
                 if (topicsData && topicsData.length > 0) {
-                    // 2. Encontrar o tópico com maior progresso (prioridade para completed=true, depois review_count)
-                    const masterTopic = [...topicsData].sort((a, b) => {
-                        if (a.completed && !b.completed) return -1;
-                        if (!a.completed && b.completed) return 1;
-                        return (b.review_count || 0) - (a.review_count || 0);
-                    })[0];
-
                     const primaryId = originalIds[0];
                     const secondaryIds = originalIds.slice(1);
+                    const consolidatedProgress = buildConsolidatedTopicProgress(topicsData as TopicProgressRow[]);
 
-                    // 3. Sincronizar todos os tópicos com os dados do 'master'
-                    await supabase
-                        .from('topics')
-                        .update({
-                            completed: masterTopic.completed,
-                            review_count: masterTopic.review_count,
-                            next_review: masterTopic.next_review,
-                            last_reviewed_at: masterTopic.last_reviewed_at,
-                            difficulty_level: masterTopic.difficulty_level,
-                            notes: masterTopic.notes,
-                            memory_stability: masterTopic.memory_stability,
-                            current_interval: masterTopic.current_interval,
-                            retention_score: masterTopic.retention_score,
-                            total_reviews: masterTopic.total_reviews
-                        })
-                        .in('id', originalIds);
+                    if (consolidatedProgress) {
+                        await supabase
+                            .from('topics')
+                            .update(consolidatedProgress)
+                            .in('id', originalIds);
+                    }
 
                     // 4. Definir o parent_topic_id (primaryId será o pai visual)
                     await supabase
@@ -754,7 +879,6 @@ const Editais = () => {
                         .update({ parent_topic_id: primaryId })
                         .in('id', secondaryIds);
 
-                    console.log(`[Editais] Tópicos unificados e sincronizados usando como base: ${masterTopic.id}`);
                 }
             }
             await updateSuggestionStatus(suggestion.id, 'approved');
@@ -782,7 +906,7 @@ const Editais = () => {
             result = result.filter(e => e.mergedIntoCycle);
         }
 
-        return result;
+        return [...result].sort(compareEditaisByCreatedOrder);
     }, [editais, filterCycle]);
 
     useEffect(() => {
@@ -1091,6 +1215,7 @@ const Editais = () => {
                 .in('id', edital.subjectIds);
 
             const currentEditalSubjects = (editalSubjectsData as unknown as Subject[] | null) || [];
+            const progressSummary = buildEditalProgressSummary(currentEditalSubjects);
 
             // Detecção por Nome: Se alguma matéria do novo edital tem o mesmo nome de algo no ciclo
             const hasNameConflict = currentEditalSubjects.some(s => namesInCycle.has(s.name.toLowerCase().trim()));
@@ -1121,7 +1246,9 @@ const Editais = () => {
                 currentOrigins: origins,
                 step: 'select',
                 action: realExistingIdsInCycle.length > 0 ? null : 'replace',
-                showDetailedPreview: realExistingIdsInCycle.length === 0
+                showDetailedPreview: realExistingIdsInCycle.length === 0,
+                progressSummary: progressSummary.hasProgress ? progressSummary : undefined,
+                progressMode: progressSummary.hasProgress ? undefined : 'keep',
             });
         } catch (err) {
             errorService.report(err, { module: 'editais', action: 'loadCycle', userMessage: 'Erro ao preparar carga do ciclo.' });
@@ -1218,6 +1345,18 @@ const Editais = () => {
             topics,
         };
     }, [cycleConflict.action, cycleConflict.edital?.subjectIds, finalPreviewIds, loadedEditalSubjects, subjects]);
+
+    const successCycleSources = useMemo(() => {
+        if (cycleConflict.action === 'replace' && cycleConflict.edital) {
+            return [{
+                id: cycleConflict.edital.id,
+                name: cycleConflict.edital.organ || cycleConflict.edital.name,
+                position: cycleConflict.edital.position,
+            }];
+        }
+
+        return cycleMergeSources;
+    }, [cycleConflict.action, cycleConflict.edital, cycleMergeSources]);
 
     useEffect(() => {
         if (cycleConflict.step !== 'success') return;
@@ -1463,10 +1602,24 @@ const Editais = () => {
             let oldEditalIds: string[] = [];
 
             if (action === 'replace') {
+                if (cycleConflict.progressSummary?.hasProgress && !cycleConflict.progressMode) {
+                    setCycleConflict(prev => ({ ...prev, action: 'replace', step: prev.existingIds.length > 0 ? 'preview' : 'select' }));
+                    toast.warning('Escolha se deseja continuar o progresso anterior ou reiniciar este edital antes de trocar o ciclo.');
+                    return;
+                }
+
                 // Identificar editais que serão removidos do ciclo
                 const oldMerged = editais.filter(e => e.mergedIntoCycle && e.id !== edital.id);
                 oldEditalIds = oldMerged.map(e => e.id);
                 finalIdsToLoad = edital.subjectIds;
+
+                if (cycleConflict.progressMode === 'reset') {
+                    setProcessingProgress({ message: 'Reiniciando progresso deste edital...', percentage: 12 });
+                    await resetEditalStudyProgress({
+                        editalId: edital.id,
+                        userId: user.id,
+                    });
+                }
 
                 // Limpar data da prova ao substituir ciclo
                 await supabase
@@ -1529,7 +1682,6 @@ const Editais = () => {
                     if (cycleId && unificationMap) {
                         setProcessingProgress({ message: 'Cruzando históricos entre editais...', percentage: 80 });
                         await mergeService.saveMergeFromUnificationMap(user.id, cycleId, unificationMap);
-                        console.log('[Editais] Mesclagens salvas nas tabelas dedicated');
                         window.dispatchEvent(new CustomEvent('mergeUpdated'));
                     }
                 } catch (mergeErr) {
@@ -1537,6 +1689,11 @@ const Editais = () => {
                 }
 
                 finalIdsToLoad = finalSubjectIdsFromMap!;
+            }
+
+            finalIdsToLoad = [...new Set(finalIdsToLoad.filter(Boolean))];
+            if (finalIdsToLoad.length === 0) {
+                throw new Error('Nao foi possivel carregar o ciclo: o edital nao possui materias ativas para estudo.');
             }
 
             // ATOMIC LOAD: Garantir que o ciclo e o status do edital mudem juntos
@@ -1547,7 +1704,8 @@ const Editais = () => {
             const defaultRpcExamDate = action === 'replace'
                 ? sanitizeExamDate(edital.examDate)
                 : defaultCycleExamDate;
-            
+            const shouldResetCycleState = action === 'replace';
+
             const rpcData = await invokeUserRpc<unknown>('atomic_cycle_load', {
                 p_user_id: user.id,
                 p_new_edital_id: edital.id,
@@ -1556,6 +1714,7 @@ const Editais = () => {
                 p_mode: action === 'replace' ? 'replace' : 'merge',
                 p_cycle_name: defaultCycleName.slice(0, 160),
                 p_exam_date: defaultRpcExamDate,
+                p_reset_cycle_state: shouldResetCycleState,
             });
 
             const rpcResult = getJsonRecord(rpcData as Json);
@@ -2738,7 +2897,7 @@ const Editais = () => {
                                                         : '2/3'}
                                             </div>
                                             <h2 className="text-[14px] font-black text-foreground uppercase tracking-tight">
-                                                {cycleConflict.step === 'success' ? 'Finalizar Ciclo' :
+                                                {cycleConflict.step === 'success' ? 'Ciclo Pronto' :
                                                  cycleConflict.step === 'select' ? 'Carregar Edital' :
                                                  cycleConflict.step === 'preview' ? (cycleConflict.existingIds.length === 0 ? 'Carregar Edital' : 'Escolher Organização') :
                                                  cycleConflict.step === 'topic-preview' ? 'Preview Mescla Matérias e Tópicos' :
@@ -2964,12 +3123,16 @@ const Editais = () => {
                                                         </div>
                                                     )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
+	                                            )}
+	                                        </div>
+                                            {progressChoiceCard}
+                                            {mergeProgressNoticeCard}
+	                                    </div>
+	                                )}
 
                                 {cycleConflict.step === 'preview' && cycleConflict.action === 'merge' && cycleConflict.unificationMap && (
+                                    <>
+                                    {mergeProgressNoticeCard}
                                     <CycleMergeComparison
                                         subjects={subjects}
                                         unificationMap={cycleConflict.unificationMap}
@@ -2981,6 +3144,7 @@ const Editais = () => {
                                         onUnificationMapChange={handleManualTopicEquivalenceChange}
                                         onUnify={() => handleCycleConflictAction('merge', 'unified')}
                                     />
+                                    </>
                                 )}
 
                                 {/* Preview legado usado somente pelo caminho de substituição. */}
@@ -2988,8 +3152,9 @@ const Editais = () => {
                                     <div className="space-y-2.5 py-2">
 
 
-                                        <div className="relative p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-content-muted/5 space-y-4">
-                                            <div className="flex flex-col gap-3 rounded-2xl border border-destructive/15 bg-destructive/5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+	                                        <div className="relative p-4 rounded-2xl bg-secondary dark:bg-zinc-800/30 border border-content-muted/5 space-y-4">
+                                            {progressChoiceCard}
+	                                            <div className="flex flex-col gap-3 rounded-2xl border border-destructive/15 bg-destructive/5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                                                 <div className="flex min-w-0 items-start gap-2.5">
                                                     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-destructive/10 text-destructive ring-1 ring-destructive/20">
                                                         <RefreshCw size={14} />
@@ -3322,12 +3487,40 @@ const Editais = () => {
                                                     <div className="space-y-4">
                                                         <section className="rounded-2xl bg-surface/75 p-4 dark:bg-surface/45">
                                                             <div className="flex items-start gap-2.5">
+                                                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+                                                                    <Library size={14} />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                        Concurso do ciclo
+                                                                    </span>
+                                                                    <div className="mt-2 grid gap-1.5">
+                                                                        {successCycleSources.map(source => (
+                                                                            <div key={source.id} className="flex min-w-0 flex-col gap-1 rounded-xl border border-border/60 bg-background/70 px-3 py-2 dark:bg-modal/60 sm:flex-row sm:items-center sm:justify-between">
+                                                                                <span className="min-w-0 truncate text-[12px] font-black uppercase tracking-tight text-foreground">
+                                                                                    {formatCycleSourceName(source.name)}
+                                                                                </span>
+                                                                                {source.position && (
+                                                                                    <span className="inline-flex min-w-0 items-center gap-1 text-[9px] font-bold uppercase tracking-[0.08em] text-content-muted sm:justify-end">
+                                                                                        <BriefcaseBusiness size={10} className="shrink-0 text-primary/80" />
+                                                                                        <span className="truncate">{formatCycleSourceName(source.position)}</span>
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </section>
+
+                                                        <section className="rounded-2xl bg-surface/75 p-4 dark:bg-surface/45">
+                                                            <div className="flex items-start gap-2.5">
                                                                 <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning ring-1 ring-warning/20">
                                                                     <CalendarDays size={14} />
                                                                 </div>
                                                                 <div className="min-w-0 flex-1">
                                                                     <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                        Data da prova do ciclo
+                                                                        Data da prova
                                                                     </span>
                                                                     {cycleConflict.action === 'replace' ? (
                                                                         <p className="mt-1 text-[12px] font-bold leading-relaxed text-foreground">
@@ -3525,11 +3718,11 @@ const Editais = () => {
                                                     <span>tópicos</span>
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => handleCycleConflictAction('replace')}
-                                                disabled={isMerging || isCycleFinalizationLocked}
-                                                className="app-button-success group flex h-11 w-full items-center justify-center px-5 text-center transition-colors disabled:cursor-not-allowed sm:w-auto sm:min-w-[210px]"
-                                            >
+	                                            <button
+	                                                onClick={() => handleCycleConflictAction('replace')}
+	                                                disabled={isMerging || isCycleFinalizationLocked || (shouldAskProgressMode && !cycleConflict.progressMode)}
+	                                                className="app-button-success group flex h-11 w-full items-center justify-center px-5 text-center transition-colors disabled:cursor-not-allowed sm:w-auto sm:min-w-[210px]"
+	                                            >
                                                 {isMerging && <Loader2 size={16} className="mr-2 animate-spin" />}
                                                 <div className="flex flex-col items-start text-left">
                                                     <span className="mb-0.5 text-[11px] font-black uppercase leading-none tracking-wider">
@@ -3612,11 +3805,11 @@ const Editais = () => {
                                                 </button>
                                             )}
 
-                                            <button
-                                                onClick={() => handleCycleConflictAction(cycleConflict.action!)}
-                                                disabled={isMerging || isCycleFinalizationLocked || (cycleConflict.edital && processingId === cycleConflict.edital.id)}
-                                                className="app-button-success flex h-10 items-center justify-center gap-2.5 px-4 transition-colors disabled:cursor-not-allowed"
-                                            >
+	                                            <button
+	                                                onClick={() => handleCycleConflictAction(cycleConflict.action!)}
+	                                                disabled={isMerging || isCycleFinalizationLocked || (cycleConflict.edital && processingId === cycleConflict.edital.id) || (shouldAskProgressMode && !cycleConflict.progressMode)}
+	                                                className="app-button-success flex h-10 items-center justify-center gap-2.5 px-4 transition-colors disabled:cursor-not-allowed"
+	                                            >
                                                 {isMerging ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                                                 <div className="flex flex-col items-start text-left">
 	                                                    <span className="mb-0.5 text-[10px] font-black uppercase leading-none tracking-wider">
