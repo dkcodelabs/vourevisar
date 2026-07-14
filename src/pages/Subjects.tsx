@@ -67,7 +67,15 @@ type SubjectTab = 'all' | 'vertical';
 const Subjects = () => {
   const { user } = useAuth();
   const { resetTimer, resumeTimer, setProcessedUpdate, stopTimer } = useTimer();
-  const { originsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, refresh, isLoading: isOriginsLoading } = useEditalOriginsWithMerge();
+  const {
+    originsMap,
+    subjectIndividualOriginsMap,
+    editaisData,
+    editaisNoCiclo,
+    activeSubjectIdsSet,
+    refresh,
+    isLoading: isOriginsLoading,
+  } = useEditalOriginsWithMerge();
   const { getUnifiedSubjectName, isSubjectMerged, revertSubjectMerge, getSubjectMergeInfo, dynamicUnificationMap } = useMergeData();
   const navigate = useNavigate();
   const {
@@ -168,7 +176,7 @@ const Subjects = () => {
     selectedMergeName,
     selectedMergeOriginals,
   } = useSubjectMergeReversion({
-    originsMap,
+    originsMap: subjectIndividualOriginsMap,
     revertSubjectMerge,
     subjects,
   });

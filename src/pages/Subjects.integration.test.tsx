@@ -200,6 +200,7 @@ const setScenario = (scenario: CyclePageScenario) => {
   const subjectIds = scenario.subjects.map(subject => subject.id);
   testState.originsSnapshot = {
     originsMap: new Map(),
+    subjectIndividualOriginsMap: new Map(),
     editaisData: [],
     editaisNoCiclo: subjectIds.length > 0
       ? [{ id: 'edital-1', name: 'Edital Teste', subject_ids: subjectIds, active_subject_ids: subjectIds }]

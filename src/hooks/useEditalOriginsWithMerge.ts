@@ -226,6 +226,29 @@ export const useEditalOriginsWithMerge = () => {
         return map;
     }, [editaisData, subjectMerges, topicMerges]);
 
+    const subjectIndividualOriginsMap = useMemo(() => {
+        const map = new Map<string, OriginInfo[]>();
+
+        for (const edital of editaisData) {
+            for (const subjectId of edital.subject_ids) {
+                const existing = map.get(subjectId) || [];
+                if (!existing.some(origin => origin.name === edital.name)) {
+                    map.set(subjectId, [
+                        ...existing,
+                        {
+                            name: edital.name,
+                            organ: edital.organ,
+                            isImported: edital.is_imported,
+                            sourceId: edital.source_id,
+                        },
+                    ]);
+                }
+            }
+        }
+
+        return map;
+    }, [editaisData]);
+
     const topicOriginsMap = useMemo(() => {
         const map = new Map<string, { name: string; organ?: string; isImported: boolean; sourceId?: string }[]>();
         
@@ -346,6 +369,7 @@ export const useEditalOriginsWithMerge = () => {
 
     return { 
         originsMap, 
+        subjectIndividualOriginsMap,
         topicOriginsMap, 
         editaisData, 
         editaisNoCiclo, 
