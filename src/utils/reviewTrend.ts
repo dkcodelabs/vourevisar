@@ -1,6 +1,16 @@
 import type { MentorTrendLabel } from '@/types/mentor';
 
 export type TrustedReviewTrendLabel = Extract<MentorTrendLabel, 'Melhorando' | 'Piorando'>;
+export type StoredReviewTrendLabel = MentorTrendLabel | 'Sem histórico suficiente';
+
+export interface ReviewDifficultyHistoryRow {
+  difficulty_numeric: number | null;
+}
+
+export interface CalculatedReviewTrend {
+  trendDelta: number | null;
+  trendLabel: StoredReviewTrendLabel;
+}
 
 export interface ReviewTrendHistoryRow {
   topic_id: string;
@@ -17,6 +27,44 @@ const isTrustedReviewTrend = (
   if (label === 'Melhorando') return delta <= -0.5;
   if (label === 'Piorando') return delta >= 0.5;
   return false;
+};
+
+export const calculateReviewTrendFromDifficultyHistory = (
+  currentDifficulty: number,
+  pastReviews: ReviewDifficultyHistoryRow[] | null | undefined,
+): CalculatedReviewTrend => {
+  if (!pastReviews || pastReviews.length < 2) {
+    return {
+      trendDelta: null,
+      trendLabel: 'Sem histórico suficiente',
+    };
+  }
+
+  const numericDifficulties = pastReviews
+    .map(review => review.difficulty_numeric)
+    .filter((difficulty): difficulty is number =>
+      typeof difficulty === 'number' && Number.isFinite(difficulty),
+    );
+
+  if (numericDifficulties.length < 2) {
+    return {
+      trendDelta: null,
+      trendLabel: 'Sem histórico suficiente',
+    };
+  }
+
+  const pastAverage = numericDifficulties.reduce((sum, difficulty) => sum + difficulty, 0) / numericDifficulties.length;
+  const trendDelta = currentDifficulty - pastAverage;
+
+  if (trendDelta >= 0.5) {
+    return { trendDelta, trendLabel: 'Piorando' };
+  }
+
+  if (trendDelta <= -0.5) {
+    return { trendDelta, trendLabel: 'Melhorando' };
+  }
+
+  return { trendDelta, trendLabel: 'Estável' };
 };
 
 export const buildLatestTrustedReviewTrendByTopic = (

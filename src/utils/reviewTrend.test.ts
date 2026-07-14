@@ -1,6 +1,52 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildLatestTrustedReviewTrendByTopic } from './reviewTrend';
+import {
+  buildLatestTrustedReviewTrendByTopic,
+  calculateReviewTrendFromDifficultyHistory,
+} from './reviewTrend';
+
+describe('calculateReviewTrendFromDifficultyHistory', () => {
+  it('returns insufficient history before two numeric reviews', () => {
+    expect(calculateReviewTrendFromDifficultyHistory(2, [
+      { difficulty_numeric: 1 },
+      { difficulty_numeric: null },
+    ])).toEqual({
+      trendDelta: null,
+      trendLabel: 'Sem histórico suficiente',
+    });
+  });
+
+  it('labels the current review as improving when difficulty drops enough', () => {
+    expect(calculateReviewTrendFromDifficultyHistory(1, [
+      { difficulty_numeric: 2 },
+      { difficulty_numeric: 3 },
+    ])).toEqual({
+      trendDelta: -1.5,
+      trendLabel: 'Melhorando',
+    });
+  });
+
+  it('labels the current review as worsening when difficulty rises enough', () => {
+    expect(calculateReviewTrendFromDifficultyHistory(3, [
+      { difficulty_numeric: 1 },
+      { difficulty_numeric: 2 },
+    ])).toEqual({
+      trendDelta: 1.5,
+      trendLabel: 'Piorando',
+    });
+  });
+
+  it('keeps small variation as stable', () => {
+    const result = calculateReviewTrendFromDifficultyHistory(2, [
+      { difficulty_numeric: 2 },
+      { difficulty_numeric: 2 },
+      { difficulty_numeric: 3 },
+    ]);
+
+    expect(result.trendLabel).toBe('Estável');
+    expect(result.trendDelta).toBeCloseTo(-1 / 3);
+  });
+});
 
 describe('buildLatestTrustedReviewTrendByTopic', () => {
   it('uses only review-history trends with compatible deltas', () => {

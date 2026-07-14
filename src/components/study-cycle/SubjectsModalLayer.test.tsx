@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -5,7 +6,19 @@ const mocks = vi.hoisted(() => ({
   notesModal: vi.fn((props: unknown) => <div data-testid="notes-modal" data-props={JSON.stringify(Boolean(props))} />),
   importEditalModal: vi.fn((props: unknown) => <div data-testid="import-modal" data-props={JSON.stringify(Boolean(props))} />),
   difficultyRatingModal: vi.fn((props: unknown) => <div data-testid="difficulty-modal" data-props={JSON.stringify(Boolean(props))} />),
-  confirmModal: vi.fn((props: unknown) => <div data-testid="confirm-modal" data-props={JSON.stringify(Boolean(props))} />),
+  confirmModal: vi.fn((props: {
+    title: string;
+    description: ReactNode;
+    confirmText: string;
+    cancelText: string;
+  }) => (
+    <div data-testid="confirm-modal">
+      <h2>{props.title}</h2>
+      <div>{props.description}</div>
+      <button>{props.confirmText}</button>
+      <button>{props.cancelText}</button>
+    </div>
+  )),
   editalSubjectsModal: vi.fn((props: unknown) => <div data-testid="edital-subjects-modal" data-props={JSON.stringify(Boolean(props))} />),
   cycleExamDateDialog: vi.fn((props: unknown) => <div data-testid="exam-date-dialog" data-props={JSON.stringify(Boolean(props))} />),
 }));
@@ -23,7 +36,12 @@ vi.mock('@/components/modals/DifficultyRatingModal', () => ({
 }));
 
 vi.mock('@/components/ui/ConfirmModal', () => ({
-  default: (props: unknown) => mocks.confirmModal(props),
+  default: (props: unknown) => mocks.confirmModal(props as {
+    title: string;
+    description: ReactNode;
+    confirmText: string;
+    cancelText: string;
+  }),
 }));
 
 vi.mock('@/components/editais/EditalSubjectsModal', () => ({
@@ -96,7 +114,11 @@ describe('SubjectsModalLayer', () => {
         pendingCompleteSubjectId="subject-1"
         resetCycleConfirmOpen={true}
         selectedMergeName="Direito Constitucional"
-        selectedMergeOriginals={[]}
+        selectedMergeOriginals={[{
+          editalName: 'Teste A - Cargo A',
+          editalOrgan: 'Cargo A',
+          subjectName: 'Direito',
+        }]}
         selectedTopicForNotes={{ id: 'topic-1', name: 'Controle', subjectName: 'Direito Constitucional' }}
         setCompleteCycleConfirmOpen={vi.fn()}
         subjects={[]}
@@ -150,5 +172,11 @@ describe('SubjectsModalLayer', () => {
       isOpen: true,
       initialExpandedSubjectId: 'subject-1',
     }));
+
+    expect(screen.getByText('Separar matéria unificada')).toBeInTheDocument();
+    expect(screen.getByText(/voltará a aparecer separada por edital no ciclo/i)).toBeInTheDocument();
+    expect(screen.getByText(/progresso e o histórico já sincronizados/i)).toBeInTheDocument();
+    expect(screen.getByText('Separar matéria')).toBeInTheDocument();
+    expect(screen.getByText('Manter unificada')).toBeInTheDocument();
   });
 });

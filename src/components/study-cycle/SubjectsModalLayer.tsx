@@ -492,18 +492,22 @@ export function SubjectsModalLayer({
         onConfirm={() => {
           void onRevertMergeConfirm();
         }}
-        title="Desfazer Mesclagem de Matéria"
+        title="Separar matéria unificada"
         description={(
           <div className="space-y-4">
             <p className="text-sm">
-              Tem certeza que deseja desfazer a mesclagem <strong className="text-primary">"{selectedMergeName}"</strong>?
-              As matérias voltarão a ser exibidas individualmente no seu ciclo.
+              A matéria <strong className="text-primary">"{selectedMergeName}"</strong> voltará a aparecer separada por edital no ciclo.
+              O progresso e o histórico já sincronizados nos tópicos equivalentes serão preservados.
             </p>
+
+            <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs font-medium leading-relaxed text-warning-foreground/90">
+              Use isto quando a equivalência estiver errada. Se os tópicos realmente forem o mesmo conteúdo, manter unificado evita linhas duplicadas nas revisões.
+            </div>
 
             {selectedMergeOriginals.length > 0 && (
               <div className="origin-top scale-95 rounded-[24px] border border-border/50 bg-secondary/50 p-4 translate-y-[-4px]">
                 <p className="mb-3 ml-1 text-[10px] font-black uppercase tracking-[0.2em] text-content-muted/60">
-                  ESTRUTURA DE SEPARAÇÃO
+                  COMO FICARÁ NO CICLO
                 </p>
                 <div className="space-y-2">
                   {selectedMergeOriginals.map((original, index) => (
@@ -533,8 +537,8 @@ export function SubjectsModalLayer({
             )}
           </div>
         )}
-        confirmText="Desfazer"
-        cancelText="Manter Mesclado"
+        confirmText="Separar matéria"
+        cancelText="Manter unificada"
         variant="warning"
         icon={Link2Off}
         isLoading={isReverting}
