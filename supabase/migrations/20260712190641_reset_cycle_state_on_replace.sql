@@ -21,7 +21,7 @@ declare
   v_now timestamptz := now();
   v_resumed_reviews integer := 0;
   v_should_reset_cycle_state boolean := false;
-  v_cycle_name text := left(coalesce(nullif(trim(p_cycle_name, ''), 'Ciclo de estudos'), 160);
+  v_cycle_name text := left(coalesce(nullif(trim(p_cycle_name), ''), 'Ciclo de estudos'), 160);
 begin
   if (select auth.uid()) is distinct from p_user_id then
     raise exception 'Not authorized' using errcode = '42501';
