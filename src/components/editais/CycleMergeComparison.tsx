@@ -67,8 +67,47 @@ const normalizeSearchText = (value: string): string => (
     value
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
         .toLowerCase()
         .trim()
+        .replace(/\s+/g, ' ')
+);
+
+const getSearchTokens = (value: string): string[] => (
+    normalizeSearchText(value)
+        .split(' ')
+        .filter(token => token.length > 2)
+);
+
+const getTopicSimilarityScore = (baseName: string, candidateName: string): number => {
+    const base = normalizeSearchText(baseName);
+    const candidate = normalizeSearchText(candidateName);
+    if (!base || !candidate) return 0;
+    if (base === candidate) return 1;
+    if (base.includes(candidate) || candidate.includes(base)) return 0.86;
+
+    const baseTokens = new Set(getSearchTokens(base));
+    const candidateTokens = new Set(getSearchTokens(candidate));
+    if (baseTokens.size === 0 || candidateTokens.size === 0) return 0;
+
+    const overlap = [...baseTokens].filter(token => candidateTokens.has(token)).length;
+    return (2 * overlap) / (baseTokens.size + candidateTokens.size);
+};
+
+const rankManualCandidateTopics = (
+    sourceTopicName: string,
+    topics: CycleMergeComparisonTopic[],
+): Array<CycleMergeComparisonTopic & { similarityScore: number }> => (
+    topics
+        .map(topic => ({
+            ...topic,
+            similarityScore: getTopicSimilarityScore(sourceTopicName, topic.name),
+        }))
+        .sort((a, b) => (
+            b.similarityScore - a.similarityScore
+            || a.name.localeCompare(b.name, 'pt-BR')
+            || a.id.localeCompare(b.id)
+        ))
 );
 
 function PreviewColumn({
@@ -89,9 +128,16 @@ function PreviewColumn({
 }: PreviewColumnProps) {
     const Icon = isUnifiedResult ? Merge : Layers3;
     const normalizedManualQuery = normalizeSearchText(manualCandidateQuery);
+    const rankedManualCandidateTopics = manualSelection
+        ? rankManualCandidateTopics(manualSelection.topicName, manualCandidateTopics)
+        : [];
+    const suggestedManualCandidateTopics = rankedManualCandidateTopics
+        .filter(topic => topic.similarityScore >= 0.45)
+        .slice(0, 8);
     const visibleManualCandidateTopics = normalizedManualQuery
-        ? manualCandidateTopics.filter(topic => normalizeSearchText(topic.name).includes(normalizedManualQuery))
-        : manualCandidateTopics;
+        ? rankedManualCandidateTopics.filter(topic => normalizeSearchText(topic.name).includes(normalizedManualQuery))
+        : suggestedManualCandidateTopics;
+    const isShowingSuggestions = !normalizedManualQuery;
 
     return (
         <section
@@ -193,7 +239,7 @@ function PreviewColumn({
                                             className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-primary/15 bg-primary/5 px-1.5 text-[8px] font-black uppercase tracking-[0.08em] text-primary transition-colors hover:bg-primary/10"
                                         >
                                             <Link2 size={10} aria-hidden="true" />
-                                            Escolher equivalente
+                                            Sugerir equivalente
                                         </button>
                                     )}
                                     {isManualSelectionActive && (
@@ -204,7 +250,7 @@ function PreviewColumn({
                                                         Escolha o tópico equivalente
                                                     </p>
                                                     <p className="mt-0.5 text-[9px] font-medium leading-snug text-content-muted">
-                                                        Origem: <span className="font-bold text-foreground">{manualSelection.topicName}</span>
+                                                        Vamos mostrar primeiro os candidatos mais provaveis para <span className="font-bold text-foreground">{manualSelection.topicName}</span>.
                                                     </p>
                                                 </div>
                                                 <button
@@ -234,6 +280,14 @@ function PreviewColumn({
                                                 </label>
                                             ) : null}
 
+                                            {manualCandidateTopics.length > 0 && isShowingSuggestions && (
+                                                <p className="mb-1 text-[9px] font-semibold text-content-muted">
+                                                    {visibleManualCandidateTopics.length > 0
+                                                        ? `${visibleManualCandidateTopics.length} sugestao${visibleManualCandidateTopics.length === 1 ? '' : 'es'} provavel${visibleManualCandidateTopics.length === 1 ? '' : 'is'} encontrada${visibleManualCandidateTopics.length === 1 ? '' : 's'}.`
+                                                        : 'Nenhuma sugestao provavel. Use a busca para procurar em todos os topicos livres deste grupo.'}
+                                                </p>
+                                            )}
+
                                             <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
                                                 {manualCandidateTopics.length > 0 && visibleManualCandidateTopics.length > 0 ? visibleManualCandidateTopics.map(candidateTopic => (
                                                     <button
@@ -248,13 +302,20 @@ function PreviewColumn({
                                                         }`}
                                                     >
                                                         <span className="min-w-0 break-words leading-snug">{candidateTopic.name}</span>
+                                                        {isShowingSuggestions && (
+                                                            <span className="shrink-0 rounded-full border border-primary/15 bg-primary/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-primary">
+                                                                Sugestao
+                                                            </span>
+                                                        )}
                                                         {manualSelection?.candidateTopicId === candidateTopic.id && (
                                                             <CheckCircle2 size={12} aria-hidden="true" className="mt-0.5 shrink-0" />
                                                         )}
                                                     </button>
                                                 )) : manualCandidateTopics.length > 0 ? (
                                                     <span className="block rounded-md border border-dashed border-border bg-background/50 px-2 py-2 text-[9px] font-medium text-content-muted">
-                                                        Nenhum tópico encontrado com esse filtro.
+                                                        {isShowingSuggestions
+                                                            ? 'Nenhuma sugestao automatica segura para este topico. Pesquise pelo nome se quiser marcar manualmente.'
+                                                            : 'Nenhum tópico encontrado com esse filtro.'}
                                                     </span>
                                                 ) : (
                                                     <span className="text-[9px] font-medium text-content-muted">

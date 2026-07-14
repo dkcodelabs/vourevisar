@@ -19,6 +19,7 @@ import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 import { fetchTopicExamDate, getOverdueDays } from '@/services/topicReviewScheduleService';
 import { getReviewStage } from '@/utils/reviewStage';
 import { getTopicStudySessionContactType } from '@/utils/studySessionContactType';
+import { calculateReviewTrendFromDifficultyHistory } from '@/utils/reviewTrend';
 
 export const useTopicReview = () => {
   const { user } = useAuth();
@@ -178,20 +179,10 @@ export const useTopicReview = () => {
         .order('reviewed_at', { ascending: false })
         .limit(3);
 
-      let trendDelta: number | null = null;
-      let trendLabel: string = 'Sem histórico suficiente';
-
-      if (pastReviews && pastReviews.length >= 2) {
-        const sum = pastReviews.reduce((acc, rev) => acc + (rev.difficulty_numeric || 2), 0);
-        const mediaPassada = sum / pastReviews.length;
-
-        if (!isNaN(mediaPassada)) {
-          trendDelta = numericDifficulty - mediaPassada;
-          if (trendDelta >= 0.5) trendLabel = 'Piorando';
-          else if (trendDelta <= -0.5) trendLabel = 'Melhorando';
-          else trendLabel = 'Estável';
-        }
-      }
+      const { trendDelta, trendLabel } = calculateReviewTrendFromDifficultyHistory(
+        numericDifficulty,
+        pastReviews,
+      );
 
       const incidenceLevel = ['low', 'medium', 'high'].includes(String(topic.incidence_level))
         ? topic.incidence_level as ReviewIncidenceLevel

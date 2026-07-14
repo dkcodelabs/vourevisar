@@ -20,6 +20,7 @@ import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
 import { getStudyCycleMetrics } from '@/utils/studyCycleMetrics';
 import { buildReviewOriginMetadata } from '@/utils/reviewOriginLabels';
+import { buildLatestTrustedReviewTrendByTopic, type ReviewTrendHistoryRow } from '@/utils/reviewTrend';
 
 
 import { ReviewHistoryItem, RevisionItem, RevisionStatus } from '@/types/revision';
@@ -224,6 +225,27 @@ export const Revisoes = () => {
     enabled: !!user
   });
 
+  const { data: reviewTrendByTopic = new Map(), refetch: refetchReviewTrends } = useQuery({
+    queryKey: ['reviews-page-trends', user?.id, activeTopicScope.scopeKey],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('User not authenticated');
+      if (!activeTopicScope.hasScopedData) return new Map();
+
+      const { data, error } = await supabase
+        .from('topic_review_history')
+        .select('topic_id, trend_label, trend_delta, reviewed_at')
+        .eq('user_id', user.id)
+        .in('topic_id', activeTopicScope.activeTopicIds)
+        .not('trend_label', 'is', null)
+        .order('reviewed_at', { ascending: false });
+
+      if (error) throw error;
+
+      return buildLatestTrustedReviewTrendByTopic((data || []) as ReviewTrendHistoryRow[]);
+    },
+    enabled: Boolean(user?.id && activeTopicScope.hasScopedData),
+  });
+
   const { data: firstContactStudyDurationsMinutes = [] } = useQuery({
     queryKey: ['reviews-first-contact-durations', user?.id, userCycle?.id],
     queryFn: async () => {
@@ -249,12 +271,16 @@ export const Revisoes = () => {
   });
 
   useEffect(() => {
-    const handleTopicUpdate = () => { refetchHistory(); };
+    const handleTopicUpdate = () => {
+      refetchHistory();
+      refetchReviewTrends();
+    };
     const handleExternalCompletion = (event: CustomEvent<{ topicId: string }>) => {
       if (difficultyModalData.isOpen && difficultyModalData.topicId === event.detail.topicId) {
         closeDifficultyModal();
       }
       refetch();
+      refetchReviewTrends();
     };
     window.addEventListener('topicUpdated', handleTopicUpdate);
     window.addEventListener('external-topic-completed', handleExternalCompletion as EventListener);
@@ -275,7 +301,7 @@ export const Revisoes = () => {
       window.removeEventListener('mergeUpdated', handleRefresh);
       window.removeEventListener('subjectUpdated', handleRefresh);
     };
-  }, [refetchHistory, difficultyModalData, closeDifficultyModal, refetch, refreshData]);
+  }, [refetchHistory, refetchReviewTrends, difficultyModalData, closeDifficultyModal, refetch, refreshData]);
 
 
 
@@ -789,6 +815,7 @@ export const Revisoes = () => {
             stats={stats}
             activeTimer={activeTimer}
             highlightedTopicId={highlightedTopicId}
+            trendByTopic={reviewTrendByTopic}
             loadingActions={loadingActions}
             handleMarkCompleted={handleMarkCompleted}
             handleAiAssist={handleAiAssist}
