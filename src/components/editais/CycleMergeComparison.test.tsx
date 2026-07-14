@@ -143,6 +143,8 @@ describe('CycleMergeComparison', () => {
         );
 
         fireEvent.click(screen.getByRole('button', { name: 'Escolher equivalente para Direitos fundamentais' }));
+        expect(screen.getByText('1 sugestao provavel encontrada.')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Selecionar Direitos e garantias fundamentais como equivalente' })).toBeInTheDocument();
         fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar tópico equivalente' }), {
             target: { value: 'garantias' },
         });
@@ -171,5 +173,64 @@ describe('CycleMergeComparison', () => {
 
         const removedMap = onUnificationMapChange.mock.calls[1][0] as CycleUnificationMap;
         expect(removedMap.unifiedSubjects[0].topicMappings).toEqual([]);
+    });
+
+    it('lets the student confirm the best suggested equivalent without searching', () => {
+        const onUnificationMapChange = vi.fn();
+        const manualSubjects: Subject[] = [
+            {
+                id: 'subject-a',
+                name: 'Portugues',
+                status: 'Nova',
+                edital_id: 'edital-a',
+                topics: [{ id: 'topic-a', name: 'Acentuacao', completed: false, reviewCount: 0, review_count: 0 }],
+            },
+            {
+                id: 'subject-b',
+                name: 'Portugues',
+                status: 'Nova',
+                edital_id: 'edital-b',
+                topics: [
+                    { id: 'topic-b', name: 'Acentuacao grafica', completed: false, reviewCount: 0, review_count: 0 },
+                    { id: 'topic-c', name: 'Pontuacao', completed: false, reviewCount: 0, review_count: 0 },
+                ],
+            },
+        ];
+        const manualMap: CycleUnificationMap = {
+            version: 1,
+            createdAt: '2026-06-22T00:00:00.000Z',
+            editalIds: ['edital-a', 'edital-b'],
+            standaloneSubjectIds: [],
+            unifiedSubjects: [{
+                displayName: 'Portugues',
+                originalSubjectIds: ['subject-a', 'subject-b'],
+                matchType: 'exact',
+                topicMappings: [],
+            }],
+        };
+
+        render(
+            <CycleMergeComparison
+                subjects={manualSubjects}
+                unificationMap={manualMap}
+                editalName="Teste"
+                onKeepIndividual={vi.fn()}
+                onUnify={vi.fn()}
+                onUnificationMapChange={onUnificationMapChange}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: 'Escolher equivalente para Acentuacao' }));
+        expect(screen.getByText('1 sugestao provavel encontrada.')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Selecionar Acentuacao grafica como equivalente' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Selecionar Pontuacao como equivalente' })).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Confirmar equivalência manual' }));
+
+        const nextMap = onUnificationMapChange.mock.calls[0][0] as CycleUnificationMap;
+        expect(nextMap.unifiedSubjects[0].topicMappings).toEqual([expect.objectContaining({
+            matchType: 'manual',
+            originalTopicIds: ['topic-a', 'topic-b'],
+        })]);
     });
 });
