@@ -24,6 +24,7 @@ export interface ReviewTopic {
   name: string;
   subject_id: string;
   subject_name: string;
+  edital_id: string | null;
   review_stage: string;
   next_review: string | null;
   review_count: number;
@@ -40,6 +41,8 @@ export interface ReviewTopic {
   current_interval?: number;
   learningStatus?: LearningStatus;
   notes?: unknown;
+  source_topic_ids?: string[];
+  source_edital_ids?: string[];
 }
 
 // Interface for export group
@@ -179,6 +182,7 @@ export const useReviewsData = () => {
           id,
           name,
           subject_id,
+          edital_id,
           review_stage,
           next_review,
           review_count,
@@ -192,7 +196,8 @@ export const useReviewsData = () => {
           subjects!inner (
             id,
             name,
-            color
+            color,
+            edital_id
           )
         `)
         .eq('subjects.user_id', user.id)
@@ -207,6 +212,7 @@ export const useReviewsData = () => {
           id: topic.id,
           name: topic.name,
           subject_id: topic.subject_id,
+          edital_id: topic.edital_id || subject?.edital_id || null,
           review_stage: topic.review_stage,
           next_review: topic.next_review,
           review_count: topic.review_count ?? 0,
@@ -222,8 +228,11 @@ export const useReviewsData = () => {
             id: subject?.id,
             name: subject?.name,
             color: subject?.color,
+            edital_id: subject?.edital_id,
             user_id: user.id
-          }
+          },
+          source_topic_ids: [topic.id],
+          source_edital_ids: topic.edital_id || subject?.edital_id ? [topic.edital_id || subject?.edital_id] : [],
         };
       });
 
@@ -255,6 +264,7 @@ export const useReviewsData = () => {
         id: topic.id,
         name: topic.name,
         subject_id: topic.subject_id,
+        edital_id: topic.edital_id,
         review_stage: topic.review_stage,
         next_review: topic.next_review,
         review_count: topic.review_count ?? 0,
@@ -270,6 +280,8 @@ export const useReviewsData = () => {
           ? determineLearningStatus(topic.memory_stability || 0, topic.current_interval || 0, topic.review_count || 0)
           : undefined,
         notes: topic.notes,
+        source_topic_ids: topic.source_topic_ids,
+        source_edital_ids: topic.source_edital_ids,
         subject_name: topic.subject_name,
         subjects: topic.subjects,
       }});

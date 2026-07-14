@@ -67,6 +67,7 @@ describe('review merge scope', () => {
         primary_topic_id: 'crase-a',
         merged_topic_ids: ['crase-b'],
         display_name: 'Crase',
+        source_edital_ids: [],
       },
     ]);
   });
@@ -140,6 +141,7 @@ describe('review merge scope', () => {
         id: 'crase-a',
         name: 'Crase',
         subject_id: 'portugues-a',
+        edital_id: 'edital-a',
         review_count: 0,
         next_review: null,
       },
@@ -147,6 +149,7 @@ describe('review merge scope', () => {
         id: 'crase-b',
         name: 'Crase',
         subject_id: 'portugues-b',
+        edital_id: 'edital-b',
         review_count: 1,
         next_review: '2026-08-01T00:00:00.000Z',
       },
@@ -164,6 +167,7 @@ describe('review merge scope', () => {
         primary_topic_id: 'crase-a',
         merged_topic_ids: ['crase-b'],
         display_name: 'Crase',
+        source_edital_ids: ['edital-a', 'edital-b'],
       },
     ]);
 
@@ -173,6 +177,8 @@ describe('review merge scope', () => {
       name: 'Crase',
       review_count: 1,
       next_review: '2026-08-01T00:00:00.000Z',
+      source_topic_ids: ['crase-a', 'crase-b'],
+      source_edital_ids: ['edital-a', 'edital-b'],
     });
     expect(deduped[1]).toMatchObject({ id: 'acentuacao-a' });
   });

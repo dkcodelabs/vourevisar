@@ -48,6 +48,10 @@ export interface RevisionItem {
     maxReviews?: number; // Maximum reviews for user profile
     learningStatus?: 'Aprendendo' | 'Fixando' | 'Dominando';
     memoryStability?: number;
+    originSummary?: string | null;
+    originLabels?: string[];
+    isMergedOrigin?: boolean;
+    showOrigin?: boolean;
 }
 
 export interface GroupedData {

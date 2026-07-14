@@ -6,6 +6,7 @@ export type ReviewScopeTopic = {
   id: string;
   name: string;
   subject_id: string;
+  edital_id?: string | null;
   completed?: boolean | null;
   review_count?: number | null;
   next_review?: string | null;
@@ -13,12 +14,21 @@ export type ReviewScopeTopic = {
   first_studied_at?: string | null;
   memory_stability?: number | null;
   current_interval?: number | null;
+  source_topic_ids?: string[];
+  source_edital_ids?: string[];
 };
 
 type ReviewTopicGroup = {
   ids: string[];
   displayName: string;
+  sourceEditalIds?: string[];
 };
+
+type ReviewTopicMergeInput = Pick<TopicMerge, 'primary_topic_id' | 'merged_topic_ids' | 'display_name'> & {
+  source_edital_ids?: string[] | null;
+};
+
+const unique = <T,>(items: T[]): T[] => [...new Set(items)];
 
 export function expandReviewSubjectScope(
   cycleSubjectIds: string[],
@@ -44,13 +54,14 @@ export function expandReviewSubjectScope(
 export function buildReviewTopicMergesFromUnificationMap(
   unificationMap?: CycleUnificationMap | null,
   _topics: ReviewScopeTopic[] = [],
-): Pick<TopicMerge, 'primary_topic_id' | 'merged_topic_ids' | 'display_name'>[] {
+): ReviewTopicMergeInput[] {
   return buildReviewTopicGroupsFromUnificationMap(unificationMap).map(group => {
     const [primaryTopicId, ...mergedTopicIds] = group.ids;
     return {
       primary_topic_id: primaryTopicId,
       merged_topic_ids: mergedTopicIds,
       display_name: group.displayName,
+      source_edital_ids: group.sourceEditalIds || [],
     };
   });
 }
@@ -61,12 +72,16 @@ function buildReviewTopicGroupsFromUnificationMap(
   return buildTopicEquivalenceGroups({ unificationMap }).map(group => ({
     ids: group.ids,
     displayName: group.displayName || 'Tópico unificado',
+    sourceEditalIds: (unificationMap?.unifiedSubjects || [])
+      .flatMap(subject => subject.topicMappings || [])
+      .find(mapping => mapping.originalTopicIds.some(id => group.ids.includes(id)))
+      ?.sourceEditalIds || [],
   }));
 }
 
 export function dedupeMergedReviewTopics<T extends ReviewScopeTopic>(
   topics: T[],
-  topicMerges: Pick<TopicMerge, 'primary_topic_id' | 'merged_topic_ids' | 'display_name'>[],
+  topicMerges: ReviewTopicMergeInput[],
 ): T[] {
   const topicById = new Map(topics.map(topic => [topic.id, topic]));
   const consumedIds = new Set<string>();
@@ -81,15 +96,31 @@ export function dedupeMergedReviewTopics<T extends ReviewScopeTopic>(
     if (availableTopics.length === 0) continue;
 
     const representative = chooseRepresentativeReviewTopic(availableTopics);
+    const sourceEditalIds = unique([
+      ...(merge.source_edital_ids || []),
+      ...availableTopics.flatMap(topic => topic.source_edital_ids || []),
+      ...availableTopics.map(topic => topic.edital_id).filter((id): id is string => Boolean(id)),
+    ]);
     mergedTopics.push({
       ...representative,
       id: merge.primary_topic_id,
       name: merge.display_name || representative.name,
+      source_topic_ids: unique([
+        ...mergeTopicIds,
+        ...availableTopics.flatMap(topic => topic.source_topic_ids || []),
+      ]),
+      source_edital_ids: sourceEditalIds,
     });
     mergeTopicIds.forEach(id => consumedIds.add(id));
   }
 
-  const standaloneTopics = topics.filter(topic => !consumedIds.has(topic.id));
+  const standaloneTopics = topics
+    .filter(topic => !consumedIds.has(topic.id))
+    .map(topic => ({
+      ...topic,
+      source_topic_ids: topic.source_topic_ids || [topic.id],
+      source_edital_ids: topic.source_edital_ids || (topic.edital_id ? [topic.edital_id] : []),
+    }));
   return [...mergedTopics, ...standaloneTopics];
 }
 
