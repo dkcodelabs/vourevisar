@@ -5,10 +5,9 @@ import {
 } from 'lucide-react';
 import { RevisionItem, RevisionStatus } from '@/types/revision';
 import { useNavigate } from 'react-router-dom';
-import { useMentorInsights } from '@/hooks/useMentorInsights';
 import { TrendIcon } from '@/components/mentor/TrendIcon';
+import type { MentorTrendLabel } from '@/types/mentor';
 
-import { MentorBadge } from '@/components/mentor/MentorBadge';
 import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
 import type { ActiveTimer } from '@/contexts/TimerContext';
 import { getReviewTopicRowClassName } from './reviewTopicRowClassName';
@@ -28,6 +27,7 @@ interface RevisoesListProps {
     };
     activeTimer: ActiveTimer | null;
     highlightedTopicId: string | null;
+    trendByTopic: Map<string, MentorTrendLabel>;
     loadingActions: Record<string, string>;
     handleMarkCompleted: (id: string) => void;
     handleAiAssist: (item: RevisionItem) => void;
@@ -44,6 +44,7 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
     stats,
     activeTimer,
     highlightedTopicId,
+    trendByTopic,
     loadingActions,
     handleMarkCompleted,
     handleAiAssist,
@@ -52,7 +53,6 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
   setReviewStageFilter
 }) => {
   const navigate = useNavigate();
-  const { gargaloByTopic, trendByTopic } = useMentorInsights();
 
     const getGroupStyle = (groupKey: string) => {
         switch (groupKey) {
@@ -349,7 +349,6 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                     {groupItems.map(item => {
                                         const isActive = activeTimer?.topicId === item.id;
                                         const isHighlighted = highlightedTopicId === item.id;
-                                        const gargaloAlert = gargaloByTopic.get(item.id);
                                         const trendLabel = trendByTopic.get(item.id);
                                         return (
                                             <div
@@ -377,11 +376,6 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                     {trendLabel && (trendLabel === 'Melhorando' || trendLabel === 'Piorando') && (
                                                                         <span className="inline-flex mr-1.5 align-middle translate-y-[1px]" title={`Tendência de Retenção: ${trendLabel}`}>
                                                                             <TrendIcon type={trendLabel} iconOnly={false} />
-                                                                        </span>
-                                                                    )}
-                                                                    {gargaloAlert && (
-                                                                        <span className="inline-flex mr-1.5 align-middle">
-                                                                            <MentorBadge alert={gargaloAlert} />
                                                                         </span>
                                                                     )}
                                                                     {isActive && <span className="inline-block text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full animate-pulse align-middle">Em andamento</span>}

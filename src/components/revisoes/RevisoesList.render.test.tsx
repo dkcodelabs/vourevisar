@@ -1,16 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { RevisionStatus, type RevisionItem } from '@/types/revision';
 import { RevisoesList } from './RevisoesList';
-
-vi.mock('@/hooks/useMentorInsights', () => ({
-  useMentorInsights: () => ({
-    gargaloByTopic: new Map(),
-    trendByTopic: new Map(),
-  }),
-}));
 
 const makeItem = (overrides: Partial<RevisionItem> = {}): RevisionItem => ({
   id: 'topic-1',
@@ -27,7 +20,10 @@ const makeItem = (overrides: Partial<RevisionItem> = {}): RevisionItem => ({
   ...overrides,
 });
 
-const renderList = (item: RevisionItem) => render(
+const renderList = (
+  item: RevisionItem,
+  trendByTopic = new Map<string, 'Melhorando' | 'Piorando'>(),
+) => render(
   <MemoryRouter>
     <RevisoesList
       activeTab="ALL"
@@ -44,6 +40,7 @@ const renderList = (item: RevisionItem) => render(
       }}
       activeTimer={null}
       highlightedTopicId={null}
+      trendByTopic={trendByTopic}
       loadingActions={{}}
       handleMarkCompleted={() => undefined}
       handleAiAssist={() => undefined}
@@ -74,5 +71,21 @@ describe('RevisoesList origin traceability', () => {
     }));
 
     expect(screen.queryByText('Origem: Teste A - Cargo A')).not.toBeInTheDocument();
+  });
+
+  it('renders a review trend only when the page passes a trusted history trend', () => {
+    renderList(
+      makeItem(),
+      new Map([['topic-1', 'Melhorando']]),
+    );
+
+    expect(screen.getByText('Melhorando')).toBeInTheDocument();
+  });
+
+  it('does not render trend text when the page has no trusted history trend', () => {
+    renderList(makeItem());
+
+    expect(screen.queryByText('Melhorando')).not.toBeInTheDocument();
+    expect(screen.queryByText('Piorando')).not.toBeInTheDocument();
   });
 });
