@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import {
   AlertCircle,
+  BookOpen,
+  BriefcaseBusiness,
   CheckCircle2,
   Link2Off,
   Loader2,
@@ -27,6 +29,7 @@ import {
 import { toastGate } from '@/lib/errors/toastGate';
 import type { PermanentSubjectDeletionConfirmation } from '@/hooks/usePermanentSubjectDeletion';
 import type { CycleEditalUnloadConfirmation } from '@/hooks/useCycleEditalUnload';
+import type { SubjectOriginChoice, SubjectOriginChooserState } from '@/hooks/useSubjectsEditalModalState';
 import type { Subject } from '@/types';
 import type { UserEdital as EditalModalData } from '@/pages/Editais';
 
@@ -104,6 +107,7 @@ type SubjectsModalLayerProps = {
   onCloseImportEditalModal: () => void;
   onCloseNotesModal: () => void;
   onCloseRevertModal: () => void;
+  onCloseSubjectOriginChooser: () => void;
   onCloseSubjectsModal: () => void;
   onCycleExamDateOpenChange: (open: boolean) => void;
   onDeletePermanentConfirmOpenChange: (open: boolean) => void;
@@ -113,6 +117,7 @@ type SubjectsModalLayerProps = {
   onSaveCycleExamDate: () => void;
   onSetCycleExamDateDraft: (value: string) => void;
   onSetUnloadConfirmOpen: (open: boolean) => void;
+  onSelectSubjectOrigin: (choice: SubjectOriginChoice) => void;
   onSubjectsModalUpdate: () => void;
   onUnloadConfirm: () => Promise<void>;
   completeCycleConfirmOpen: boolean;
@@ -122,6 +127,7 @@ type SubjectsModalLayerProps = {
   selectedMergeOriginals: MergeOriginal[];
   selectedTopicForNotes: SelectedTopicForNotes;
   setCompleteCycleConfirmOpen: (open: boolean) => void;
+  subjectOriginChooser: SubjectOriginChooserState;
   subjects: Subject[];
   subjectsModal: SubjectsModalState;
   unloadConfirm: CycleEditalUnloadConfirmation;
@@ -154,6 +160,7 @@ export function SubjectsModalLayer({
   onCloseImportEditalModal,
   onCloseNotesModal,
   onCloseRevertModal,
+  onCloseSubjectOriginChooser,
   onCloseSubjectsModal,
   onCycleExamDateOpenChange,
   onDeletePermanentConfirmOpenChange,
@@ -163,6 +170,7 @@ export function SubjectsModalLayer({
   onSaveCycleExamDate,
   onSetCycleExamDateDraft,
   onSetUnloadConfirmOpen,
+  onSelectSubjectOrigin,
   onSubjectsModalUpdate,
   onUnloadConfirm,
   completeCycleConfirmOpen,
@@ -172,6 +180,7 @@ export function SubjectsModalLayer({
   selectedMergeOriginals,
   selectedTopicForNotes,
   setCompleteCycleConfirmOpen,
+  subjectOriginChooser,
   subjects,
   subjectsModal,
   unloadConfirm,
@@ -188,6 +197,75 @@ export function SubjectsModalLayer({
           subjectName={selectedTopicForNotes.subjectName}
         />
       )}
+
+      <AlertDialog
+        open={subjectOriginChooser.isOpen}
+        onOpenChange={(open) => {
+          if (!open) onCloseSubjectOriginChooser();
+        }}
+      >
+        <AlertDialogContent className="max-w-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-foreground">
+              <Link2Off className="h-5 w-5 text-warning" />
+              Matéria unificada
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-content-muted">
+              <span className="font-semibold text-foreground">{subjectOriginChooser.subjectName}</span> junta conteúdos de mais de um edital. Escolha qual origem você quer abrir para editar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2">
+            {subjectOriginChooser.choices.map(choice => (
+              <button
+                key={`${choice.edital.id}:${choice.subjectId}`}
+                type="button"
+                onClick={() => onSelectSubjectOrigin(choice)}
+                className="group flex w-full items-start gap-3 rounded-2xl border border-border bg-secondary/35 p-3 text-left transition-colors hover:border-primary/35 hover:bg-primary/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                  <BookOpen size={16} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-black uppercase tracking-wide text-foreground">
+                    {choice.edital.year ? `${choice.edital.year} - ` : ''}{choice.edital.organ || choice.edital.name}
+                  </span>
+                  {choice.edital.position && (
+                    <span className="mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-content-muted">
+                      <BriefcaseBusiness size={11} className="text-primary/70" />
+                      {choice.edital.position}
+                    </span>
+                  )}
+                  <span className="mt-2 block rounded-xl border border-border/70 bg-background/55 px-2.5 py-2">
+                    <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-content-muted">
+                      Como está neste edital
+                    </span>
+                    <span className="mt-1 block text-[11px] font-bold uppercase text-content-main">
+                      {choice.subjectName}
+                    </span>
+                    {choice.topics.length > 0 && (
+                      <span className="mt-1.5 block space-y-1">
+                        {choice.topics.map((topic, index) => (
+                          <span key={`${topic.topicName}:${index}`} className="block text-[11px] font-medium leading-snug text-content-muted">
+                            {topic.topicName}
+                            {topic.displayName !== topic.topicName && (
+                              <span className="text-content-muted/70"> · exibido no ciclo como {topic.displayName}</span>
+                            )}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={completeCycleConfirmOpen}
@@ -500,7 +578,7 @@ export function SubjectsModalLayer({
               O progresso e o histórico já sincronizados nos tópicos equivalentes serão preservados.
             </p>
 
-            <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs font-medium leading-relaxed text-warning-foreground/90">
+            <div className="rounded-2xl border border-warning/35 bg-warning/10 px-4 py-3 text-xs font-semibold leading-relaxed text-warning">
               Use isto quando a equivalência estiver errada. Se os tópicos realmente forem o mesmo conteúdo, manter unificado evita linhas duplicadas nas revisões.
             </div>
 

@@ -99,6 +99,7 @@ describe('SubjectsModalLayer', () => {
         onCloseImportEditalModal={vi.fn()}
         onCloseNotesModal={vi.fn()}
         onCloseRevertModal={vi.fn()}
+        onCloseSubjectOriginChooser={vi.fn()}
         onCloseSubjectsModal={vi.fn()}
         onCycleExamDateOpenChange={vi.fn()}
         onDeletePermanentConfirmOpenChange={vi.fn()}
@@ -108,6 +109,7 @@ describe('SubjectsModalLayer', () => {
         onSaveCycleExamDate={vi.fn()}
         onSetCycleExamDateDraft={vi.fn()}
         onSetUnloadConfirmOpen={vi.fn()}
+        onSelectSubjectOrigin={vi.fn()}
         onSubjectsModalUpdate={vi.fn()}
         onUnloadConfirm={vi.fn()}
         completeCycleConfirmOpen={true}
@@ -121,6 +123,31 @@ describe('SubjectsModalLayer', () => {
         }]}
         selectedTopicForNotes={{ id: 'topic-1', name: 'Controle', subjectName: 'Direito Constitucional' }}
         setCompleteCycleConfirmOpen={vi.fn()}
+        subjectOriginChooser={{
+          choices: [{
+            edital: {
+              id: 'edital-a',
+              name: 'Teste A',
+              organ: 'TESTE A',
+              position: 'Cargo A',
+              year: '2026',
+              examDate: '',
+              createdAt: '',
+              updatedAt: '',
+              isImported: false,
+              sourceId: null,
+              subjectIds: ['subject-a'],
+              activeSubjectIds: ['subject-a'],
+              isMergedWith: [],
+              mergedIntoCycle: true,
+            },
+            subjectId: 'subject-a',
+            subjectName: 'DIREITO',
+            topics: [{ displayName: 'Lei penal no tempo', topicName: 'Lei penal no tempo' }],
+          }],
+          isOpen: true,
+          subjectName: 'DIREITO',
+        }}
         subjects={[]}
         subjectsModal={{
           isOpen: true,
@@ -178,5 +205,8 @@ describe('SubjectsModalLayer', () => {
     expect(screen.getByText(/progresso e o histórico já sincronizados/i)).toBeInTheDocument();
     expect(screen.getByText('Separar matéria')).toBeInTheDocument();
     expect(screen.getByText('Manter unificada')).toBeInTheDocument();
+    expect(screen.getByText('Matéria unificada')).toBeInTheDocument();
+    expect(screen.getByText(/junta conteúdos de mais de um edital/i)).toBeInTheDocument();
+    expect(screen.getByText('Lei penal no tempo')).toBeInTheDocument();
   });
 });

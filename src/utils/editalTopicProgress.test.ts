@@ -89,6 +89,15 @@ describe('editalTopicProgress', () => {
     });
   });
 
+  it('mostra estado inicial para topico ainda sem contato', () => {
+    const topic = makeTopic({ id: 'topic-a', review_count: 0 });
+
+    expect(getEditalTopicProgressBadge(topic, [makeSubject({ topics: [topic] })], null)).toEqual({
+      label: '0/4 revisões',
+      tone: 'muted',
+    });
+  });
+
   it('nao consolida topicos por nome quando nao ha equivalencia explicita', () => {
     const splitMap: CycleUnificationMap = {
       ...unificationMap,

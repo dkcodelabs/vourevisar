@@ -186,14 +186,19 @@ const Subjects = () => {
   const {
     editaisNoCicloModalData,
     handleCloseSubjectsModal,
+    handleCloseSubjectOriginChooser,
     handleManageCycleSubject,
+    handleSelectSubjectOrigin,
     handleSubjectsModalUpdate,
+    subjectOriginChooser,
     subjectsModal,
   } = useSubjectsEditalModalState({
+    dynamicUnificationMap,
     editaisData,
     editaisNoCiclo,
     refresh,
     refreshData,
+    subjects,
   });
 
   const [cycleSearchQuery, setCycleSearchQuery] = useState('');
@@ -808,6 +813,7 @@ const Subjects = () => {
           onCloseImportEditalModal={() => setIsImportEditalModalOpen(false)}
           onCloseNotesModal={closeTopicNotes}
           onCloseRevertModal={handleCloseRevertModal}
+          onCloseSubjectOriginChooser={handleCloseSubjectOriginChooser}
           onCloseSubjectsModal={handleCloseSubjectsModal}
           onCycleExamDateOpenChange={handleCycleExamDateEditorOpenChange}
           onDeletePermanentConfirmOpenChange={(open) => !open && setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, editais: [] })}
@@ -817,6 +823,7 @@ const Subjects = () => {
           onSaveCycleExamDate={saveCycleExamDate}
           onSetCycleExamDateDraft={setCycleExamDateDraft}
           onSetUnloadConfirmOpen={handleUnloadConfirmOpenChange}
+          onSelectSubjectOrigin={handleSelectSubjectOrigin}
           onSubjectsModalUpdate={handleSubjectsModalUpdate}
           onUnloadConfirm={handleUnloadConfirmWithTimerGuard}
           pendingCompleteSubjectId={pendingCompleteSubjectId}
@@ -825,6 +832,7 @@ const Subjects = () => {
           selectedMergeOriginals={selectedMergeOriginals}
           selectedTopicForNotes={selectedTopicForNotes}
           setCompleteCycleConfirmOpen={setCompleteCycleConfirmOpen}
+          subjectOriginChooser={subjectOriginChooser}
           subjects={subjects}
           subjectsModal={subjectsModal}
           unloadConfirm={unloadConfirm}

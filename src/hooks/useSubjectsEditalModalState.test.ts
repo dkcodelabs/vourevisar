@@ -2,16 +2,17 @@ import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Subject } from '@/types';
+import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
 
 import { useSubjectsEditalModalState } from './useSubjectsEditalModalState';
 
-const makeSubject = (id: string, editalId: string): Subject => ({
+const makeSubject = (id: string, editalId: string, topics: Subject['topics'] = []): Subject => ({
   id,
   name: `Matéria ${id}`,
   status: 'Em Estudo',
   edital_id: editalId,
   is_visible: true,
-  topics: [],
+  topics,
 });
 
 const edital = {
@@ -54,6 +55,101 @@ describe('useSubjectsEditalModalState', () => {
     expect(result.current.editaisNoCicloModalData[0]).toMatchObject({
       activeSubjectIds: ['subject-1'],
       subjectIds: ['subject-1'],
+    });
+  });
+
+  it('opens an origin chooser before editing a unified subject', () => {
+    const editalA = {
+      ...edital,
+      id: 'edital-a',
+      name: 'Teste A',
+      organ: 'TESTE A',
+      position: 'Cargo A',
+      subject_ids: ['subject-a'],
+      active_subject_ids: ['subject-a'],
+    };
+    const editalB = {
+      ...edital,
+      id: 'edital-b',
+      name: 'Teste B',
+      organ: 'TESTE B',
+      position: 'Cargo B',
+      subject_ids: ['subject-b'],
+      active_subject_ids: ['subject-b'],
+    };
+    const editalC = {
+      ...edital,
+      id: 'edital-c',
+      name: 'Teste C',
+      organ: 'TESTE C',
+      position: 'Cargo C',
+      subject_ids: ['subject-c'],
+      active_subject_ids: ['subject-c'],
+    };
+    const subjects = [
+      makeSubject('subject-a', 'edital-a', [{ id: 'topic-a', name: 'Lei penal no tempo', completed: false, reviewCount: 3, review_count: 3 }]),
+      makeSubject('subject-b', 'edital-b', [{ id: 'topic-b', name: 'Lei penal no tempo e no espaço', completed: false, reviewCount: 3, review_count: 3 }]),
+      makeSubject('subject-c', 'edital-c', [{ id: 'topic-c', name: 'Teoria tripartida', completed: false, reviewCount: 3, review_count: 3 }]),
+    ];
+    const dynamicUnificationMap: CycleUnificationMap = {
+      version: 1,
+      createdAt: '2026-07-15T00:00:00.000Z',
+      editalIds: ['edital-a', 'edital-b', 'edital-c'],
+      standaloneSubjectIds: [],
+      unifiedSubjects: [{
+        displayName: 'DIREITO',
+        originalSubjectIds: ['subject-a', 'subject-b', 'subject-c'],
+        matchType: 'manual',
+        topicMappings: [{
+          displayName: 'Lei penal no tempo',
+          originalTopicIds: ['topic-a', 'topic-b', 'topic-c'],
+          originalSubjectIds: ['subject-a', 'subject-b', 'subject-c'],
+          sourceEditalIds: ['edital-a', 'edital-b', 'edital-c'],
+          matchType: 'manual',
+        }],
+      }],
+    };
+
+    const { result } = renderHook(() => useSubjectsEditalModalState({
+      dynamicUnificationMap,
+      editaisData: [editalA, editalB, editalC],
+      editaisNoCiclo: [editalA, editalB, editalC],
+      refresh: vi.fn(),
+      refreshData: vi.fn(),
+      subjects,
+    }));
+
+    act(() => {
+      result.current.handleManageCycleSubject(makeSubject('subject-a:subject-b:subject-c', 'edital-c'));
+    });
+
+    expect(result.current.subjectsModal.isOpen).toBe(false);
+    expect(result.current.subjectOriginChooser).toMatchObject({
+      isOpen: true,
+      subjectName: 'DIREITO',
+    });
+    expect(result.current.subjectOriginChooser.choices.map(choice => ({
+      editalId: choice.edital.id,
+      subjectId: choice.subjectId,
+      topics: choice.topics.map(topic => topic.topicName),
+    }))).toEqual([
+      { editalId: 'edital-a', subjectId: 'subject-a', topics: ['Lei penal no tempo'] },
+      { editalId: 'edital-b', subjectId: 'subject-b', topics: ['Lei penal no tempo e no espaço'] },
+      { editalId: 'edital-c', subjectId: 'subject-c', topics: ['Teoria tripartida'] },
+    ]);
+
+    act(() => {
+      result.current.handleSelectSubjectOrigin(result.current.subjectOriginChooser.choices[2]);
+    });
+
+    expect(result.current.subjectOriginChooser.isOpen).toBe(false);
+    expect(result.current.subjectsModal).toMatchObject({
+      initialExpandedSubjectId: 'subject-c',
+      isOpen: true,
+    });
+    expect(result.current.subjectsModal.edital).toMatchObject({
+      id: 'edital-c',
+      name: 'Teste C',
     });
   });
 

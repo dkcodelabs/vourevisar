@@ -143,7 +143,7 @@ describe('CycleMergeComparison', () => {
         );
 
         fireEvent.click(screen.getByRole('button', { name: 'Escolher equivalente para Direitos fundamentais' }));
-        expect(screen.getByText('1 sugestao provavel encontrada.')).toBeInTheDocument();
+        expect(screen.getByText('1 sugestao provavel primeiro. A lista completa fica abaixo.')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Selecionar Direitos e garantias fundamentais como equivalente' })).toBeInTheDocument();
         fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar tópico equivalente' }), {
             target: { value: 'garantias' },
@@ -221,9 +221,9 @@ describe('CycleMergeComparison', () => {
         );
 
         fireEvent.click(screen.getByRole('button', { name: 'Escolher equivalente para Acentuacao' }));
-        expect(screen.getByText('1 sugestao provavel encontrada.')).toBeInTheDocument();
+        expect(screen.getByText('1 sugestao provavel primeiro. A lista completa fica abaixo.')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Selecionar Acentuacao grafica como equivalente' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Selecionar Pontuacao como equivalente' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Selecionar Pontuacao como equivalente' })).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'Confirmar equivalência manual' }));
 
@@ -231,6 +231,118 @@ describe('CycleMergeComparison', () => {
         expect(nextMap.unifiedSubjects[0].topicMappings).toEqual([expect.objectContaining({
             matchType: 'manual',
             originalTopicIds: ['topic-a', 'topic-b'],
+        })]);
+    });
+
+    it('shows all free topics without labeling weak candidates as other', () => {
+        const manualSubjects: Subject[] = [
+            {
+                id: 'subject-a',
+                name: 'Matematica',
+                status: 'Nova',
+                edital_id: 'edital-a',
+                topics: [{ id: 'topic-a', name: 'Cascascas', completed: false, reviewCount: 0, review_count: 0 }],
+            },
+            {
+                id: 'subject-b',
+                name: 'Matematica',
+                status: 'Nova',
+                edital_id: 'edital-b',
+                topics: [
+                    { id: 'topic-b', name: 'Regra de tres simples e composta', completed: false, reviewCount: 0, review_count: 0 },
+                    { id: 'topic-c', name: 'Juros compostos', completed: false, reviewCount: 0, review_count: 0 },
+                ],
+            },
+        ];
+        const manualMap: CycleUnificationMap = {
+            version: 1,
+            createdAt: '2026-06-22T00:00:00.000Z',
+            editalIds: ['edital-a', 'edital-b'],
+            standaloneSubjectIds: [],
+            unifiedSubjects: [{
+                displayName: 'Matematica',
+                originalSubjectIds: ['subject-a', 'subject-b'],
+                matchType: 'exact',
+                topicMappings: [],
+            }],
+        };
+
+        render(
+            <CycleMergeComparison
+                subjects={manualSubjects}
+                unificationMap={manualMap}
+                editalName="Teste"
+                onKeepIndividual={vi.fn()}
+                onUnify={vi.fn()}
+                onUnificationMapChange={vi.fn()}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: 'Escolher equivalente para Cascascas' }));
+
+        expect(screen.getByText('Nenhuma sugestao automatica segura. Mostrando topicos livres; use a busca se a lista estiver grande.')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Selecionar Regra de tres simples e composta como equivalente' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Selecionar Juros compostos como equivalente' })).toBeInTheDocument();
+        expect(screen.queryByText('Outro')).not.toBeInTheDocument();
+    });
+
+    it('lets the student select more than one manual equivalent before confirming', () => {
+        const onUnificationMapChange = vi.fn();
+        const manualSubjects: Subject[] = [
+            {
+                id: 'subject-a',
+                name: 'Direito',
+                status: 'Nova',
+                edital_id: 'edital-a',
+                topics: [{ id: 'topic-a', name: 'Lei penal no tempo', completed: false, reviewCount: 0, review_count: 0 }],
+            },
+            {
+                id: 'subject-b',
+                name: 'Direito',
+                status: 'Nova',
+                edital_id: 'edital-b',
+                topics: [
+                    { id: 'topic-b', name: 'Lei penal no tempo e no espaco', completed: false, reviewCount: 0, review_count: 0 },
+                    { id: 'topic-c', name: 'Teoria tripartida', completed: false, reviewCount: 0, review_count: 0 },
+                ],
+            },
+        ];
+        const manualMap: CycleUnificationMap = {
+            version: 1,
+            createdAt: '2026-06-22T00:00:00.000Z',
+            editalIds: ['edital-a', 'edital-b'],
+            standaloneSubjectIds: [],
+            unifiedSubjects: [{
+                displayName: 'Direito',
+                originalSubjectIds: ['subject-a', 'subject-b'],
+                matchType: 'exact',
+                topicMappings: [],
+            }],
+        };
+
+        render(
+            <CycleMergeComparison
+                subjects={manualSubjects}
+                unificationMap={manualMap}
+                editalName="Teste"
+                onKeepIndividual={vi.fn()}
+                onUnify={vi.fn()}
+                onUnificationMapChange={onUnificationMapChange}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: 'Escolher equivalente para Lei penal no tempo' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Selecionar Lei penal no tempo e no espaco como equivalente' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Selecionar Teoria tripartida como equivalente' }));
+
+        expect(screen.getByRole('button', { name: 'Confirmar equivalência manual' })).toHaveTextContent('Confirmar 2 equivalencias');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Confirmar equivalência manual' }));
+
+        const nextMap = onUnificationMapChange.mock.calls[0][0] as CycleUnificationMap;
+        expect(nextMap.unifiedSubjects[0].topicMappings).toEqual([expect.objectContaining({
+            matchType: 'manual',
+            originalTopicIds: ['topic-a', 'topic-b', 'topic-c'],
         })]);
     });
 });
