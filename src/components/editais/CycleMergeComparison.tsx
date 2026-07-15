@@ -40,7 +40,7 @@ interface CycleMergeComparisonProps {
 }
 
 type ManualSelection = {
-    candidateTopicId?: string;
+    candidateTopicIds?: string[];
     subjectGroupId: string;
     topicId: string;
     topicName: string;
@@ -54,7 +54,7 @@ interface PreviewColumnProps {
     manualCandidateQuery?: string;
     manualSelection?: ManualSelection | null;
     onCancelManualSelection?: () => void;
-    onConfirmManualSelection?: (candidateTopicId: string) => void;
+    onConfirmManualSelection?: (candidateTopicIds: string[]) => void;
     onManualCandidateQueryChange?: (query: string) => void;
     onRemoveManualEquivalence?: (subjectGroupId: string, topicIds: string[]) => void;
     onStartManualSelection?: (subjectGroupId: string, topicId: string, topicName: string, candidateTopicId?: string) => void;
@@ -132,11 +132,10 @@ function PreviewColumn({
         ? rankManualCandidateTopics(manualSelection.topicName, manualCandidateTopics)
         : [];
     const suggestedManualCandidateTopics = rankedManualCandidateTopics
-        .filter(topic => topic.similarityScore >= 0.45)
-        .slice(0, 8);
+        .filter(topic => topic.similarityScore >= 0.45);
     const visibleManualCandidateTopics = normalizedManualQuery
         ? rankedManualCandidateTopics.filter(topic => normalizeSearchText(topic.name).includes(normalizedManualQuery))
-        : suggestedManualCandidateTopics;
+        : rankedManualCandidateTopics;
     const isShowingSuggestions = !normalizedManualQuery;
 
     return (
@@ -250,7 +249,7 @@ function PreviewColumn({
                                                         Escolha o tópico equivalente
                                                     </p>
                                                     <p className="mt-0.5 text-[9px] font-medium leading-snug text-content-muted">
-                                                        Vamos mostrar primeiro os candidatos mais provaveis para <span className="font-bold text-foreground">{manualSelection.topicName}</span>.
+                                                        Vamos mostrar primeiro os candidatos mais provaveis para <span className="font-bold text-foreground">{manualSelection.topicName}</span>. Voce pode marcar mais de um antes de confirmar.
                                                     </p>
                                                 </div>
                                                 <button
@@ -282,39 +281,43 @@ function PreviewColumn({
 
                                             {manualCandidateTopics.length > 0 && isShowingSuggestions && (
                                                 <p className="mb-1 text-[9px] font-semibold text-content-muted">
-                                                    {visibleManualCandidateTopics.length > 0
-                                                        ? `${visibleManualCandidateTopics.length} sugestao${visibleManualCandidateTopics.length === 1 ? '' : 'es'} provavel${visibleManualCandidateTopics.length === 1 ? '' : 'is'} encontrada${visibleManualCandidateTopics.length === 1 ? '' : 's'}.`
-                                                        : 'Nenhuma sugestao provavel. Use a busca para procurar em todos os topicos livres deste grupo.'}
+                                                    {suggestedManualCandidateTopics.length > 0
+                                                        ? `${suggestedManualCandidateTopics.length} sugestao${suggestedManualCandidateTopics.length === 1 ? '' : 'es'} provavel${suggestedManualCandidateTopics.length === 1 ? '' : 'is'} primeiro. A lista completa fica abaixo.`
+                                                        : 'Nenhuma sugestao automatica segura. Mostrando topicos livres; use a busca se a lista estiver grande.'}
                                                 </p>
                                             )}
 
                                             <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
-                                                {manualCandidateTopics.length > 0 && visibleManualCandidateTopics.length > 0 ? visibleManualCandidateTopics.map(candidateTopic => (
+                                                {manualCandidateTopics.length > 0 && visibleManualCandidateTopics.length > 0 ? visibleManualCandidateTopics.map(candidateTopic => {
+                                                    const isSelectedCandidate = Boolean(manualSelection?.candidateTopicIds?.includes(candidateTopic.id));
+
+                                                    return (
                                                     <button
                                                         key={candidateTopic.id}
                                                         type="button"
                                                         onClick={() => onStartManualSelection?.(subject.id, topic.id, topic.name, candidateTopic.id)}
                                                         aria-label={`Selecionar ${candidateTopic.name} como equivalente`}
                                                         className={`flex w-full items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-left text-[10px] font-bold transition-colors ${
-                                                            manualSelection?.candidateTopicId === candidateTopic.id
+                                                            isSelectedCandidate
                                                                 ? 'border-primary/40 bg-primary/15 text-primary'
                                                                 : 'border-border bg-background/70 text-foreground hover:border-primary/30 hover:bg-primary/10'
                                                         }`}
                                                     >
                                                         <span className="min-w-0 break-words leading-snug">{candidateTopic.name}</span>
-                                                        {isShowingSuggestions && (
+                                                        {isShowingSuggestions && candidateTopic.similarityScore >= 0.45 && (
                                                             <span className="shrink-0 rounded-full border border-primary/15 bg-primary/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-primary">
-                                                                Sugestao
+                                                                Provavel
                                                             </span>
                                                         )}
-                                                        {manualSelection?.candidateTopicId === candidateTopic.id && (
+                                                        {isSelectedCandidate && (
                                                             <CheckCircle2 size={12} aria-hidden="true" className="mt-0.5 shrink-0" />
                                                         )}
                                                     </button>
-                                                )) : manualCandidateTopics.length > 0 ? (
+                                                );
+                                                }) : manualCandidateTopics.length > 0 ? (
                                                     <span className="block rounded-md border border-dashed border-border bg-background/50 px-2 py-2 text-[9px] font-medium text-content-muted">
                                                         {isShowingSuggestions
-                                                            ? 'Nenhuma sugestao automatica segura para este topico. Pesquise pelo nome se quiser marcar manualmente.'
+                                                            ? 'Nao ha topicos livres para escolher neste grupo.'
                                                             : 'Nenhum tópico encontrado com esse filtro.'}
                                                     </span>
                                                 ) : (
@@ -326,11 +329,17 @@ function PreviewColumn({
                                             {manualCandidateTopics.length > 0 && visibleManualCandidateTopics.length > 0 && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => onConfirmManualSelection?.(manualSelection?.candidateTopicId || visibleManualCandidateTopics[0].id)}
+                                                    onClick={() => onConfirmManualSelection?.(
+                                                        manualSelection?.candidateTopicIds?.length
+                                                            ? manualSelection.candidateTopicIds
+                                                            : [visibleManualCandidateTopics[0].id],
+                                                    )}
                                                     aria-label="Confirmar equivalência manual"
                                                     className="mt-2 inline-flex h-7 items-center rounded-md bg-primary px-2 text-[9px] font-black uppercase tracking-[0.08em] text-primary-foreground"
                                                 >
-                                                    Confirmar equivalencia
+                                                    {manualSelection?.candidateTopicIds?.length && manualSelection.candidateTopicIds.length > 1
+                                                        ? `Confirmar ${manualSelection.candidateTopicIds.length} equivalencias`
+                                                        : 'Confirmar equivalencia'}
                                                 </button>
                                             )}
                                         </div>
@@ -403,11 +412,14 @@ export function CycleMergeComparison({
         });
     }, [comparison.unifiedSubjects, manualSelection, topicSourceIdById]);
 
-    const handleConfirmManualSelection = (candidateTopicId: string) => {
+    const handleConfirmManualSelection = (candidateTopicIds: string[]) => {
         if (!manualSelection || !onUnificationMapChange) return;
+        const cleanCandidateTopicIds = [...new Set(candidateTopicIds)].filter(Boolean);
+        if (cleanCandidateTopicIds.length === 0) return;
+
         const nextMap = addManualTopicEquivalence(unificationMap, subjects, {
             subjectGroupId: manualSelection.subjectGroupId,
-            topicIds: [manualSelection.topicId, candidateTopicId],
+            topicIds: [manualSelection.topicId, ...cleanCandidateTopicIds],
         });
         setManualSelection(null);
         setManualCandidateQuery('');
@@ -495,7 +507,22 @@ export function CycleMergeComparison({
                     onRemoveManualEquivalence={handleRemoveManualEquivalence}
                     onStartManualSelection={onUnificationMapChange
                         ? (subjectGroupId, topicId, topicName, candidateTopicId) => {
-                            setManualSelection({ subjectGroupId, topicId, topicName, candidateTopicId });
+                            setManualSelection(current => {
+                                const isSameSelection = current?.subjectGroupId === subjectGroupId && current.topicId === topicId;
+                                const currentCandidateIds = isSameSelection ? (current.candidateTopicIds || []) : [];
+                                const candidateTopicIds = candidateTopicId
+                                    ? currentCandidateIds.includes(candidateTopicId)
+                                        ? currentCandidateIds.filter(id => id !== candidateTopicId)
+                                        : [...currentCandidateIds, candidateTopicId]
+                                    : currentCandidateIds;
+
+                                return {
+                                    subjectGroupId,
+                                    topicId,
+                                    topicName,
+                                    candidateTopicIds,
+                                };
+                            });
                             setManualCandidateQuery('');
                         }
                         : undefined}

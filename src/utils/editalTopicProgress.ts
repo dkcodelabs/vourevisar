@@ -91,7 +91,10 @@ export function getEditalTopicProgressBadge(
     };
   }
 
-  return null;
+  return {
+    label: `0/${PROGRAMMED_REVIEW_COUNT} revisões`,
+    tone: 'muted',
+  };
 }
 
 export function getEditalSubjectCycleProgress(
