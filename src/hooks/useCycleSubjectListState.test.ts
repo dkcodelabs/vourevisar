@@ -50,7 +50,6 @@ describe('useCycleSubjectListState', () => {
         makeSubject('subject-1'),
         makeSubject('subject-2'),
         makeSubject('subject-3'),
-        { ...makeSubject('hidden-subject'), is_visible: false },
       ],
       userCycle: {
         ciclo_atual: ['subject-2', 'subject-1'],
@@ -61,6 +60,25 @@ describe('useCycleSubjectListState', () => {
     expect(result.current.expandedSubjectList.map(item => item.id)).toEqual(['subject-1', 'subject-3']);
     expect(result.current.visibleCycleTopicIds).toEqual(['subject-1-topic', 'subject-2-topic', 'subject-3-topic']);
     expect(Array.from(result.current.studiedCycleIdSet).sort()).toEqual(['subject-1', 'subject-2']);
+  });
+
+  it('does not hide a cycle subject because of the legacy subject visibility flag', () => {
+    const { result } = renderHook(() => useCycleSubjectListState({
+      activeSubjectIdsSet: new Set<string>(),
+      dynamicUnificationMap: null,
+      isTopicCompleted: topic => topic.completed === true,
+      isTopicStarted: topic => Boolean(topic.first_studied_at),
+      localSubjects: [
+        { ...makeSubject('portugues'), is_visible: false },
+        makeSubject('matematica'),
+      ],
+      userCycle: {
+        ciclo_atual: ['portugues', 'matematica'],
+        materias_estudadas_ciclo: [],
+      },
+    }));
+
+    expect(result.current.expandedSubjectList.map(item => item.id)).toEqual(['portugues', 'matematica']);
   });
 
   it('deduplicates equivalent topic rows inside a unified subject using the strongest progress', () => {

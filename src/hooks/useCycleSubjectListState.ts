@@ -58,7 +58,6 @@ export function useCycleSubjectListState({
     const cicloAtual = userCycle?.ciclo_atual || [];
     const subjectsInCycleSet = new Set(cicloAtual);
     const rawVisibleSubjects = localSubjects.filter(subject => {
-      if (subject.is_visible === false) return false;
       return subjectsInCycleSet.has(subject.id) || activeSubjectIdsSet.has(subject.id);
     });
 
