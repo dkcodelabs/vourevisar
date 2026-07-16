@@ -6,6 +6,7 @@ import type { CycleUnificationMap, UnifiedSubjectMapping } from '@/types/cycleMe
 
 type EditalModalSource = Partial<EditalModalData> & {
   exam_date?: string;
+  exam_board?: string;
   created_at?: string;
   updated_at?: string;
   is_imported?: boolean;
@@ -26,14 +27,14 @@ export type SubjectOriginChoice = {
   edital: EditalModalData;
   subjectId: string;
   subjectName: string;
-  topics: Array<{
-    displayName: string;
-    topicName: string;
-  }>;
 };
 
 export type SubjectOriginChooserState = {
+  draftSubjectName: string;
+  error: string | null;
   isOpen: boolean;
+  isSavingName: boolean;
+  originalSubjectIds: string[];
   subjectName: string;
   choices: SubjectOriginChoice[];
 };
@@ -42,6 +43,7 @@ type UseSubjectsEditalModalStateInput = {
   dynamicUnificationMap?: CycleUnificationMap | null;
   editaisData: EditalModalSource[];
   editaisNoCiclo: EditalModalSource[];
+  onSaveUnifiedSubjectName?: (originalSubjectIds: string[], displayName: string) => Promise<void>;
   refresh: () => void;
   refreshData: () => void;
   subjects?: Subject[];
@@ -54,6 +56,7 @@ const toEditalModalData = (edital: EditalModalSource): EditalModalData => ({
   position: edital.position,
   year: edital.year,
   examDate: edital.examDate || edital.exam_date,
+  examBoard: edital.examBoard || edital.exam_board,
   createdAt: edital.createdAt || edital.created_at || '',
   updatedAt: edital.updatedAt || edital.updated_at || '',
   isImported: edital.isImported ?? edital.is_imported ?? false,
@@ -68,6 +71,7 @@ export function useSubjectsEditalModalState({
   dynamicUnificationMap,
   editaisData,
   editaisNoCiclo,
+  onSaveUnifiedSubjectName,
   refresh,
   refreshData,
   subjects = [],
@@ -78,7 +82,11 @@ export function useSubjectsEditalModalState({
   });
   const [subjectOriginChooser, setSubjectOriginChooser] = useState<SubjectOriginChooserState>({
     choices: [],
+    draftSubjectName: '',
+    error: null,
     isOpen: false,
+    isSavingName: false,
+    originalSubjectIds: [],
     subjectName: '',
   });
 
@@ -108,23 +116,10 @@ export function useSubjectsEditalModalState({
       const edital = editalId ? editalById.get(editalId) : null;
       if (!originalSubject || !edital) return [];
 
-      const topicById = new Map((originalSubject.topics || []).map(topic => [topic.id, topic]));
-      const topics = mapping.topicMappings.flatMap(topicMapping => (
-        topicMapping.originalTopicIds.flatMap(topicId => {
-          const topic = topicById.get(topicId);
-          if (!topic) return [];
-          return [{
-            displayName: topicMapping.displayName,
-            topicName: topic.name,
-          }];
-        })
-      ));
-
       return [{
         edital: toEditalModalData(edital),
         subjectId,
         subjectName: originalSubject.name,
-        topics,
       }];
     });
   }, [editaisData, subjects]);
@@ -142,10 +137,15 @@ export function useSubjectsEditalModalState({
     const originChoices = unifiedMapping ? buildOriginChoices(unifiedMapping) : [];
 
     if (originChoices.length > 1) {
+      const subjectName = unifiedMapping?.displayNameOverride || unifiedMapping?.displayName || subject.name;
       setSubjectOriginChooser({
         choices: originChoices,
+        draftSubjectName: subjectName,
+        error: null,
         isOpen: true,
-        subjectName: unifiedMapping?.displayNameOverride || unifiedMapping?.displayName || subject.name,
+        isSavingName: false,
+        originalSubjectIds: unifiedMapping.originalSubjectIds,
+        subjectName,
       });
       return;
     }
@@ -156,14 +156,108 @@ export function useSubjectsEditalModalState({
     openSubjectModal(edital, subject.id);
   }, [buildOriginChoices, editaisData, findUnifiedSubjectMapping, openSubjectModal]);
 
-  const handleCloseSubjectOriginChooser = useCallback(() => {
-    setSubjectOriginChooser({ choices: [], isOpen: false, subjectName: '' });
+  const resetSubjectOriginChooser = useCallback(() => {
+    setSubjectOriginChooser({
+      choices: [],
+      draftSubjectName: '',
+      error: null,
+      isOpen: false,
+      isSavingName: false,
+      originalSubjectIds: [],
+      subjectName: '',
+    });
   }, []);
 
-  const handleSelectSubjectOrigin = useCallback((choice: SubjectOriginChoice) => {
-    setSubjectOriginChooser({ choices: [], isOpen: false, subjectName: '' });
+  const handleCloseSubjectOriginChooser = useCallback(() => {
+    resetSubjectOriginChooser();
+  }, [resetSubjectOriginChooser]);
+
+  const handleSelectSubjectOrigin = useCallback(async (choice: SubjectOriginChoice) => {
+    const displayName = subjectOriginChooser.draftSubjectName.trim().replace(/\s+/g, ' ');
+    const hasPendingNameChange = displayName !== subjectOriginChooser.subjectName;
+
+    if (hasPendingNameChange) {
+      if (!displayName) {
+        setSubjectOriginChooser(current => ({
+          ...current,
+          error: 'Informe o nome que deve aparecer no ciclo antes de abrir uma origem.',
+        }));
+        return;
+      }
+
+      if (onSaveUnifiedSubjectName) {
+        setSubjectOriginChooser(current => ({
+          ...current,
+          error: null,
+          isSavingName: true,
+        }));
+
+        try {
+          await onSaveUnifiedSubjectName(subjectOriginChooser.originalSubjectIds, displayName);
+        } catch (error) {
+          setSubjectOriginChooser(current => ({
+            ...current,
+            error: error instanceof Error ? error.message : 'Não foi possível salvar o nome no ciclo.',
+            isSavingName: false,
+          }));
+          return;
+        }
+      }
+    }
+
+    resetSubjectOriginChooser();
     openSubjectModal(choice.edital, choice.subjectId);
-  }, [openSubjectModal]);
+  }, [
+    onSaveUnifiedSubjectName,
+    openSubjectModal,
+    resetSubjectOriginChooser,
+    subjectOriginChooser.draftSubjectName,
+    subjectOriginChooser.originalSubjectIds,
+    subjectOriginChooser.subjectName,
+  ]);
+
+  const handleSubjectOriginNameDraftChange = useCallback((displayName: string) => {
+    setSubjectOriginChooser(current => ({
+      ...current,
+      draftSubjectName: displayName,
+      error: null,
+    }));
+  }, []);
+
+  const handleSaveSubjectOriginName = useCallback(async () => {
+    if (!onSaveUnifiedSubjectName) return;
+    const displayName = subjectOriginChooser.draftSubjectName.trim().replace(/\s+/g, ' ');
+    if (!displayName) {
+      setSubjectOriginChooser(current => ({
+        ...current,
+        error: 'Informe o nome que deve aparecer no ciclo.',
+      }));
+      return;
+    }
+
+    setSubjectOriginChooser(current => ({
+      ...current,
+      error: null,
+      isSavingName: true,
+    }));
+
+    try {
+      await onSaveUnifiedSubjectName(subjectOriginChooser.originalSubjectIds, displayName);
+      setSubjectOriginChooser(current => ({
+        ...current,
+        draftSubjectName: displayName,
+        error: null,
+        isSavingName: false,
+        subjectName: displayName,
+      }));
+    } catch (error) {
+      setSubjectOriginChooser(current => ({
+        ...current,
+        error: error instanceof Error ? error.message : 'Não foi possível salvar o nome no ciclo.',
+        isSavingName: false,
+      }));
+    }
+  }, [onSaveUnifiedSubjectName, subjectOriginChooser.draftSubjectName, subjectOriginChooser.originalSubjectIds]);
 
   const handleCloseSubjectsModal = useCallback(() => {
     setSubjectsModal({ edital: null, isOpen: false });
@@ -180,7 +274,9 @@ export function useSubjectsEditalModalState({
     handleCloseSubjectsModal,
     handleCloseSubjectOriginChooser,
     handleManageCycleSubject,
+    handleSaveSubjectOriginName,
     handleSelectSubjectOrigin,
+    handleSubjectOriginNameDraftChange,
     handleSubjectsModalUpdate,
     subjectOriginChooser,
     subjectsModal,

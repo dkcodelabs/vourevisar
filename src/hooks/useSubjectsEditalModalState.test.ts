@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Subject } from '@/types';
@@ -58,7 +58,7 @@ describe('useSubjectsEditalModalState', () => {
     });
   });
 
-  it('opens an origin chooser before editing a unified subject', () => {
+  it('opens an origin chooser before editing a unified subject', async () => {
     const editalA = {
       ...edital,
       id: 'edital-a',
@@ -102,6 +102,7 @@ describe('useSubjectsEditalModalState', () => {
         matchType: 'manual',
         topicMappings: [{
           displayName: 'Lei penal no tempo',
+          displayNameOverride: 'Nome digitado pelo aluno',
           originalTopicIds: ['topic-a', 'topic-b', 'topic-c'],
           originalSubjectIds: ['subject-a', 'subject-b', 'subject-c'],
           sourceEditalIds: ['edital-a', 'edital-b', 'edital-c'],
@@ -125,21 +126,25 @@ describe('useSubjectsEditalModalState', () => {
 
     expect(result.current.subjectsModal.isOpen).toBe(false);
     expect(result.current.subjectOriginChooser).toMatchObject({
+      draftSubjectName: 'DIREITO',
+      error: null,
       isOpen: true,
+      isSavingName: false,
+      originalSubjectIds: ['subject-a', 'subject-b', 'subject-c'],
       subjectName: 'DIREITO',
     });
     expect(result.current.subjectOriginChooser.choices.map(choice => ({
       editalId: choice.edital.id,
       subjectId: choice.subjectId,
-      topics: choice.topics.map(topic => topic.topicName),
+      subjectName: choice.subjectName,
     }))).toEqual([
-      { editalId: 'edital-a', subjectId: 'subject-a', topics: ['Lei penal no tempo'] },
-      { editalId: 'edital-b', subjectId: 'subject-b', topics: ['Lei penal no tempo e no espaço'] },
-      { editalId: 'edital-c', subjectId: 'subject-c', topics: ['Teoria tripartida'] },
+      { editalId: 'edital-a', subjectId: 'subject-a', subjectName: 'Matéria subject-a' },
+      { editalId: 'edital-b', subjectId: 'subject-b', subjectName: 'Matéria subject-b' },
+      { editalId: 'edital-c', subjectId: 'subject-c', subjectName: 'Matéria subject-c' },
     ]);
 
-    act(() => {
-      result.current.handleSelectSubjectOrigin(result.current.subjectOriginChooser.choices[2]);
+    await act(async () => {
+      await result.current.handleSelectSubjectOrigin(result.current.subjectOriginChooser.choices[2]);
     });
 
     expect(result.current.subjectOriginChooser.isOpen).toBe(false);
@@ -150,6 +155,153 @@ describe('useSubjectsEditalModalState', () => {
     expect(result.current.subjectsModal.edital).toMatchObject({
       id: 'edital-c',
       name: 'Teste C',
+    });
+  });
+
+  it('saves a pending unified subject name before opening the selected origin', async () => {
+    const onSaveUnifiedSubjectName = vi.fn().mockResolvedValue(undefined);
+    const dynamicUnificationMap: CycleUnificationMap = {
+      version: 1,
+      createdAt: '2026-07-15T00:00:00.000Z',
+      editalIds: ['edital-a', 'edital-b'],
+      standaloneSubjectIds: [],
+      unifiedSubjects: [{
+        displayName: 'MATEMATICA',
+        originalSubjectIds: ['subject-a', 'subject-b'],
+        matchType: 'manual',
+        topicMappings: [],
+      }],
+    };
+    const editalA = { ...edital, id: 'edital-a', name: 'Teste A', subject_ids: ['subject-a'], active_subject_ids: ['subject-a'] };
+    const editalB = { ...edital, id: 'edital-b', name: 'Teste B', subject_ids: ['subject-b'], active_subject_ids: ['subject-b'] };
+
+    const { result } = renderHook(() => useSubjectsEditalModalState({
+      dynamicUnificationMap,
+      editaisData: [editalA, editalB],
+      editaisNoCiclo: [editalA, editalB],
+      onSaveUnifiedSubjectName,
+      refresh: vi.fn(),
+      refreshData: vi.fn(),
+      subjects: [
+        makeSubject('subject-a', 'edital-a'),
+        makeSubject('subject-b', 'edital-b'),
+      ],
+    }));
+
+    act(() => {
+      result.current.handleManageCycleSubject(makeSubject('subject-a:subject-b', 'edital-a'));
+      result.current.handleSubjectOriginNameDraftChange(' Matemática Geral ');
+    });
+    await act(async () => {
+      await result.current.handleSelectSubjectOrigin(result.current.subjectOriginChooser.choices[1]);
+    });
+
+    expect(onSaveUnifiedSubjectName).toHaveBeenCalledWith(['subject-a', 'subject-b'], 'Matemática Geral');
+    expect(result.current.subjectOriginChooser.isOpen).toBe(false);
+    expect(result.current.subjectsModal).toMatchObject({
+      initialExpandedSubjectId: 'subject-b',
+      isOpen: true,
+    });
+    expect(result.current.subjectsModal.edital).toMatchObject({
+      id: 'edital-b',
+      name: 'Teste B',
+    });
+  });
+
+  it('keeps the origin chooser open when saving a pending name before opening an origin fails', async () => {
+    const onSaveUnifiedSubjectName = vi.fn().mockRejectedValue(new Error('Falha ao salvar nome'));
+    const dynamicUnificationMap: CycleUnificationMap = {
+      version: 1,
+      createdAt: '2026-07-15T00:00:00.000Z',
+      editalIds: ['edital-a', 'edital-b'],
+      standaloneSubjectIds: [],
+      unifiedSubjects: [{
+        displayName: 'MATEMATICA',
+        originalSubjectIds: ['subject-a', 'subject-b'],
+        matchType: 'manual',
+        topicMappings: [],
+      }],
+    };
+    const editalA = { ...edital, id: 'edital-a', subject_ids: ['subject-a'], active_subject_ids: ['subject-a'] };
+    const editalB = { ...edital, id: 'edital-b', subject_ids: ['subject-b'], active_subject_ids: ['subject-b'] };
+
+    const { result } = renderHook(() => useSubjectsEditalModalState({
+      dynamicUnificationMap,
+      editaisData: [editalA, editalB],
+      editaisNoCiclo: [editalA, editalB],
+      onSaveUnifiedSubjectName,
+      refresh: vi.fn(),
+      refreshData: vi.fn(),
+      subjects: [
+        makeSubject('subject-a', 'edital-a'),
+        makeSubject('subject-b', 'edital-b'),
+      ],
+    }));
+
+    act(() => {
+      result.current.handleManageCycleSubject(makeSubject('subject-a:subject-b', 'edital-a'));
+      result.current.handleSubjectOriginNameDraftChange('Matemática Geral');
+    });
+    await act(async () => {
+      await result.current.handleSelectSubjectOrigin(result.current.subjectOriginChooser.choices[1]);
+    });
+
+    expect(result.current.subjectOriginChooser).toMatchObject({
+      error: 'Falha ao salvar nome',
+      isOpen: true,
+      isSavingName: false,
+    });
+    expect(result.current.subjectsModal.isOpen).toBe(false);
+  });
+
+  it('saves the display name used by a unified subject in the cycle', async () => {
+    const onSaveUnifiedSubjectName = vi.fn().mockResolvedValue(undefined);
+    const dynamicUnificationMap: CycleUnificationMap = {
+      version: 1,
+      createdAt: '2026-07-15T00:00:00.000Z',
+      editalIds: ['edital-a', 'edital-b'],
+      standaloneSubjectIds: [],
+      unifiedSubjects: [{
+        displayName: 'MATEMATICA',
+        originalSubjectIds: ['subject-a', 'subject-b'],
+        matchType: 'manual',
+        topicMappings: [],
+      }],
+    };
+    const editalA = { ...edital, id: 'edital-a', subject_ids: ['subject-a'], active_subject_ids: ['subject-a'] };
+    const editalB = { ...edital, id: 'edital-b', subject_ids: ['subject-b'], active_subject_ids: ['subject-b'] };
+
+    const { result } = renderHook(() => useSubjectsEditalModalState({
+      dynamicUnificationMap,
+      editaisData: [editalA, editalB],
+      editaisNoCiclo: [editalA, editalB],
+      onSaveUnifiedSubjectName,
+      refresh: vi.fn(),
+      refreshData: vi.fn(),
+      subjects: [
+        makeSubject('subject-a', 'edital-a'),
+        makeSubject('subject-b', 'edital-b'),
+      ],
+    }));
+
+    act(() => {
+      result.current.handleManageCycleSubject(makeSubject('subject-a:subject-b', 'edital-a'));
+    });
+    act(() => {
+      result.current.handleSubjectOriginNameDraftChange(' Matemática Geral ');
+    });
+    await act(async () => {
+      await result.current.handleSaveSubjectOriginName();
+    });
+
+    expect(onSaveUnifiedSubjectName).toHaveBeenCalledWith(['subject-a', 'subject-b'], 'Matemática Geral');
+    await waitFor(() => {
+      expect(result.current.subjectOriginChooser).toMatchObject({
+        draftSubjectName: 'Matemática Geral',
+        error: null,
+        isSavingName: false,
+        subjectName: 'Matemática Geral',
+      });
     });
   });
 

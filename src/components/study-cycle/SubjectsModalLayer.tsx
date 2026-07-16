@@ -4,6 +4,8 @@ import {
   BookOpen,
   BriefcaseBusiness,
   CheckCircle2,
+  Edit3,
+  GraduationCap,
   Link2Off,
   Loader2,
   RefreshCw,
@@ -115,9 +117,11 @@ type SubjectsModalLayerProps = {
   onResetCycleConfirmOpenChange: (open: boolean) => void;
   onRevertMergeConfirm: () => Promise<void>;
   onSaveCycleExamDate: () => void;
+  onSaveSubjectOriginName: () => Promise<void>;
   onSetCycleExamDateDraft: (value: string) => void;
   onSetUnloadConfirmOpen: (open: boolean) => void;
-  onSelectSubjectOrigin: (choice: SubjectOriginChoice) => void;
+  onSelectSubjectOrigin: (choice: SubjectOriginChoice) => void | Promise<void>;
+  onSubjectOriginNameDraftChange: (value: string) => void;
   onSubjectsModalUpdate: () => void;
   onUnloadConfirm: () => Promise<void>;
   completeCycleConfirmOpen: boolean;
@@ -168,9 +172,11 @@ export function SubjectsModalLayer({
   onResetCycleConfirmOpenChange,
   onRevertMergeConfirm,
   onSaveCycleExamDate,
+  onSaveSubjectOriginName,
   onSetCycleExamDateDraft,
   onSetUnloadConfirmOpen,
   onSelectSubjectOrigin,
+  onSubjectOriginNameDraftChange,
   onSubjectsModalUpdate,
   onUnloadConfirm,
   completeCycleConfirmOpen,
@@ -207,54 +213,84 @@ export function SubjectsModalLayer({
         <AlertDialogContent className="max-w-xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-foreground">
-              <Link2Off className="h-5 w-5 text-warning" />
-              Matéria unificada
+              <Edit3 className="h-5 w-5 text-primary" />
+              Editar matéria unificada
             </AlertDialogTitle>
             <AlertDialogDescription className="text-content-muted">
-              <span className="font-semibold text-foreground">{subjectOriginChooser.subjectName}</span> junta conteúdos de mais de um edital. Escolha qual origem você quer abrir para editar.
+              Ajuste o nome usado no ciclo ou escolha em qual edital quer editar o conteúdo original.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-3">
+            <label htmlFor="cycle-subject-display-name" className="block text-[9px] font-black uppercase tracking-[0.14em] text-primary">
+              Nome exibido no ciclo
+            </label>
+            <input
+              id="cycle-subject-display-name"
+              value={subjectOriginChooser.draftSubjectName}
+              onChange={event => onSubjectOriginNameDraftChange(event.target.value)}
+              disabled={subjectOriginChooser.isSavingName}
+              className="mt-2 h-10 w-full rounded-xl border border-border bg-background/80 px-3 text-sm font-black uppercase text-foreground outline-none transition-colors placeholder:text-content-muted/70 focus:border-primary/45 disabled:cursor-not-allowed disabled:opacity-70"
+              placeholder="Nome da matéria no ciclo"
+            />
+            <p className="mt-2 text-[11px] font-medium leading-snug text-content-muted">
+              Este nome organiza a matéria no ciclo. Os nomes originais nos editais continuam preservados.
+            </p>
+            {subjectOriginChooser.error && (
+              <p className="mt-2 rounded-lg border border-destructive/20 bg-destructive/10 px-2 py-1.5 text-[11px] font-semibold text-destructive">
+                {subjectOriginChooser.error}
+              </p>
+            )}
+          </div>
+
           <div className="space-y-2">
+            <div className="px-1">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-content-muted">
+                Editar conteúdo original
+              </h3>
+              <p className="mt-1 text-[11px] font-medium leading-snug text-content-muted">
+                Escolha o edital onde deseja alterar tópicos, pesos ou excluir conteúdo.
+              </p>
+            </div>
             {subjectOriginChooser.choices.map(choice => (
               <button
                 key={`${choice.edital.id}:${choice.subjectId}`}
                 type="button"
-                onClick={() => onSelectSubjectOrigin(choice)}
-                className="group flex w-full items-start gap-3 rounded-2xl border border-border bg-secondary/35 p-3 text-left transition-colors hover:border-primary/35 hover:bg-primary/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                onClick={() => void onSelectSubjectOrigin(choice)}
+                disabled={subjectOriginChooser.isSavingName}
+                className="group grid w-full grid-cols-[2.25rem_minmax(0,1fr)] gap-3 rounded-2xl border border-border bg-secondary/30 p-3 text-left transition-colors hover:border-primary/35 hover:bg-primary/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
                   <BookOpen size={16} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-black uppercase tracking-wide text-foreground">
-                    {choice.edital.year ? `${choice.edital.year} - ` : ''}{choice.edital.organ || choice.edital.name}
-                  </span>
-                  {choice.edital.position && (
-                    <span className="mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-content-muted">
-                      <BriefcaseBusiness size={11} className="text-primary/70" />
-                      {choice.edital.position}
-                    </span>
-                  )}
-                  <span className="mt-2 block rounded-xl border border-border/70 bg-background/55 px-2.5 py-2">
-                    <span className="block text-[9px] font-black uppercase tracking-[0.12em] text-content-muted">
-                      Como está neste edital
-                    </span>
-                    <span className="mt-1 block text-[11px] font-bold uppercase text-content-main">
-                      {choice.subjectName}
-                    </span>
-                    {choice.topics.length > 0 && (
-                      <span className="mt-1.5 block space-y-1">
-                        {choice.topics.map((topic, index) => (
-                          <span key={`${topic.topicName}:${index}`} className="block text-[11px] font-medium leading-snug text-content-muted">
-                            {topic.topicName}
-                            {topic.displayName !== topic.topicName && (
-                              <span className="text-content-muted/70"> · exibido no ciclo como {topic.displayName}</span>
-                            )}
-                          </span>
-                        ))}
+                  <span className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <span className="min-w-0">
+                      <span className="block text-xs font-black uppercase tracking-wide text-foreground">
+                        {choice.edital.year ? `${choice.edital.year} - ` : ''}{choice.edital.organ || choice.edital.name}
                       </span>
-                    )}
+                      <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.08em] text-content-muted">
+                        {choice.edital.position && (
+                          <span className="inline-flex min-w-0 items-center gap-1.5">
+                            <BriefcaseBusiness size={11} className="shrink-0 text-primary/70" />
+                            <span className="truncate">{choice.edital.position}</span>
+                          </span>
+                        )}
+                        {choice.edital.examBoard && (
+                          <span className="inline-flex min-w-0 items-center gap-1.5">
+                            <GraduationCap size={11} className="shrink-0 text-incidence/80" />
+                            <span className="truncate">{choice.edital.examBoard}</span>
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="rounded-full border border-border/70 bg-background/55 px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-content-muted">
+                      Abrir origem
+                    </span>
+                  </span>
+
+                  <span className="mt-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-content-muted">
+                    Matéria: <span className="text-content-main">{choice.subjectName}</span>
                   </span>
                 </span>
               </button>
@@ -263,6 +299,16 @@ export function SubjectsModalLayer({
 
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void onSaveSubjectOriginName();
+              }}
+              disabled={subjectOriginChooser.isSavingName || subjectOriginChooser.draftSubjectName.trim() === subjectOriginChooser.subjectName}
+              className="app-primary-button"
+            >
+              {subjectOriginChooser.isSavingName ? 'Salvando...' : 'Salvar nome no ciclo'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -359,12 +405,13 @@ export function SubjectsModalLayer({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover edital do ciclo?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja remover o edital <strong>"{unloadConfirm.editalName}"</strong> do seu ciclo de estudos?
-              <br /><br />
-              <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 text-sm text-primary">
-                <p><strong>Informação importante:</strong> seu progresso, sessões de estudo e histórico de revisões serão preservados.</p>
-                <p className="mt-1">As revisões ficam pausadas fora do ciclo e serão retomadas quando você carregar este edital novamente.</p>
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-muted-foreground">
+                <p>Tem certeza que deseja remover o edital <strong>"{unloadConfirm.editalName}"</strong> do seu ciclo de estudos?</p>
+                <div className="mt-4 rounded-lg border border-primary/20 bg-primary/10 p-3 text-sm text-primary">
+                  <p><strong>Informação importante:</strong> seu progresso, sessões de estudo e histórico de revisões serão preservados.</p>
+                  <p className="mt-1">As revisões ficam pausadas fora do ciclo e serão retomadas quando você carregar este edital novamente.</p>
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

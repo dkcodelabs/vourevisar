@@ -15,6 +15,7 @@ type CycleWorkspaceHeaderSectionProps = {
   isReorderingCycle: boolean;
   onActivateSearch: () => void;
   onClearSearch: () => void;
+  onRenameCycle?: (name: string) => Promise<void>;
   onSearchChange: (value: string) => void;
   onToggleAll: () => void;
   onToggleReorder: () => void;
@@ -32,6 +33,7 @@ export function CycleWorkspaceHeaderSection({
   isReorderingCycle,
   onActivateSearch,
   onClearSearch,
+  onRenameCycle,
   onSearchChange,
   onToggleAll,
   onToggleReorder,
@@ -51,6 +53,7 @@ export function CycleWorkspaceHeaderSection({
       canToggleAll={expandableSubjectIds.length > 0}
       count={count}
       isCycleMode={isCycleMode}
+      onRenameCycle={isCycleMode ? onRenameCycle : undefined}
       onToggleAll={onToggleAll}
       reorderControl={(
         <CycleReorderButton

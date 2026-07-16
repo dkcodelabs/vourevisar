@@ -23,6 +23,7 @@ export interface CycleMergeComparison {
 }
 
 type ManualTopicEquivalenceInput = {
+    displayName?: string;
     subjectGroupId: string;
     topicIds: string[];
 };
@@ -159,6 +160,11 @@ const mappingContainsAnyTopic = (mapping: UnifiedTopicMapping, topicIds: Set<str
     mapping.originalTopicIds.some(topicId => topicIds.has(topicId))
 );
 
+const sanitizeDisplayName = (displayName?: string): string | undefined => {
+    const normalized = displayName?.trim().replace(/\s+/g, ' ');
+    return normalized || undefined;
+};
+
 export function addManualTopicEquivalence(
     unificationMap: CycleUnificationMap,
     subjects: Subject[],
@@ -212,7 +218,8 @@ export function addManualTopicEquivalence(
         if (nextManualEditalIds.length < 2) return subjectMapping;
 
         const manualMapping: UnifiedTopicMapping = {
-            displayName: nextManualTopics[0].name,
+            displayName: sanitizeDisplayName(input.displayName) || existingManualMapping?.displayNameOverride || existingManualMapping?.displayName || nextManualTopics[0].name,
+            displayNameOverride: sanitizeDisplayName(input.displayName) || existingManualMapping?.displayNameOverride,
             originalTopicIds: nextManualTopicIds,
             originalSubjectIds: unique(nextManualTopics.map(topic => topic.subjectId)),
             sourceEditalIds: nextManualEditalIds,

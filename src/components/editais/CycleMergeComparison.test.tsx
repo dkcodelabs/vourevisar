@@ -336,11 +336,16 @@ describe('CycleMergeComparison', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Selecionar Teoria tripartida como equivalente' }));
 
         expect(screen.getByRole('button', { name: 'Confirmar equivalência manual' })).toHaveTextContent('Confirmar 2 equivalencias');
+        expect(screen.getByText('Nome que aparecerá no ciclo')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Teoria tripartida' }));
+        expect(screen.getByRole('textbox', { name: 'Editar nome exibido do tópico mesclado' })).toHaveValue('Teoria tripartida');
 
         fireEvent.click(screen.getByRole('button', { name: 'Confirmar equivalência manual' }));
 
         const nextMap = onUnificationMapChange.mock.calls[0][0] as CycleUnificationMap;
         expect(nextMap.unifiedSubjects[0].topicMappings).toEqual([expect.objectContaining({
+            displayName: 'Teoria tripartida',
+            displayNameOverride: 'Teoria tripartida',
             matchType: 'manual',
             originalTopicIds: ['topic-a', 'topic-b', 'topic-c'],
         })]);
