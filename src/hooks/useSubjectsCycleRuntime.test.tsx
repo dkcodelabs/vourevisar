@@ -95,8 +95,10 @@ describe('useSubjectsCycleRuntime', () => {
       expect(mocks.fetchTopicReviewStudyMinutes).toHaveBeenCalledWith(['topic-1']);
     });
 
-    expect(result.current.topicStats.get('topic-1')?.reviewCount).toBe(2);
-    expect(result.current.topicStudyMinutes.get('topic-1')).toBe(30);
+    await waitFor(() => {
+      expect(result.current.topicStats.get('topic-1')?.reviewCount).toBe(2);
+      expect(result.current.topicStudyMinutes.get('topic-1')).toBe(30);
+    });
 
     await result.current.recordConfirmedTopicCycleEvent(2, 15);
 
