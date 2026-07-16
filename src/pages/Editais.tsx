@@ -10,7 +10,7 @@ import type { Database, Json } from '@/integrations/supabase/types';
 import {
     Plus, PlusCircle, Library, Trash2, Play, Eye, Clock,
     BookOpen, AlertTriangle, Merge, Unlink, X, CheckCircle2, RefreshCw, Sparkles, Loader2,
-    AlertCircle, Info, GraduationCap, Database as DatabaseIcon, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText, PencilLine, ArrowRight, CalendarDays, BriefcaseBusiness
+    AlertCircle, Info, GraduationCap, Database as DatabaseIcon, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText, PencilLine, ArrowRight, CalendarDays
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -1125,6 +1125,7 @@ const Editais = () => {
                 userId: user.id,
                 editalId: edital.id,
             });
+            localStorage.removeItem(`user_cycle_cache_${user.id}`);
             await discardPendingMerge('all');
 
             setEditais(prev => prev.map(e =>
@@ -2747,7 +2748,7 @@ const Editais = () => {
                                 <div>
                                     <h3 id="unload-cycle-title" className="text-base font-semibold text-content-main tracking-tight">Remover edital do ciclo?</h3>
                                     <p id="unload-cycle-description" className="text-xs text-content-muted mt-0.5">
-                                        As matérias deste edital deixarão de aparecer no seu ciclo de estudos.
+                                        As matérias deste edital sairão da fila atual de estudos.
                                     </p>
                                 </div>
                             </div>
@@ -2759,7 +2760,7 @@ const Editais = () => {
                                         <Info size={18} className="shrink-0 mt-0.5" />
                                         <div>
                                             <p className="font-bold">Informação importante:</p>
-                                            <p className="mt-1 opacity-90">Seu progresso nos tópicos e histórico de revisões <strong>não serão perdidos</strong>. Você encontrará esses dados no Histórico Total.</p>
+                                            <p className="mt-1 opacity-90">Seu progresso, sessões de estudo e histórico de revisões <strong>não serão perdidos</strong>. As revisões ficam pausadas fora do ciclo e serão retomadas quando você carregar este edital novamente.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -3484,196 +3485,56 @@ const Editais = () => {
                                                         </div>
                                                     )}
 
-                                                    <div className="space-y-4">
-                                                        <section className="rounded-2xl bg-surface/75 p-4 dark:bg-surface/45">
-                                                            <div className="flex items-start gap-2.5">
-                                                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
-                                                                    <Library size={14} />
-                                                                </div>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                        Concurso do ciclo
-                                                                    </span>
-                                                                    <div className="mt-2 grid gap-1.5">
-                                                                        {successCycleSources.map(source => (
-                                                                            <div key={source.id} className="flex min-w-0 flex-col gap-1 rounded-xl border border-border/60 bg-background/70 px-3 py-2 dark:bg-modal/60 sm:flex-row sm:items-center sm:justify-between">
-                                                                                <span className="min-w-0 truncate text-[12px] font-black uppercase tracking-tight text-foreground">
-                                                                                    {formatCycleSourceName(source.name)}
-                                                                                </span>
-                                                                                {source.position && (
-                                                                                    <span className="inline-flex min-w-0 items-center gap-1 text-[9px] font-bold uppercase tracking-[0.08em] text-content-muted sm:justify-end">
-                                                                                        <BriefcaseBusiness size={10} className="shrink-0 text-primary/80" />
-                                                                                        <span className="truncate">{formatCycleSourceName(source.position)}</span>
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
+                                                    <div className="rounded-2xl bg-surface/70 p-3.5 dark:bg-surface/40">
+                                                        <div className="grid gap-3 sm:grid-cols-3">
+                                                            <div className="rounded-xl bg-background/70 px-3 py-2 dark:bg-modal/55">
+                                                                <span className="block text-[9px] font-black uppercase tracking-widest text-content-muted">Matérias</span>
+                                                                <span className="mt-1 block text-lg font-black leading-none text-foreground">{successCycleStats.subjects}</span>
                                                             </div>
-                                                        </section>
-
-                                                        <section className="rounded-2xl bg-surface/75 p-4 dark:bg-surface/45">
-                                                            <div className="flex items-start gap-2.5">
-                                                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning ring-1 ring-warning/20">
-                                                                    <CalendarDays size={14} />
-                                                                </div>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                        Data da prova
-                                                                    </span>
-                                                                    {cycleConflict.action === 'replace' ? (
-                                                                        <p className="mt-1 text-[12px] font-bold leading-relaxed text-foreground">
-                                                                            {cycleExamDateDraft ? formatExamDateLabel(cycleExamDateDraft) : 'Sem data definida neste edital'}
-                                                                        </p>
-                                                                    ) : (
-                                                                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-content-muted">
-                                                                            Escolha qual prova vai reger o ritmo do ciclo composto ou informe outra data.
-                                                                        </p>
-                                                                    )}
-                                                                </div>
+                                                            <div className="rounded-xl bg-background/70 px-3 py-2 dark:bg-modal/55">
+                                                                <span className="block text-[9px] font-black uppercase tracking-widest text-content-muted">Tópicos</span>
+                                                                <span className="mt-1 block text-lg font-black leading-none text-foreground">{successCycleStats.topics}</span>
                                                             </div>
+                                                            <div className="rounded-xl bg-background/70 px-3 py-2 dark:bg-modal/55">
+                                                                <span className="block text-[9px] font-black uppercase tracking-widest text-content-muted">Editais</span>
+                                                                <span className="mt-1 block text-lg font-black leading-none text-foreground">{successCycleSources.length}</span>
+                                                            </div>
+                                                        </div>
 
-                                                            {cycleConflict.action !== 'replace' && (
-                                                                <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                                                                    <div>
-                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                            Usar data de um edital
+                                                        <div className="mt-3 flex flex-wrap gap-1.5">
+                                                            {successCycleSources.map(source => (
+                                                                <span key={source.id} className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-background/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-tight text-foreground ring-1 ring-border/55 dark:bg-modal/65">
+                                                                    <Library size={10} className="shrink-0 text-primary" />
+                                                                    <span className="truncate">{formatCycleSourceName(source.name)}</span>
+                                                                    {source.position && (
+                                                                        <span className="hidden min-w-0 truncate text-content-muted sm:inline">
+                                                                            / {formatCycleSourceName(source.position)}
                                                                         </span>
-                                                                        {cycleExamDateOptions.length > 0 ? (
-                                                                            <div className="mt-2 grid gap-1.5">
-                                                                                {cycleExamDateOptions.map(option => (
-                                                                                    <button
-                                                                                        key={option.date}
-                                                                                        type="button"
-                                                                                        onClick={() => setCycleExamDateDraft(option.date)}
-                                                                                        className={cn(
-                                                                                            'group flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors ring-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/35',
-                                                                                            cycleExamDateDraft === option.date
-                                                                                                ? 'bg-warning/12 text-foreground ring-warning/45'
-                                                                                                : 'bg-background/75 text-foreground ring-border/55 hover:bg-warning/8 hover:ring-warning/30 dark:bg-modal/60',
-                                                                                        )}
-                                                                                        aria-label={`Usar data ${formatExamDateLabel(option.date)} de ${option.labels.join(' e ')}`}
-                                                                                    >
-                                                                                        <span className={cn(
-                                                                                            'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors',
-                                                                                            cycleExamDateDraft === option.date
-                                                                                                ? 'border-warning bg-warning text-warning-foreground'
-                                                                                                : 'border-border bg-background text-transparent group-hover:border-warning/50',
-                                                                                        )}>
-                                                                                            <CheckCircle2 size={10} />
-                                                                                        </span>
-                                                                                        <span className="grid min-w-0 flex-1 gap-0.5 sm:grid-cols-[92px_minmax(0,1fr)] sm:items-center">
-                                                                                            <span className="text-[12px] font-black text-foreground">
-                                                                                                {formatExamDateLabel(option.date)}
-                                                                                            </span>
-                                                                                            <span className="min-w-0 truncate text-[9px] font-bold uppercase tracking-[0.08em] text-content-muted">
-                                                                                                {option.labels.map(formatCycleSourceName).join(' + ')}
-                                                                                            </span>
-                                                                                        </span>
-                                                                                    </button>
-                                                                                ))}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <p className="mt-2 rounded-xl bg-background/70 px-3 py-3 text-[11px] font-medium leading-relaxed text-content-muted ring-1 ring-border/55 dark:bg-modal/60">
-                                                                                Nenhum dos editais possui data cadastrada.
-                                                                            </p>
-                                                                        )}
-                                                                    </div>
+                                                                    )}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
 
-                                                                    <div>
-                                                                        <label className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                            Personalizar data
-                                                                        </label>
-                                                                        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center lg:flex-col lg:items-stretch">
-                                                                            <Input
-                                                                                type="date"
-                                                                                value={cycleExamDateDraft}
-                                                                                onChange={event => setCycleExamDateDraft(event.target.value)}
-                                                                                aria-label="Data personalizada da prova do ciclo"
-                                                                                className="h-10 w-full border-border/70 bg-background text-sm font-bold text-foreground focus-visible:ring-warning/25 dark:bg-modal sm:w-[156px] lg:w-[156px]"
-                                                                            />
-                                                                            <Button
-                                                                                type="button"
-                                                                                variant="outline"
-                                                                                size="sm"
-                                                                                onClick={() => setCycleExamDateDraft('')}
-                                                                                className="h-9 w-full justify-center px-3 text-[11px] transition-colors hover:bg-secondary sm:w-auto lg:w-[156px]"
-                                                                            >
-                                                                                Definir depois
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </section>
-
-                                                        {cycleConflict.action !== 'replace' && (
-                                                            <section className="rounded-2xl bg-surface/75 p-4 dark:bg-surface/45">
+                                                    {cycleConflict.action === 'replace' ? (
+                                                        <div className="flex items-start gap-2 rounded-xl bg-primary/10 p-3 text-primary ring-1 ring-primary/20">
+                                                            <Info size={14} className="mt-0.5 shrink-0" />
+                                                            <div className="min-w-0">
+                                                                <p className="text-[11px] font-semibold leading-relaxed text-foreground">
+                                                                    O ciclo anterior foi substituído. A data usada será {cycleExamDateDraft ? formatExamDateLabel(cycleExamDateDraft) : 'definida depois'}.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="grid gap-3 md:grid-cols-2">
+                                                            <section className="rounded-2xl bg-surface/70 p-3.5 dark:bg-surface/40">
                                                                 <div className="flex items-start gap-2.5">
                                                                     <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
                                                                         <PencilLine size={14} />
                                                                     </div>
                                                                     <div className="min-w-0 flex-1">
                                                                         <label htmlFor="cycle-name-draft" className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                            Nome exibido no ciclo
-                                                                        </label>
-                                                                        <p className="mt-1 text-[11px] font-medium leading-relaxed text-content-muted">
-                                                                            Escolha quais nomes de editais entram no título ou escreva um nome personalizado.
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className="mt-4 space-y-3">
-                                                                    <div>
-                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                            Usar nome de edital
-                                                                        </span>
-                                                                        <div className="mt-2 grid gap-1.5">
-                                                                            {cycleMergeSources.map(source => {
-                                                                                const selected = selectedCycleNameSourceIdSet.has(source.id);
-                                                                                const displayName = formatCycleSourceName(source.name);
-                                                                                return (
-                                                                                    <button
-                                                                                        key={source.id}
-                                                                                        type="button"
-                                                                                        onClick={() => toggleCycleNameSource(source.id)}
-                                                                                        aria-pressed={selected}
-                                                                                        className={cn(
-                                                                                            'group flex min-h-11 min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors ring-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/35',
-                                                                                            selected
-                                                                                                ? 'bg-warning/12 text-foreground ring-warning/45'
-                                                                                                : 'bg-background/75 text-foreground ring-border/55 hover:bg-warning/8 hover:ring-warning/30 dark:bg-modal/60',
-                                                                                        )}
-                                                                                        aria-label={`${selected ? 'Remover' : 'Adicionar'} ${displayName} ao nome do ciclo`}
-                                                                                    >
-                                                                                        <span className={cn(
-                                                                                            'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors',
-                                                                                            selected
-                                                                                                ? 'border-warning bg-warning text-warning-foreground'
-                                                                                                : 'border-border bg-background text-transparent group-hover:border-warning/50',
-                                                                                        )}>
-                                                                                            <CheckCircle2 size={10} />
-                                                                                        </span>
-                                                                                        <span className="grid min-w-0 flex-1 gap-0.5 sm:grid-cols-[minmax(0,1fr)_minmax(90px,0.55fr)] sm:items-center">
-                                                                                            <span className="min-w-0 truncate text-[12px] font-black uppercase tracking-tight text-foreground">
-                                                                                                {displayName}
-                                                                                            </span>
-                                                                                            {source.position && (
-                                                                                                <span className="min-w-0 truncate text-[9px] font-bold uppercase tracking-[0.08em] text-content-muted sm:text-right">
-                                                                                                    {formatCycleSourceName(source.position)}
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </span>
-                                                                                    </button>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div>
-                                                                        <label htmlFor="cycle-name-draft" className="text-[9px] font-black uppercase tracking-widest text-content-muted">
-                                                                            Nome de exibição
+                                                                            Nome no ciclo
                                                                         </label>
                                                                         <Input
                                                                             id="cycle-name-draft"
@@ -3688,13 +3549,106 @@ const Editais = () => {
                                                                             className="mt-2 h-11 border-border/70 bg-background text-sm font-bold text-foreground placeholder:text-content-muted/60 focus-visible:ring-primary/25 dark:bg-modal"
                                                                         />
                                                                         <p id="cycle-name-help" className="mt-2 text-[10px] font-medium leading-relaxed text-content-muted">
-                                                                            Esse nome aparece no painel e no Ciclo de Estudos. Os editais originais não são alterados.
+                                                                            É o apelido mostrado no painel e na Ciclo. Os editais originais ficam preservados.
                                                                         </p>
                                                                     </div>
                                                                 </div>
+
+                                                                <div className="mt-3 flex flex-wrap gap-1.5">
+                                                                    {cycleMergeSources.map(source => {
+                                                                        const selected = selectedCycleNameSourceIdSet.has(source.id);
+                                                                        const displayName = formatCycleSourceName(source.name);
+                                                                        return (
+                                                                            <button
+                                                                                key={source.id}
+                                                                                type="button"
+                                                                                onClick={() => toggleCycleNameSource(source.id)}
+                                                                                aria-pressed={selected}
+                                                                                className={cn(
+                                                                                    'inline-flex min-h-9 min-w-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-left text-[10px] font-black uppercase tracking-tight transition-colors ring-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35',
+                                                                                    selected
+                                                                                        ? 'bg-primary/12 text-foreground ring-primary/45'
+                                                                                        : 'bg-background/75 text-content-muted ring-border/55 hover:bg-primary/8 hover:text-foreground hover:ring-primary/30 dark:bg-modal/60',
+                                                                                )}
+                                                                                aria-label={`${selected ? 'Remover' : 'Adicionar'} ${displayName} ao nome do ciclo`}
+                                                                            >
+                                                                                {selected && <CheckCircle2 size={11} className="shrink-0 text-primary" />}
+                                                                                <span className="truncate">{displayName}</span>
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
                                                             </section>
-                                                        )}
-                                                    </div>
+
+                                                            <section className="rounded-2xl bg-surface/70 p-3.5 dark:bg-surface/40">
+                                                                <div className="flex items-start gap-2.5">
+                                                                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning ring-1 ring-warning/20">
+                                                                        <CalendarDays size={14} />
+                                                                    </div>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-content-muted">
+                                                                            Data da prova
+                                                                        </span>
+                                                                        <p className="mt-1 text-[10px] font-medium leading-relaxed text-content-muted">
+                                                                            Use a data que deve orientar o ritmo do ciclo.
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="mt-3 space-y-2">
+                                                                    {cycleExamDateOptions.length > 0 ? (
+                                                                        <div className="grid gap-1.5">
+                                                                            {cycleExamDateOptions.map(option => (
+                                                                                <button
+                                                                                    key={option.date}
+                                                                                    type="button"
+                                                                                    onClick={() => setCycleExamDateDraft(option.date)}
+                                                                                    className={cn(
+                                                                                        'group flex min-h-10 w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors ring-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/35',
+                                                                                        cycleExamDateDraft === option.date
+                                                                                            ? 'bg-warning/12 text-foreground ring-warning/45'
+                                                                                            : 'bg-background/75 text-foreground ring-border/55 hover:bg-warning/8 hover:ring-warning/30 dark:bg-modal/60',
+                                                                                    )}
+                                                                                    aria-label={`Usar data ${formatExamDateLabel(option.date)} de ${option.labels.join(' e ')}`}
+                                                                                >
+                                                                                    {cycleExamDateDraft === option.date && <CheckCircle2 size={12} className="shrink-0 text-warning" />}
+                                                                                    <span className="min-w-0 flex-1 truncate text-[12px] font-black text-foreground">
+                                                                                        {formatExamDateLabel(option.date)}
+                                                                                    </span>
+                                                                                    <span className="hidden min-w-0 max-w-[45%] truncate text-[9px] font-bold uppercase tracking-[0.08em] text-content-muted sm:block">
+                                                                                        {option.labels.map(formatCycleSourceName).join(' + ')}
+                                                                                    </span>
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <p className="rounded-xl bg-background/70 px-3 py-3 text-[11px] font-medium leading-relaxed text-content-muted ring-1 ring-border/55 dark:bg-modal/60">
+                                                                            Nenhum edital possui data cadastrada.
+                                                                        </p>
+                                                                    )}
+
+                                                                    <div className="flex flex-col gap-2 sm:flex-row">
+                                                                        <Input
+                                                                            type="date"
+                                                                            value={cycleExamDateDraft}
+                                                                            onChange={event => setCycleExamDateDraft(event.target.value)}
+                                                                            aria-label="Data personalizada da prova do ciclo"
+                                                                            className="h-10 min-w-0 flex-1 border-border/70 bg-background text-sm font-bold text-foreground focus-visible:ring-warning/25 dark:bg-modal"
+                                                                        />
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={() => setCycleExamDateDraft('')}
+                                                                            className="h-10 shrink-0 justify-center px-3 text-[11px] transition-colors hover:bg-secondary"
+                                                                        >
+                                                                            Definir depois
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            </section>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

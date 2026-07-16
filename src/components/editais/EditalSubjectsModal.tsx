@@ -1021,40 +1021,6 @@ export const EditalSubjectsModal = ({
         }
     }, [canRunStructuralOperation, localEditalIds, localActiveIds, edital, allSubjects, onUpdate, localSubjects, user]);
 
-    // ── Alternar ativo/inativo (visível/oculto no Ciclo de Estudos) ───────
-    const handleToggleSubjectActive = useCallback(async (subjectId: string, subjectName: string) => {
-        if (!canRunStructuralOperation()) return;
-        const isCurrentlyActive = localActiveIds.includes(subjectId);
-        const newActiveIds = isCurrentlyActive
-            ? localActiveIds.filter(id => id !== subjectId)
-            : [...localActiveIds, subjectId];
-
-        // Otimismo
-        setLocalActiveIds(newActiveIds);
-        setSyncStatus('saving');
-
-        try {
-            const { error } = await editaisTable()
-                .update({ active_subject_ids: newActiveIds }).eq('id', edital.id);
-            if (error) throw error;
-
-            onUpdate({ ...edital, activeSubjectIds: newActiveIds });
-            hasPendingSync.current = true;
-            setSyncStatus('saved');
-            toast.success(
-                isCurrentlyActive
-                    ? `"${subjectName}" ocultada do Ciclo de Estudos.`
-                    : `"${subjectName}" ativada no Ciclo de Estudos.`,
-                { duration: 1500 }
-            );
-        } catch (err) {
-            // Reverte
-            setLocalActiveIds(localActiveIds);
-            setSyncStatus('error');
-            errorService.report(err, { module: 'EditalSubjectsModal', action: 'toggleActive', userMessage: 'Erro ao alterar visibilidade.' });
-        }
-    }, [canRunStructuralOperation, localActiveIds, edital, onUpdate]);
-
     // ── Salvar novo tópico inline ──────────────────────────────────────────
     const handleSaveNewTopic = useCallback(async (subjectId: string) => {
         if (!canRunStructuralOperation()) return;

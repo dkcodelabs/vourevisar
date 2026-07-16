@@ -64,10 +64,7 @@ const Cadernos = () => {
   const { subjects, isLoading, isDataLoaded } = useApp();
   const { userCycle, isLoading: cycleLoading } = useCycleState();
   const { editaisData } = useEditalOriginsWithMerge();
-  const visibleSubjects = useMemo(
-    () => subjects.filter(subject => subject.is_visible !== false),
-    [subjects]
-  );
+  const visibleSubjects = subjects;
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
 
   useEffect(() => {
