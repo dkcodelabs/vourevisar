@@ -10,8 +10,8 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Plus, X, Trash2, Check, BookOpen, GraduationCap,
-    ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, FileText, Circle, CheckCircle2, Loader2, AlertTriangle,
-    Database, Save, Sparkles, BriefcaseBusiness, Gauge, BarChart2, BookPlus
+    ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, Circle, CheckCircle2, Loader2, AlertTriangle,
+    Save, BriefcaseBusiness, Gauge, BarChart2, BookPlus, Pencil
 } from 'lucide-react';
 import { Subject, Topic, Status } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,12 +36,13 @@ import {
 import { parseBulkTopics, shouldAdvanceToBulkTopics } from '@/utils/bulkTopicParser';
 import { getIncidenceLevelLabel } from '@/utils/topicIncidenceLevel';
 import { subjectNameSchema } from '@/lib/validation';
+import { EditEditalModal } from '@/components/editais/EditEditalModal';
 import {
-    editalHeaderBadgeTypography,
     editalHeaderExamBoardTypography,
     editalHeaderPositionTypography
 } from '@/components/editais/editalHeaderTypography';
 import { guardActiveTimerOperation } from '@/utils/activeTimerOperationGuard';
+import { recalculatePendingReviewsForEdital } from '@/services/topicReviewScheduleService';
 import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
 import {
     getEditalSubjectCycleProgress,
@@ -252,6 +253,7 @@ export const EditalSubjectsModal = ({
     const [editingWeightSubjectId, setEditingWeightSubjectId] = useState<string | null>(null);
     const [weightSavedSubjectId, setWeightSavedSubjectId] = useState<string | null>(null);
     const [weightDraft, setWeightDraft] = useState({ questions: '', points: '' });
+    const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
 
     const focusSubject = useCallback((subjectId: string) => {
         setSearchQuery('');
@@ -451,6 +453,71 @@ export const EditalSubjectsModal = ({
         handleClose();
         onBack?.();
     }, [handleClose, onBack]);
+
+    const handleSaveEditalDetails = useCallback(async (
+        id: string,
+        updates: { organ: string; position: string; year: string; exam_date?: string; exam_board?: string }
+    ) => {
+        if (!user?.id) throw new Error('Sessão expirada. Entre novamente para salvar o edital.');
+
+        const normalizedExamDate = updates.exam_date || null;
+        const updatedAt = new Date().toISOString();
+        const updatedName = updates.position ? `${updates.organ} - ${updates.position}` : updates.organ;
+
+        const { error } = await editaisTable()
+            .update({
+                organ: updates.organ,
+                position: updates.position,
+                year: updates.year,
+                exam_date: normalizedExamDate,
+                exam_board: updates.exam_board || null,
+                name: updatedName,
+                updated_at: updatedAt
+            })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        const updatedEdital: UserEdital = {
+            ...selectedEdital,
+            name: updatedName,
+            organ: updates.organ,
+            position: updates.position,
+            year: updates.year,
+            examDate: normalizedExamDate || undefined,
+            examBoard: updates.exam_board || undefined,
+            updatedAt
+        };
+
+        setSelectedEdital(updatedEdital);
+        onUpdate(updatedEdital);
+        refreshOrigins();
+
+        if (user?.id && normalizedExamDate) {
+            try {
+                await toast.promise(
+                    recalculatePendingReviewsForEdital({
+                        editalId: id,
+                        userId: user.id,
+                        examDate: normalizedExamDate,
+                    }),
+                    {
+                        loading: 'Recalculando o plano de revisões...',
+                        success: result => result.adjustedCount > 0
+                            ? `Edital atualizado. ${result.adjustedCount} ${result.adjustedCount === 1 ? 'revisão foi ajustada' : 'revisões foram ajustadas'} à data da prova.`
+                            : 'Edital atualizado. Seu plano de revisões já está adequado.',
+                        error: 'Edital salvo, mas não foi possível recalcular as revisões agora.',
+                    },
+                );
+            } catch (recalculationError) {
+                console.warn('[EditalSubjectsModal] Falha ao recalcular revisões após atualizar a prova:', recalculationError);
+            }
+            return;
+        }
+
+        toast.info('Edital atualizado sem data de prova. Revisões e métricas seguem sem ajuste por prova até você informar uma data.');
+    }, [onUpdate, refreshOrigins, selectedEdital, user?.id]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -757,25 +824,6 @@ export const EditalSubjectsModal = ({
             : null
     );
     const canPreviewBulkTopics = Boolean(iaSubjectName.trim() && parseBulkTopics(iaInputText).length > 0);
-    const sourceBadge = selectedEdital.sourceId
-        ? {
-            label: 'Cópia • Catálogo',
-            className: 'border-primary/20 bg-primary/10 text-primary',
-            icon: Database
-        }
-        : selectedEdital.isImported
-            ? {
-                label: 'Cópia • IA',
-                className: 'border-incidence/20 bg-incidence/10 text-incidence',
-                icon: Sparkles
-            }
-            : {
-                label: 'Manual',
-                className: 'border-border bg-secondary text-content-muted',
-                icon: FileText
-            };
-    const SourceBadgeIcon = sourceBadge.icon;
-
     useEffect(() => {
         if (searchQuery.trim()) setExpandedIds(filteredSubjects.map(s => s.id));
     }, [searchQuery, filteredSubjects]);
@@ -1304,17 +1352,25 @@ export const EditalSubjectsModal = ({
                                     <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
                                 </button>
                             )}
-                            <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary lg:flex">
-                                <GraduationCap className="h-[18px] w-[18px]" />
-                            </div>
                             <div className="min-w-0 flex-1 lg:pt-2">
                                 <div className="flex min-w-0 flex-col gap-1">
-                                    <div className="flex min-w-0 items-start gap-1.5">
-                                        <GraduationCap size={11} className="lg:hidden shrink-0 text-primary mt-[3px]" />
+                                    <div className="flex min-w-0 items-center gap-1.5">
+                                        <GraduationCap size={11} className="shrink-0 text-primary" />
                                         <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                            <h2 id="edital-subjects-modal-title" className="line-clamp-2 min-w-0 basis-full text-sm font-black uppercase tracking-tight text-content-main [overflow-wrap:anywhere] lg:basis-auto lg:line-clamp-1">
+                                            <h2 id="edital-subjects-modal-title" className="line-clamp-2 min-w-0 text-sm font-black uppercase tracking-tight text-content-main [overflow-wrap:anywhere] lg:line-clamp-1">
                                                 {selectedEdital.year ? `${selectedEdital.year} - ` : ''}{displayOrgan}
                                             </h2>
+                                            {isEditable && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsEditDetailsOpen(true)}
+                                                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                                    aria-label="Editar edital"
+                                                    title="Editar edital"
+                                                >
+                                                    <Pencil size={13} />
+                                                </button>
+                                            )}
                                             {syncStatus === 'saving' && (
                                                 <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold text-primary/75">
                                                     <Loader2 size={10} className="animate-spin text-primary" />
@@ -1345,10 +1401,6 @@ export const EditalSubjectsModal = ({
                                     <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-medium text-content-muted">
                                         <BookOpen size={11} className="shrink-0 text-primary" />
                                         {localSubjects.length} {localSubjects.length === 1 ? 'matéria' : 'matérias'} • {totalTopics} {totalTopics === 1 ? 'tópico' : 'tópicos'}
-                                        <span className={`inline-flex shrink-0 items-center gap-0.5 rounded border px-1 py-px ${editalHeaderBadgeTypography} ${sourceBadge.className}`}>
-                                            <SourceBadgeIcon size={8} />
-                                            {sourceBadge.label}
-                                        </span>
                                     </p>
                                 </div>
                             </div>
@@ -2099,6 +2151,12 @@ export const EditalSubjectsModal = ({
                     </div>
                 )}
             </AnimatePresence>
+            <EditEditalModal
+                isOpen={isEditDetailsOpen}
+                onClose={() => setIsEditDetailsOpen(false)}
+                edital={selectedEdital}
+                onSave={handleSaveEditalDetails}
+            />
         </>,
         document.body
     );

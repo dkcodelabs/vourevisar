@@ -30,6 +30,7 @@ describe('CycleWorkspaceHeaderSection', () => {
         isReorderingCycle={true}
         onActivateSearch={vi.fn()}
         onClearSearch={vi.fn()}
+        onRenameCycle={vi.fn()}
         onSearchChange={vi.fn()}
         onToggleAll={vi.fn()}
         onToggleReorder={vi.fn()}
@@ -45,6 +46,7 @@ describe('CycleWorkspaceHeaderSection', () => {
       count: 2,
       isCycleMode: true,
       title: 'Ciclo Alfa',
+      onRenameCycle: expect.any(Function),
     }));
 
     const workspaceHeaderProps = mocks.cycleWorkspaceHeader.mock.calls[0][0] as {
@@ -77,6 +79,7 @@ describe('CycleWorkspaceHeaderSection', () => {
         isReorderingCycle={false}
         onActivateSearch={vi.fn()}
         onClearSearch={vi.fn()}
+        onRenameCycle={vi.fn()}
         onSearchChange={vi.fn()}
         onToggleAll={vi.fn()}
         onToggleReorder={vi.fn()}
@@ -91,6 +94,7 @@ describe('CycleWorkspaceHeaderSection', () => {
       count: 2,
       isCycleMode: false,
       title: 'Edital Verticalizado',
+      onRenameCycle: undefined,
     }));
 
     const workspaceHeaderProps = mocks.cycleWorkspaceHeader.mock.calls[0][0] as {

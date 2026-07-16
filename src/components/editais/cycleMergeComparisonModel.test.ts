@@ -141,6 +141,42 @@ describe('buildCycleMergeComparison', () => {
         })]);
     });
 
+    it('persists the student-selected display name for a manual topic equivalence', () => {
+        const subjects = [
+            makeSubject('subject-a', 'Direito', [
+                { id: 'topic-a', name: 'Lei penal no tempo' },
+            ], 'edital-a'),
+            makeSubject('subject-b', 'Direito', [
+                { id: 'topic-b', name: 'Teoria tripartida' },
+            ], 'edital-b'),
+        ];
+        const map: CycleUnificationMap = {
+            version: 1,
+            createdAt: '2026-06-22T00:00:00.000Z',
+            editalIds: ['edital-a', 'edital-b'],
+            standaloneSubjectIds: [],
+            unifiedSubjects: [{
+                displayName: 'Direito',
+                originalSubjectIds: ['subject-a', 'subject-b'],
+                matchType: 'exact',
+                topicMappings: [],
+            }],
+        };
+
+        const result = addManualTopicEquivalence(map, subjects, {
+            displayName: '  Teoria tripartida   ',
+            subjectGroupId: 'subject-a:subject-b',
+            topicIds: ['topic-a', 'topic-b'],
+        });
+
+        expect(result.unifiedSubjects[0].topicMappings).toEqual([expect.objectContaining({
+            displayName: 'Teoria tripartida',
+            displayNameOverride: 'Teoria tripartida',
+            matchType: 'manual',
+            originalTopicIds: ['topic-a', 'topic-b'],
+        })]);
+    });
+
     it('does not let manual equivalence override an automatic topic mapping', () => {
         const subjects = [
             makeSubject('subject-a', 'Matematica', [

@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ChevronDown, FileText, ListTodo } from 'lucide-react';
+import { Check, ChevronDown, FileText, ListTodo, Pencil, X } from 'lucide-react';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -8,6 +9,7 @@ type CycleWorkspaceHeaderProps = {
   canToggleAll: boolean;
   count: number;
   isCycleMode: boolean;
+  onRenameCycle?: (name: string) => Promise<void>;
   onToggleAll: () => void;
   reorderControl: ReactNode;
   searchControl: ReactNode;
@@ -20,6 +22,7 @@ export function CycleWorkspaceHeader({
   canToggleAll,
   count,
   isCycleMode,
+  onRenameCycle,
   onToggleAll,
   reorderControl,
   searchControl,
@@ -27,6 +30,35 @@ export function CycleWorkspaceHeader({
   viewModeControl,
 }: CycleWorkspaceHeaderProps) {
   const toggleLabel = allExpanded ? 'Recolher todas as matérias' : 'Expandir todas as matérias';
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(title);
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
+  const canRenameCycle = isCycleMode && Boolean(onRenameCycle);
+
+  useEffect(() => {
+    if (!isEditingTitle) setTitleDraft(title);
+  }, [isEditingTitle, title]);
+
+  const cancelRename = () => {
+    setTitleDraft(title);
+    setIsEditingTitle(false);
+  };
+
+  const saveRename = async () => {
+    const cleanName = titleDraft.trim().replace(/\s+/g, ' ');
+    if (!cleanName || cleanName === title || !onRenameCycle) {
+      cancelRename();
+      return;
+    }
+
+    setIsSavingTitle(true);
+    try {
+      await onRenameCycle(cleanName);
+      setIsEditingTitle(false);
+    } finally {
+      setIsSavingTitle(false);
+    }
+  };
 
   return (
     <div className="mb-2 space-y-2 px-0">
@@ -36,9 +68,67 @@ export function CycleWorkspaceHeader({
         ) : (
           <FileText size={16} className="shrink-0 text-primary" />
         )}
-        <h3 className="app-type-section-title min-w-0 break-words text-title-section">
-          {title}
-        </h3>
+        {isEditingTitle ? (
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <input
+              type="text"
+              value={titleDraft}
+              onChange={event => setTitleDraft(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void saveRename();
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  cancelRename();
+                }
+              }}
+              disabled={isSavingTitle}
+              autoFocus
+              maxLength={160}
+              className="h-8 min-w-0 flex-1 rounded-lg border border-primary/35 bg-background px-2 text-sm font-black uppercase tracking-tight text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-70"
+              aria-label="Nome do ciclo"
+            />
+            <button
+              type="button"
+              onClick={() => void saveRename()}
+              disabled={isSavingTitle}
+              className="app-control h-8 w-8 shrink-0 p-0 text-success disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Salvar nome do ciclo"
+              title="Salvar nome do ciclo"
+            >
+              <Check size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={cancelRename}
+              disabled={isSavingTitle}
+              className="app-control h-8 w-8 shrink-0 p-0 text-content-muted disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Cancelar edição do nome do ciclo"
+              title="Cancelar"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <h3 className="app-type-section-title min-w-0 break-words text-title-section">
+              {title}
+            </h3>
+            {canRenameCycle && (
+              <button
+                type="button"
+                onClick={() => setIsEditingTitle(true)}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                aria-label="Editar nome do ciclo"
+                title="Editar nome do ciclo"
+              >
+                <Pencil size={13} />
+              </button>
+            )}
+          </>
+        )}
         <span className="app-type-badge shrink-0 rounded-md bg-primary/8 px-1.5 py-0.5 text-primary">
           ({count})
         </span>

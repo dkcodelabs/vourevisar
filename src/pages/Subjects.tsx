@@ -12,6 +12,7 @@ import { StudyCycleWorkspace } from '@/components/study-cycle/StudyCycleWorkspac
 import { SubjectsModalLayer } from '@/components/study-cycle/SubjectsModalLayer';
 
 import { errorService } from '@/lib/errors/errorService';
+import { toast } from '@/lib/toast';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { useStudyCycleStrategicData } from '@/hooks/useStudyCycleStrategicData';
 
@@ -61,6 +62,8 @@ import {
 import { guardActiveTimerOperation } from '@/utils/activeTimerOperationGuard';
 import { focusCycleSubject } from '@/utils/focusCycleSubject';
 import { fetchActiveTopicContext } from '@/services/activeTopicContextService';
+import { updateActiveCycleName } from '@/services/cycleNameService';
+import { mergeService } from '@/services/mergeService';
 
 type SubjectTab = 'all' | 'vertical';
 
@@ -76,7 +79,14 @@ const Subjects = () => {
     refresh,
     isLoading: isOriginsLoading,
   } = useEditalOriginsWithMerge();
-  const { getUnifiedSubjectName, isSubjectMerged, revertSubjectMerge, getSubjectMergeInfo, dynamicUnificationMap } = useMergeData();
+  const {
+    getUnifiedSubjectName,
+    isSubjectMerged,
+    revertSubjectMerge,
+    getSubjectMergeInfo,
+    dynamicUnificationMap,
+    refresh: refreshMergeData,
+  } = useMergeData();
   const navigate = useNavigate();
   const {
     dataLoaded,
@@ -183,12 +193,25 @@ const Subjects = () => {
 
   const { openReviewModal, difficultyModalData, closeDifficultyModal, markTopicAsReviewed, isLoading: isSavingTopicReview } = useTopicReview();
   const { activeTimer, handleTopicStudyAction } = useTopicStudySessionFlow({ openReviewModal });
+  const handleSaveUnifiedSubjectName = useCallback(async (originalSubjectIds: string[], displayName: string) => {
+    if (!user?.id) throw new Error('Sessão expirada. Entre novamente para salvar.');
+    const merge = originalSubjectIds
+      .map(subjectId => getSubjectMergeInfo(subjectId))
+      .find(Boolean);
+    if (!merge) throw new Error('Não encontrei a mesclagem desta matéria para salvar o nome.');
+
+    await mergeService.updateSubjectMergeDisplayName(merge.id, user.id, displayName);
+    await refreshMergeData();
+    await refreshData();
+  }, [getSubjectMergeInfo, refreshData, refreshMergeData, user?.id]);
   const {
     editaisNoCicloModalData,
     handleCloseSubjectsModal,
     handleCloseSubjectOriginChooser,
     handleManageCycleSubject,
+    handleSaveSubjectOriginName,
     handleSelectSubjectOrigin,
+    handleSubjectOriginNameDraftChange,
     handleSubjectsModalUpdate,
     subjectOriginChooser,
     subjectsModal,
@@ -196,6 +219,7 @@ const Subjects = () => {
     dynamicUnificationMap,
     editaisData,
     editaisNoCiclo,
+    onSaveUnifiedSubjectName: handleSaveUnifiedSubjectName,
     refresh,
     refreshData,
     subjects,
@@ -385,6 +409,31 @@ const Subjects = () => {
     filteredList,
     userCycle,
   });
+
+  const handleRenameCycle = useCallback(async (name: string) => {
+    if (!user?.id || !userCycle) throw new Error('Ciclo ativo não encontrado');
+
+    try {
+      const updatedCycle = await updateActiveCycleName({ name, userId: user.id });
+      const nextCycle = { ...userCycle, name: updatedCycle.name };
+      setUserCycle(nextCycle);
+      localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(nextCycle));
+      window.dispatchEvent(new CustomEvent('cycleUpdated', {
+        detail: { source: 'Subjects', action: 'updateCycleName' },
+      }));
+      toast.success('Nome do ciclo atualizado.');
+    } catch (error) {
+      await errorService.report(error, {
+        module: 'Subjects',
+        action: 'updateCycleName',
+        userMessage: 'Não foi possível atualizar o nome do ciclo.',
+        severity: 'medium',
+        scope: 'core',
+        userId: user.id,
+      });
+      throw error;
+    }
+  }, [setUserCycle, user?.id, userCycle]);
 
   const {
     handleApplySuggestedQueueOrder,
@@ -754,9 +803,10 @@ const Subjects = () => {
         filteredSubjectIds: filteredList.map((item) => item.id),
         inputRef,
         isReorderingCycle,
-        onActivateSearch: openCycleSearch,
-        onClearSearch: closeCycleSearch,
-        onSearchChange: handleCycleSearchChange,
+	        onActivateSearch: openCycleSearch,
+	        onClearSearch: closeCycleSearch,
+	        onRenameCycle: handleRenameCycle,
+	        onSearchChange: handleCycleSearchChange,
         onToggleAll: toggleAllCycleSubjects,
         onToggleReorder: handleToggleCycleReorderWithTimerGuard,
         onToggleViewMode: handleViewModeToggle,
@@ -821,9 +871,11 @@ const Subjects = () => {
           onResetCycleConfirmOpenChange={handleOpenResetCycleConfirmWithTimerGuard}
           onRevertMergeConfirm={handleRevertMergeConfirm}
           onSaveCycleExamDate={saveCycleExamDate}
+          onSaveSubjectOriginName={handleSaveSubjectOriginName}
           onSetCycleExamDateDraft={setCycleExamDateDraft}
           onSetUnloadConfirmOpen={handleUnloadConfirmOpenChange}
           onSelectSubjectOrigin={handleSelectSubjectOrigin}
+          onSubjectOriginNameDraftChange={handleSubjectOriginNameDraftChange}
           onSubjectsModalUpdate={handleSubjectsModalUpdate}
           onUnloadConfirm={handleUnloadConfirmWithTimerGuard}
           pendingCompleteSubjectId={pendingCompleteSubjectId}

@@ -41,6 +41,7 @@ interface CycleMergeComparisonProps {
 
 type ManualSelection = {
     candidateTopicIds?: string[];
+    displayName?: string;
     subjectGroupId: string;
     topicId: string;
     topicName: string;
@@ -55,6 +56,7 @@ interface PreviewColumnProps {
     manualSelection?: ManualSelection | null;
     onCancelManualSelection?: () => void;
     onConfirmManualSelection?: (candidateTopicIds: string[]) => void;
+    onManualDisplayNameChange?: (displayName: string) => void;
     onManualCandidateQueryChange?: (query: string) => void;
     onRemoveManualEquivalence?: (subjectGroupId: string, topicIds: string[]) => void;
     onStartManualSelection?: (subjectGroupId: string, topicId: string, topicName: string, candidateTopicId?: string) => void;
@@ -119,6 +121,7 @@ function PreviewColumn({
     manualSelection,
     onCancelManualSelection,
     onConfirmManualSelection,
+    onManualDisplayNameChange,
     onManualCandidateQueryChange,
     onRemoveManualEquivalence,
     onStartManualSelection,
@@ -137,6 +140,12 @@ function PreviewColumn({
         ? rankedManualCandidateTopics.filter(topic => normalizeSearchText(topic.name).includes(normalizedManualQuery))
         : rankedManualCandidateTopics;
     const isShowingSuggestions = !normalizedManualQuery;
+    const selectedManualCandidateTopics = manualSelection?.candidateTopicIds?.length
+        ? manualCandidateTopics.filter(topic => manualSelection.candidateTopicIds?.includes(topic.id))
+        : [];
+    const manualDisplayNameOptions = manualSelection
+        ? [manualSelection.topicName, ...selectedManualCandidateTopics.map(topic => topic.name)]
+        : [];
 
     return (
         <section
@@ -326,6 +335,41 @@ function PreviewColumn({
                                                     </span>
                                                 )}
                                             </div>
+                                            {manualDisplayNameOptions.length > 1 && (
+                                                <div className="mt-2 rounded-lg border border-border/70 bg-background/55 p-2">
+                                                    <label className="text-[9px] font-black uppercase tracking-[0.08em] text-foreground">
+                                                        Nome que aparecerá no ciclo
+                                                    </label>
+                                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                                        {manualDisplayNameOptions.map(option => {
+                                                            const isSelectedName = (manualSelection?.displayName || manualSelection?.topicName) === option;
+
+                                                            return (
+                                                                <button
+                                                                    key={option}
+                                                                    type="button"
+                                                                    onClick={() => onManualDisplayNameChange?.(option)}
+                                                                    className={`rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.06em] transition-colors ${
+                                                                        isSelectedName
+                                                                            ? 'border-primary/40 bg-primary/15 text-primary'
+                                                                            : 'border-border bg-background/70 text-content-muted hover:border-primary/25 hover:text-foreground'
+                                                                    }`}
+                                                                >
+                                                                    {option}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        aria-label="Editar nome exibido do tópico mesclado"
+                                                        value={manualSelection?.displayName || manualSelection?.topicName || ''}
+                                                        onChange={event => onManualDisplayNameChange?.(event.target.value)}
+                                                        className="mt-2 h-8 w-full rounded-md border border-border bg-background/75 px-2 text-[10px] font-semibold text-foreground outline-none transition-colors placeholder:text-content-muted/70 focus:border-primary/40"
+                                                        placeholder="Nome exibido no ciclo"
+                                                    />
+                                                </div>
+                                            )}
                                             {manualCandidateTopics.length > 0 && visibleManualCandidateTopics.length > 0 && (
                                                 <button
                                                     type="button"
@@ -418,6 +462,7 @@ export function CycleMergeComparison({
         if (cleanCandidateTopicIds.length === 0) return;
 
         const nextMap = addManualTopicEquivalence(unificationMap, subjects, {
+            displayName: manualSelection.displayName || manualSelection.topicName,
             subjectGroupId: manualSelection.subjectGroupId,
             topicIds: [manualSelection.topicId, ...cleanCandidateTopicIds],
         });
@@ -503,6 +548,9 @@ export function CycleMergeComparison({
                         setManualCandidateQuery('');
                     }}
                     onConfirmManualSelection={handleConfirmManualSelection}
+                    onManualDisplayNameChange={displayName => {
+                        setManualSelection(current => current ? { ...current, displayName } : current);
+                    }}
                     onManualCandidateQueryChange={setManualCandidateQuery}
                     onRemoveManualEquivalence={handleRemoveManualEquivalence}
                     onStartManualSelection={onUnificationMapChange
@@ -521,6 +569,7 @@ export function CycleMergeComparison({
                                     topicId,
                                     topicName,
                                     candidateTopicIds,
+                                    displayName: isSameSelection ? current?.displayName || topicName : topicName,
                                 };
                             });
                             setManualCandidateQuery('');

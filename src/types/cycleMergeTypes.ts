@@ -10,6 +10,8 @@
 export interface UnifiedTopicMapping {
   /** Canonical name displayed in the cycle */
   displayName: string;
+  /** Name override set by the student (overrides automatic suggestion in UI) */
+  displayNameOverride?: string;
   /** IDs of the original topics that were unified */
   originalTopicIds: string[];
   /** IDs of the parent subjects of the original topics */

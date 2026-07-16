@@ -40,4 +40,5 @@ export interface MergeService {
   createTopicMerge: (merge: Omit<TopicMerge, 'id' | 'created_at' | 'reverted_at' | 'status'>) => Promise<TopicMerge>;
   getActiveSubjectMerges: (userId: string) => Promise<SubjectMerge[]>;
   getActiveTopicMerges: (userId: string) => Promise<TopicMerge[]>;
+  updateSubjectMergeDisplayName: (mergeId: string, userId: string, displayName: string) => Promise<SubjectMerge>;
 }

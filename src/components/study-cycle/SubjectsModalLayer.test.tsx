@@ -107,9 +107,11 @@ describe('SubjectsModalLayer', () => {
         onResetCycleConfirmOpenChange={vi.fn()}
         onRevertMergeConfirm={vi.fn()}
         onSaveCycleExamDate={vi.fn()}
+        onSaveSubjectOriginName={vi.fn()}
         onSetCycleExamDateDraft={vi.fn()}
         onSetUnloadConfirmOpen={vi.fn()}
         onSelectSubjectOrigin={vi.fn()}
+        onSubjectOriginNameDraftChange={vi.fn()}
         onSubjectsModalUpdate={vi.fn()}
         onUnloadConfirm={vi.fn()}
         completeCycleConfirmOpen={true}
@@ -132,6 +134,7 @@ describe('SubjectsModalLayer', () => {
               position: 'Cargo A',
               year: '2026',
               examDate: '',
+              examBoard: 'CEBRASPE',
               createdAt: '',
               updatedAt: '',
               isImported: false,
@@ -143,9 +146,32 @@ describe('SubjectsModalLayer', () => {
             },
             subjectId: 'subject-a',
             subjectName: 'DIREITO',
-            topics: [{ displayName: 'Lei penal no tempo', topicName: 'Lei penal no tempo' }],
+          }, {
+            edital: {
+              id: 'edital-b',
+              name: 'Teste B',
+              organ: 'TESTE B',
+              position: 'Cargo B',
+              year: '2026',
+              examDate: '',
+              examBoard: 'FGV',
+              createdAt: '',
+              updatedAt: '',
+              isImported: false,
+              sourceId: null,
+              subjectIds: ['subject-b'],
+              activeSubjectIds: ['subject-b'],
+              isMergedWith: [],
+              mergedIntoCycle: true,
+            },
+            subjectId: 'subject-b',
+            subjectName: 'DIREITO',
           }],
+          draftSubjectName: 'DIREITO',
+          error: null,
           isOpen: true,
+          isSavingName: false,
+          originalSubjectIds: ['subject-a', 'subject-b'],
           subjectName: 'DIREITO',
         }}
         subjects={[]}
@@ -205,8 +231,13 @@ describe('SubjectsModalLayer', () => {
     expect(screen.getByText(/progresso e o histórico já sincronizados/i)).toBeInTheDocument();
     expect(screen.getByText('Separar matéria')).toBeInTheDocument();
     expect(screen.getByText('Manter unificada')).toBeInTheDocument();
-    expect(screen.getByText('Matéria unificada')).toBeInTheDocument();
-    expect(screen.getByText(/junta conteúdos de mais de um edital/i)).toBeInTheDocument();
-    expect(screen.getByText('Lei penal no tempo')).toBeInTheDocument();
+    expect(screen.getByText('Editar matéria unificada')).toBeInTheDocument();
+    expect(screen.getByText(/nome usado no ciclo/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Nome exibido no ciclo')).toHaveValue('DIREITO');
+    expect(screen.getByText('Editar conteúdo original')).toBeInTheDocument();
+    expect(screen.getByText('CEBRASPE')).toBeInTheDocument();
+    expect(screen.getByText('FGV')).toBeInTheDocument();
+    expect(screen.getAllByText('Matéria:')).toHaveLength(2);
+    expect(screen.queryByText(/nenhum tópico equivalente/i)).not.toBeInTheDocument();
   });
 });

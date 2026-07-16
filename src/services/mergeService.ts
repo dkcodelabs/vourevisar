@@ -450,6 +450,30 @@ export const mergeService = {
     return (data || []) as TopicMerge[];
   },
 
+  async updateSubjectMergeDisplayName(mergeId: string, userId: string, displayName: string): Promise<SubjectMerge> {
+    const normalizedName = displayName.trim().replace(/\s+/g, ' ');
+    if (!normalizedName) {
+      throw new Error('Nome da matéria no ciclo não pode ficar vazio');
+    }
+
+    const { data, error } = await supabase
+      .from('subject_merges')
+      .update({
+        display_name: normalizedName,
+      })
+      .eq('id', mergeId)
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .select()
+      .single();
+
+    if (error) throw error;
+    clearLocalCache(userId);
+    window.dispatchEvent(new CustomEvent('mergeUpdated', { detail: { type: 'subject_display_name', timestamp: Date.now() } }));
+    window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'subject_display_name', timestamp: Date.now() } }));
+    return data as SubjectMerge;
+  },
+
   async saveMergeFromUnificationMap(
     userId: string,
     cycleId: string,
