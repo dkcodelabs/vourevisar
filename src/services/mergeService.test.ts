@@ -59,11 +59,23 @@ const database = vi.hoisted(() => {
   return { from, operations, responses };
 });
 
+const rpcMocks = vi.hoisted(() => ({
+  getUser: vi.fn(),
+  invokeUserRpc: vi.fn(),
+}));
+
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
+    auth: {
+      getUser: rpcMocks.getUser,
+    },
     from: database.from,
     rpc: vi.fn(),
   },
+}));
+
+vi.mock('@/services/userRpcService', () => ({
+  invokeUserRpc: rpcMocks.invokeUserRpc,
 }));
 
 const subjectMerge: SubjectMerge = {
@@ -98,10 +110,14 @@ const topicMerge: TopicMerge = {
 };
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   database.from.mockClear();
   database.operations.length = 0;
   database.responses.length = 0;
-  vi.restoreAllMocks();
+  rpcMocks.getUser.mockReset();
+  rpcMocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+  rpcMocks.invokeUserRpc.mockReset();
+  rpcMocks.invokeUserRpc.mockResolvedValue({ ok: true });
   localStorage.clear();
 });
 
@@ -132,42 +148,26 @@ describe('mergeService', () => {
     });
   });
 
-  it('copies parent progress before reverting a topic merge', async () => {
-    database.responses.push(
-      { data: topicMerge, error: null },
-      {
-        data: {
-          completed: true,
-          review_count: 4,
-          next_review: null,
-          last_reviewed_at: '2026-07-01T00:00:00.000Z',
-          difficulty_level: 2,
-          notes: null,
-          memory_stability: 8,
-          current_interval: 30,
-          retention_score: 0.9,
-          total_reviews: 4,
-        },
-        error: null,
-      },
-      { error: null },
-      { error: null },
-      { error: null },
-    );
-
+  it('reverts a topic merge through the transactional user RPC', async () => {
     await mergeService.revertTopicMerge(topicMerge.id);
 
-    const progressUpdate = database.operations.find(operation =>
-      operation.table === 'topics' &&
-      operation.action === 'update' &&
-      operation.filters.some(([filter]) => filter === 'id.in'),
-    );
-    expect(progressUpdate?.payload).toMatchObject({ completed: true, review_count: 4, current_interval: 30 });
+    expect(rpcMocks.invokeUserRpc).toHaveBeenCalledWith('revert_topic_merge', {
+      p_user_id: 'user-1',
+      p_merge_id: topicMerge.id,
+    });
+    expect(database.from).not.toHaveBeenCalledWith('topic_merges');
+    expect(database.from).not.toHaveBeenCalledWith('topics');
+  });
 
-    const mergeDelete = database.operations.find(operation =>
-      operation.table === 'topic_merges' && operation.action === 'delete',
-    );
-    expect(mergeDelete?.filters).toContainEqual(['id', topicMerge.id]);
+  it('reverts a subject merge through the transactional user RPC', async () => {
+    await mergeService.revertSubjectMerge(subjectMerge.id);
+
+    expect(rpcMocks.invokeUserRpc).toHaveBeenCalledWith('revert_subject_merge', {
+      p_user_id: 'user-1',
+      p_merge_id: subjectMerge.id,
+    });
+    expect(database.from).not.toHaveBeenCalledWith('subject_merges');
+    expect(database.from).not.toHaveBeenCalledWith('user_cycles');
   });
 
   it('persists manual topic equivalence without marking it as AI-created', async () => {

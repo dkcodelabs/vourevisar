@@ -24,10 +24,10 @@ export function CycleFirstContactFinishedPanel({
   const topSubject = summary.topSubjectByStudyMinutes;
   const shouldOfferNextCycle = cycleRoundComplete && action.kind === 'continue_cycle';
   const title = shouldOfferNextCycle
-    ? 'Ciclo encerrado. Próxima rodada pronta'
+    ? 'Primeiro contato encerrado. Próxima rodada pronta'
     : 'Agora a prioridade é revisão, não novo ciclo';
   const description = shouldOfferNextCycle
-    ? 'Todas as matérias desta rodada foram fechadas. O próximo ciclo libera uma nova passagem pela fila sem exigir iniciar todos os tópicos de uma vez.'
+    ? 'Não há tópicos novos pendentes nesta rodada. O próximo ciclo libera uma nova passagem pela fila sem confundir conteúdo iniciado com matéria concluída.'
     : 'Todos os tópicos ativos do edital já foram iniciados. A fila de avanço cumpriu seu papel; daqui em diante o risco está em atrasar ou perder as revisões programadas.';
   const primaryLabel = shouldOfferNextCycle ? 'Novo ciclo' : action.label;
 
@@ -41,7 +41,7 @@ export function CycleFirstContactFinishedPanel({
             </div>
             <div className="min-w-0">
               <p className="app-type-eyebrow text-primary">
-                {shouldOfferNextCycle ? 'Ciclo encerrado' : 'Primeiro contato finalizado'}
+                {shouldOfferNextCycle ? 'Primeiro contato encerrado' : 'Primeiro contato finalizado'}
               </p>
               <h3 className="mt-1 text-lg font-black text-title-section">
                 {title}
@@ -54,7 +54,7 @@ export function CycleFirstContactFinishedPanel({
 
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
-              <p className="app-type-eyebrow text-content-muted">Matérias abertas</p>
+              <p className="app-type-eyebrow text-content-muted">Sem tópico novo</p>
               <p className="mt-1 text-lg font-black text-title-card tabular-nums">
                 {summary.firstContactClosedSubjects}/{summary.totalSubjects}
               </p>
@@ -95,7 +95,7 @@ export function CycleFirstContactFinishedPanel({
               </div>
               <p className="app-type-body-small text-title-card">
                 {shouldOfferNextCycle
-                  ? `${summary.firstContactClosedSubjects}/${summary.totalSubjects} matérias fechadas nesta rodada. ${summary.startedTopics}/${summary.totalTopics} tópicos já têm primeiro contato.`
+                  ? `${summary.firstContactClosedSubjects}/${summary.totalSubjects} matérias estão sem tópicos novos. ${summary.startedTopics}/${summary.totalTopics} tópicos já têm primeiro contato.`
                   : action.description}
               </p>
             </div>
