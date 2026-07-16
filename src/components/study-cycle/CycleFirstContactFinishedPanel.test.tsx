@@ -50,8 +50,8 @@ describe('CycleFirstContactFinishedPanel', () => {
       />,
     );
 
-    expect(screen.getByText('Ciclo encerrado. Próxima rodada pronta')).toBeInTheDocument();
-    expect(screen.getByText(/2\/4 matérias fechadas nesta rodada/)).toBeInTheDocument();
+    expect(screen.getByText('Primeiro contato encerrado. Próxima rodada pronta')).toBeInTheDocument();
+    expect(screen.getByText(/2\/4 matérias estão sem tópicos novos/)).toBeInTheDocument();
     expect(screen.queryByText('Ainda existem tópicos sem primeiro contato.')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Novo ciclo/i }));

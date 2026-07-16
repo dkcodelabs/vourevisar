@@ -10,6 +10,14 @@ const clearLocalCache = (userId: string) => {
   localStorage.removeItem(`user_cycle_cache_${userId}`);
 };
 
+const getAuthenticatedUserId = async (): Promise<string> => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user?.id) {
+    throw new Error('Sessão expirada. Entre novamente para desfazer a mesclagem.');
+  }
+  return data.user.id;
+};
+
 const TOPIC_PROGRESS_SELECT = [
   'id',
   'completed',
@@ -116,123 +124,12 @@ export const mergeService = {
 
   async revertSubjectMerge(mergeId: string): Promise<void> {
     console.log(`[mergeService] Revertendo merge ${mergeId}...`);
-    const { data: existing } = await supabase
-      .from('subject_merges')
-      .select('id, user_id, primary_subject_id, merged_subject_ids')
-      .eq('id', mergeId)
-      .maybeSingle();
-    
-    if (!existing) {
-      console.warn('[mergeService] Merge não encontrado para reversão:', mergeId);
-      throw new Error('Merge não encontrado');
-    }
+    const userId = await getAuthenticatedUserId();
+    await invokeUserRpc('revert_subject_merge', {
+      p_user_id: userId,
+      p_merge_id: mergeId,
+    });
 
-    const userId = existing.user_id;
-    const primaryId = existing.primary_subject_id;
-    const mergedIds = (existing.merged_subject_ids || []) as string[];
-    const allSubjectIds = [primaryId, ...mergedIds];
-
-    // 1. Reverter topic_merges relacionados
-    await supabase
-      .from('topic_merges')
-      .delete()
-      .eq('subject_merge_id', mergeId);
-
-    // 2. Excluir o registro de merge de matéria
-    const { error: deleteError } = await supabase
-      .from('subject_merges')
-      .delete()
-      .eq('id', mergeId);
-
-    if (deleteError) throw deleteError;
-
-    // 3. Limpar parent_topic_id e is_hidden de todos os tópicos
-    console.log('[mergeService] Buscando tópicos para limpar flags...');
-    // Garante que allSubjectIds seja um array de strings
-    const validSubjectIds = (allSubjectIds || []).filter(id => typeof id === 'string' && id.length > 0);
-    
-    const { data: topicsToClear, error: fetchTopicsError } = await supabase
-      .from('topics')
-      .select('id')
-      .in('subject_id', validSubjectIds);
-
-    if (fetchTopicsError) {
-      console.error('[mergeService] Erro ao buscar tópicos para limpeza:', fetchTopicsError);
-    }
-
-    if (topicsToClear && topicsToClear.length > 0) {
-      const topicIds = topicsToClear.map(t => t.id);
-      await supabase
-        .from('topics')
-        .update({ 
-          parent_topic_id: null,
-          is_hidden: false 
-        })
-        .in('id', topicIds);
-    }
-
-    // 3.5. Garantir visibilidade das matérias (Subjects)
-    if (allSubjectIds.length > 0) {
-      await supabase
-        .from('subjects')
-        .update({ is_visible: true })
-        .in('id', allSubjectIds)
-        .eq('user_id', userId);
-    }
-
-    // 4. Restaurar IDs no ciclo_atual
-    const { data: cycleData } = await supabase
-      .from('user_cycles')
-      .select('id, ciclo_atual')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    if (cycleData) {
-      const currentCiclo = (cycleData.ciclo_atual || []) as string[];
-      const cycleSet = new Set(currentCiclo);
-      allSubjectIds.forEach(id => cycleSet.add(id));
-      
-      await supabase
-        .from('user_cycles')
-        .update({ 
-          ciclo_atual: Array.from(cycleSet),
-          atualizado_em: new Date().toISOString()
-        })
-        .eq('id', cycleData.id);
-    }
-
-    // 5. Restaurar visibilidade nos editais (active_subject_ids)
-    const { data: editais } = await supabase
-      .from('user_editais')
-      .select('id, subject_ids, active_subject_ids')
-      .eq('user_id', userId);
-
-    if (editais) {
-      for (const edital of editais) {
-        const hasAnySubject = allSubjectIds.some(sid => edital.subject_ids?.includes(sid));
-        if (hasAnySubject) {
-          const currentActive = (edital.active_subject_ids || []) as string[];
-          const newActive = new Set(currentActive);
-          allSubjectIds.forEach(sid => {
-            if (edital.subject_ids?.includes(sid)) {
-              newActive.add(sid);
-            }
-          });
-          
-          if (newActive.size > 0) {
-            await supabase
-              .from('user_editais')
-              .update({ 
-                active_subject_ids: Array.from(newActive) 
-              })
-              .eq('id', edital.id);
-          }
-        }
-      }
-    }
-
-    // DISPARAR EVENTO APÓS REVERSÃO
     console.log('[mergeService] Disparando eventos após reversão de merge de matéria...');
     clearLocalCache(userId);
     window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'revert', timestamp: Date.now() } }));
@@ -241,100 +138,14 @@ export const mergeService = {
 
   async revertTopicMerge(mergeId: string): Promise<void> {
     console.log(`[mergeService] Revertendo merge de tópico ${mergeId}...`);
-    // Buscar detalhes do merge de tópico
-    const { data: existingTopic, error: fetchError } = await supabase
-        .from('topic_merges')
-        .select('subject_merge_id, primary_topic_id, merged_topic_ids, user_id')
-        .eq('id', mergeId)
-        .maybeSingle();
-
-    if (fetchError || !existingTopic) {
-        console.error('[mergeService] Erro ao buscar merge de tópico:', fetchError);
-        throw new Error('Merge de tópico não encontrado');
-    }
-
-    const userId = existingTopic.user_id;
-    const primaryTopicId = existingTopic.primary_topic_id;
-    const mergedTopicIds = (existingTopic.merged_topic_ids || []) as string[];
-    const allTopicIds = [primaryTopicId, ...mergedTopicIds].filter(id => !!id);
-
-    // 0. Sincronizar progresso: Copiar dados do PAI para os FILHOS antes de soltar
-    if (primaryTopicId && mergedTopicIds.length > 0) {
-      console.log(`[mergeService] Sincronizando progresso do pai ${primaryTopicId} para os filhos...`);
-      const { data: parentData, error: parentError } = await supabase
-        .from('topics')
-        .select(`
-          completed, 
-          review_count, 
-          next_review, 
-          last_reviewed_at, 
-          difficulty_level, 
-          notes, 
-          memory_stability, 
-          current_interval, 
-          retention_score, 
-          total_reviews
-        `)
-        .eq('id', primaryTopicId)
-        .maybeSingle();
-
-      if (!parentError && parentData) {
-        // Aplicar dados do pai em todos os filhos
-        const { error: syncError } = await supabase
-          .from('topics')
-          .update({
-            completed: parentData.completed,
-            review_count: parentData.review_count,
-            next_review: parentData.next_review,
-            last_reviewed_at: parentData.last_reviewed_at,
-            difficulty_level: parentData.difficulty_level,
-            notes: parentData.notes,
-            memory_stability: parentData.memory_stability,
-            current_interval: parentData.current_interval,
-            retention_score: parentData.retention_score,
-            total_reviews: parentData.total_reviews
-          })
-          .in('id', mergedTopicIds);
-
-        if (syncError) {
-          console.error('[mergeService] Erro ao sincronizar progresso na reversão:', syncError);
-        } else {
-          console.log('[mergeService] Progresso sincronizado com sucesso.');
-        }
-      }
-    }
-
-    // 1. Limpar parent_topic_id e is_hidden dos tópicos envolvidos PRIMEIRO
-    if (allTopicIds.length > 0) {
-      console.log(`[mergeService] Limpando flags para ${allTopicIds.length} tópicos...`);
-      const { error: updateError } = await supabase
-        .from('topics')
-        .update({ 
-          parent_topic_id: null,
-          is_hidden: false,
-          merged_with_ia: false
-        })
-        .in('id', allTopicIds);
-
-      if (updateError) {
-        console.error('[mergeService] Erro ao atualizar tópicos na reversão:', updateError);
-        throw updateError;
-      }
-    }
-
-    // 2. Excluir o registro de merge SOMENTE SE a limpeza dos tópicos funcionou
-    console.log(`[mergeService] Excluindo registro de merge ${mergeId}...`);
-    const { error: deleteError } = await supabase
-      .from('topic_merges')
-      .delete()
-      .eq('id', mergeId);
-
-    if (deleteError) {
-      console.error('[mergeService] Erro ao deletar registro de merge:', deleteError);
-      throw deleteError;
-    }
+    const userId = await getAuthenticatedUserId();
+    await invokeUserRpc('revert_topic_merge', {
+      p_user_id: userId,
+      p_merge_id: mergeId,
+    });
 
     console.log(`[mergeService] Topic merge ${mergeId} reverted successfully. Dispatched mergeUpdated and subjectUpdated.`);
+    clearLocalCache(userId);
     
     window.dispatchEvent(new CustomEvent('mergeUpdated', { detail: { type: 'topic_revert', timestamp: Date.now() } }));
     window.dispatchEvent(new CustomEvent('subjectUpdated', { detail: { type: 'topic_revert', timestamp: Date.now() } }));

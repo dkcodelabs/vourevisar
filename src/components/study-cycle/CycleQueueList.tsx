@@ -133,7 +133,8 @@ export function CycleQueueList({
           const isManuallyStudiedInCycle = studiedCycleIdSet.has(subject.id);
           const isFullyStartedInCycle = fullyStartedSubjectIdSet.has(subject.id);
           const isCompletedInEdital = completedEditalSubjectIdSet.has(subject.id);
-          const isClosedInCycle = isManuallyStudiedInCycle || isFullyStartedInCycle || isCompletedInEdital;
+          const hasCompletionVisual = isManuallyStudiedInCycle || isCompletedInEdital;
+          const isClosedInCycle = hasCompletionVisual || isFullyStartedInCycle;
           const activeSubjectTopics = getVisibleCycleTopics(subject.topics);
           const totalTopicsCount = activeSubjectTopics.length;
           const completedTopicsCount = activeSubjectTopics.filter(isTopicCompleted).length;
@@ -159,6 +160,7 @@ export function CycleQueueList({
                 ? `${activeTopicsStartedInCurrentCycle}/${totalTopicsCount} tópicos neste ciclo`
                 : 'Concluída no ciclo';
             }
+            if (isFullyStartedInCycle) return `${startedTopicsCount}/${totalTopicsCount} tópicos iniciados - seguir para revisão`;
             return `${startedTopicsCount}/${totalTopicsCount} tópicos iniciados`;
           })();
 
@@ -190,7 +192,7 @@ export function CycleQueueList({
               key={item.id}
               activeTab={activeTab}
               hasTopics={activeSubjectTopics.length > 0}
-              isClosedInCycle={isClosedInCycle}
+              isClosedInCycle={hasCompletionVisual}
               isCompletedInEdital={isCompletedInEdital}
               isExpanded={expandedSubjectIds.includes(item.id)}
               isHighlighted={highlightedSubjectId === subject.id}

@@ -114,4 +114,64 @@ describe('CycleQueueList', () => {
       topic,
     }));
   });
+
+  it('does not show a fully started subject as visually completed', () => {
+    render(
+      <CycleQueueList
+        activeTab="all"
+        activeTimer={null}
+        clearSavedWeight={vi.fn()}
+        completedEditalSubjectIdSet={new Set()}
+        displayList={[{ id: 'subject-1-cycle-0', subject }]}
+        editingWeightSubjectId={null}
+        expandedSubjectIds={[]}
+        fullyStartedSubjectIdSet={new Set(['subject-1'])}
+        getCycleTopicStatusVisual={() => ({
+          label: 'Iniciado',
+          badgeClassName: 'bg-primary/10 text-primary',
+          indicatorClassName: 'bg-primary',
+          actionClassName: 'text-primary',
+        })}
+        getStartedTopicCta={() => ({
+          tooltip: 'Ir para revisão',
+          ariaLabel: 'Ir para revisão do tópico',
+          label: 'Ir para Revisão',
+        })}
+        getStrategicTopicIncidenceDisplay={() => null}
+        getStrategicTopicIncidenceTitle={() => 'Sem destaque'}
+        getSubjectMergeInfo={() => null}
+        getTopicContactCount={() => 1}
+        getUnifiedSubjectName={() => 'Matemática'}
+        handleCancelWeightEdit={vi.fn()}
+        handleManageSubject={vi.fn()}
+        handleMarkStudied={vi.fn()}
+        highlightedSubjectId={null}
+        handleOpenNotes={vi.fn()}
+        handleOpenRevertMerge={vi.fn()}
+        handleReturnToQueue={vi.fn()}
+        handleSaveSubjectWeightInline={vi.fn()}
+        handleStartWeightEdit={vi.fn()}
+        handleStudyAction={vi.fn()}
+        isReorderingCycle={false}
+        isSavingWeight={false}
+        isSubjectMerged={() => false}
+        isTopicCompleted={() => false}
+        isTopicNewlyStartedInCycle={() => true}
+        isTopicStarted={() => true}
+        onGoToReview={vi.fn()}
+        renderCycleTooltip={(content, trigger) => <span data-tooltip={String(content)}>{trigger}</span>}
+        setWeightDraft={vi.fn()}
+        studiedCycleIdSet={new Set()}
+        toggleExpand={vi.fn()}
+        weightDraft={{ questions: '', points: '', percentage: '' }}
+        weightSavedSubjectId={null}
+      />,
+    );
+
+    expect(mocks.cycleSubjectCard).toHaveBeenCalledWith(expect.objectContaining({
+      isClosedInCycle: false,
+      subjectActionState: expect.objectContaining({ kind: 'locked_started' }),
+      subjectTopicSummaryLabel: '1/1 tópicos iniciados - seguir para revisão',
+    }));
+  });
 });

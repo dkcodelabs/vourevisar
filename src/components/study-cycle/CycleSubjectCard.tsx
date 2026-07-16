@@ -67,6 +67,8 @@ export function CycleSubjectCard({
   subjectTopicSummaryLabel,
   weightControl,
 }: CycleSubjectCardProps) {
+  const isFirstContactDone = subjectActionState.kind === 'locked_started';
+
   return (
     <SortableItem key={itemId} id={itemId} lockAxis="vertical" disabled={!isReorderingCycle}>
       {({ listeners, attributes }) => (
@@ -90,18 +92,22 @@ export function CycleSubjectCard({
               isExpanded
                 ? isClosedInCycle
                   ? 'border-success/25'
+                  : isFirstContactDone
+                    ? 'border-primary/25 shadow-sm'
                   : 'app-hairline shadow-sm'
                 : isClosedInCycle
                   ? 'border-success/20 hover:border-success/35'
+                  : isFirstContactDone
+                    ? 'border-primary/20 hover:border-primary/35'
                   : 'app-hairline'
-            } ${isClosedInCycle ? 'app-cycle-subject-closed' : 'app-cycle-subject'} ${isReorderingCycle ? 'ring-1 ring-warning/15 shadow-[0_8px_26px_rgba(0,0,0,0.10)]' : ''} flex-1 min-w-0`}
+            } ${isClosedInCycle ? 'app-cycle-subject-closed' : 'app-cycle-subject'} ${isFirstContactDone && !isClosedInCycle ? 'bg-primary/[0.025]' : ''} ${isReorderingCycle ? 'ring-1 ring-warning/15 shadow-[0_8px_26px_rgba(0,0,0,0.10)]' : ''} flex-1 min-w-0`}
           >
             <div
               data-subject-id={subject.id}
               onClick={onToggleExpand}
               className={`min-h-[64px] pl-2 pr-4 py-2 flex items-center gap-2 group cursor-pointer relative transition-colors ${
                 isClosedInCycle ? 'bg-success/[0.055]' : ''
-              } ${isHighlighted ? 'study-cycle-subject-focus' : ''}`}
+              } ${isFirstContactDone && !isClosedInCycle ? 'bg-primary/[0.045]' : ''} ${isHighlighted ? 'study-cycle-subject-focus' : ''}`}
             >
               <div className="flex items-start gap-3 min-w-0 flex-1">
                 <div className="flex items-start gap-1.5 min-w-0 flex-1">
@@ -168,7 +174,7 @@ export function CycleSubjectCard({
                 <div className="flex items-center gap-2 shrink-0">
                   {activeTab === 'all' && (
                     <>
-                      {subjectActionState.kind === 'locked_completed' || subjectActionState.kind === 'locked_started' ? (
+                      {subjectActionState.kind === 'locked_completed' ? (
                         renderCycleTooltip(
                           subjectActionState.tooltip,
                           <button
@@ -180,6 +186,18 @@ export function CycleSubjectCard({
                               : `${subjectDisplayName} concluída no ciclo`}
                           >
                             <Check size={12} strokeWidth={3} />
+                          </button>
+                        )
+                      ) : subjectActionState.kind === 'locked_started' ? (
+                        renderCycleTooltip(
+                          subjectActionState.tooltip,
+                          <button
+                            onClick={(event) => event.stopPropagation()}
+                            aria-disabled="true"
+                            className="relative flex h-6 w-6 shrink-0 cursor-default items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary/85 opacity-85"
+                            aria-label={`${subjectDisplayName} sem tópicos novos pendentes neste ciclo`}
+                          >
+                            <ListTodo size={12} strokeWidth={2.5} />
                           </button>
                         )
                       ) : subjectActionState.kind === 'return_to_queue' ? (
