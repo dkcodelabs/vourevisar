@@ -39,6 +39,8 @@ describe('useUserAccess', () => {
       isExpired: true,
       daysRemaining: 0,
       planName: 'Free',
+      subscription: null,
+      hasSubscriptionRecord: false,
       refetch: vi.fn(),
     });
 
@@ -47,6 +49,7 @@ describe('useUserAccess', () => {
     expect(result.current.error).toBeNull();
     expect(result.current.hasFullAccess).toBe(false);
     expect(result.current.accessMessage).toBe('Assinatura expirada');
+    expect(result.current.blockedReason).toBe('subscription_required');
   });
 
   it('still blocks routing on subscription lookup errors', () => {
@@ -67,6 +70,8 @@ describe('useUserAccess', () => {
       isExpired: true,
       daysRemaining: 0,
       planName: 'Free',
+      subscription: { user_id: 'user-1' },
+      hasSubscriptionRecord: true,
       refetch: vi.fn(),
     });
 

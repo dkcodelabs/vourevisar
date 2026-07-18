@@ -3,6 +3,7 @@
 // =====================================================
 import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
+import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement'
 
 interface SubscriptionStats {
   freeActiveUsers: number  // Free (7d)
@@ -40,7 +41,7 @@ export function useSubscriptionStats() {
       // Buscar todas as assinaturas
       const { data: subscriptions, error: subscriptionsError } = await supabase
         .from('user_subscriptions')
-        .select('user_id, plan, status, trial_ends_at, subscription_ends_at')
+        .select('user_id, plan, status, trial_ends_at, subscription_ends_at, next_billing_date')
 
 
       if (subscriptionsError) {
@@ -49,8 +50,6 @@ export function useSubscriptionStats() {
       }
 
       const totalUsers = profiles?.length || 0
-      const now = new Date()
-
       let freeActiveUsers = 0  // Free (7d) - trials ativos
       let monthlyUsers = 0     // Mensal - assinaturas mensais ativas
       let annualUsers = 0      // Anual - assinaturas anuais ativas
@@ -71,31 +70,24 @@ export function useSubscriptionStats() {
           return
         }
 
-        let isExpired = false
-        let isTrialActive = false
-        let isPlanActive = false
-
         if (subscription) {
-          const effectiveEndAt = subscription.subscription_ends_at || subscription.trial_ends_at || null;
-          const effectiveEndDate = effectiveEndAt ? new Date(effectiveEndAt) : null;
+          const entitlement = getSubscriptionEntitlement({
+            plan: subscription.plan,
+            status: subscription.status,
+            trialEndsAt: subscription.trial_ends_at,
+            subscriptionEndsAt: subscription.subscription_ends_at,
+            nextBillingAt: subscription.next_billing_date,
+          });
 
-          if (subscription.status === 'expired' || (effectiveEndDate && effectiveEndDate < now)) {
-            isExpired = true
-          } else if (subscription.status === 'trial') {
-            isTrialActive = true
-          } else if (subscription.status === 'active') {
-            isPlanActive = true
-          }
-        }
-
-        if (isExpired) {
+          if (!entitlement.isActive) {
           expiredUsers++
-        } else if (isTrialActive) {
+          } else if (entitlement.status === 'trial') {
           freeActiveUsers++ // Trial (7d)
-        } else if (isPlanActive && subscription?.plan === 'monthly') {
+          } else if (entitlement.plan === 'monthly') {
           monthlyUsers++ // Mensal
-        } else if (isPlanActive && subscription?.plan === 'annual') {
+          } else if (entitlement.plan === 'annual') {
           annualUsers++ // Anual
+          }
         }
         // Usuários "Free" (sem subscription ou subscription inativa e sem 'expired' explícito caso exista) não contam para 'Expirados' 
       })

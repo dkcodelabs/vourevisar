@@ -27,8 +27,8 @@ vi.mock('@/components/study-cycle/CycleFirstContactFinishedPanel', () => ({
 }));
 
 vi.mock('@/components/study-cycle/CycleEmptyState', () => ({
-  CycleEmptyState: ({ isSearchActive }: { isSearchActive: boolean }) => (
-    <div data-testid="cycle-empty-state">{String(isSearchActive)}</div>
+  CycleEmptyState: ({ state }: { state: { kind: string } }) => (
+    <div data-testid="cycle-empty-state">{state.kind}</div>
   ),
 }));
 
@@ -37,6 +37,7 @@ const makeProps = (
 ): ComponentProps<typeof StudyCycleWorkspace> => ({
   activeTab: 'all',
   cycleTransitionSummary: {} as ComponentProps<typeof StudyCycleWorkspace>['cycleTransitionSummary'],
+  cycleEntryState: { kind: 'ready' },
   dataLoaded: true,
   displayListLength: 1,
   dndContextProps: {},
@@ -92,7 +93,7 @@ describe('StudyCycleWorkspace', () => {
       },
     })} />);
 
-    expect(screen.getByTestId('cycle-empty-state')).toHaveTextContent('true');
+    expect(screen.getByTestId('cycle-empty-state')).toHaveTextContent('ready');
     expect(screen.queryByTestId('cycle-queue-list')).not.toBeInTheDocument();
   });
 

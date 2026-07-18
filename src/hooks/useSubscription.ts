@@ -4,6 +4,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement'
 
 export type SubscriptionPlan = 'free_trial' | 'monthly' | 'annual'
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'canceled' | 'suspended'
@@ -22,6 +23,7 @@ interface SubscriptionInfo {
 
 interface UseSubscriptionReturn {
   subscription: SubscriptionInfo | null
+  hasSubscriptionRecord: boolean
   loading: boolean
   error: string | null
   isActive: boolean
@@ -39,6 +41,7 @@ interface UseSubscriptionReturn {
 export function useSubscription(): UseSubscriptionReturn {
   const { user } = useAuth()
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
+  const [hasSubscriptionRecord, setHasSubscriptionRecord] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,6 +52,7 @@ export function useSubscription(): UseSubscriptionReturn {
 
       if (!user) {
         setSubscription(null)
+        setHasSubscriptionRecord(false)
         return
       }
 
@@ -61,6 +65,8 @@ export function useSubscription(): UseSubscriptionReturn {
         .eq('user_id', user.id)
         .maybeSingle()
 
+      if (directError) throw directError
+
       // Verificar se o usuário possui a role de admin ou owner ou se é email protegido
       const { data: rolesData } = await supabase
         .from('user_roles')
@@ -72,6 +78,7 @@ export function useSubscription(): UseSubscriptionReturn {
                              (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin'));
 
       if (isOwnerOrAdmin) {
+        setHasSubscriptionRecord(Boolean(subscriptionData))
         setSubscription({
           user_id: user.id,
           plan: 'annual',
@@ -89,6 +96,7 @@ export function useSubscription(): UseSubscriptionReturn {
       // Log removido para otimização
 
       if (!subscriptionData) {
+        setHasSubscriptionRecord(false)
         // Usuário sem assinatura
         setSubscription({
           user_id: user.id,
@@ -104,30 +112,22 @@ export function useSubscription(): UseSubscriptionReturn {
         return
       }
 
-      // Calcular se está ativo
-      const now = new Date()
-      let isActive = false
-      let daysRemaining = 0
-
-      if (subscriptionData.status === 'trial' && subscriptionData.trial_ends_at) {
-        const trialEnd = new Date(subscriptionData.trial_ends_at)
-        isActive = trialEnd > now
-        daysRemaining = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-      } else if (subscriptionData.status === 'active' && subscriptionData.subscription_ends_at) {
-        const subEnd = new Date(subscriptionData.subscription_ends_at)
-        isActive = subEnd > now
-        daysRemaining = Math.max(0, Math.ceil((subEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-      } else if (subscriptionData.status === 'active' && !subscriptionData.subscription_ends_at) {
-        isActive = true
-        daysRemaining = 99999
-      }
+      // Aplicar a mesma regra efetiva usada pelo menu e pela conta.
+      setHasSubscriptionRecord(true)
+      const entitlement = getSubscriptionEntitlement({
+        plan: subscriptionData.plan,
+        status: subscriptionData.status,
+        trialEndsAt: subscriptionData.trial_ends_at,
+        subscriptionEndsAt: subscriptionData.subscription_ends_at,
+        nextBillingAt: subscriptionData.next_billing_date,
+      })
 
       const processedSubscription = {
         ...subscriptionData,
-        plan: isActive ? subscriptionData.plan : 'free_trial',
-        status: isActive ? subscriptionData.status : 'expired',
-        is_active: isActive,
-        days_remaining: daysRemaining
+        plan: entitlement.plan,
+        status: entitlement.status,
+        is_active: entitlement.isActive,
+        days_remaining: entitlement.daysRemaining,
       }
 
       // Log removido para otimização
@@ -208,6 +208,7 @@ export function useSubscription(): UseSubscriptionReturn {
 
   return {
     subscription,
+    hasSubscriptionRecord,
     loading,
     error,
     isActive,

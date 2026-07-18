@@ -15,8 +15,10 @@ export function AuthCallback() {
       try {
         // Verificar parâmetros da URL
         const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
         const error = urlParams.get('error');
-        const errorDescription = urlParams.get('error_description');
+        const errorCode = urlParams.get('error_code') || hashParams.get('error_code');
+        const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
         const authCode = urlParams.get('code');
         const type = urlParams.get('type');
 
@@ -30,19 +32,12 @@ export function AuthCallback() {
 
         // Se há erro nos parâmetros, exibir e redirecionar
         if (error) {
-          console.error('AuthCallback: Erro OAuth detectado:', error, errorDescription);
-          let errorMessage = 'Erro na autenticação';
-
-          if (error === 'access_denied') {
-            errorMessage = 'Acesso negado pelo usuário';
-          } else if (error === 'invalid_request') {
-            errorMessage = 'Configuração OAuth inválida. Verifique as configurações no Google Cloud Console.';
-          } else if (errorDescription) {
-            errorMessage = errorDescription;
+          console.warn('AuthCallback: link de autenticação rejeitado:', error, errorCode);
+          if (errorCode === 'otp_expired' || errorDescription?.toLowerCase().includes('expired')) {
+            setRedirectPath('/confirm-email?status=expired');
+          } else {
+            setRedirectPath('/confirm-email?status=error');
           }
-
-          toastGate.notifyError(errorMessage, 'AUTH-CALLBACK-01', { severity: 'low' });
-          setRedirectPath('/login');
           return;
         }
 
@@ -103,7 +98,7 @@ export function AuthCallback() {
         setLoading(false);
 
         // Limpar a URL
-        if (window.location.search) {
+        if (window.location.search || window.location.hash) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       }

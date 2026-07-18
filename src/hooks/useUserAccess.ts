@@ -5,6 +5,8 @@ import { useCallback } from 'react'
 import { useUserRole } from './useUserRole'
 import { useSubscription } from './useSubscription'
 
+export type UserAccessBlockReason = 'subscription_required' | 'subscription_expired' | 'unknown'
+
 export function useUserAccess() {
   const roleData = useUserRole()
   const subscriptionData = useSubscription()
@@ -66,6 +68,14 @@ export function useUserAccess() {
     return 'Sem acesso'
   }
 
+  const getBlockedReason = (): UserAccessBlockReason => {
+    if (subscriptionData.hasSubscriptionRecord) return 'subscription_expired'
+    if (subscriptionData.subscription !== null || subscriptionData.planName === 'Free') {
+      return 'subscription_required'
+    }
+    return 'unknown'
+  }
+
   return {
     // Estados
     loading,
@@ -83,6 +93,7 @@ export function useUserAccess() {
     // Informações
     accessLevel: getAccessLevel(),
     accessMessage: getAccessMessage(),
+    blockedReason: getBlockedReason(),
     
     // Funções
     refetch

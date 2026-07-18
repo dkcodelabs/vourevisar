@@ -33,6 +33,8 @@ import { errorService } from '@/lib/errors/errorService';
 import { toast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { invokeAdminRpc } from '@/services/adminRpcService';
+import { toastGate } from '@/lib/errors/toastGate';
+import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement';
 
 interface UserWithSubscription {
     id: string;
@@ -44,6 +46,7 @@ interface UserWithSubscription {
     is_active: boolean;
     days_remaining: number | null;
     subscription_ends_at: string | null;
+    subscription_date_label: string | null;
     avatar_url?: string | null;
     asaas_subscription_id?: string | null;
     billing_type?: string | null;
@@ -84,7 +87,7 @@ const SubscriptionManagement = () => {
 
             const { data: subscriptions, error: subscriptionsError } = await supabase
                 .from('user_subscriptions')
-                .select('user_id, plan, status, trial_ends_at, subscription_ends_at, trial_started_at, subscription_started_at, asaas_subscription_id, billing_type');
+                .select('user_id, plan, status, trial_ends_at, subscription_ends_at, next_billing_date, trial_started_at, subscription_started_at, asaas_subscription_id, billing_type');
 
             if (subscriptionsError) throw subscriptionsError;
 
@@ -95,6 +98,7 @@ const SubscriptionManagement = () => {
                     status?: 'trial' | 'active' | 'expired' | 'canceled' | 'suspended';
                     trial_ends_at?: string;
                     subscription_ends_at?: string;
+                    next_billing_date?: string;
                     asaas_subscription_id?: string;
                     billing_type?: string;
                 } | undefined;
@@ -102,20 +106,27 @@ const SubscriptionManagement = () => {
 
                 let daysRemaining = null;
                 let isActive = false;
+                let effectiveStatus: UserWithSubscription['subscription_status'] = subscription?.status || null;
 
                 if (subscription) {
-                    const now = new Date();
-                    if (subscription.status === 'trial' && subscription.trial_ends_at) {
-                        const trialEndDate = new Date(subscription.trial_ends_at);
-                        isActive = trialEndDate > now;
-                        daysRemaining = Math.max(0, Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-                    }
-                    if (subscription.status === 'active' && subscription.subscription_ends_at) {
-                        const subEndDate = new Date(subscription.subscription_ends_at);
-                        isActive = subEndDate > now;
-                        daysRemaining = Math.max(0, Math.ceil((subEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-                    }
+                    const entitlement = getSubscriptionEntitlement({
+                        plan: subscription.plan,
+                        status: subscription.status,
+                        trialEndsAt: subscription.trial_ends_at,
+                        subscriptionEndsAt: subscription.subscription_ends_at,
+                        nextBillingAt: subscription.next_billing_date,
+                    });
+                    isActive = entitlement.isActive;
+                    daysRemaining = entitlement.daysRemaining || null;
+                    effectiveStatus = entitlement.status;
                 }
+
+                const displayDate = isActive
+                    ? subscription?.next_billing_date || subscription?.subscription_ends_at || subscription?.trial_ends_at || null
+                    : subscription?.subscription_ends_at || subscription?.trial_ends_at || subscription?.next_billing_date || null;
+                const displayDateLabel = isActive && subscription?.status === 'active'
+                    ? 'Próxima cobrança:'
+                    : 'Vence em:';
 
                 return {
                     id: user.id,
@@ -123,10 +134,11 @@ const SubscriptionManagement = () => {
                     name: user.name || user.email?.split('@')[0] || 'Sem nome',
                     role: role as UserWithSubscription['role'],
                     subscription_plan: subscription?.plan || null,
-                    subscription_status: subscription?.status || null,
+                    subscription_status: effectiveStatus,
                     is_active: isActive,
                     days_remaining: daysRemaining,
-                    subscription_ends_at: subscription?.subscription_ends_at || subscription?.trial_ends_at || null,
+                    subscription_ends_at: displayDate,
+                    subscription_date_label: displayDate ? displayDateLabel : null,
                     avatar_url: user.avatar_url || null,
                     asaas_subscription_id: subscription?.asaas_subscription_id || null,
                     billing_type: subscription?.billing_type || null
@@ -175,6 +187,22 @@ const SubscriptionManagement = () => {
 
     const changeSubscription = async (userId: string, action: 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate') => {
         try {
+            const targetUser = users.find(user => user.id === userId);
+            if (targetUser?.asaas_subscription_id) {
+                toastGate.notifyError('Esta assinatura é gerenciada pelo Asaas. Altere o plano no Asaas e sincronize o cadastro.', 'ASAAS-SUB-MANAGED', { severity: 'low' });
+                return;
+            }
+
+            const actionLabel = {
+                activate_trial: 'conceder um trial manual de 7 dias',
+                activate_monthly: 'conceder acesso manual mensal',
+                activate_annual: 'conceder acesso manual anual',
+                deactivate: 'remover o acesso manual',
+            }[action];
+            if (!window.confirm(`Você vai ${actionLabel}. Esta ação não cria nem altera uma cobrança no Asaas. Continuar?`)) {
+                return;
+            }
+
             setProcessingUserId(userId);
             setError(null);
 
@@ -338,7 +366,7 @@ const SubscriptionManagement = () => {
                                         ) : user.subscription_ends_at && (
                                             <div className="text-xs text-muted-foreground/60 mt-1 flex items-center gap-1 font-medium">
                                                 <Calendar className="w-3 h-3" />
-                                                Vence em: {new Date(user.subscription_ends_at).toLocaleDateString('pt-BR')}
+                                                {user.subscription_date_label} {new Date(user.subscription_ends_at).toLocaleDateString('pt-BR')}
                                             </div>
                                         )}
                                     </div>
@@ -368,17 +396,17 @@ const SubscriptionManagement = () => {
                                             </div>
                                         ) : (
                                             <Select
-                                                disabled={user.role === 'owner'}
+                                                disabled={user.role === 'owner' || Boolean(user.asaas_subscription_id)}
                                                 onValueChange={(value) => changeSubscription(user.id, value as 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate')}
                                             >
                                                 <SelectTrigger className="w-full h-full text-xs font-semibold bg-black/5 dark:bg-white/5 border-transparent outline-none ring-0 hover:bg-black/10 dark:hover:bg-white/10 transition-colors rounded-xl focus:ring-0">
-                                                    <SelectValue placeholder="Ações de Assinatura" />
+                                                    <SelectValue placeholder={user.asaas_subscription_id ? 'Gerenciado pelo Asaas' : 'Ações manuais'} />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-2xl shadow-xl overflow-hidden glass-card p-1 border border-black/10 dark:border-white/10">
-                                                    <SelectItem value="activate_trial" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">🆓 Ativar Trial (7 dias)</SelectItem>
-                                                    <SelectItem value="activate_monthly" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">💰 Ativar Mensal</SelectItem>
-                                                    <SelectItem value="activate_annual" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">💎 Ativar Anual</SelectItem>
-                                                    <SelectItem value="deactivate" className="rounded-xl font-bold m-0.5 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 hover:bg-red-500/10">❌ Remover Acesso</SelectItem>
+                                                    <SelectItem value="activate_trial" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">Conceder trial manual (7 dias)</SelectItem>
+                                                    <SelectItem value="activate_monthly" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">Conceder acesso manual mensal</SelectItem>
+                                                    <SelectItem value="activate_annual" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">Conceder acesso manual anual</SelectItem>
+                                                    <SelectItem value="deactivate" className="rounded-xl font-bold m-0.5 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 hover:bg-red-500/10">Remover acesso manual</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         )}

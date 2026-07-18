@@ -8,10 +8,12 @@ import { CycleQueueList } from '@/components/study-cycle/CycleQueueList';
 import { CycleVerticalWorkspaceSection } from '@/components/study-cycle/CycleVerticalWorkspaceSection';
 import { CycleWorkspaceHeaderSection } from '@/components/study-cycle/CycleWorkspaceHeaderSection';
 import { StrategicPanelSection } from '@/components/study-cycle/StrategicPanelSection';
+import type { CycleEntryState } from '@/utils/cycleEntryState';
 
 type StudyCycleWorkspaceProps = {
   activeTab: 'all' | 'vertical';
   cycleTransitionSummary: ComponentProps<typeof CycleFirstContactFinishedPanel>['summary'];
+  cycleEntryState: CycleEntryState;
   dataLoaded: boolean;
   displayListLength: number;
   firstContactFormatStudyMinutes: ComponentProps<typeof CycleFirstContactFinishedPanel>['formatStudyMinutes'];
@@ -35,6 +37,7 @@ type StudyCycleWorkspaceProps = {
 export function StudyCycleWorkspace({
   activeTab,
   cycleTransitionSummary,
+  cycleEntryState,
   dataLoaded,
   displayListLength,
   dndContextProps,
@@ -92,8 +95,7 @@ export function StudyCycleWorkspace({
                   />
                 ) : (
                   <CycleEmptyState
-                    hasLocalSubjects={localSubjectsCount > 0}
-                    isSearchActive={workspaceHeaderProps.cycleSearchQuery.trim().length > 0}
+                    state={cycleEntryState}
                     onGoToEditais={onGoToEditais}
                   />
                 )}

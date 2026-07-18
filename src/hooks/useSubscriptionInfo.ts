@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { invokeUserRpc } from '@/services/userRpcService'
 import { useAuth } from '@/contexts/AuthContext'
+import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement'
 
 interface SubscriptionInfo {
   user_id: string
@@ -30,16 +31,6 @@ interface UseSubscriptionInfoReturn {
   refetch: () => Promise<void>
   forceRefresh: () => void
 }
-
-const calculateDaysRemaining = (dateString?: string | null) => {
-  if (!dateString) return 0;
-
-  const target = new Date(dateString);
-  if (Number.isNaN(target.getTime())) return 0;
-
-  const now = new Date();
-  return Math.max(0, Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-};
 
 export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
   const { user } = useAuth()
@@ -101,19 +92,24 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
       const rolesData = rolesResult.data;
 
       if (localSubscription) {
-        const dueDate =
-          localSubscription.status === 'trial'
-            ? localSubscription.trial_ends_at
-            : localSubscription.next_billing_date || localSubscription.subscription_ends_at;
-        const daysRemaining = calculateDaysRemaining(dueDate);
-        const isRecurringPaid = localSubscription.status === 'active' && localSubscription.plan !== 'free_trial';
+        const entitlement = getSubscriptionEntitlement({
+          plan: localSubscription.plan,
+          status: localSubscription.status,
+          trialEndsAt: localSubscription.trial_ends_at,
+          subscriptionEndsAt: localSubscription.subscription_ends_at,
+          nextBillingAt: localSubscription.next_billing_date,
+        });
+        const rpcIsActive = rpcSubscription?.is_active ?? entitlement.isActive;
+        const isActive = rpcIsActive && entitlement.isActive;
 
         setSubscriptionInfo({
           user_id: user.id,
-          plan: localSubscription.plan,
-          status: localSubscription.status,
-          is_active: isRecurringPaid || daysRemaining > 0,
-          days_remaining: isRecurringPaid && daysRemaining === 0 ? null : daysRemaining,
+          plan: isActive ? (rpcSubscription?.plan ?? entitlement.plan) : 'free_trial',
+          status: isActive ? entitlement.status : 'expired',
+          is_active: isActive,
+          days_remaining: isActive
+            ? Math.min(rpcSubscription?.days_remaining ?? entitlement.daysRemaining, entitlement.daysRemaining || Number.MAX_SAFE_INTEGER)
+            : 0,
           billing_type: localSubscription.billing_type,
           next_billing_date: localSubscription.next_billing_date,
           last_payment_at: localSubscription.last_payment_at,

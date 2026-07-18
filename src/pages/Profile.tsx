@@ -21,6 +21,7 @@ import { GradientButton } from '@/components/ui';
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useSubscriptionInfo } from '@/hooks/useSubscriptionInfo';
+import { getSubscriptionRemainingLabel, getSubscriptionRenewalLabel } from '@/utils/subscriptionDisplay';
 
 // ─── Schemas ────────────────────────────────────────────────
 const profileSchema = z.object({
@@ -285,13 +286,6 @@ const Profile = () => {
     return `${day}/${month}/${year}`;
   };
 
-  const getDaysUntil = (dateString?: string | null) => {
-    if (!dateString) return null;
-    const target = new Date(dateString);
-    if (Number.isNaN(target.getTime())) return null;
-    return Math.max(0, Math.ceil((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-  };
-
   const getInitials = () => {
     const name = profile?.name || user?.user_metadata?.name || '';
     return name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]).join('').toUpperCase() || '?';
@@ -308,7 +302,11 @@ const Profile = () => {
   const subscriptionRenewalDate = subscriptionInfo?.status === 'trial'
     ? subscriptionInfo.trial_ends_at
     : subscriptionInfo?.next_billing_date || subscriptionInfo?.subscription_ends_at;
-  const subscriptionDaysRemaining = getDaysUntil(subscriptionRenewalDate);
+  const subscriptionRemainingLabel = getSubscriptionRemainingLabel({
+    plan: subscriptionInfo?.plan,
+    status: subscriptionInfo?.status,
+    renewalDate: subscriptionRenewalDate,
+  });
 
   // ═══════════════════════════════════════════════════════
   // RENDER
@@ -414,24 +412,18 @@ const Profile = () => {
                   />
                   <DataRow
                     icon={Calendar}
-                    label={subscriptionInfo.status === 'trial' ? 'Fim do teste' : 'Próxima cobrança'}
+                    label={getSubscriptionRenewalLabel(subscriptionInfo.plan)}
                     value={formatDate(subscriptionRenewalDate)}
                   />
-                  {subscriptionDaysRemaining !== null && (
+                  {subscriptionRemainingLabel && (
                     <DataRow
                       icon={Clock}
                       label="Tempo restante"
-                      value={
-                        subscriptionDaysRemaining === 0
-                          ? 'Vence hoje'
-                          : subscriptionDaysRemaining === 1
-                            ? '1 dia'
-                            : `${subscriptionDaysRemaining} dias`
-                      }
+                      value={subscriptionRemainingLabel}
                       valueColor={
-                        subscriptionDaysRemaining <= 3
+                        subscriptionInfo.status === 'expired' || subscriptionInfo.status === 'canceled' || subscriptionInfo.status === 'suspended'
                           ? 'text-red-500'
-                          : subscriptionDaysRemaining <= 7
+                          : subscriptionRemainingLabel === 'Vence hoje' || subscriptionRemainingLabel === '1 dia'
                             ? 'text-amber-500'
                             : 'text-emerald-500 font-bold'
                       }

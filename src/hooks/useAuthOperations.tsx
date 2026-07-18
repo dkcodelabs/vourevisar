@@ -8,6 +8,7 @@ import {
   EMAIL_NOT_CONFIRMED_ERROR,
   isEmailConfirmationPending,
 } from '@/utils/authConfirmation';
+import { getAuthCallbackUrl } from '@/utils/authRedirect';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -53,7 +54,8 @@ export function useAuthOperations() {
             name,
             phone,
             provider_type: 'Cadastro'
-          }
+          },
+          emailRedirectTo: getAuthCallbackUrl(),
         }
       });
 

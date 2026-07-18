@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PricingSection } from '@/components/PricingSection';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { usePlanConfigs } from '@/hooks/usePlanConfigs';
@@ -9,6 +9,7 @@ import { useSubscriptionInfo } from '@/hooks/useSubscriptionInfo';
 const Planos = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isCheckoutOpen, setIsCheckoutOpen] = React.useState(false);
   const [selectedPlan, setSelectedPlan] = React.useState<'monthly' | 'annual'>('annual');
   const { monthly, annual, loading } = usePlanConfigs();
@@ -20,6 +21,12 @@ const Planos = () => {
   const isMonthlyActive = currentPlan === 'monthly';
   const isAnnualActive = currentPlan === 'annual';
   const annualUpgradeBlocked = isMonthlyActive;
+  const accessReason = (location.state as { reason?: string } | null)?.reason;
+  const accessNotice = accessReason === 'subscription_expired'
+    ? 'Sua assinatura expirou. Renove seu plano para voltar a acessar seus estudos.'
+    : accessReason === 'subscription_required'
+      ? 'Seu acesso ainda não está ativo. Escolha um plano para abrir seus editais e continuar seus estudos.'
+      : null;
 
   const handlePlanSelect = (plan: 'monthly' | 'annual') => {
     if (isAnnualActive || plan === currentPlan) {
@@ -49,6 +56,11 @@ const Planos = () => {
   return (
     <div className="w-full pb-10">
       <div className="max-w-7xl mx-auto px-6">
+        {accessNotice ? (
+          <div className="mx-auto mb-8 max-w-3xl rounded-2xl border border-primary/30 bg-primary/10 px-5 py-4 text-center">
+            <p className="text-sm font-semibold leading-relaxed text-foreground">{accessNotice}</p>
+          </div>
+        ) : null}
         <div className="text-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
           <h2 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
             {title}

@@ -25,6 +25,14 @@ const LandingPage = () => {
   // Handle direct recovery links that might hit the root path instead of /reset-password
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const authError = searchParams.get('error') || hashParams.get('error');
+
+    if (authError) {
+      navigate(`/auth/callback${window.location.search}${window.location.hash}`);
+      return;
+    }
+
     const type = searchParams.get('type');
     const token_hash = searchParams.get('token_hash');
 

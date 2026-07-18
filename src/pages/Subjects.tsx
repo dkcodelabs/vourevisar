@@ -64,6 +64,7 @@ import { focusCycleSubject } from '@/utils/focusCycleSubject';
 import { fetchActiveTopicContext } from '@/services/activeTopicContextService';
 import { updateActiveCycleName } from '@/services/cycleNameService';
 import { mergeService } from '@/services/mergeService';
+import { getCycleEntryState } from '@/utils/cycleEntryState';
 
 type SubjectTab = 'all' | 'vertical';
 
@@ -410,6 +411,20 @@ const Subjects = () => {
     userCycle,
   });
 
+  const cycleEntryState = useMemo(() => getCycleEntryState({
+    access: { status: 'active' },
+    content: {
+      editalCount: editaisData.length,
+      editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
+      cycleSubjectsCount: expandedSubjectList.length,
+      hasActiveCycle: hasActiveCycle,
+      isLoading: isLoading || loading || isOriginsLoading,
+      hasLoadError: Boolean(loadError),
+      searchQuery: cycleSearchQuery,
+      filteredItemCount: displayList.length,
+    },
+  }), [cycleSearchQuery, displayList.length, editaisData, expandedSubjectList.length, hasActiveCycle, isLoading, isOriginsLoading, loadError, loading]);
+
   const handleRenameCycle = useCallback(async (name: string) => {
     if (!user?.id || !userCycle) throw new Error('Ciclo ativo não encontrado');
 
@@ -682,6 +697,7 @@ const Subjects = () => {
     <StudyCycleWorkspace
       activeTab={activeTab}
       cycleTransitionSummary={cycleTransitionSummary}
+      cycleEntryState={cycleEntryState}
       dataLoaded={dataLoaded}
       displayListLength={displayList.length}
       dndContextProps={{

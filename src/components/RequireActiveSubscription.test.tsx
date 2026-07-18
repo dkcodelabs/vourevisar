@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequireActiveSubscription } from './RequireActiveSubscription';
@@ -51,13 +51,37 @@ describe('RequireActiveSubscription', () => {
       canManageUsers: false,
       accessLevel: 'none',
       accessMessage: 'Sem acesso',
+      blockedReason: 'subscription_required',
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useUserAccess>);
 
     renderGuardedRoute();
 
-    expect(screen.getByText('Reconectando e confirmando seu acesso...')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível confirmar seu acesso');
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
     expect(screen.queryByText('Pagina de planos')).not.toBeInTheDocument();
+  });
+
+  it('allows the user to retry access verification explicitly', async () => {
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    mockedUseUserAccess.mockReturnValue({
+      loading: false,
+      error: 'Failed to fetch',
+      roles: {},
+      subscription: {},
+      hasFullAccess: false,
+      canAccessPremiumFeatures: false,
+      canManageUsers: false,
+      accessLevel: 'none',
+      accessMessage: 'Sem acesso',
+      blockedReason: 'subscription_required',
+      refetch,
+    } as unknown as ReturnType<typeof useUserAccess>);
+
+    renderGuardedRoute();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+
+    await waitFor(() => expect(refetch).toHaveBeenCalled());
   });
 
   it('redirects to plans only after access is verified and denied', () => {
@@ -71,6 +95,7 @@ describe('RequireActiveSubscription', () => {
       canManageUsers: false,
       accessLevel: 'none',
       accessMessage: 'Sem acesso',
+      blockedReason: 'subscription_required',
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useUserAccess>);
 

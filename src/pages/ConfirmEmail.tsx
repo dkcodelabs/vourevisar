@@ -9,6 +9,7 @@ import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton } from '@/components/ui';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { isEmailConfirmationPending } from '@/utils/authConfirmation';
+import { getAuthCallbackUrl } from '@/utils/authRedirect';
 
 const ConfirmEmail = () => {
   const navigate = useNavigate();
@@ -17,6 +18,9 @@ const ConfirmEmail = () => {
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const confirmationStatus = searchParams.get('status');
+  const isLinkExpired = confirmationStatus === 'expired';
+  const hasConfirmationError = confirmationStatus === 'expired' || confirmationStatus === 'error';
 
   useEffect(() => {
     // Get email from URL params or localStorage
@@ -31,6 +35,8 @@ const ConfirmEmail = () => {
     }
 
     const checkExistingSession = async () => {
+      if (hasConfirmationError) return;
+
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.user) return;
@@ -50,6 +56,8 @@ const ConfirmEmail = () => {
 
     checkExistingSession();
 
+    if (hasConfirmationError) return;
+
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user && !isEmailConfirmationPending(session.user)) {
@@ -63,7 +71,7 @@ const ConfirmEmail = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, searchParams]);
+  }, [hasConfirmationError, navigate, searchParams]);
 
   // Cooldown timer
   useEffect(() => {
@@ -82,7 +90,7 @@ const ConfirmEmail = () => {
         type: 'signup',
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: getAuthCallbackUrl()
         }
       });
 
@@ -141,14 +149,16 @@ const ConfirmEmail = () => {
         <GlassCard className="w-full max-w-md p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Mail className="w-10 h-10 text-brand-blue" />
+            <div className="w-20 h-20 bg-primary/10 border border-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Mail className="w-10 h-10 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground mb-2">
-              Verifique seu email
+              {isLinkExpired ? 'Link de confirmação expirado' : 'Verifique seu email'}
             </h1>
             <p className="text-content-muted">
-              Enviamos um link de confirmação para:
+              {isLinkExpired
+                ? 'Este link não é mais válido. Solicite um novo email para confirmar seu cadastro.'
+                : 'Enviamos um link de confirmação para:'}
             </p>
             {email && (
               <p className="font-semibold text-foreground mt-2">
@@ -158,11 +168,11 @@ const ConfirmEmail = () => {
           </div>
 
           {/* Instructions */}
-          <div className="bg-secondary dark:bg-blue-900/20 rounded-xl p-4 mb-6">
-            <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+          <div className="bg-info/10 border border-info/20 rounded-xl p-4 mb-6">
+            <h3 className="font-semibold text-foreground mb-2">
               Próximos passos:
             </h3>
-            <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-2 list-decimal list-inside">
+            <ol className="text-sm text-content-muted space-y-2 list-decimal list-inside">
               <li>Abra seu email</li>
               <li>Procure por um email do vouRevisar</li>
               <li>Clique no botão "Confirmar meu cadastro"</li>

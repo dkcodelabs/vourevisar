@@ -23,6 +23,12 @@ const ALLOWED_ACTIONS = new Set([
   "set_user_role",
 ]);
 
+const MANUAL_SUBSCRIPTION_ACTIONS = new Set([
+  "activate_paid_subscription",
+  "activate_trial_subscription",
+  "deactivate_subscription",
+]);
+
 type AdminRpcRequest = {
   action?: string;
   args?: Record<string, unknown>;
@@ -70,6 +76,27 @@ serve(async (req: Request) => {
     if (roleError) throw roleError;
     if (!roleRows || roleRows.length === 0) {
       return json({ error: "Permissao administrativa obrigatoria" }, 403);
+    }
+
+    if (MANUAL_SUBSCRIPTION_ACTIONS.has(action)) {
+      const targetUserId = typeof args.target_user_id === "string" ? args.target_user_id : null;
+      if (!targetUserId) {
+        return json({ error: "Usuario alvo obrigatorio para alterar assinatura" }, 400);
+      }
+
+      const { data: targetSubscription, error: targetSubscriptionError } = await supabase
+        .from("user_subscriptions")
+        .select("asaas_subscription_id")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+
+      if (targetSubscriptionError) throw targetSubscriptionError;
+      if (targetSubscription?.asaas_subscription_id) {
+        return json({
+          error: "Esta assinatura e gerenciada pelo Asaas. Altere o plano no Asaas e aguarde a sincronizacao.",
+          code: "ASAAS_SUBSCRIPTION_MANAGED_EXTERNALLY",
+        }, 409);
+      }
     }
 
     const { data, error } = await supabase.rpc("admin_rpc_dispatch", {
