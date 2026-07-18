@@ -15,7 +15,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    // AuthCallback and ResetPassword exchange callback codes explicitly.
+    // Leaving automatic URL detection enabled would race that exchange.
+    detectSessionInUrl: false,
     flowType: 'pkce'
   }
 });

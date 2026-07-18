@@ -33,6 +33,8 @@ export function AuthCallback() {
         // Se há erro nos parâmetros, exibir e redirecionar
         if (error) {
           console.warn('AuthCallback: link de autenticação rejeitado:', error, errorCode);
+          // Do not let a previous browser session survive an auth-link error.
+          await supabase.auth.signOut();
           if (errorCode === 'otp_expired' || errorDescription?.toLowerCase().includes('expired')) {
             setRedirectPath('/confirm-email?status=expired');
           } else {
@@ -49,8 +51,10 @@ export function AuthCallback() {
           if (exchangeError) {
             const message = exchangeError.message.toLowerCase();
             if (exchangeError.code === 'otp_expired' || message.includes('expired') || message.includes('invalid')) {
+              await supabase.auth.signOut();
               setRedirectPath('/confirm-email?status=expired');
             } else {
+              await supabase.auth.signOut();
               toastGate.notifyError('Não foi possível concluir a confirmação. Tente reenviar o email.', 'AUTH-CALLBACK-02', { severity: 'low' });
               setRedirectPath('/confirm-email?status=error');
             }
@@ -91,6 +95,7 @@ export function AuthCallback() {
 
       } catch (err: unknown) {
         console.error('AuthCallback: Erro não tratado:', err);
+        await supabase.auth.signOut();
         toastGate.notifyError('Erro na autenticação', 'AUTH-CALLBACK-UNK', { severity: 'low' });
         setRedirectPath('/login');
       } finally {

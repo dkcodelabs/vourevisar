@@ -41,7 +41,12 @@ const ConfirmEmail = () => {
     }
 
     const checkExistingSession = async () => {
-      if (hasConfirmationError) return;
+      if (hasConfirmationError) {
+        // An auth-link error must never leave an older session available behind
+        // the login action on this page.
+        await supabase.auth.signOut();
+        return;
+      }
 
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -184,11 +189,17 @@ const ConfirmEmail = () => {
               <Mail className="w-10 h-10 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground mb-2">
-              {isLinkExpired ? 'Link de confirmação expirado' : 'Verifique seu email'}
+              {isLinkExpired
+                ? 'Link de confirmação expirado'
+                : hasConfirmationError
+                  ? 'Não foi possível confirmar seu email'
+                  : 'Verifique seu email'}
             </h1>
             <p className="text-content-muted">
               {isLinkExpired
                 ? 'Este link não é mais válido. Solicite um novo email para confirmar seu cadastro.'
+                : hasConfirmationError
+                  ? 'O link não pôde ser concluído. Solicite um novo email e use o link mais recente.'
                 : 'Enviamos um link de confirmação para:'}
             </p>
             {email && (
@@ -201,13 +212,23 @@ const ConfirmEmail = () => {
           {/* Instructions */}
           <div className="bg-info/10 border border-info/20 rounded-xl p-4 mb-6">
             <h3 className="font-semibold text-foreground mb-2">
-              Próximos passos:
+              {hasConfirmationError ? 'Como continuar:' : 'Próximos passos:'}
             </h3>
             <ol className="text-sm text-content-muted space-y-2 list-decimal list-inside">
-              <li>Abra seu email</li>
-              <li>Procure por um email do vouRevisar</li>
-              <li>Clique no botão "Confirmar meu cadastro"</li>
-              <li>Você será redirecionado automaticamente</li>
+              {hasConfirmationError ? (
+                <>
+                  <li>Clique em reenviar abaixo</li>
+                  <li>Abra o email mais recente do vouRevisar</li>
+                  <li>Clique em "Confirmar meu cadastro"</li>
+                </>
+              ) : (
+                <>
+                  <li>Abra seu email</li>
+                  <li>Procure por um email do vouRevisar</li>
+                  <li>Clique no botão "Confirmar meu cadastro"</li>
+                  <li>Você será redirecionado automaticamente</li>
+                </>
+              )}
             </ol>
           </div>
 

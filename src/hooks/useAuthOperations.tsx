@@ -72,6 +72,10 @@ export function useAuthOperations() {
         await supabase.auth.signOut();
       }
 
+      if (confirmationPending) {
+        localStorage.setItem('pendingConfirmationEmail', normalizedEmail);
+      }
+
       toastManager.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
       return { ...data, confirmationPending };
     } catch (error: unknown) {
