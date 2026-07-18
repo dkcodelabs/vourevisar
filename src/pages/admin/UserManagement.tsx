@@ -345,9 +345,11 @@ const UserManagement = () => {
         if (!userToObject || userToObject.action !== 'delete') return;
 
         try {
-            const { error } = await supabase.from('profiles').delete().eq('id', userToObject.id);
-
-            if (error) throw error;
+            // Permanent deletion must remove auth.users and every dependent row.
+            // Deleting only profiles leaves the JWT valid and the app can recreate the profile.
+            await invokeAdminRpc('admin_purge_user', {
+                p_target_user_id: userToObject.id
+            });
 
             setUsers(users.filter(u => u.id !== userToObject.id));
             toast.success(`Usuário excluído permanentemente`);

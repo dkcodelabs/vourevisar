@@ -30,6 +30,19 @@ const isInvalidRefreshTokenError = (error: unknown) => {
   return error.message.includes('Invalid Refresh Token') || error.message.includes('Refresh Token Not Found');
 };
 
+const isInvalidServerSessionError = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false;
+
+  const candidate = error as { message?: string; code?: string; status?: number };
+  const message = candidate.message?.toLowerCase() || '';
+  const code = candidate.code?.toLowerCase() || '';
+
+  return candidate.status === 401
+    || code.includes('user_not_found')
+    || message.includes('user from sub claim')
+    || message.includes('jwt') && message.includes('invalid');
+};
+
 const clearSupabaseAuthStorage = () => {
   if (typeof window === 'undefined') return;
 
@@ -75,29 +88,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (!data) {
-        console.warn("[AuthContext] Perfil não encontrado, tentando criar...");
-        const currentUser = authUser ?? null;
-        
-        if (currentUser) {
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: currentUser.id,
-              email: currentUser.email,
-              name: currentUser.user_metadata?.name || currentUser.user_metadata?.full_name || 'Usuário',
-              phone: currentUser.user_metadata?.phone || null,
-              avatar_url: currentUser.user_metadata?.avatar_url || null
-            }, { onConflict: 'id' });
-
-          if (!insertError) {
-             const { data: newProfile } = await supabase
-               .from('profiles')
-               .select('*')
-               .eq('id', currentUser.id)
-               .maybeSingle();
-             if (newProfile) setProfile(newProfile);
-          }
-        }
+        console.warn("[AuthContext] Perfil não encontrado para a sessão; encerrando sessão local.");
+        setProfile(null);
+        await supabase.auth.signOut({ scope: 'local' });
         return;
       }
 
@@ -112,6 +105,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
+
+    const clearInvalidSession = async () => {
+      clearSupabaseAuthStorage();
+      await supabase.auth.signOut({ scope: 'local' });
+      if (!isMounted) return;
+      setUser(null);
+      setProfile(null);
+      lastLoginSignature.current = null;
+    };
+
+    const validateServerSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data: { user: serverUser }, error } = await supabase.auth.getUser();
+      if (error && isInvalidServerSessionError(error)) {
+        await clearInvalidSession();
+        return;
+      }
+
+      if (serverUser && isEmailConfirmationPending(serverUser)) {
+        localStorage.setItem('pendingConfirmationEmail', serverUser.email || '');
+        await clearInvalidSession();
+      }
+    };
 
     // Configurar listener para mudanças de estado primeiro
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -197,6 +215,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setProfile(null);
           lastLoginSignature.current = null;
         } else if (session?.user && isMounted) {
+          const { data: { user: serverUser }, error: serverError } = await supabase.auth.getUser();
+          if (serverError && isInvalidServerSessionError(serverError)) {
+            await clearInvalidSession();
+            return;
+          }
+
+          if (!serverUser) {
+            await clearInvalidSession();
+            return;
+          }
+
           setUser(session.user);
           if (session.access_token) {
             lastLoginSignature.current = session.access_token.slice(-16);
@@ -226,9 +255,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     checkSession();
 
+    window.addEventListener('focus', validateServerSession);
+    document.addEventListener('visibilitychange', validateServerSession);
+
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      window.removeEventListener('focus', validateServerSession);
+      document.removeEventListener('visibilitychange', validateServerSession);
     };
   }, [logEvent, fetchProfile]);
 
