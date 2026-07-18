@@ -78,7 +78,11 @@ export function AuthCallback() {
             return;
           }
 
-          setRedirectPath('/dashboard');
+          if (exchangedSession.user?.email) {
+            localStorage.setItem('confirmedEmail', exchangedSession.user.email);
+          }
+          await supabase.auth.signOut();
+          setRedirectPath('/login?confirmed=1');
         } else {
           // Sem código de autorização
           setRedirectPath('/login');

@@ -14,7 +14,8 @@ import {
   User,
   Phone,
   ArrowRight,
-  UserPlus
+  UserPlus,
+  CheckCircle,
 } from 'lucide-react';
 import { TracerLogo } from '@/components/ui/TracerLogo';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -37,6 +38,15 @@ const Login = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [shakePassword, setShakePassword] = useState(false);
   const passwordInputRef = React.useRef<HTMLInputElement>(null);
+  const emailConfirmed = new URLSearchParams(location.search).get('confirmed') === '1';
+
+  useEffect(() => {
+    const confirmedEmail = localStorage.getItem('confirmedEmail');
+    if (emailConfirmed && confirmedEmail) {
+      setEmail(confirmedEmail);
+      localStorage.removeItem('confirmedEmail');
+    }
+  }, [emailConfirmed]);
 
   useEffect(() => {
     console.log('[DEBUG] Login.tsx: Montagem/Renderização. isLoading=', isLoading, ' user=', !!user);
@@ -270,6 +280,13 @@ const Login = () => {
             {showForgotPassword ? 'Recuperar' : isRegistering ? 'Criar Conta' : 'Entrar'}
           </h2>
         </div>
+
+        {emailConfirmed && (
+          <div className="mb-5 flex items-start gap-3 rounded-xl border border-success/25 bg-success/10 p-3 text-sm text-foreground">
+            <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+            <p><strong>Email confirmado.</strong> Agora entre com sua senha para acessar o vouRevisar.</p>
+          </div>
+        )}
 
         {/* Logo Area */}
         <div className="flex flex-col items-center mb-3 sm:mb-6 w-full">
