@@ -41,22 +41,8 @@ export function AuthCallback() {
           return;
         }
 
-        // Verificar se já há uma sessão ativa
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
-
-        if (existingSession?.user && isEmailConfirmationPending(existingSession.user)) {
-          localStorage.setItem('pendingConfirmationEmail', existingSession.user.email || '');
-          await supabase.auth.signOut();
-          setRedirectPath('/confirm-email');
-          return;
-        }
-
-        if (existingSession) {
-          setRedirectPath('/dashboard');
-          return;
-        }
-
-        // Se há código de autorização, aguardar processamento automático do Supabase
+        // O código do callback tem prioridade sobre qualquer sessão antiga no navegador.
+        // Uma sessão existente poderia fazer o link de confirmação cair direto no dashboard.
         if (authCode) {
           const { data: exchangedSession, error: exchangeError } = await supabase.auth.exchangeCodeForSession(authCode);
 
@@ -83,10 +69,25 @@ export function AuthCallback() {
           }
           await supabase.auth.signOut();
           setRedirectPath('/login?confirmed=1');
-        } else {
-          // Sem código de autorização
-          setRedirectPath('/login');
+          return;
         }
+
+        // Sem código, preservar o comportamento normal de uma rota aberta diretamente.
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+
+        if (existingSession?.user && isEmailConfirmationPending(existingSession.user)) {
+          localStorage.setItem('pendingConfirmationEmail', existingSession.user.email || '');
+          await supabase.auth.signOut();
+          setRedirectPath('/confirm-email');
+          return;
+        }
+
+        if (existingSession) {
+          setRedirectPath('/dashboard');
+          return;
+        }
+
+        setRedirectPath('/login');
 
       } catch (err: unknown) {
         console.error('AuthCallback: Erro não tratado:', err);

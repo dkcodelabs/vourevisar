@@ -11,6 +11,11 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 import { getAuthCallbackUrl } from '@/utils/authRedirect';
 
+type ResendFeedback = {
+  tone: 'success' | 'error';
+  message: string;
+};
+
 const ConfirmEmail = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -18,6 +23,7 @@ const ConfirmEmail = () => {
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [resendFeedback, setResendFeedback] = useState<ResendFeedback | null>(null);
   const confirmationStatus = searchParams.get('status');
   const isLinkExpired = confirmationStatus === 'expired';
   const hasConfirmationError = confirmationStatus === 'expired' || confirmationStatus === 'error';
@@ -85,6 +91,7 @@ const ConfirmEmail = () => {
     if (!email || resendCooldown > 0) return;
 
     setIsResending(true);
+    setResendFeedback(null);
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
@@ -95,17 +102,41 @@ const ConfirmEmail = () => {
       });
 
       if (error) {
-        if (error.status === 429) { // Check for status code 429 for rate limit
+        const normalizedMessage = error.message.toLowerCase();
+
+        if (error.status === 429) {
+          setResendFeedback({
+            tone: 'error',
+            message: 'Muitas tentativas. Aguarde alguns minutos antes de pedir outro email.'
+          });
           toastGate.notifyError('Muitas tentativas. Aguarde alguns minutos.', 'AUTH-RATE-LIMIT', { severity: 'medium' });
+        } else if (normalizedMessage.includes('already confirmed') || normalizedMessage.includes('already been confirmed')) {
+          setResendFeedback({
+            tone: 'error',
+            message: 'Este email já foi confirmado. Volte ao login e entre com sua senha.'
+          });
+          toastGate.notifyError('Este email já foi confirmado. Entre pelo login.', 'AUTH-ALREADY-CONFIRMED', { severity: 'low' });
         } else {
+          setResendFeedback({
+            tone: 'error',
+            message: 'Não foi possível reenviar agora. Aguarde um momento e tente novamente.'
+          });
           toastGate.notifyError('Erro ao reenviar email. Tente novamente.', 'AUTH-RESEND-ERR', { severity: 'low' });
         }
         return;
       }
 
       toast.success('Email de confirmação reenviado!');
+      setResendFeedback({
+        tone: 'success',
+        message: 'Novo email enviado. Use o link mais recente para confirmar seu cadastro.'
+      });
       setResendCooldown(60); // 60 second cooldown
     } catch (error) {
+      setResendFeedback({
+        tone: 'error',
+        message: 'Não foi possível reenviar agora. Aguarde um momento e tente novamente.'
+      });
       toastGate.notifyError('Erro ao reenviar email.', 'AUTH-RESEND-UNK', { severity: 'medium' });
     } finally {
       setIsResending(false);
@@ -204,6 +235,28 @@ const ConfirmEmail = () => {
                 </>
               )}
             </GradientButton>
+
+            {resendFeedback && (
+              <div
+                role="status"
+                className={`rounded-lg border px-3 py-2 text-sm ${
+                  resendFeedback.tone === 'success'
+                    ? 'border-success/25 bg-success/10 text-success'
+                    : 'border-destructive/25 bg-destructive/10 text-destructive'
+                }`}
+              >
+                {resendFeedback.message}
+                {resendFeedback.message.includes('Volte ao login') && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login')}
+                    className="ml-1 font-semibold underline underline-offset-2"
+                  >
+                    Ir para o login
+                  </button>
+                )}
+              </div>
+            )}
 
             <button
               onClick={() => navigate('/login')}
