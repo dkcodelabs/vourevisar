@@ -15,9 +15,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
-    // AuthCallback and ResetPassword exchange callback codes explicitly.
-    // Leaving automatic URL detection enabled would race that exchange.
+    // AuthCallback and ResetPassword process callback credentials explicitly.
     detectSessionInUrl: false,
-    flowType: 'pkce'
+    // The SPA must support confirmation links opened from a different browser
+    // or device than the one that started signup.
+    flowType: 'implicit'
   }
 });

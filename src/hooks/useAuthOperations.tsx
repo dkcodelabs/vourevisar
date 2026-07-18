@@ -33,6 +33,9 @@ export function useAuthOperations() {
       return data;
     } catch (error: unknown) {
       console.error('Sign in error:', error);
+      if (error instanceof Error && error.message.toLowerCase().includes('email not confirmed')) {
+        localStorage.setItem('pendingConfirmationEmail', email.trim().toLowerCase());
+      }
       // toastManager.error(error.message || 'Erro ao fazer login');
       throw error;
     } finally {

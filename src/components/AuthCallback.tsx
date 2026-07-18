@@ -20,13 +20,50 @@ export function AuthCallback() {
         const errorCode = urlParams.get('error_code') || hashParams.get('error_code');
         const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
         const authCode = urlParams.get('code');
-        const type = urlParams.get('type');
+        const type = urlParams.get('type') || hashParams.get('type');
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const pendingConfirmationEmail = localStorage.getItem('pendingConfirmationEmail')?.toLowerCase();
 
-        // Se o tipo for recovery, redirecionar para a página de reset password
-        if (type === 'recovery') {
+        // Recovery with a code is validated by ResetPassword, which owns the
+        // recovery session and must not be treated as a normal login.
+        if (type === 'recovery' && !authCode && !(accessToken && refreshToken)) {
           console.log('AuthCallback: Detectado fluxo de recuperação, redirecionando para /reset-password');
           setRedirectPath('/reset-password');
           setLoading(false);
+          return;
+        }
+
+        if (accessToken && refreshToken) {
+          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (sessionError || !sessionData.session?.user) {
+            await supabase.auth.signOut({ scope: 'local' });
+            setRedirectPath('/confirm-email?status=error');
+            return;
+          }
+
+          if (type === 'recovery') {
+            setRedirectPath('/reset-password');
+            return;
+          }
+
+          const confirmedUserEmail = sessionData.session.user.email?.toLowerCase();
+          const isSignupConfirmation = type === 'signup'
+            || Boolean(pendingConfirmationEmail && confirmedUserEmail === pendingConfirmationEmail);
+
+          if (isSignupConfirmation) {
+            if (sessionData.session.user.email) {
+              localStorage.setItem('confirmedEmail', sessionData.session.user.email);
+            }
+            await supabase.auth.signOut();
+            setRedirectPath('/login?confirmed=1');
+          } else {
+            setRedirectPath('/dashboard');
+          }
           return;
         }
 
@@ -46,6 +83,11 @@ export function AuthCallback() {
         // O código do callback tem prioridade sobre qualquer sessão antiga no navegador.
         // Uma sessão existente poderia fazer o link de confirmação cair direto no dashboard.
         if (authCode) {
+          if (type === 'recovery') {
+            setRedirectPath('/reset-password');
+            return;
+          }
+
           const { data: exchangedSession, error: exchangeError } = await supabase.auth.exchangeCodeForSession(authCode);
 
           if (exchangeError) {
@@ -71,8 +113,16 @@ export function AuthCallback() {
           if (exchangedSession.user?.email) {
             localStorage.setItem('confirmedEmail', exchangedSession.user.email);
           }
-          await supabase.auth.signOut();
-          setRedirectPath('/login?confirmed=1');
+          const exchangedUserEmail = exchangedSession.user?.email?.toLowerCase();
+          const isSignupConfirmation = type === 'signup'
+            || Boolean(pendingConfirmationEmail && exchangedUserEmail === pendingConfirmationEmail);
+
+          if (isSignupConfirmation) {
+            await supabase.auth.signOut();
+            setRedirectPath('/login?confirmed=1');
+          } else {
+            setRedirectPath('/dashboard');
+          }
           return;
         }
 

@@ -27,14 +27,18 @@ const ResetPassword = () => {
       try {
         // Get URL params from current location
         const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
         const token = urlParams.get('token');
-        const type = urlParams.get('type');
+        const type = urlParams.get('type') || hashParams.get('type');
         const code = urlParams.get('code');
         const token_hash = urlParams.get('token_hash');
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
 
         console.log('Reset password check:', {
           hasToken: !!token,
           token_hash: !!token_hash,
+          accessToken: !!accessToken,
           type,
           hasCode: !!code,
           url: window.location.href,
@@ -42,15 +46,25 @@ const ResetPassword = () => {
           hash: window.location.hash
         });
 
-        // Check active session first (existing logic)
-        const { data: currentSession } = await supabase.auth.getSession();
-        if (currentSession?.session) {
-          console.log('Active session found before checking recovery code. Skipping verification.');
+        // Validate an explicit recovery credential before considering any browser session.
+        // An existing session must never make an invalid or unrelated reset link valid.
+        if (accessToken && refreshToken) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error || !data.session) {
+            toastGate.notifyError('Link inválido ou expirado.', 'AUTH-HASH-INV', { severity: 'low' });
+            await supabase.auth.signOut({ scope: 'local' });
+            navigate('/login');
+            return;
+          }
+
           setIsValidToken(true);
           return;
         }
 
-        // Handle OTP Token Hash (New Flow - Bypass PKCE)
         if (token_hash && type === 'recovery') {
           console.log('Token hash found, verifying OTP manually...');
           const { data, error } = await supabase.auth.verifyOtp({
@@ -61,6 +75,7 @@ const ResetPassword = () => {
           if (error) {
             console.error('Error verifying OTP:', error);
             toastGate.notifyError('Link inválido ou expirado.', 'AUTH-OTP-INV', { severity: 'low' });
+            await supabase.auth.signOut({ scope: 'local' });
             navigate('/login');
             return;
           }
@@ -72,33 +87,8 @@ const ResetPassword = () => {
           }
         }
 
-        // Handle direct email link with token
-        if (token && type === 'recovery') {
-          console.log('Recovery token found, attempting to verify session');
-          // Give some time for Supabase to process the token
-          await new Promise(resolve => setTimeout(resolve, 1000));
-
-          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-
-          if (sessionError) {
-            console.error('Session error:', sessionError);
-            toastGate.notifyError('Link inválido ou expirado', 'AUTH-SESS-INV', { severity: 'low' });
-            navigate('/login');
-            return;
-          }
-
-          if (sessionData.session) {
-            console.log('Valid session found for recovery');
-            setIsValidToken(true);
-          } else {
-            console.log('No session found, token may be invalid');
-            toastGate.notifyError('Link inválido ou expirado', 'AUTH-TOK-INV', { severity: 'low' });
-            navigate('/login');
-            return;
-          }
-        }
-        // Handle code-based redirect
-        else if (code) {
+        // Handle code-based redirect.
+        if (code) {
           console.log('Recovery code found, exchanging for session');
           try {
             const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -106,6 +96,7 @@ const ResetPassword = () => {
             if (error) {
               console.error('Error exchanging code:', error);
               toastGate.notifyError('Link inválido ou expirado', 'AUTH-CODE-INV', { severity: 'low' });
+              await supabase.auth.signOut({ scope: 'local' });
               navigate('/login');
               return;
             }
@@ -115,67 +106,32 @@ const ResetPassword = () => {
               setIsValidToken(true);
             } else {
               console.error('No session returned from code exchange');
-
-              // Fallback: Check if user is already logged in (Robust check)
-              const { data: userData, error: userError } = await supabase.auth.getUser();
-              if (userData?.user && !userError) {
-                console.log('Using existing authenticated user as fallback');
-                setIsValidToken(true);
-              } else {
-                toastGate.notifyError('Link inválido ou expirado. Faça login novamente.', 'AUTH-LINK-EXP', { severity: 'low' });
-                navigate('/login');
-                return;
-              }
+              toastGate.notifyError('Link inválido ou expirado. Faça login novamente.', 'AUTH-LINK-EXP', { severity: 'low' });
+              navigate('/login');
+              return;
             }
           } catch (error: unknown) {
             console.error('Error in code exchange:', error);
             const authError = error as { name?: string };
-
-            // ERROR HANDLING WITH FALLBACK
-            // Wait a moment for any state to settle
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // Robust check using getUser() which verifies with server
-            const { data: userData, error: userError } = await supabase.auth.getUser();
-
-            if (userData?.user && !userError) {
-              console.log('PKCE error occurred but active user session found. Allowing reset.');
-              setIsValidToken(true);
-              // Optional: You could show a specialized toast here if needed
-              // toast.info("Sessão ativa detectada. Você pode redefinir sua senha.");
+            if (authError.name === 'AuthPKCECodeVerifierMissingError') {
+              console.warn('PKCE Verifier Missing: Browser executing the link is different from the one that requested it.');
+              toastGate.notifyError('Por segurança, abra o link no mesmo navegador/dispositivo que solicitou.', 'AUTH-PKCE-MIS', { severity: 'medium' });
             } else {
-              if (authError.name === 'AuthPKCECodeVerifierMissingError') {
-                // Detailed error for debugging/user info
-                console.warn('PKCE Verifier Missing: Browser executing the link is different from the one that requested it.');
-                toastGate.notifyError('Por segurança, abra o link no mesmo navegador/dispositivo que solicitou.', 'AUTH-PKCE-MIS', { severity: 'medium' });
-              } else {
-                toastGate.notifyError('Link inválido ou expirado.', 'AUTH-LINK-INV', { severity: 'low' });
-              }
-              navigate('/login');
+              toastGate.notifyError('Link inválido ou expirado.', 'AUTH-LINK-INV', { severity: 'low' });
             }
+            await supabase.auth.signOut({ scope: 'local' });
+            navigate('/login');
             return;
           }
+          return;
         }
-        // Check for existing session
-        else {
-          const { data, error } = await supabase.auth.getSession();
 
-          if (error) {
-            console.error('Error getting session:', error);
-            errorService.report(error, { module: 'auth', action: 'check_session', userMessage: "Erro ao verificar sessão" });
-            navigate('/login');
-            return;
-          }
-
-          if (data.session) {
-            console.log('Existing session found');
-            setIsValidToken(true);
-          } else {
-            console.log('No session or recovery parameters found');
-            toastGate.notifyError('Link inválido ou expirado', 'AUTH-PARAM-MISS', { severity: 'low' });
-            navigate('/login');
-            return;
-          }
+        // A raw token without token_hash cannot be validated client-side in this flow.
+        if (token || !code) {
+          toastGate.notifyError('Link inválido ou expirado. Solicite um novo email.', 'AUTH-PARAM-MISS', { severity: 'low' });
+          await supabase.auth.signOut({ scope: 'local' });
+          navigate('/login');
+          return;
         }
       } catch (error) {
         console.error('Error in auth redirect handler:', error);
