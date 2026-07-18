@@ -58,33 +58,27 @@ export function AuthCallback() {
 
         // Se há código de autorização, aguardar processamento automático do Supabase
         if (authCode) {
-          // Aguardar processamento automático
-          let attempts = 0;
-          const maxAttempts = 10;
+          const { data: exchangedSession, error: exchangeError } = await supabase.auth.exchangeCodeForSession(authCode);
 
-          while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            const { data: { session: newSession } } = await supabase.auth.getSession();
-
-            if (newSession?.user && isEmailConfirmationPending(newSession.user)) {
-              localStorage.setItem('pendingConfirmationEmail', newSession.user.email || '');
-              await supabase.auth.signOut();
-              setRedirectPath('/confirm-email');
-              return;
+          if (exchangeError) {
+            const message = exchangeError.message.toLowerCase();
+            if (exchangeError.code === 'otp_expired' || message.includes('expired') || message.includes('invalid')) {
+              setRedirectPath('/confirm-email?status=expired');
+            } else {
+              toastGate.notifyError('Não foi possível concluir a confirmação. Tente reenviar o email.', 'AUTH-CALLBACK-02', { severity: 'low' });
+              setRedirectPath('/confirm-email?status=error');
             }
-
-            if (newSession) {
-              setRedirectPath('/dashboard');
-              return;
-            }
-
-            attempts++;
+            return;
           }
 
-          // Se não conseguiu estabelecer sessão após tentativas
-          toastGate.notifyError('Erro na autenticação. Tente novamente.', 'AUTH-CALLBACK-02', { severity: 'low' });
-          setRedirectPath('/login');
+          if (exchangedSession.user && isEmailConfirmationPending(exchangedSession.user)) {
+            localStorage.setItem('pendingConfirmationEmail', exchangedSession.user.email || '');
+            await supabase.auth.signOut();
+            setRedirectPath('/confirm-email');
+            return;
+          }
+
+          setRedirectPath('/dashboard');
         } else {
           // Sem código de autorização
           setRedirectPath('/login');

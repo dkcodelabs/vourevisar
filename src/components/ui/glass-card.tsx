@@ -20,7 +20,7 @@ const GlassCard: React.FC<GlassCardProps> = ({
   return (
     <motion.div
       className={cn(
-        "bg-white/70 backdrop-blur-lg border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl",
+        "bg-card/95 text-card-foreground backdrop-blur-lg border border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl",
         className
       )}
       onClick={onClick}
