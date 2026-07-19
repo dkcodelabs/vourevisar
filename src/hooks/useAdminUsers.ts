@@ -82,7 +82,9 @@ export function useAdminUsers() {
                     source: source,
                     deleted_at: profile.deleted_at,
                     last_sign_in_at: profile.last_sign_in_at,
-                    last_access_at: profile.last_access_at || profile.last_sign_in_at,
+                    // Auth confirmation can update Supabase's last_sign_in_at even
+                    // before the user enters the app. Last access must be app usage.
+                    last_access_at: profile.last_access_at,
                     email_confirmed: emailConfirmed
                 };
             });

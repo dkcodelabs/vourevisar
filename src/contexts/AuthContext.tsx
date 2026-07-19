@@ -43,6 +43,13 @@ const isInvalidServerSessionError = (error: unknown) => {
     || message.includes('jwt') && message.includes('invalid');
 };
 
+const isEmailConfirmationCallbackSession = (sessionUser: User) => {
+  if (typeof window === 'undefined' || window.location.pathname !== '/auth/callback') return false;
+
+  const pendingEmail = window.localStorage.getItem('pendingConfirmationEmail')?.trim().toLowerCase();
+  return Boolean(pendingEmail && sessionUser.email?.toLowerCase() === pendingEmail);
+};
+
 const clearSupabaseAuthStorage = () => {
   if (typeof window === 'undefined') return;
 
@@ -149,7 +156,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         // Log LOGIN_SUCCESS explicitly when SIGNED_IN event happens
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (event === 'SIGNED_IN' && session?.user && !isEmailConfirmationCallbackSession(session.user)) {
           const signature = session.access_token?.slice(-16);
           // Simple in-memory dedupe + RPC dedupe via request_id
           if (signature && signature !== lastLoginSignature.current) {
