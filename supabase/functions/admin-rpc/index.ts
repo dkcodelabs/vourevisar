@@ -17,6 +17,7 @@ const ALLOWED_ACTIONS = new Set([
   "cleanup_error_logs",
   "deactivate_subscription",
   "get_all_user_roles_admin",
+  "get_auth_user_statuses",
   "get_audit_logs",
   "get_users_by_edital_source",
   "remove_user_role_admin",
@@ -97,6 +98,36 @@ serve(async (req: Request) => {
           code: "ASAAS_SUBSCRIPTION_MANAGED_EXTERNALLY",
         }, 409);
       }
+    }
+
+    if (action === "get_auth_user_statuses") {
+      const users: Array<{
+        id: string;
+        email_confirmed_at: string | null;
+        confirmed_at: string | null;
+      }> = [];
+      let page = 1;
+      const perPage = 1000;
+
+      while (true) {
+        const { data: pageData, error: pageError } = await supabase.auth.admin.listUsers({
+          page,
+          perPage,
+        });
+
+        if (pageError) throw pageError;
+
+        users.push(...pageData.users.map((targetUser) => ({
+          id: targetUser.id,
+          email_confirmed_at: targetUser.email_confirmed_at ?? null,
+          confirmed_at: targetUser.confirmed_at ?? null,
+        })));
+
+        if (pageData.users.length < perPage) break;
+        page += 1;
+      }
+
+      return json({ data: users });
     }
 
     const { data, error } = await supabase.rpc("admin_rpc_dispatch", {

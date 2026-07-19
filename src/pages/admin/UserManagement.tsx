@@ -577,6 +577,11 @@ const UserManagement = () => {
                                                                 Desativado
                                                             </span>
                                                         )}
+                                                        {user.email_confirmed === false && !user.deleted_at && user.status !== 'Inactive' && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                                                Aguardando confirmação
+                                                            </span>
+                                                        )}
                                                         {user.deleted_at && (
                                                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
                                                                 Arquivado

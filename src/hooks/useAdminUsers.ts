@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
+import { invokeAdminRpc } from '@/services/adminRpcService';
 
 type ProfileRow = Tables<'profiles'>;
 type RoleRow = Tables<'user_roles'>;
@@ -18,6 +19,7 @@ export interface AdminUser {
     is_active?: boolean; // New field
     source?: string; // Google, Email, etc.
     deleted_at?: string | null;
+    email_confirmed?: boolean;
 }
 
 export function useAdminUsers() {
@@ -37,6 +39,13 @@ export function useAdminUsers() {
 
             if (profilesError) throw profilesError;
 
+            const authStatuses = await invokeAdminRpc<Array<{
+                id: string;
+                email_confirmed_at: string | null;
+                confirmed_at: string | null;
+            }>>('get_auth_user_statuses');
+            const authStatusById = new Map(authStatuses.map((authUser) => [authUser.id, authUser]));
+
             // 2. Fetch Roles
             const { data: roles, error: rolesError } = await supabase
                 .from('user_roles')
@@ -49,6 +58,10 @@ export function useAdminUsers() {
                 const userRole = roles?.find((role: RoleRow) => role.user_id === profile.id)?.role || 'user';
                 const isGoogle = profile.avatar_url?.includes('googleusercontent');
                 const source = isGoogle ? 'Email, Google' : 'Email';
+                const authStatus = authStatusById.get(profile.id);
+                const emailConfirmed = authStatus
+                    ? Boolean(authStatus.email_confirmed_at || authStatus.confirmed_at)
+                    : undefined;
 
                 let status = 'Active';
                 if (profile.deleted_at) {
@@ -69,7 +82,8 @@ export function useAdminUsers() {
                     source: source,
                     deleted_at: profile.deleted_at,
                     last_sign_in_at: profile.last_sign_in_at,
-                    last_access_at: profile.last_access_at || profile.last_sign_in_at
+                    last_access_at: profile.last_access_at || profile.last_sign_in_at,
+                    email_confirmed: emailConfirmed
                 };
             });
 
