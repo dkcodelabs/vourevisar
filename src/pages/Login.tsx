@@ -134,10 +134,10 @@ const Login = () => {
           return;
         }
 
-        const result = await Promise.race([
-          signIn(email.trim(), password),
-          new Promise<{ success: boolean; user?: unknown; error?: string }>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 30000))
-        ]);
+        // Do not race authentication against a local timeout. Promise.race would
+        // leave signIn running after the UI showed an error, allowing a late
+        // response to create a session and record an access unexpectedly.
+        const result = await signIn(email.trim(), password);
 
         console.log('[DEBUG] Login.tsx: Resultado do signIn:', result);
         if (!result.success) {
@@ -159,8 +159,8 @@ const Login = () => {
     } catch (error: unknown) {
       console.error('Login/Signup error:', error);
       const errorMessage = error instanceof Error ? error.message : '';
-      if (errorMessage === 'TIMEOUT') {
-        toastManager.error('O servidor demorou muito para responder. Tente novamente.');
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('AuthRetryableFetchError')) {
+        toastManager.error('Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.');
       } else {
         toastManager.error('Ocorreu um erro inesperado. Tente novamente.');
       }

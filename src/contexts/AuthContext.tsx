@@ -155,22 +155,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        // Log LOGIN_SUCCESS explicitly when SIGNED_IN event happens
-        if (event === 'SIGNED_IN' && session?.user && !isEmailConfirmationCallbackSession(session.user)) {
-          const signature = session.access_token?.slice(-16);
-          // Simple in-memory dedupe + RPC dedupe via request_id
-          if (signature && signature !== lastLoginSignature.current) {
-            lastLoginSignature.current = signature;
-            // Fire and forget log with a specific request ID for tracing
-            logEvent('LOGIN_SUCCESS', {
-              request_id: crypto.randomUUID(),
-              source: 'auth_signed_in'
-            }, 'web_app', { user: session.user, accessToken: session.access_token });
-          }
-        }
-
         if (session?.user) {
+          // A deleted/orphaned profile can still produce a valid Supabase auth
+          // session. Validate ownership before exposing the session to the app
+          // or recording LOGIN_SUCCESS, otherwise admin access metrics become
+          // incorrect and the user briefly appears authenticated.
+          const { data: profileRow, error: profileLookupError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (!profileLookupError && !profileRow) {
+            console.warn('[AuthContext] Sessão sem perfil; encerrando sessão local antes de registrar acesso.');
+            await supabase.auth.signOut({ scope: 'local' });
+            setUser(null);
+            setProfile(null);
+            lastLoginSignature.current = null;
+            if (isMounted) setLoading(false);
+            return;
+          }
+
           setUser(session.user);
+
+          // Log LOGIN_SUCCESS only after the profile check succeeds. A network
+          // error must not be converted into a successful access metric.
+          if (!profileLookupError && event === 'SIGNED_IN' && !isEmailConfirmationCallbackSession(session.user)) {
+            const signature = session.access_token?.slice(-16);
+            if (signature && signature !== lastLoginSignature.current) {
+              lastLoginSignature.current = signature;
+              logEvent('LOGIN_SUCCESS', {
+                request_id: crypto.randomUUID(),
+                source: 'auth_signed_in'
+              }, 'web_app', { user: session.user, accessToken: session.access_token });
+            }
+          }
+
           // Buscar perfil apenas se não estiver já carregando
           if (!isFetchingProfileRef.current) {
             setTimeout(() => {

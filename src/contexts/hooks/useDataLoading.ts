@@ -50,7 +50,7 @@ export const useDataLoading = (
           .from('user_settings')
           .select('subjects_per_day')
           .eq('user_id', userId)
-          .single(),
+          .maybeSingle(),
         8000,
         'Carregamento de configuracoes do usuario'
       );
@@ -109,7 +109,7 @@ export const useDataLoading = (
         .from('user_settings')
         .select('subjects_per_day')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (settingsError && settingsError.code !== 'PGRST116') {
         return;
