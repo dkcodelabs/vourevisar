@@ -29,13 +29,19 @@ const ConfirmEmail = () => {
   useEffect(() => {
     // Get email from URL params or localStorage
     const emailParam = searchParams.get('email');
+    const storedEmail = localStorage.getItem('pendingConfirmationEmail');
+    const resolvedEmail = emailParam || storedEmail;
+
     if (emailParam) {
       setEmail(emailParam);
-    } else {
-      const storedEmail = localStorage.getItem('pendingConfirmationEmail');
-      if (storedEmail) {
-        setEmail(storedEmail);
-      }
+    } else if (storedEmail) {
+      setEmail(storedEmail);
+    }
+
+    const confirmedEmail = localStorage.getItem('confirmedEmail')?.trim().toLowerCase();
+    if (resolvedEmail && confirmedEmail === resolvedEmail.trim().toLowerCase()) {
+      navigate('/login?confirmed=1', { replace: true });
+      return;
     }
 
     const cooldownUntil = Number(localStorage.getItem('pendingConfirmationCooldownUntil') || 0);
@@ -45,7 +51,20 @@ const ConfirmEmail = () => {
     } else {
       localStorage.removeItem('pendingConfirmationCooldownUntil');
     }
-  }, [searchParams]);
+  }, [navigate, searchParams]);
+
+  useEffect(() => {
+    const handleConfirmationFromAnotherTab = (event: StorageEvent) => {
+      const confirmedEmail = event.key === 'confirmedEmail' ? event.newValue?.trim().toLowerCase() : null;
+      if (!confirmedEmail || !email || confirmedEmail !== email.trim().toLowerCase()) return;
+
+      localStorage.removeItem('pendingConfirmationCooldownUntil');
+      navigate('/login?confirmed=1', { replace: true });
+    };
+
+    window.addEventListener('storage', handleConfirmationFromAnotherTab);
+    return () => window.removeEventListener('storage', handleConfirmationFromAnotherTab);
+  }, [email, navigate]);
 
   // Cooldown timer
   useEffect(() => {
