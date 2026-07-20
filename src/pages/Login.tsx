@@ -145,7 +145,7 @@ const Login = () => {
             toastManager.error('Email ou senha incorretos.');
           } else if (result.error?.includes('Email not confirmed')) {
             toastManager.error('Email não confirmado. Verifique sua caixa de entrada.');
-            navigate(`/confirm-email?email=${encodeURIComponent(email.trim())}`, { replace: true });
+            navigate(`/confirm-email?status=unconfirmed&email=${encodeURIComponent(email.trim())}`, { replace: true });
           } else if (result.error?.includes('Too many requests') || result.error?.includes('rate limit')) {
             toastManager.error('Muitas tentativas. Tente novamente em alguns minutos.');
           } else if (result.error?.includes('FetchError') || result.error?.includes('AbortError') || result.error?.includes('Failed to fetch')) {

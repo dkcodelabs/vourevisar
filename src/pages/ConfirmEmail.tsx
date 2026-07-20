@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toastGate } from '@/lib/errors/toastGate';
-import { toast } from '@/lib/toast'; // Keep toast for success messages
-import { motion } from 'framer-motion';
-import { Mail, CheckCircle, RefreshCw, ArrowLeft } from 'lucide-react'; // Keep CheckCircle and ArrowLeft
+import { toast } from '@/lib/toast';
+import { Mail, RefreshCw, ArrowLeft } from 'lucide-react';
 import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton } from '@/components/ui';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 import { getAuthCallbackUrl } from '@/utils/authRedirect';
 
 type ResendFeedback = {
@@ -22,9 +20,9 @@ const ConfirmEmail = () => {
   const [email, setEmail] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [isConfirmed, setIsConfirmed] = useState(false);
   const [resendFeedback, setResendFeedback] = useState<ResendFeedback | null>(null);
   const confirmationStatus = searchParams.get('status');
+  const isAwaitingConfirmation = confirmationStatus === 'unconfirmed';
   const isLinkExpired = confirmationStatus === 'expired';
   const hasConfirmationError = confirmationStatus === 'expired' || confirmationStatus === 'error';
 
@@ -40,49 +38,7 @@ const ConfirmEmail = () => {
       }
     }
 
-    const checkExistingSession = async () => {
-      if (hasConfirmationError) {
-        // An auth-link error must never leave an older session available behind
-        // the login action on this page.
-        await supabase.auth.signOut();
-        return;
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session?.user) return;
-
-      if (isEmailConfirmationPending(session.user)) {
-        await supabase.auth.signOut();
-        return;
-      }
-
-      setIsConfirmed(true);
-      localStorage.removeItem('pendingConfirmationEmail');
-      toast.success('Email confirmado com sucesso!');
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 2000);
-    };
-
-    checkExistingSession();
-
-    if (hasConfirmationError) return;
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user && !isEmailConfirmationPending(session.user)) {
-        setIsConfirmed(true);
-        localStorage.removeItem('pendingConfirmationEmail');
-        toast.success('Email confirmado com sucesso!');
-        setTimeout(() => {
-          navigate('/dashboard', { replace: true });
-        }, 2000);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [hasConfirmationError, navigate, searchParams]);
+  }, [searchParams]);
 
   // Cooldown timer
   useEffect(() => {
@@ -148,37 +104,6 @@ const ConfirmEmail = () => {
     }
   };
 
-  if (isConfirmed) {
-    return (
-      <PageContainer>
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <GlassCard className="w-full max-w-md p-8 text-center">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"
-            >
-              <CheckCircle className="w-10 h-10 text-green-600" />
-            </motion.div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Email Confirmado! 🎉
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Redirecionando para o dashboard...
-            </p>
-            <div className="flex flex-col items-center gap-4">
-              <LoadingSpinner size="small" />
-              <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase animate-pulse">
-                Redirecionando...
-              </p>
-            </div>
-          </GlassCard>
-        </div>
-      </PageContainer>
-    );
-  }
-
   return (
     <PageContainer>
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -193,14 +118,18 @@ const ConfirmEmail = () => {
                 ? 'Link de confirmação expirado'
                 : hasConfirmationError
                   ? 'Não foi possível confirmar seu email'
-                  : 'Verifique seu email'}
+                  : isAwaitingConfirmation
+                    ? 'Email ainda não confirmado'
+                    : 'Verifique seu email'}
             </h1>
             <p className="text-content-muted">
               {isLinkExpired
                 ? 'Este link não é mais válido. Solicite um novo email para confirmar seu cadastro.'
                 : hasConfirmationError
                   ? 'O link não pôde ser concluído. Solicite um novo email e use o link mais recente.'
-                : 'Enviamos um link de confirmação para:'}
+                  : isAwaitingConfirmation
+                    ? 'Confirme seu cadastro pelo link enviado anteriormente. Se não encontrar o email, solicite um novo link.'
+                    : 'Enviamos um link de confirmação para:'}
             </p>
             {email && (
               <p className="font-semibold text-foreground mt-2">
@@ -215,7 +144,7 @@ const ConfirmEmail = () => {
               {hasConfirmationError ? 'Como continuar:' : 'Próximos passos:'}
             </h3>
             <ol className="text-sm text-content-muted space-y-2 list-decimal list-inside">
-              {hasConfirmationError ? (
+              {hasConfirmationError || isAwaitingConfirmation ? (
                 <>
                   <li>Clique em reenviar abaixo</li>
                   <li>Abra o email mais recente do vouRevisar</li>
