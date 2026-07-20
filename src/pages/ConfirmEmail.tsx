@@ -97,10 +97,10 @@ const ConfirmEmail = () => {
         return;
       }
 
-      toast.success('Email de confirmação reenviado!');
+      toast.success('Solicitação de confirmação aceita. Verifique seu email.');
       setResendFeedback({
         tone: 'success',
-        message: 'Novo email enviado. Use o link mais recente para confirmar seu cadastro.'
+        message: 'Solicitação aceita. Verifique sua caixa de entrada, spam ou lixo eletrônico. A entrega pode levar alguns minutos.'
       });
       setResendCooldown(60); // 60 second cooldown
       localStorage.setItem('pendingConfirmationCooldownUntil', String(Date.now() + 60_000));
