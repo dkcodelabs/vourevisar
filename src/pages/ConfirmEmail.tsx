@@ -38,6 +38,13 @@ const ConfirmEmail = () => {
       }
     }
 
+    const cooldownUntil = Number(localStorage.getItem('pendingConfirmationCooldownUntil') || 0);
+    const remainingSeconds = Math.ceil((cooldownUntil - Date.now()) / 1000);
+    if (remainingSeconds > 0) {
+      setResendCooldown(remainingSeconds);
+    } else {
+      localStorage.removeItem('pendingConfirmationCooldownUntil');
+    }
   }, [searchParams]);
 
   // Cooldown timer
@@ -46,6 +53,7 @@ const ConfirmEmail = () => {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
       return () => clearTimeout(timer);
     }
+
   }, [resendCooldown]);
 
   const handleResendEmail = async () => {
@@ -67,6 +75,7 @@ const ConfirmEmail = () => {
 
         if (error.status === 429) {
           setResendCooldown(60);
+          localStorage.setItem('pendingConfirmationCooldownUntil', String(Date.now() + 60_000));
           setResendFeedback({
             tone: 'error',
             message: 'O serviço de email está temporariamente limitando novos envios. Aguarde cerca de 1 minuto antes de tentar novamente.'
@@ -94,6 +103,7 @@ const ConfirmEmail = () => {
         message: 'Novo email enviado. Use o link mais recente para confirmar seu cadastro.'
       });
       setResendCooldown(60); // 60 second cooldown
+      localStorage.setItem('pendingConfirmationCooldownUntil', String(Date.now() + 60_000));
     } catch (error) {
       setResendFeedback({
         tone: 'error',

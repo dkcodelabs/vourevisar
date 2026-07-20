@@ -80,6 +80,7 @@ export function useAuthOperations() {
 
       if (confirmationPending) {
         localStorage.setItem('pendingConfirmationEmail', normalizedEmail);
+        localStorage.setItem('pendingConfirmationCooldownUntil', String(Date.now() + 60_000));
       }
 
       toastManager.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
