@@ -43,6 +43,9 @@ const isInvalidServerSessionError = (error: unknown) => {
     || message.includes('jwt') && message.includes('invalid');
 };
 
+const isAuthLockError = (error: unknown) =>
+  error instanceof Error && /lock|acquire/i.test(error.message);
+
 const isEmailConfirmationCallbackSession = (sessionUser: User) => {
   if (typeof window === 'undefined' || window.location.pathname !== '/auth/callback') return false;
 
@@ -74,6 +77,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const isSigningOutRef = useRef(false);
   // Guard for fetchProfile to avoid loop
   const isFetchingProfileRef = useRef(false);
+  // Safari can emit focus and visibility events together during boot. Share a
+  // single session read between those events instead of competing for Auth's
+  // browser lock.
+  const sessionReadInFlightRef = useRef<ReturnType<typeof supabase.auth.getSession> | null>(null);
+  const sessionValidationInFlightRef = useRef(false);
 
   const fetchProfile = useCallback(async (userId: string, authUser?: User | null) => {
     if (isFetchingProfileRef.current) return;
@@ -133,21 +141,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       lastLoginSignature.current = null;
     };
 
-    const validateServerSession = async () => {
-      if (location.pathname === '/auth/callback') return;
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
-
-      const { data: { user: serverUser }, error } = await supabase.auth.getUser();
-      if (error && isInvalidServerSessionError(error)) {
-        await clearInvalidSession();
-        return;
+    const getSessionOnce = async () => {
+      if (sessionReadInFlightRef.current) {
+        return sessionReadInFlightRef.current;
       }
 
-      if (serverUser && isEmailConfirmationPending(serverUser)) {
-        localStorage.setItem('pendingConfirmationEmail', serverUser.email || '');
-        await clearInvalidSession();
+      const request = (async () => {
+        try {
+          return await supabase.auth.getSession();
+        } catch (error) {
+          if (!isAuthLockError(error)) throw error;
+          // A stale Safari lock can survive a page transition. Let the current
+          // owner finish before retrying once, without stealing the lock.
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          return await supabase.auth.getSession();
+        }
+      })();
+
+      sessionReadInFlightRef.current = request;
+      try {
+        return await request;
+      } finally {
+        if (sessionReadInFlightRef.current === request) {
+          sessionReadInFlightRef.current = null;
+        }
+      }
+    };
+
+    const validateServerSession = async () => {
+      if (location.pathname === '/auth/callback') return;
+      if (sessionValidationInFlightRef.current) return;
+      sessionValidationInFlightRef.current = true;
+
+      try {
+        const { data: { session } } = await getSessionOnce();
+        if (!session?.user) return;
+
+        const { data: { user: serverUser }, error } = await supabase.auth.getUser();
+        if (error && isInvalidServerSessionError(error)) {
+          await clearInvalidSession();
+          return;
+        }
+
+        if (serverUser && isEmailConfirmationPending(serverUser)) {
+          localStorage.setItem('pendingConfirmationEmail', serverUser.email || '');
+          await clearInvalidSession();
+        }
+      } finally {
+        sessionValidationInFlightRef.current = false;
       }
     };
 
@@ -226,9 +267,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Verificar se há sessão existente
     const checkSession = async () => {
+      if (sessionValidationInFlightRef.current) return;
+      sessionValidationInFlightRef.current = true;
+
       try {
         const startTime = performance.now();
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await getSessionOnce();
 
         if (error) {
           if (error.message?.includes('FetchError') || error.message?.includes('AbortError')) {
@@ -287,6 +331,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           console.error("[AuthContext] Erro ao verificar sessão:", error);
         }
       } finally {
+        sessionValidationInFlightRef.current = false;
         if (isMounted) {
           setLoading(false);
         }
