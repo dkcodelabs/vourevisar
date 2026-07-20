@@ -188,36 +188,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     // Configurar listener para mudanças de estado primeiro
+    const deferredAuthStateTimers = new Set<ReturnType<typeof setTimeout>>();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!isMounted) return;
 
-        if (session?.user && isEmailConfirmationPending(session.user)) {
-          localStorage.setItem('pendingConfirmationEmail', session.user.email || '');
-          await supabase.auth.signOut();
-          setUser(null);
-          setProfile(null);
-          lastLoginSignature.current = null;
-          if (isMounted) {
-            setLoading(false);
-          }
-          return;
-        }
+        // Supabase explicitly warns against awaiting Supabase calls inside this
+        // callback: it owns the auth lock while dispatching the event. Defer all
+        // profile, sign-out and logging work until the callback has returned.
+        const timer = setTimeout(async () => {
+          deferredAuthStateTimers.delete(timer);
+          if (!isMounted) return;
 
-        if (session?.user) {
-          // A deleted/orphaned profile can still produce a valid Supabase auth
-          // session. Validate ownership before exposing the session to the app
-          // or recording LOGIN_SUCCESS, otherwise admin access metrics become
-          // incorrect and the user briefly appears authenticated.
-          const { data: profileRow, error: profileLookupError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', session.user.id)
-            .maybeSingle();
-
-          if (!profileLookupError && !profileRow) {
-            console.warn('[AuthContext] Sessão sem perfil; encerrando sessão local antes de registrar acesso.');
-            await supabase.auth.signOut({ scope: 'local' });
+          if (session?.user && isEmailConfirmationPending(session.user)) {
+            localStorage.setItem('pendingConfirmationEmail', session.user.email || '');
+            await supabase.auth.signOut();
             setUser(null);
             setProfile(null);
             lastLoginSignature.current = null;
@@ -225,38 +210,59 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             return;
           }
 
-          setUser(session.user);
+          if (session?.user) {
+            // A deleted/orphaned profile can still produce a valid Supabase auth
+            // session. Validate ownership before exposing the session to the app
+            // or recording LOGIN_SUCCESS, otherwise admin access metrics become
+            // incorrect and the user briefly appears authenticated.
+            const { data: profileRow, error: profileLookupError } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('id', session.user.id)
+              .maybeSingle();
 
-          // Log LOGIN_SUCCESS only after the profile check succeeds. A network
-          // error must not be converted into a successful access metric.
-          if (!profileLookupError && event === 'SIGNED_IN' && !isEmailConfirmationCallbackSession(session.user)) {
-            const signature = session.access_token?.slice(-16);
-            if (signature && signature !== lastLoginSignature.current) {
-              lastLoginSignature.current = signature;
-              logEvent('LOGIN_SUCCESS', {
-                request_id: crypto.randomUUID(),
-                source: 'auth_signed_in'
-              }, 'web_app', { user: session.user, accessToken: session.access_token });
+            if (!profileLookupError && !profileRow) {
+              console.warn('[AuthContext] Sessão sem perfil; encerrando sessão local antes de registrar acesso.');
+              await supabase.auth.signOut({ scope: 'local' });
+              setUser(null);
+              setProfile(null);
+              lastLoginSignature.current = null;
+              if (isMounted) setLoading(false);
+              return;
             }
-          }
 
-          // Buscar perfil apenas se não estiver já carregando
-          if (!isFetchingProfileRef.current) {
-            setTimeout(() => {
-              if (isMounted) {
-                fetchProfile(session.user.id, session.user);
+            setUser(session.user);
+
+            // Log LOGIN_SUCCESS only after the profile check succeeds. A network
+            // error must not be converted into a successful access metric.
+            if (!profileLookupError && event === 'SIGNED_IN' && !isEmailConfirmationCallbackSession(session.user)) {
+              const signature = session.access_token?.slice(-16);
+              if (signature && signature !== lastLoginSignature.current) {
+                lastLoginSignature.current = signature;
+                logEvent('LOGIN_SUCCESS', {
+                  request_id: crypto.randomUUID(),
+                  source: 'auth_signed_in'
+                }, 'web_app', { user: session.user, accessToken: session.access_token });
               }
-            }, 100);
-          }
-        } else {
-          setUser(null);
-          setProfile(null);
-          lastLoginSignature.current = null; // Reset signature on logout
-        }
+            }
 
-        if (isMounted) {
-          setLoading(false);
-        }
+            if (!isFetchingProfileRef.current) {
+              const profileTimer = setTimeout(() => {
+                deferredAuthStateTimers.delete(profileTimer);
+                if (isMounted) fetchProfile(session.user.id, session.user);
+              }, 100);
+              deferredAuthStateTimers.add(profileTimer);
+            }
+          } else {
+            setUser(null);
+            setProfile(null);
+            lastLoginSignature.current = null;
+          }
+
+          if (isMounted) setLoading(false);
+        }, 0);
+
+        deferredAuthStateTimers.add(timer);
       }
     );
 
@@ -268,6 +274,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
       isMounted = false;
+      deferredAuthStateTimers.forEach(clearTimeout);
+      deferredAuthStateTimers.clear();
       subscription.unsubscribe();
       window.removeEventListener('focus', validateServerSession);
       document.removeEventListener('visibilitychange', validateServerSession);
