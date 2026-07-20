@@ -25,11 +25,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const isInvalidRefreshTokenError = (error: unknown) => {
-  if (!(error instanceof Error)) return false;
-  return error.message.includes('Invalid Refresh Token') || error.message.includes('Refresh Token Not Found');
-};
-
 const isInvalidServerSessionError = (error: unknown) => {
   if (!error || typeof error !== 'object') return false;
 
@@ -265,81 +260,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Verificar se há sessão existente
-    const checkSession = async () => {
-      if (sessionValidationInFlightRef.current) return;
-      sessionValidationInFlightRef.current = true;
-
-      try {
-        const startTime = performance.now();
-        const { data: { session }, error } = await getSessionOnce();
-
-        if (error) {
-          if (error.message?.includes('FetchError') || error.message?.includes('AbortError')) {
-            console.warn("[AuthContext] Latência ou Abort detectado no boot. Aguardando listener...");
-            return;
-          }
-
-          if (isInvalidRefreshTokenError(error)) {
-            clearSupabaseAuthStorage();
-            await supabase.auth.signOut({ scope: 'local' });
-            setUser(null);
-            setProfile(null);
-            lastLoginSignature.current = null;
-            return;
-          }
-
-          throw error;
-        }
-
-        if (session?.user && isEmailConfirmationPending(session.user) && isMounted) {
-          localStorage.setItem('pendingConfirmationEmail', session.user.email || '');
-          await supabase.auth.signOut();
-          setUser(null);
-          setProfile(null);
-          lastLoginSignature.current = null;
-        } else if (session?.user && isMounted) {
-          const { data: { user: serverUser }, error: serverError } = await supabase.auth.getUser();
-          if (serverError && isInvalidServerSessionError(serverError)) {
-            await clearInvalidSession();
-            return;
-          }
-
-          if (!serverUser) {
-            await clearInvalidSession();
-            return;
-          }
-
-          setUser(session.user);
-          if (session.access_token) {
-            lastLoginSignature.current = session.access_token.slice(-16);
-          }
-          await fetchProfile(session.user.id, session.user);
-          const duration = (performance.now() - startTime).toFixed(0);
-          // Silencioso
-        }
-      } catch (error: unknown) {
-        if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted'))) {
-          console.warn("[AuthContext] Chamada de sessão abortada (comum em remounts ou rede instável)");
-        } else if (isInvalidRefreshTokenError(error)) {
-          clearSupabaseAuthStorage();
-          await supabase.auth.signOut({ scope: 'local' });
-          setUser(null);
-          setProfile(null);
-          lastLoginSignature.current = null;
-        } else {
-          console.error("[AuthContext] Erro ao verificar sessão:", error);
-        }
-      } finally {
-        sessionValidationInFlightRef.current = false;
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    checkSession();
-
+    // The auth listener also emits INITIAL_SESSION. It is the single source of
+    // truth for bootstrapping auth; a second getSession here races Supabase's
+    // own initialization when a persisted session is present.
     window.addEventListener('focus', validateServerSession);
     document.addEventListener('visibilitychange', validateServerSession);
 
