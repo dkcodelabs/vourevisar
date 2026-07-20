@@ -112,6 +112,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
+    const isAuthCallback = location.pathname === '/auth/callback';
+
+    // AuthCallback is the sole owner of setSession/exchangeCodeForSession.
+    // Bootstrapping Auth here at the same time makes Supabase's browser lock
+    // race with the callback, especially under React Strict Mode.
+    if (isAuthCallback) {
+      setLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
 
     const clearInvalidSession = async () => {
       clearSupabaseAuthStorage();
@@ -123,6 +134,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const validateServerSession = async () => {
+      if (location.pathname === '/auth/callback') return;
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return;
 
@@ -291,7 +304,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       window.removeEventListener('focus', validateServerSession);
       document.removeEventListener('visibilitychange', validateServerSession);
     };
-  }, [logEvent, fetchProfile]);
+  }, [fetchProfile, location.pathname, logEvent]);
 
   const signUp = useCallback(async (email: string, password: string, name: string, phone?: string) => {
     try {
