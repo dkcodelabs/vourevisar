@@ -66,11 +66,12 @@ const ConfirmEmail = () => {
         const normalizedMessage = error.message.toLowerCase();
 
         if (error.status === 429) {
+          setResendCooldown(60);
           setResendFeedback({
             tone: 'error',
-            message: 'Muitas tentativas. Aguarde alguns minutos antes de pedir outro email.'
+            message: 'O serviço de email está temporariamente limitando novos envios. Aguarde cerca de 1 minuto antes de tentar novamente.'
           });
-          toastGate.notifyError('Muitas tentativas. Aguarde alguns minutos.', 'AUTH-RATE-LIMIT', { severity: 'medium' });
+          toastGate.notifyError('O envio está temporariamente limitado. Aguarde um minuto.', 'AUTH-RATE-LIMIT', { severity: 'medium' });
         } else if (normalizedMessage.includes('already confirmed') || normalizedMessage.includes('already been confirmed')) {
           setResendFeedback({
             tone: 'error',

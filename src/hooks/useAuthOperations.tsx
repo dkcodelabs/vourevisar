@@ -67,6 +67,9 @@ export function useAuthOperations() {
         if (message.includes('already registered') || message.includes('already exists')) {
           throw new Error('Este email já está cadastrado. Por favor, use outro email ou tente fazer login.');
         }
+        if (error.status === 429 || message.includes('rate limit') || message.includes('too many')) {
+          throw new Error('O serviço de email está temporariamente limitando novos envios. Aguarde alguns minutos e tente novamente.');
+        }
         throw error;
       }
 
