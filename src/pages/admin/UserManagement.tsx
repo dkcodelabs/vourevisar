@@ -64,6 +64,7 @@ import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { UserAvatar } from '@/components/ui/UserAvatar';
+import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement';
 
 const UserAiUsageBadge = ({ userId }: { userId: string }) => {
     const [limits, setLimits] = React.useState<{ limit: number; usage: number; plan: string; status: string; has_bypass: boolean } | null>(null);
@@ -82,13 +83,20 @@ const UserAiUsageBadge = ({ userId }: { userId: string }) => {
 
             const { data: subData } = await supabase
                 .from('user_subscriptions')
-                .select('plan, status')
+                .select('plan, status, subscription_ends_at, trial_ends_at, next_billing_date')
                 .eq('user_id', userId)
                 .maybeSingle();
             
-            const sub = subData;
-            const isPaidActive = sub && ['monthly', 'annual'].includes(sub.plan) && sub.status === 'active';
-            const limit = isPaidActive ? 5 : 1;
+            const entitlement = getSubscriptionEntitlement({
+                plan: subData?.plan,
+                status: subData?.status,
+                subscriptionEndsAt: subData?.subscription_ends_at,
+                trialEndsAt: subData?.trial_ends_at,
+                nextBillingAt: subData?.next_billing_date,
+            });
+            const isPaidActive = entitlement.isActive && entitlement.status === 'active';
+            const isTrialActive = entitlement.isActive && entitlement.status === 'trial';
+            const limit = isPaidActive ? (entitlement.plan === 'annual' ? 10 : 5) : isTrialActive ? 1 : 0;
             
             let query = supabase
                 .from('user_editais')
@@ -119,8 +127,8 @@ const UserAiUsageBadge = ({ userId }: { userId: string }) => {
                 setLimits({
                     limit,
                     usage,
-                    plan: isPaidActive ? sub.plan : 'free_trial',
-                    status: isPaidActive ? sub.status : 'trial',
+                    plan: isPaidActive ? entitlement.plan : 'free_trial',
+                    status: isPaidActive ? entitlement.status : isTrialActive ? 'trial' : 'expired',
                     has_bypass: false
                 });
             }
@@ -132,7 +140,22 @@ const UserAiUsageBadge = ({ userId }: { userId: string }) => {
     }, [userId]);
 
     React.useEffect(() => {
-        loadLimits();
+        void loadLimits();
+
+        const refresh = () => {
+            if (!document.hidden) void loadLimits();
+        };
+        window.addEventListener('focus', refresh);
+        document.addEventListener('visibilitychange', refresh);
+        window.addEventListener('editalUpdated', refresh);
+        window.addEventListener('subjectUpdated', refresh);
+
+        return () => {
+            window.removeEventListener('focus', refresh);
+            document.removeEventListener('visibilitychange', refresh);
+            window.removeEventListener('editalUpdated', refresh);
+            window.removeEventListener('subjectUpdated', refresh);
+        };
     }, [loadLimits]);
 
     const handleResetQuota = async (e: React.MouseEvent) => {

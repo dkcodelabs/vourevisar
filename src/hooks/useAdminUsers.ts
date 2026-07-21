@@ -105,7 +105,18 @@ export function useAdminUsers() {
     }, []);
 
     useEffect(() => {
-        fetchUsers();
+        void fetchUsers();
+
+        const refresh = () => {
+            if (!document.hidden) void fetchUsers();
+        };
+
+        window.addEventListener('focus', refresh);
+        document.addEventListener('visibilitychange', refresh);
+        return () => {
+            window.removeEventListener('focus', refresh);
+            document.removeEventListener('visibilitychange', refresh);
+        };
     }, [fetchUsers]);
 
     return { users, loading, error, refetch: fetchUsers };
