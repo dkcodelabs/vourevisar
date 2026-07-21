@@ -56,6 +56,8 @@ const renderConfirmEmail = (entry = '/confirm-email?email=aluno@example.com') =>
 describe('ConfirmEmail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    functions.invoke.mockReset();
+    functions.invoke.mockResolvedValue({ data: { status: 'pending' }, error: null });
     localStorage.clear();
     auth.getUser.mockResolvedValue({ data: { user: null }, error: { message: 'Auth session missing' } });
     auth.resend.mockResolvedValue({ error: null });
@@ -89,6 +91,20 @@ describe('ConfirmEmail', () => {
     fireEvent.click(await screen.findByRole('button', { name: /reenviar email de confirmação/i }));
 
     expect(await screen.findByText(/este email já foi confirmado/i)).toBeInTheDocument();
+    expect(auth.resend).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia o reenvio quando o servidor confirma antes do polling', async () => {
+    functions.invoke.mockReset();
+    functions.invoke
+      .mockResolvedValueOnce({ data: { status: 'pending' }, error: null })
+      .mockResolvedValueOnce({ data: { status: 'pending' }, error: null })
+      .mockResolvedValueOnce({ data: { status: 'confirmed' }, error: null });
+
+    renderConfirmEmail();
+    fireEvent.click(await screen.findByRole('button', { name: /reenviar email de confirmação/i }));
+
+    expect(await screen.findByText('Tela de login')).toBeInTheDocument();
     expect(auth.resend).not.toHaveBeenCalled();
   });
 

@@ -143,6 +143,19 @@ const ConfirmEmail = () => {
 
       const attemptId = confirmationAttemptId || await ensureEmailConfirmationAttempt();
       setConfirmationAttemptId(attemptId);
+      const confirmationStatus = await getEmailConfirmationAttemptStatus(attemptId);
+      if (confirmationStatus === 'confirmed') {
+        localStorage.setItem('confirmedEmail', email);
+        localStorage.removeItem('pendingConfirmationCooldownUntil');
+        setResendFeedback({
+          tone: 'error',
+          message: 'Este email já foi confirmado. Volte ao login e entre com sua senha.'
+        });
+        toastGate.notifyError('Este email já foi confirmado. Entre pelo login.', 'AUTH-ALREADY-CONFIRMED', { severity: 'low' });
+        navigate('/login?confirmed=1', { replace: true });
+        return;
+      }
+
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
