@@ -1570,8 +1570,7 @@ serve(async (req) => {
               .from("user_editais")
               .select("*", { count: "exact", head: true })
               .eq("user_id", userId)
-              .eq("is_imported", true)
-              .is("source_id", null)
+              .eq("ai_extraction_used", true)
               .gte("created_at", firstDayStr);
 
             if (!countError && count !== null) {
@@ -1583,8 +1582,7 @@ serve(async (req) => {
               .from("user_editais")
               .select("*", { count: "exact", head: true })
               .eq("user_id", userId)
-              .eq("is_imported", true)
-              .is("source_id", null);
+              .eq("ai_extraction_used", true);
 
             if (!countError && count !== null) {
               userUsage = count;
@@ -1595,8 +1593,7 @@ serve(async (req) => {
               .from("user_editais")
               .select("*", { count: "exact", head: true })
               .eq("user_id", userId)
-              .eq("is_imported", true)
-              .is("source_id", null);
+              .eq("ai_extraction_used", true);
 
             if (!countError && count !== null) {
               userUsage = count;

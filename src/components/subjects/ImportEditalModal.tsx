@@ -161,7 +161,7 @@ type DocumentPayload = {
 interface ImportEditalModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string, extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; exam_board?: string | null; source_updated_at?: string | null }) => Promise<void> | void;
+    onImport: (subjects: Subject[], editalName?: string, isImported?: boolean, sourceId?: string, extraInfo?: { organ: string; position: string; year: string; category?: string; exam_date?: string; exam_board?: string | null; source_updated_at?: string | null }, aiExtractionUsed?: boolean) => Promise<void> | void;
     subjects: Subject[];
     userEditais?: UserEdital[];
     initialTab?: 'ready' | 'ia' | 'manual';
@@ -388,8 +388,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         .from('user_editais')
                         .select('id', { count: 'exact', head: true })
                         .eq('user_id', user.id)
-                        .eq('is_imported', true)
-                        .is('source_id', null);
+                        .eq('ai_extraction_used', true);
                     totalUsage = totalCount || 0;
                 }
 
@@ -427,8 +426,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     .from('user_editais')
                     .select('id', { count: 'exact', head: true })
                     .eq('user_id', user.id)
-                    .eq('is_imported', true)
-                    .is('source_id', null);
+                    .eq('ai_extraction_used', true);
 
                 const { count } = await query;
                 const usage = count || 0;
@@ -451,8 +449,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 .from('user_editais')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
-                .eq('is_imported', true)
-                .is('source_id', null);
+                .eq('ai_extraction_used', true);
 
             const { data: subData } = await supabase
                 .from('user_subscriptions')
@@ -2028,7 +2025,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             }
             
             const extraInfo = { organ: iaOrigin, position: iaPosition || selectedCargoName, year: iaYear, exam_date: examDate, exam_board: iaBanca.trim() || analysisResult.edital.banca || null };
-            await onImport(newSubjects, finalName, true, undefined, extraInfo);
+            await onImport(newSubjects, finalName, true, undefined, extraInfo, true);
             await discardPendingExtractionData();
             onClose();
         } catch (error) {

@@ -61,17 +61,17 @@ export const EditalCard = ({
             className: 'border-warning/20 bg-warning/10 text-warning',
             icon: AlertTriangle
         }
-        : edital.sourceId
+        : edital.aiExtractionUsed
             ? {
-                label: 'Cópia • Catálogo',
-                className: 'border-primary/20 bg-primary/10 text-primary',
-                icon: Database
+                label: edital.sourceId ? 'Cópia + IA' : 'Cópia • IA',
+                className: 'border-incidence/20 bg-incidence/10 text-incidence',
+                icon: Sparkles
             }
-            : edital.isImported
+            : edital.sourceId
                 ? {
-                    label: 'Cópia • IA',
-                    className: 'border-incidence/20 bg-incidence/10 text-incidence',
-                    icon: Sparkles
+                    label: 'Cópia • Catálogo',
+                    className: 'border-primary/20 bg-primary/10 text-primary',
+                    icon: Database
                 }
                 : {
                     label: 'Manual',

@@ -43,6 +43,7 @@ describe('importEdital', () => {
     });
 
     expect(repository.createEdital).toHaveBeenCalledWith(expect.objectContaining({
+      ai_extraction_used: false,
       exam_board: 'CEBRASPE',
       exam_date: '2026-09-20',
       name: 'TRF 2026',
@@ -63,6 +64,25 @@ describe('importEdital', () => {
     })]);
     expect(repository.updateEditalSubjectIds).toHaveBeenCalledWith('edital-1', ['subject-1']);
     expect(result).toEqual({ editalId: 'edital-1', subjectIds: ['subject-1'] });
+  });
+
+  it('persists IA usage separately from the edital import origin', async () => {
+    const repository = createRepository();
+
+    await importEdital({
+      aiExtractionUsed: true,
+      editalName: 'Edital extraído',
+      isImported: true,
+      repository,
+      sourceId: 'catalog-1',
+      subjects: [subject],
+      userId: 'user-1',
+    });
+
+    expect(repository.createEdital).toHaveBeenCalledWith(expect.objectContaining({
+      ai_extraction_used: true,
+      source_id: 'catalog-1',
+    }));
   });
 
   it('removes the incomplete edital when importing a subject fails', async () => {

@@ -79,6 +79,7 @@ export interface UserEdital {
     createdAt: string;
     updatedAt: string;
     isImported: boolean;
+    aiExtractionUsed?: boolean;
     sourceId?: string;
     lastSyncSnapshot?: {
         source_id?: string;
@@ -222,6 +223,7 @@ const rowToEdital = (row: Record<string, unknown>): UserEdital => ({
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     isImported: row.is_imported as boolean,
+    aiExtractionUsed: row.ai_extraction_used as boolean,
     sourceId: (row.source_id as string) || undefined,
     lastSyncSnapshot: (row.last_sync_snapshot as UserEdital['lastSyncSnapshot']) || null,
     subjectIds: (row.subject_ids as string[]) || [],
@@ -1879,7 +1881,8 @@ const Editais = () => {
         editalName?: string,
         isImported: boolean = false,
         sourceId?: string,
-        extraInfo?: EditalImportExtraInfo
+        extraInfo?: EditalImportExtraInfo,
+        aiExtractionUsed = false
     ) => {
         if (!user) {
             throw new Error('Usuário não autenticado para importar edital.');
@@ -1894,6 +1897,7 @@ const Editais = () => {
             const finalName = editalName?.trim() || 'Novo Edital';
             const { editalId, subjectIds: realSubjectIds } = await importEdital({
                 editalName: finalName,
+                aiExtractionUsed,
                 extraInfo,
                 isImported,
                 sourceId,

@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       active_study_timers: {
@@ -2378,6 +2403,7 @@ export type Database = {
       user_editais: {
         Row: {
           active_subject_ids: string[] | null
+          ai_extraction_used: boolean
           category: string | null
           created_at: string
           cycle_archived_at: string | null
@@ -2399,6 +2425,7 @@ export type Database = {
         }
         Insert: {
           active_subject_ids?: string[] | null
+          ai_extraction_used?: boolean
           category?: string | null
           created_at?: string
           cycle_archived_at?: string | null
@@ -2420,6 +2447,7 @@ export type Database = {
         }
         Update: {
           active_subject_ids?: string[] | null
+          ai_extraction_used?: boolean
           category?: string | null
           created_at?: string
           cycle_archived_at?: string | null
@@ -2852,6 +2880,10 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: undefined
       }
+      admin_rpc_dispatch: {
+        Args: { p_action: string; p_actor_user_id?: string; p_args?: Json }
+        Returns: Json
+      }
       assign_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2870,18 +2902,32 @@ export type Database = {
         Args: { p_edital_id: string; p_user_id: string }
         Returns: Json
       }
-      atomic_cycle_load: {
-        Args: {
-          p_cycle_name?: string
-          p_exam_date?: string
-          p_mode: string
-          p_new_edital_id: string
-          p_new_subject_ids: string[]
-          p_old_edital_ids: string[]
-          p_user_id: string
-        }
-        Returns: Json
-      }
+      atomic_cycle_load:
+        | {
+            Args: {
+              p_cycle_name?: string
+              p_exam_date?: string
+              p_mode: string
+              p_new_edital_id: string
+              p_new_subject_ids: string[]
+              p_old_edital_ids: string[]
+              p_user_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_cycle_name?: string
+              p_exam_date?: string
+              p_mode: string
+              p_new_edital_id: string
+              p_new_subject_ids: string[]
+              p_old_edital_ids: string[]
+              p_reset_cycle_state?: boolean
+              p_user_id: string
+            }
+            Returns: Json
+          }
       atomic_cycle_unload_or_delete: {
         Args: { p_edital_id: string; p_user_id: string }
         Returns: Json
@@ -3208,8 +3254,16 @@ export type Database = {
         Returns: boolean
       }
       reset_daily_progress: { Args: never; Returns: undefined }
-      revert_subject_merge: { Args: { merge_id: string }; Returns: undefined }
-      revert_topic_merge: { Args: { merge_id: string }; Returns: undefined }
+      reset_edital_study_progress: {
+        Args: { p_edital_id: string; p_user_id: string }
+        Returns: Json
+      }
+      revert_subject_merge:
+        | { Args: { merge_id: string }; Returns: undefined }
+        | { Args: { p_merge_id: string; p_user_id: string }; Returns: Json }
+      revert_topic_merge:
+        | { Args: { merge_id: string }; Returns: undefined }
+        | { Args: { p_merge_id: string; p_user_id: string }; Returns: Json }
       set_user_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3249,6 +3303,10 @@ export type Database = {
           target_sub_id?: string
           target_user_id: string
         }
+        Returns: Json
+      }
+      user_rpc_dispatch: {
+        Args: { p_action: string; p_actor_user_id?: string; p_args?: Json }
         Returns: Json
       }
       validate_coupon: { Args: { target_coupon_code: string }; Returns: Json }
@@ -3387,6 +3445,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["owner", "admin", "moderator", "user"],

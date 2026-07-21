@@ -78,6 +78,7 @@ const repository: EditalImportRepository = {
 };
 
 type ImportEditalInput = {
+  aiExtractionUsed?: boolean;
   editalName?: string;
   extraInfo?: EditalImportExtraInfo;
   isImported?: boolean;
@@ -88,6 +89,7 @@ type ImportEditalInput = {
 };
 
 export async function importEdital({
+  aiExtractionUsed = false,
   editalName,
   extraInfo,
   isImported = true,
@@ -102,6 +104,7 @@ export async function importEdital({
   try {
     const edital = await importRepository.createEdital({
       active_subject_ids: [],
+      ai_extraction_used: aiExtractionUsed,
       category: extraInfo?.category?.trim() || null,
       exam_board: extraInfo?.exam_board?.trim() || null,
       exam_date: sanitizeExamDate(extraInfo?.exam_date),
