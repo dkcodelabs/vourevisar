@@ -2148,19 +2148,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     const getAiUsageSummary = () => {
         if (activeTab !== 'ia') return null;
-        if (loadingAiLimits) return 'IA: verificando uso';
-        if (!aiLimits) return 'IA: uso indisponível';
+        if (loadingAiLimits) return 'IA · verificando';
+        if (!aiLimits) return 'IA · indisponível';
 
         if (aiLimits.has_bypass) {
-            const totalText = typeof aiLimits.total_usage === 'number'
-                ? ` · ${aiLimits.total_usage} total`
-                : '';
-            return `IA: ilimitado · ${aiLimits.usage} mês${totalText}`;
+            return 'IA · ilimitada';
         }
 
         const remaining = aiLimits.remaining ?? Math.max(aiLimits.limit - aiLimits.usage, 0);
-        if (!aiLimits.can_import) return `IA: limite atingido · ${aiLimits.usage}/${aiLimits.limit}`;
-        return `IA: ${remaining} restante${remaining === 1 ? '' : 's'} · ${aiLimits.usage}/${aiLimits.limit}`;
+        if (!aiLimits.can_import) return `IA · ${aiLimits.usage}/${aiLimits.limit}`;
+        return `IA · ${remaining} restante${remaining === 1 ? '' : 's'}`;
     };
 
     const aiUsageSummary = getAiUsageSummary();
@@ -2198,7 +2195,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         ? 'Importar com IA'
                                         : 'Criar Manualmente'}
                         </h2>
-                        <p className="text-[11px] text-content-muted font-medium italic hidden md:block">
+                        <p className="text-[11px] text-content-muted font-medium italic hidden xl:block max-w-[360px] truncate">
                             {activeTab === 'ready'
                                 ? 'Milhares de concursos já organizados pela nossa equipe.'
                                 : activeTab === 'ia' && iaStage === 'review'
@@ -2211,13 +2208,13 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     {!inlineMode && (
                         <div className="flex items-center gap-2">
                             {aiUsageSummary && (
-                                <div className="hidden sm:flex h-8 items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 px-3 text-[10px] font-black uppercase tracking-[0.08em] text-primary">
+                                <div className="hidden sm:flex h-8 max-w-[132px] items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 px-3 text-[10px] font-black uppercase tracking-[0.08em] text-primary">
                                     {loadingAiLimits ? (
                                         <Loader2 size={12} className="animate-spin" />
                                     ) : (
                                         <Sparkles size={12} />
                                     )}
-                                    <span>{aiUsageSummary}</span>
+                                    <span className="truncate whitespace-nowrap">{aiUsageSummary}</span>
                                 </div>
                             )}
                             {activeTab === 'ia' && iaStage === 'review' && pendingExtraction && (

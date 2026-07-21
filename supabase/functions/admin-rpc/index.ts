@@ -18,6 +18,7 @@ const ALLOWED_ACTIONS = new Set([
   "deactivate_subscription",
   "get_all_user_roles_admin",
   "get_auth_user_statuses",
+  "get_user_ai_limits_admin",
   "get_audit_logs",
   "get_users_by_edital_source",
   "remove_user_role_admin",
@@ -128,6 +129,17 @@ serve(async (req: Request) => {
       }
 
       return json({ data: users });
+    }
+
+    if (action === "get_user_ai_limits_admin") {
+      const targetUserId = typeof args.target_user_id === "string" ? args.target_user_id : null;
+      if (!targetUserId) return json({ error: "Usuario alvo obrigatorio" }, 400);
+
+      const { data, error } = await supabase.rpc("get_user_ai_limits", {
+        p_user_id: targetUserId,
+      });
+      if (error) return json({ error: error.message, code: error.code }, 400);
+      return json({ data });
     }
 
     const { data, error } = await supabase.rpc("admin_rpc_dispatch", {

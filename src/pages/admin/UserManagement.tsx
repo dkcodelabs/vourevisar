@@ -64,73 +64,27 @@ import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { UserAvatar } from '@/components/ui/UserAvatar';
-import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement';
+
+type AdminAiLimits = {
+    limit: number;
+    usage: number;
+    plan: string;
+    status: string;
+    has_bypass: boolean;
+};
 
 const UserAiUsageBadge = ({ userId }: { userId: string }) => {
-    const [limits, setLimits] = React.useState<{ limit: number; usage: number; plan: string; status: string; has_bypass: boolean } | null>(null);
+    const [limits, setLimits] = React.useState<AdminAiLimits | null>(null);
     const [loading, setLoading] = React.useState(false);
 
     const loadLimits = React.useCallback(async () => {
         setLoading(true);
         try {
-            // Usa apenas a lógica de fallback (RPC 'get_user_ai_limits' removido para evitar erros 404 no console)
-            const { data: rolesData } = await supabase
-                .from('user_roles')
-                .select('role')
-                .eq('user_id', userId);
-
-            const isOwnerOrAdmin = (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin'));
-
-            const { data: subData } = await supabase
-                .from('user_subscriptions')
-                .select('plan, status, subscription_ends_at, trial_ends_at, next_billing_date')
-                .eq('user_id', userId)
-                .maybeSingle();
-            
-            const entitlement = getSubscriptionEntitlement({
-                plan: subData?.plan,
-                status: subData?.status,
-                subscriptionEndsAt: subData?.subscription_ends_at,
-                trialEndsAt: subData?.trial_ends_at,
-                nextBillingAt: subData?.next_billing_date,
+            const parsed = await invokeAdminRpc<AdminAiLimits | null>('get_user_ai_limits_admin', {
+                target_user_id: userId,
             });
-            const isPaidActive = entitlement.isActive && entitlement.status === 'active';
-            const isTrialActive = entitlement.isActive && entitlement.status === 'trial';
-            const limit = isPaidActive ? (entitlement.plan === 'annual' ? 10 : 5) : isTrialActive ? 1 : 0;
-            
-            let query = supabase
-                .from('user_editais')
-                .select('id', { count: 'exact', head: true })
-                .eq('user_id', userId)
-                .eq('ai_extraction_used', true);
-            
-            if (isPaidActive && !isOwnerOrAdmin) {
-                const firstDayOfMonth = new Date();
-                firstDayOfMonth.setDate(1);
-                firstDayOfMonth.setHours(0, 0, 0, 0);
-                query = query.gte('created_at', firstDayOfMonth.toISOString());
-            }
-            
-            const { count, error: countError } = await query;
-            const usage = countError ? 0 : (count || 0);
-
-            if (isOwnerOrAdmin) {
-                setLimits({
-                    limit: -1,
-                    usage,
-                    plan: 'admin',
-                    status: 'active',
-                    has_bypass: true
-                });
-            } else {
-                setLimits({
-                    limit,
-                    usage,
-                    plan: isPaidActive ? entitlement.plan : 'free_trial',
-                    status: isPaidActive ? entitlement.status : isTrialActive ? 'trial' : 'expired',
-                    has_bypass: false
-                });
-            }
+            if (!parsed) throw new Error('Limite de IA não retornado pelo servidor.');
+            setLimits(parsed);
         } catch (err) {
             console.error("Erro ao carregar limites IA do usuário:", err);
         } finally {
