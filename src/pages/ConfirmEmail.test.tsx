@@ -7,9 +7,12 @@ const auth = vi.hoisted(() => ({
   getUser: vi.fn(),
   resend: vi.fn(),
 }));
+const functions = vi.hoisted(() => ({
+  invoke: vi.fn().mockResolvedValue({ data: { status: 'pending' }, error: null }),
+}));
 
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { auth },
+  supabase: { auth, functions },
 }));
 
 vi.mock('@/lib/errors/toastGate', () => ({

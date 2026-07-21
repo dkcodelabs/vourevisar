@@ -9,6 +9,7 @@ import {
   isEmailConfirmationPending,
 } from '@/utils/authConfirmation';
 import { getAuthCallbackUrl } from '@/utils/authRedirect';
+import { createEmailConfirmationAttempt } from '@/services/emailConfirmationAttemptService';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -48,6 +49,7 @@ export function useAuthOperations() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
       console.log('Attempting to sign up user:', normalizedEmail);
+      const confirmationAttemptId = await createEmailConfirmationAttempt();
 
       const { error, data } = await supabase.auth.signUp({
         email: normalizedEmail,
@@ -58,7 +60,7 @@ export function useAuthOperations() {
             phone,
             provider_type: 'Cadastro'
           },
-          emailRedirectTo: getAuthCallbackUrl(),
+          emailRedirectTo: getAuthCallbackUrl(confirmationAttemptId),
         }
       });
 
@@ -80,6 +82,7 @@ export function useAuthOperations() {
 
       if (confirmationPending) {
         localStorage.setItem('pendingConfirmationEmail', normalizedEmail);
+        localStorage.setItem('pendingConfirmationAttemptId', confirmationAttemptId);
         localStorage.setItem('pendingConfirmationCooldownUntil', String(Date.now() + 60_000));
       }
 

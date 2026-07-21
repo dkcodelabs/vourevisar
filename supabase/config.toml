@@ -10,6 +10,8 @@ enable_confirmations = true
 
 [functions.send-auth-email]
 verify_jwt = false
+[functions.email-confirmation-status]
+verify_jwt = false
 [functions.asaas-account]
 verify_jwt = true
 [functions.process-topic-incidence]
