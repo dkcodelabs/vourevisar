@@ -11,6 +11,7 @@ import { toastGate } from '@/lib/errors/toastGate';
 import { errorService } from '@/lib/errors/errorService';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeUserRpc } from '@/services/userRpcService';
+import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { mergeRecoveredCesgranrioBasicSubjects, recoverCesgranrioBasicSubjects } from '@/utils/cesgranrioContentStructure';
 import { detectCargoOptionsFromEditalText, type DetectedCargoOption } from '@/utils/editalCargoDetector';
@@ -455,16 +456,20 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             const { data: subData } = await supabase
                 .from('user_subscriptions')
-                .select('plan, status, subscription_ends_at, trial_ends_at')
+                .select('plan, status, subscription_ends_at, trial_ends_at, next_billing_date')
                 .eq('user_id', user.id)
                 .maybeSingle();
             
-            const sub = subData;
-            const subEnd = sub?.subscription_ends_at ? new Date(sub.subscription_ends_at) : null;
-            const trialEnd = sub?.trial_ends_at ? new Date(sub.trial_ends_at) : null;
-            const isPaidActive = sub && ['monthly', 'annual'].includes(sub.plan) && sub.status === 'active' && (!subEnd || subEnd > new Date());
-            const isTrialActive = sub?.plan === 'free_trial' && sub?.status === 'trial' && trialEnd && trialEnd > new Date();
-            const limit = isPaidActive ? (sub.plan === 'annual' ? 10 : 5) : isTrialActive ? 1 : 0;
+            const entitlement = getSubscriptionEntitlement({
+                plan: subData?.plan,
+                status: subData?.status,
+                trialEndsAt: subData?.trial_ends_at,
+                subscriptionEndsAt: subData?.subscription_ends_at,
+                nextBillingAt: subData?.next_billing_date,
+            });
+            const isPaidActive = entitlement.isActive && entitlement.status === 'active';
+            const isTrialActive = entitlement.isActive && entitlement.status === 'trial';
+            const limit = isPaidActive ? (entitlement.plan === 'annual' ? 10 : 5) : isTrialActive ? 1 : 0;
             
             if (isPaidActive && !isOwnerOrAdmin) {
                 const firstDayOfMonth = new Date();
@@ -488,8 +493,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 });
             } else {
                 setAiLimits({
-                    plan: isPaidActive ? sub.plan : 'free_trial',
-                    status: isPaidActive ? sub.status : isTrialActive ? 'trial' : 'expired',
+                    plan: isPaidActive ? entitlement.plan : 'free_trial',
+                    status: isPaidActive ? entitlement.status : isTrialActive ? 'trial' : 'expired',
                     limit: limit,
                     usage: usage,
                     remaining: Math.max(limit - usage, 0),
