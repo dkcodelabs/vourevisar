@@ -44,7 +44,6 @@ const Login = () => {
     const confirmedEmail = localStorage.getItem('confirmedEmail');
     if (emailConfirmed && confirmedEmail) {
       setEmail(confirmedEmail);
-      localStorage.removeItem('confirmedEmail');
     }
   }, [emailConfirmed]);
 
@@ -154,6 +153,10 @@ const Login = () => {
             toastManager.error('Erro ao fazer login. Tente novamente.');
           }
           setIsLoading(false);
+        } else {
+          // Keep this marker available long enough for an older confirmation
+          // tab to redirect, then consume it after the login is accepted.
+          localStorage.removeItem('confirmedEmail');
         }
       }
     } catch (error: unknown) {

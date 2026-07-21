@@ -8,6 +8,7 @@ import PageContainer from '@/components/layout/PageContainer';
 import { GlassCard, GradientButton } from '@/components/ui';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getAuthCallbackUrl } from '@/utils/authRedirect';
+import { hasConfirmedEmail } from '@/utils/authConfirmation';
 
 type ResendFeedback = {
   tone: 'success' | 'error';
@@ -81,6 +82,21 @@ const ConfirmEmail = () => {
     setIsResending(true);
     setResendFeedback(null);
     try {
+      // A confirmation opened in another tab can leave this screen mounted.
+      // Check the local Supabase session before asking the provider to resend;
+      // the provider may intentionally return a generic success for confirmed
+      // emails to avoid revealing account state.
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (!userError && userData.user && hasConfirmedEmail(userData.user)) {
+        localStorage.removeItem('pendingConfirmationCooldownUntil');
+        setResendFeedback({
+          tone: 'error',
+          message: 'Este email já foi confirmado. Volte ao login e entre com sua senha.'
+        });
+        toastGate.notifyError('Este email já foi confirmado. Entre pelo login.', 'AUTH-ALREADY-CONFIRMED', { severity: 'low' });
+        return;
+      }
+
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
