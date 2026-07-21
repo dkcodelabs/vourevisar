@@ -5,7 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { isEmailConfirmationPending } from '@/utils/authConfirmation';
-import { markEmailConfirmationAttemptConfirmed } from '@/services/emailConfirmationAttemptService';
 
 export function AuthCallback() {
   const [loading, setLoading] = useState(true);
@@ -22,9 +21,6 @@ export function AuthCallback() {
         const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
         const authCode = urlParams.get('code');
         const type = urlParams.get('type') || hashParams.get('type');
-        const confirmationAttemptId = urlParams.get('confirmation_attempt')
-          || hashParams.get('confirmation_attempt')
-          || localStorage.getItem('pendingConfirmationAttemptId');
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         const pendingConfirmationEmail = localStorage.getItem('pendingConfirmationEmail')?.toLowerCase();
@@ -62,11 +58,6 @@ export function AuthCallback() {
           if (isSignupConfirmation) {
             if (sessionData.session.user.email) {
               localStorage.setItem('confirmedEmail', sessionData.session.user.email);
-            }
-            if (confirmationAttemptId) {
-              await markEmailConfirmationAttemptConfirmed(confirmationAttemptId).catch((error) => {
-                console.error('AuthCallback: nao foi possivel atualizar o estado da confirmacao:', error);
-              });
             }
             await supabase.auth.signOut();
             setRedirectPath('/login?confirmed=1');
@@ -127,11 +118,6 @@ export function AuthCallback() {
             || Boolean(pendingConfirmationEmail && exchangedUserEmail === pendingConfirmationEmail);
 
           if (isSignupConfirmation) {
-            if (confirmationAttemptId) {
-              await markEmailConfirmationAttemptConfirmed(confirmationAttemptId).catch((error) => {
-                console.error('AuthCallback: nao foi possivel atualizar o estado da confirmacao:', error);
-              });
-            }
             await supabase.auth.signOut();
             setRedirectPath('/login?confirmed=1');
           } else {

@@ -9,10 +9,6 @@ import { GlassCard, GradientButton } from '@/components/ui';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getAuthCallbackUrl } from '@/utils/authRedirect';
 import { hasConfirmedEmail } from '@/utils/authConfirmation';
-import {
-  ensureEmailConfirmationAttempt,
-  getEmailConfirmationAttemptStatus,
-} from '@/services/emailConfirmationAttemptService';
 
 type ResendFeedback = {
   tone: 'success' | 'error';
@@ -26,7 +22,6 @@ const ConfirmEmail = () => {
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendFeedback, setResendFeedback] = useState<ResendFeedback | null>(null);
-  const [confirmationAttemptId, setConfirmationAttemptId] = useState<string | null>(null);
   const confirmationStatus = searchParams.get('status');
   const isAwaitingConfirmation = confirmationStatus === 'unconfirmed';
   const isLinkExpired = confirmationStatus === 'expired';
@@ -57,46 +52,7 @@ const ConfirmEmail = () => {
     } else {
       localStorage.removeItem('pendingConfirmationCooldownUntil');
     }
-
-    if (resolvedEmail) {
-      let cancelled = false;
-      const initializeConfirmationAttempt = async () => {
-        try {
-          const attemptId = await ensureEmailConfirmationAttempt();
-          if (cancelled) return;
-          setConfirmationAttemptId(attemptId);
-          const status = await getEmailConfirmationAttemptStatus(attemptId);
-          if (cancelled || status !== 'confirmed') return;
-
-          localStorage.setItem('confirmedEmail', resolvedEmail);
-          localStorage.removeItem('pendingConfirmationCooldownUntil');
-          navigate('/login?confirmed=1', { replace: true });
-        } catch {
-          // The confirmation screen remains usable if the status service is
-          // temporarily unavailable; resend still follows Supabase's flow.
-        }
-      };
-
-      initializeConfirmationAttempt();
-      return () => { cancelled = true; };
-    }
   }, [navigate, searchParams]);
-
-  useEffect(() => {
-    if (!confirmationAttemptId) return;
-
-    const checkConfirmationStatus = async () => {
-      const status = await getEmailConfirmationAttemptStatus(confirmationAttemptId);
-      if (status !== 'confirmed' || !email) return;
-
-      localStorage.setItem('confirmedEmail', email);
-      localStorage.removeItem('pendingConfirmationCooldownUntil');
-      navigate('/login?confirmed=1', { replace: true });
-    };
-
-    const interval = window.setInterval(checkConfirmationStatus, 5000);
-    return () => window.clearInterval(interval);
-  }, [confirmationAttemptId, email, navigate]);
 
   useEffect(() => {
     const handleConfirmationFromAnotherTab = (event: StorageEvent) => {
@@ -141,13 +97,11 @@ const ConfirmEmail = () => {
         return;
       }
 
-      const attemptId = confirmationAttemptId || await ensureEmailConfirmationAttempt();
-      setConfirmationAttemptId(attemptId);
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
         options: {
-          emailRedirectTo: getAuthCallbackUrl(attemptId)
+          emailRedirectTo: getAuthCallbackUrl()
         }
       });
 
