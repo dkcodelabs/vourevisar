@@ -9,4 +9,12 @@ describe('admin subscription mutation safety', () => {
     expect(source).toContain('asaas_subscription_id');
     expect(source).toContain('ASAAS_SUBSCRIPTION_MANAGED_EXTERNALLY');
   });
+
+  it('resets AI quota through the authorized admin action without rewriting edital origin', () => {
+    const source = readFileSync('supabase/functions/admin-rpc/index.ts', 'utf8');
+
+    expect(source).toContain('"reset_user_ai_quota"');
+    expect(source).toContain('ai_quota_reset_at');
+    expect(source).not.toContain('bypass-admin-grant');
+  });
 });

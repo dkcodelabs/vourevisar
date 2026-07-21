@@ -19,6 +19,7 @@ const ALLOWED_ACTIONS = new Set([
   "get_all_user_roles_admin",
   "get_auth_user_statuses",
   "get_user_ai_limits_admin",
+  "reset_user_ai_quota",
   "get_audit_logs",
   "get_users_by_edital_source",
   "remove_user_role_admin",
@@ -139,6 +140,22 @@ serve(async (req: Request) => {
         p_user_id: targetUserId,
       });
       if (error) return json({ error: error.message, code: error.code }, 400);
+      return json({ data });
+    }
+
+    if (action === "reset_user_ai_quota") {
+      const targetUserId = typeof args.target_user_id === "string" ? args.target_user_id : null;
+      if (!targetUserId) return json({ error: "Usuario alvo obrigatorio" }, 400);
+
+      const { data, error } = await supabase
+        .from("user_subscriptions")
+        .update({ ai_quota_reset_at: new Date().toISOString() })
+        .eq("user_id", targetUserId)
+        .select("user_id, ai_quota_reset_at")
+        .maybeSingle();
+
+      if (error) return json({ error: error.message, code: error.code }, 400);
+      if (!data) return json({ error: "Assinatura do usuario nao encontrada" }, 404);
       return json({ data });
     }
 

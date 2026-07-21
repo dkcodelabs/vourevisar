@@ -2783,6 +2783,7 @@ export type Database = {
       }
       user_subscriptions: {
         Row: {
+          ai_quota_reset_at: string | null
           asaas_customer_id: string | null
           asaas_subscription_id: string | null
           billing_type: string | null
@@ -2802,6 +2803,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_quota_reset_at?: string | null
           asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
           billing_type?: string | null
@@ -2821,6 +2823,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_quota_reset_at?: string | null
           asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
           billing_type?: string | null

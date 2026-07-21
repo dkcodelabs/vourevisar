@@ -117,20 +117,9 @@ const UserAiUsageBadge = ({ userId }: { userId: string }) => {
         if (!confirm) return;
 
         try {
-            const firstDayOfMonth = new Date();
-            firstDayOfMonth.setDate(1);
-            firstDayOfMonth.setHours(0, 0, 0, 0);
-            
-            const { error } = await supabase
-                .from('user_editais')
-                .update({ source_id: 'bypass-admin-grant' } as unknown)
-                .eq('user_id', userId)
-                .eq('ai_extraction_used', true)
-                .gte('created_at', firstDayOfMonth.toISOString());
-
-            if (error) throw error;
+            await invokeAdminRpc('reset_user_ai_quota', { target_user_id: userId });
             toast.success("Cota de IA liberada com sucesso!");
-            loadLimits();
+            await loadLimits();
         } catch (err) {
             console.error(err);
             toastGate.notifyError("Erro ao liberar cota.", "ADMIN-AI-LIMIT-RESET");
