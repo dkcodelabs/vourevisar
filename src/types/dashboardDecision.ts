@@ -160,6 +160,7 @@ export interface DashboardProgressSummary {
 export interface DashboardDecisionModel {
   isLoading: boolean;
   error: unknown;
+  studyEntryState?: 'no-edital' | 'empty-edital' | 'no-cycle' | null;
   examContext: DashboardExamContext;
   pace: DashboardPace;
   nextBestAction: DashboardAction;

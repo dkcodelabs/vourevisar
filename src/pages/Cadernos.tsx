@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
+import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
 
 const getNoteContent = (notes: Subject['notes'] | Topic['notes'] | string | null | undefined) => {
   if (!notes) return '';
@@ -118,13 +119,18 @@ const Cadernos = () => {
   }
 
   const hasActiveCycle = Boolean(userCycle?.ciclo_atual?.length);
-  const hasAnyEdital = editaisData.length > 0 || visibleSubjects.length > 0;
 
   if (!hasActiveCycle) {
+    const emptyStateKind = getStudyEmptyStateKind({
+      editalCount: editaisData.length || (visibleSubjects.length > 0 ? 1 : 0),
+      editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
+      hasActiveCycle: false,
+    });
+
     return (
       <div className="min-h-screen bg-background text-foreground">
         <StudyEmptyState
-          kind={hasAnyEdital ? 'no-cycle' : 'no-edital'}
+          kind={emptyStateKind ?? 'no-edital'}
           variant="center"
           onAction={() => navigate('/meus-editais')}
         />

@@ -30,6 +30,7 @@ import type {
   DashboardReminder,
   DashboardReviewTopic,
 } from '@/types/dashboardDecision';
+import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
 
 const toLocalDate = (date: string) => (date.length === 10 ? parseISO(date) : new Date(date));
 
@@ -138,7 +139,7 @@ export const useDashboardDecisionModel = () => {
   const queryClient = useQueryClient();
   const reviewsData = useReviewsData();
   const cycleData = useStudyCycleData();
-  const { editaisNoCiclo, isLoading: isEditaisLoading } = useEditalOriginsWithMerge();
+  const { editaisData, editaisNoCiclo, isLoading: isEditaisLoading } = useEditalOriginsWithMerge();
   const [activityRange, setActivityRange] = useState<7 | 14 | 30>(7);
 
   const activeEdital = editaisNoCiclo[0];
@@ -393,10 +394,16 @@ export const useDashboardDecisionModel = () => {
       : typeof daysRemaining === 'number' && daysRemaining < 0
         ? 'exam_date_past'
         : 'ready';
+  const studyEntryState = getStudyEmptyStateKind({
+    editalCount: editaisData.length,
+    editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
+    hasActiveCycle,
+  });
 
   const model: DashboardDecisionModel = {
     isLoading: reviewsData.isLoading || cycleData.isLoading || isEditaisLoading || isRemindersLoading || (hasActiveCycle && isActivityLoading),
     error: reviewsData.error,
+    studyEntryState,
     examContext: {
       editalName: cycleDisplayName || editalIdentity.editalName,
       position: useCycleNameAsIdentity ? null : editalIdentity.position,

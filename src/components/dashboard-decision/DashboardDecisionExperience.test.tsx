@@ -18,6 +18,7 @@ vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 const missingCycleModel: DashboardDecisionModel = {
   isLoading: false,
   error: null,
+  studyEntryState: 'no-edital',
   examContext: {
     editalName: null,
     position: null,
@@ -118,11 +119,11 @@ describe('DashboardDecisionExperience', () => {
       />,
     );
 
-    expect(screen.getByText('Nenhum edital carregado no Ciclo de Estudos.')).toBeInTheDocument();
+    expect(screen.getByText('Você ainda não possui nenhum edital cadastrado.')).toBeInTheDocument();
     expect(screen.queryByText('Consistência recente')).not.toBeInTheDocument();
     expect(screen.queryByText('Tópico de edital arquivado')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Carregar edital no ciclo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar edital' }));
     expect(onNavigate).toHaveBeenCalledWith('/meus-editais');
   });
 

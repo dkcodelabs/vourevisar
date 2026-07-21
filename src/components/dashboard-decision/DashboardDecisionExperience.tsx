@@ -167,7 +167,7 @@ export const DashboardDecisionExperience = ({
   if (model.examContext.state === 'missing_cycle') {
     return (
       <StudyEmptyState
-        kind="no-cycle"
+        kind={model.studyEntryState ?? 'no-cycle'}
         variant="center"
         onAction={() => onNavigate('/meus-editais')}
       />

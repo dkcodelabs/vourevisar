@@ -35,6 +35,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
 import { PremiumStateCard } from '@/components/ui/PremiumStateCard';
+import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
 
 const Statistics = () => {
   const navigate = useNavigate();
@@ -102,11 +103,17 @@ const Statistics = () => {
   const hasData = hasActiveCycle;
 
   if (!hasData) {
+    const emptyStateKind = getStudyEmptyStateKind({
+      editalCount: editaisData.length || (hasAnyEdital ? 1 : 0),
+      editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
+      hasActiveCycle: false,
+    });
+
     return (
       <div className="w-full">
         <div className="container mx-auto p-4">
           <StudyEmptyState
-            kind={hasAnyEdital ? 'no-cycle' : 'no-edital'}
+            kind={emptyStateKind ?? 'no-edital'}
             variant="center"
             onAction={() => navigate('/meus-editais')}
           />

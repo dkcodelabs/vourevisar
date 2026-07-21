@@ -1,0 +1,18 @@
+import { describe, expect, it } from 'vitest';
+
+import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
+
+describe('getStudyEmptyStateKind', () => {
+  it('separates first access from an existing empty edital', () => {
+    expect(getStudyEmptyStateKind({ editalCount: 0, editaisWithContentCount: 0, hasActiveCycle: false })).toBe('no-edital');
+    expect(getStudyEmptyStateKind({ editalCount: 1, editaisWithContentCount: 0, hasActiveCycle: false })).toBe('empty-edital');
+  });
+
+  it('keeps a ready edital without a cycle actionable', () => {
+    expect(getStudyEmptyStateKind({ editalCount: 2, editaisWithContentCount: 1, hasActiveCycle: false })).toBe('no-cycle');
+  });
+
+  it('does not replace a loaded cycle with an empty-state banner', () => {
+    expect(getStudyEmptyStateKind({ editalCount: 1, editaisWithContentCount: 1, hasActiveCycle: true })).toBeNull();
+  });
+});

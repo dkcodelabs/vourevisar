@@ -1,9 +1,9 @@
 import React from 'react';
-import { ArrowRight, BookOpen, Info, LucideIcon, Target } from 'lucide-react';
+import { ArrowRight, BookOpen, FileText, Info, LucideIcon, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type StudyEmptyStateVariant = 'banner' | 'center';
-type StudyEmptyStateKind = 'no-edital' | 'no-cycle';
+type StudyEmptyStateKind = 'no-edital' | 'empty-edital' | 'no-cycle';
 
 interface StudyEmptyStateProps {
   kind: StudyEmptyStateKind;
@@ -26,6 +26,13 @@ const stateCopy: Record<StudyEmptyStateKind, {
     title: 'Você ainda não possui nenhum edital cadastrado.',
     description: 'Importe ou crie seu primeiro edital para organizar sua preparação.',
     actionLabel: 'Adicionar edital',
+  },
+  'empty-edital': {
+    icon: FileText,
+    badge: 'Conteúdo pendente',
+    title: 'Seu edital ainda não tem matérias ou tópicos.',
+    description: 'Abra Meus Editais para importar o conteúdo ou cadastrar a primeira matéria.',
+    actionLabel: 'Completar edital',
   },
   'no-cycle': {
     icon: Target,

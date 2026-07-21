@@ -33,6 +33,7 @@ import { RevisoesToolbar } from '@/components/revisoes/RevisoesToolbar';
 import { RevisoesList } from '@/components/revisoes/RevisoesList';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
 import { STUDY_SESSION_DISCARDED_MESSAGE } from '@/utils/studySessionFeedback';
+import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
 
 // Modals are still kept here or inside List/Toolbar depending on usage
 import { SpacedRepetitionInfoModal } from '@/components/reviews/SpacedRepetitionInfoModal';
@@ -681,10 +682,16 @@ export const Revisoes = () => {
   }
 
   if (!hasActiveCycle) {
+    const emptyStateKind = getStudyEmptyStateKind({
+      editalCount: editaisData.length || (hasAnyEdital ? 1 : 0),
+      editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
+      hasActiveCycle: false,
+    });
+
     return (
       <div className="w-full px-4 md:px-8">
         <StudyEmptyState
-          kind={hasAnyEdital ? 'no-cycle' : 'no-edital'}
+          kind={emptyStateKind ?? 'no-edital'}
           variant="center"
           onAction={() => navigate('/meus-editais')}
         />
