@@ -2217,7 +2217,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     <span className="truncate whitespace-nowrap">{aiUsageSummary}</span>
                                 </div>
                             )}
-                            {activeTab === 'ia' && iaStage === 'review' && pendingExtraction && (
+                            {activeTab === 'ia' && iaStage === 'review' && pendingExtraction?.source === 'db' && (
                                 <button
                                     type="button"
                                     onClick={discardPendingExtractionData}
@@ -2248,7 +2248,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                     {activeTab === 'ready' ? (
                         <div className="space-y-4">
-                            {pendingExtraction && (
+                            {pendingExtraction?.source === 'db' && (
                                 <motion.div 
                                     initial={{ opacity: 0, y: -8 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -2260,7 +2260,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         </div>
                                         <div className="min-w-0">
                                             <p className="text-xs font-black text-amber-800 dark:text-amber-300">
-                                                Extração anterior pendente
+                                                Extração recuperada disponível
                                             </p>
                                             <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium truncate">
                                                 {formatLongDetectedText(pendingExtraction.editalName)} · Atualizado {new Date(pendingExtraction.updatedAt).toLocaleString('pt-BR')}
@@ -2593,7 +2593,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         </div>
                     ) : activeTab === 'ia' ? (
                         <div className="space-y-6">
-                            {pendingExtraction && iaStage === 'review' && (
+                            {pendingExtraction?.source === 'db' && iaStage === 'review' && (
                                 <motion.div
                                     initial={{ opacity: 0, y: -8 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -2606,7 +2606,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-[11px] font-black uppercase tracking-[0.12em] text-amber-200">
-                                                    Extração pendente salva
+                                                    Extração recuperada
                                                 </p>
                                                 <p className="truncate text-[10px] font-medium text-amber-100/75">
                                                     {formatLongDetectedText(pendingExtraction.editalName)} · Atualizado {new Date(pendingExtraction.updatedAt).toLocaleString('pt-BR')}
@@ -2637,7 +2637,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         </div>
                                         <div>
                                             <p className="text-xs font-black text-amber-800 dark:text-amber-300">
-                                                Extração anterior pendente
+                                                Extração recuperada disponível
                                             </p>
                                             <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
                                                 {formatLongDetectedText(pendingExtraction.editalName)} · Atualizado {new Date(pendingExtraction.updatedAt).toLocaleString('pt-BR')}
@@ -3408,7 +3408,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         </div>
                     ) : (
                         <div className="space-y-6 w-full pt-0 pb-12">
-                            {pendingExtraction && (
+                            {pendingExtraction?.source === 'db' && (
                                 <motion.div 
                                     initial={{ opacity: 0, y: -8 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -3420,7 +3420,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         </div>
                                         <div className="min-w-0">
                                             <p className="text-xs font-black text-amber-800 dark:text-amber-300">
-                                                Extração anterior pendente
+                                                Extração recuperada disponível
                                             </p>
                                             <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium truncate">
                                                 {formatLongDetectedText(pendingExtraction.editalName)} · Atualizado {new Date(pendingExtraction.updatedAt).toLocaleString('pt-BR')}
