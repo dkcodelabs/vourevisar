@@ -147,15 +147,10 @@ serve(async (req: Request) => {
       const targetUserId = typeof args.target_user_id === "string" ? args.target_user_id : null;
       if (!targetUserId) return json({ error: "Usuario alvo obrigatorio" }, 400);
 
-      const { data, error } = await supabase
-        .from("user_subscriptions")
-        .update({ ai_quota_reset_at: new Date().toISOString() })
-        .eq("user_id", targetUserId)
-        .select("user_id, ai_quota_reset_at")
-        .maybeSingle();
-
+      const { data, error } = await supabase.rpc("reset_user_ai_quota", {
+        p_user_id: targetUserId,
+      });
       if (error) return json({ error: error.message, code: error.code }, 400);
-      if (!data) return json({ error: "Assinatura do usuario nao encontrada" }, 404);
       return json({ data });
     }
 

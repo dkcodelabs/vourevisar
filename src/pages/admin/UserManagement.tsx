@@ -141,6 +141,7 @@ const UserAiUsageBadge = ({ userId }: { userId: string }) => {
     }
 
     const isExceeded = limits.usage >= limits.limit;
+    const canResetQuota = limits.limit > 0 && isExceeded;
 
     return (
         <div className="flex items-center gap-2">
@@ -156,7 +157,7 @@ const UserAiUsageBadge = ({ userId }: { userId: string }) => {
             >
                 {limits.usage} / {limits.limit}
             </span>
-            {isExceeded && (
+            {canResetQuota && (
                 <button
                     onClick={handleResetQuota}
                     className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded transition-all"
