@@ -47,6 +47,9 @@ describe('getAccountSubscriptionState', () => {
     expect(state.primaryAction).toBe('plans');
     expect(state.primaryActionLabel).toBe('Escolher novo plano');
     expect(state.secondaryPortalLabel).toBe('Ver histórico e faturas');
+    expect(state.asideDescription).toBe(
+      'Para voltar a estudar, escolha um novo plano. Se houver uma fatura pendente, ela pode ser regularizada no histórico, mas não inicia uma nova assinatura.',
+    );
     expect(state.artworkNextStep).toBe('Retomar assinatura');
   });
 

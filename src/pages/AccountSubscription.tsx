@@ -47,10 +47,25 @@ const AccountSubscription = () => {
   const subscription = data?.subscription;
 
   const handleOpenPortal = async () => {
+    // Open synchronously from the click gesture so browsers do not treat the
+    // Stripe portal as an unsolicited popup after the async request finishes.
+    const portalWindow = window.open('about:blank', '_blank');
+    if (portalWindow) {
+      portalWindow.opener = null;
+    }
+
     try {
       const response = await portal.mutateAsync();
+      if (portalWindow) {
+        portalWindow.location.assign(response.url);
+        return;
+      }
+
+      // A popup blocker must not make billing inaccessible. In that exception,
+      // retain the previous safe same-tab behavior.
       window.location.assign(response.url);
     } catch {
+      portalWindow?.close();
       // The mutation owns the visible error state below. Avoid an unhandled
       // promise rejection while keeping the user on this safe page.
     }
