@@ -34,13 +34,17 @@ describe('vercel security headers', () => {
     expect(policy).toContain("frame-ancestors 'none'");
     expect(policy).toContain('https://*.supabase.co');
     expect(policy).toContain('wss://*.supabase.co');
+    expect(policy).toContain('https://js.stripe.com');
+    expect(policy).toContain('https://*.js.stripe.com');
+    expect(policy).toContain('https://hooks.stripe.com');
+    expect(policy).toContain('https://*.stripe.com');
   });
 
-  it('blocks unnecessary browser capabilities by default', () => {
+  it('blocks unnecessary browser capabilities while allowing same-origin payment flows', () => {
     expect(globalHeaders['Permissions-Policy']).toContain('camera=()');
     expect(globalHeaders['Permissions-Policy']).toContain('microphone=()');
     expect(globalHeaders['Permissions-Policy']).toContain('geolocation=()');
-    expect(globalHeaders['Permissions-Policy']).toContain('payment=()');
+    expect(globalHeaders['Permissions-Policy']).toContain('payment=(self)');
   });
 
   it('enforces HTTPS after first secure load', () => {

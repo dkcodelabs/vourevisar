@@ -32,7 +32,6 @@ const routeTitles: Record<string, string> = {
   "/estatisticas": "Estatísticas",
   "/conta/assinatura": "Minha assinatura",
   "/conta": "Conta",
-  "/feedback": "Ajuda e Feedback",
   "/perfil": "Perfil",
   "/configuracoes": "Configurações",
   "/admin/ai-settings": "Gestão de IA",
@@ -79,7 +78,7 @@ export const AppLayout = () => {
   const { logSessionStart } = useUserLogger();
   const { signOut, user } = useAuth();
   const { error: appError } = useApp();
-  const { studyUnreadCount, feedbackUnreadCount } = useStudentHubBadge();
+  const { totalUnreadCount } = useStudentHubBadge();
   const [isGeneralNotesModalOpen, setIsGeneralNotesModalOpen] =
     React.useState(false);
   const [topicNotesModal, setTopicNotesModal] = React.useState({
@@ -94,7 +93,8 @@ export const AppLayout = () => {
     subjectName: "",
   });
   const [isHubOpen, setIsHubOpen] = React.useState(false);
-  const deactivationLogoutInFlightRef = React.useRef(false);
+  const [studentHubInitialTab, setStudentHubInitialTab] =
+    React.useState<'notificacoes' | 'feedbacks'>('notificacoes');
 
   const currentPath = location.pathname;
   const pageTitle = getRouteLabel(currentPath);
@@ -106,12 +106,9 @@ export const AppLayout = () => {
     )?.[1];
 
   React.useEffect(() => {
-    if (!user) {
-      deactivationLogoutInFlightRef.current = false;
-      return;
-    }
+    if (!user) return;
 
-    if (deactivationLogoutInFlightRef.current) return;
+    logSessionStart(user);
 
     const checkActiveStatus = async () => {
       const { data: profile, error } = await supabase
@@ -120,39 +117,32 @@ export const AppLayout = () => {
         .eq("id", user.id)
         .single();
 
-      if (error) return false;
+      if (error) return;
 
       if (profile && profile.is_active === false) {
-        if (deactivationLogoutInFlightRef.current) return;
-        deactivationLogoutInFlightRef.current = true;
-        await signOut({ redirect: false, skipAudit: true });
-        navigate("/login", {
-          replace: true,
-        });
-        toastManager.warning(
+        console.warn("[AppLayout] USUÁRIO DESATIVADO - Logout forçado");
+        await signOut();
+        navigate("/login?reason=deactivated");
+        toastManager.error(
           "Sua conta foi desativada. Entre em contato com o suporte.",
           { id: "account-deactivated" },
         );
-        return false;
       }
-
-      return true;
     };
 
-    void checkActiveStatus().then((isActive) => {
-      if (isActive && user) logSessionStart(user);
-    });
-
-    const interval = setInterval(checkActiveStatus, 120000);
-    return () => clearInterval(interval);
+    if (user) {
+      checkActiveStatus();
+      const interval = setInterval(checkActiveStatus, 120000);
+      return () => clearInterval(interval);
+    }
   }, [user, signOut, navigate, logSessionStart]);
 
   return (
     <SidebarProvider className="app-page-bg">
       <AppSidebar
-        studentFeedbackUnreadCount={feedbackUnreadCount}
         onOpenHelp={() => {
-          navigate('/feedback');
+          setStudentHubInitialTab('feedbacks');
+          setIsHubOpen(true);
         }}
       />
       <SidebarInset className="h-svh overflow-hidden bg-transparent">
@@ -191,12 +181,13 @@ export const AppLayout = () => {
                 size="icon"
                 className="app-header-icon relative rounded-lg"
                 onClick={() => {
+                  setStudentHubInitialTab('notificacoes');
                   setIsHubOpen(true);
                 }}
                 title="Central do Aluno"
               >
                 <Bell />
-                {studyUnreadCount > 0 && (
+                {totalUnreadCount > 0 && (
                   <span className="absolute right-2 top-2 size-1.5 rounded-full bg-secondary shadow-[0_0_5px_#FF8C00]" />
                 )}
               </Button>
@@ -253,7 +244,7 @@ export const AppLayout = () => {
       {features.STUDENT_HUB && (
         <StudentHubPanel
           isOpen={isHubOpen}
-          notificationsOnly
+          initialTab={studentHubInitialTab}
           onClose={() => setIsHubOpen(false)}
         />
       )}

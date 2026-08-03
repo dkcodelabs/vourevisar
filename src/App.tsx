@@ -24,7 +24,6 @@ const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Subjects = lazy(() => import("@/pages/Subjects"));
 const Account = lazy(() => import("@/pages/Account"));
-const Feedback = lazy(() => import("@/pages/Feedback"));
 const Statistics = lazy(() => import("@/pages/Statistics"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Login = lazy(() => import("@/pages/Login"));
@@ -132,7 +131,6 @@ const App = () => {
                             <Route path="planos" element={<Planos />} />
                             <Route path="conta" element={<Account />} />
                             <Route path="conta/assinatura" element={<AccountSubscription />} />
-                            <Route path="feedback" element={<Feedback />} />
                             <Route path="perfil" element={<Navigate to="/conta?tab=perfil" replace />} />
                             <Route path="configuracoes" element={<Navigate to="/conta?tab=configuracoes" replace />} />
                           </Route>
