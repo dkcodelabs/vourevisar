@@ -105,9 +105,18 @@ const AccountSubscription = () => {
 
   const isStripeSubscriber = data.source === 'stripe' && Boolean(subscription);
   const hasInternalAccess = isAdmin && !isStripeSubscriber;
-  const subscriptionEnd = subscription?.cancel_at ?? subscription?.current_period_end;
+  // A prior Stripe subscription can coexist with an active internal trial or
+  // manual grant. It is history in that case, not the current billing source.
+  const activeStripeSubscription = isStripeSubscriber ? subscription : null;
+  const subscriptionEnd = activeStripeSubscription?.cancel_at ?? activeStripeSubscription?.current_period_end;
   const pageState = getAccountSubscriptionState(data, hasInternalAccess);
-  const summaryValue = pageState.summaryValue ?? formatDate(subscriptionEnd ?? data.access_until);
+  const isComplimentaryAccess = data.plan === 'free_trial' || data.source === 'trial';
+  const nonStripePaymentLabel = isComplimentaryAccess
+    ? 'Nenhum cartão necessário'
+    : 'Sem cobrança vinculada';
+  const summaryValue = pageState.summaryValue ?? formatDate(
+    isStripeSubscriber ? subscriptionEnd : data.access_until,
+  );
   const handleScrollToHistory = () => {
     document.getElementById('historico-financeiro')?.scrollIntoView({
       behavior: reduceMotion ? 'auto' : 'smooth',
@@ -145,16 +154,18 @@ const AccountSubscription = () => {
                       ? 'Último valor'
                       : isStripeSubscriber
                         ? 'Valor do plano'
-                        : 'Acesso até'}
+                        : isComplimentaryAccess
+                          ? 'Acesso gratuito'
+                          : 'Acesso concedido'}
                 </p>
                 <p className="mt-2 text-xl font-black">
                   {hasInternalAccess
                     ? 'Sem cobrança'
-                    : subscription
+                    : activeStripeSubscription
                     ? formatBillingPrice(subscription.amount_cents, subscription.currency)
-                    : formatDate(data.access_until)}
+                    : 'Sem cobrança'}
                 </p>
-                {subscription && (
+                {activeStripeSubscription && (
                   <p className="mt-1 text-xs font-semibold text-white/50">
                     por {subscription.billing_interval === 'year' ? 'ano' : 'mês'}
                   </p>
@@ -189,11 +200,11 @@ const AccountSubscription = () => {
               value={
                 hasInternalAccess
                   ? 'Não se aplica'
-                  : subscription?.card_last4
+                  : activeStripeSubscription?.card_last4
                   ? `${subscription.card_brand?.toUpperCase() || 'Cartão'} •••• ${subscription.card_last4}`
                   : isStripeSubscriber
                     ? 'Cartão via Stripe'
-                    : 'Nenhum cartão cadastrado'
+                    : nonStripePaymentLabel
               }
             />
           </div>
