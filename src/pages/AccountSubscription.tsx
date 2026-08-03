@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CreditCard,
   ExternalLink,
+  FileText,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -14,8 +15,10 @@ import {
 import { Link } from 'react-router-dom';
 import { AccountNavigation } from '@/components/account/AccountNavigation';
 import { BillingArtwork } from '@/features/billing/components/BillingArtwork';
+import { BillingInvoiceHistory } from '@/features/billing/components/BillingInvoiceHistory';
 import {
   useStripeBillingOverview,
+  useStripeInvoiceHistory,
   useStripePortal,
 } from '@/features/billing/hooks/useStripeBilling';
 import { formatBillingPrice } from '@/features/billing/services/stripeBillingService';
@@ -45,6 +48,9 @@ const AccountSubscription = () => {
   const { isAdmin, isOwner, loading: roleLoading } = useUserRole();
   const data = overview.data;
   const subscription = data?.subscription;
+  const invoiceHistory = useStripeInvoiceHistory(
+    Boolean(data?.source === 'stripe' && subscription?.status === 'canceled'),
+  );
 
   const handleOpenPortal = async () => {
     // Open synchronously from the click gesture so browsers do not treat the
@@ -102,6 +108,12 @@ const AccountSubscription = () => {
   const subscriptionEnd = subscription?.cancel_at ?? subscription?.current_period_end;
   const pageState = getAccountSubscriptionState(data, hasInternalAccess);
   const summaryValue = pageState.summaryValue ?? formatDate(subscriptionEnd ?? data.access_until);
+  const handleScrollToHistory = () => {
+    document.getElementById('historico-financeiro')?.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  };
 
   return (
     <SubscriptionFrame>
@@ -185,6 +197,14 @@ const AccountSubscription = () => {
               }
             />
           </div>
+
+          {pageState.kind === 'ended' && (
+            <BillingInvoiceHistory
+              invoices={invoiceHistory.data ?? []}
+              isLoading={invoiceHistory.isLoading}
+              isError={invoiceHistory.isError}
+            />
+          )}
         </section>
 
         <aside className="space-y-5">
@@ -223,15 +243,14 @@ const AccountSubscription = () => {
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             )}
-            {pageState.secondaryPortalLabel && (
+            {pageState.secondaryAction === 'history' && pageState.secondaryActionLabel && (
               <button
                 type="button"
-                onClick={() => void handleOpenPortal()}
-                disabled={portal.isPending}
+                onClick={handleScrollToHistory}
                 className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#d8d1ed] bg-white px-5 text-sm font-black text-[#4e4562] transition hover:border-[#a89bea] hover:text-[#34266f] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {portal.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                {pageState.secondaryPortalLabel}
+                <FileText className="h-4 w-4" />
+                {pageState.secondaryActionLabel}
               </button>
             )}
             {portal.isError && (

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createStripePortal,
   getStripeBillingOverview,
+  getStripeInvoiceHistory,
   getStripeCatalog,
 } from '@/features/billing/services/stripeBillingService';
 
@@ -9,6 +10,7 @@ export const stripeBillingKeys = {
   all: ['stripe-billing'] as const,
   catalog: () => [...stripeBillingKeys.all, 'catalog'] as const,
   overview: () => [...stripeBillingKeys.all, 'overview'] as const,
+  invoiceHistory: () => [...stripeBillingKeys.all, 'invoice-history'] as const,
 };
 
 export const useStripeCatalog = () =>
@@ -30,6 +32,15 @@ export const useStripeBillingOverview = (enabled = true) =>
     // confirmados pelo webhook, sem depender do cache da navegação anterior.
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
+  });
+
+export const useStripeInvoiceHistory = (enabled: boolean) =>
+  useQuery({
+    queryKey: stripeBillingKeys.invoiceHistory(),
+    queryFn: getStripeInvoiceHistory,
+    enabled,
+    staleTime: 60 * 1000,
+    retry: false,
   });
 
 export const useStripePortal = () => {

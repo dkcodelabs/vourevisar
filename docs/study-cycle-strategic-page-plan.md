@@ -1134,6 +1134,8 @@ As partes pesadas ficam para depois: motor definitivo de cobranca/incidencia, au
 - [ ] Validar fluxo de reconexao no navegador em desktop e mobile, incluindo aluno pagante, trial ativo, admin/owner e usuario realmente sem assinatura. A UI de erro recuperavel e o retry manual foram implementados e cobertos por teste; falta confirmar o comportamento com perfis reais e falha de rede no navegador.
 - [ ] Rodada final de copy e imagens por pagina: revisar estados de primeiro acesso, trial ativo/expirado, assinatura vencida, sem editais, edital vazio e ciclo vazio; garantir texto premium, especifico para o estado real, sem promessas inventadas e sem imagens decorativas que substituam a acao principal.
 
+- [x] Separar o histórico financeiro do Customer Portal quando a assinatura estiver encerrada: a conta exibe cobranças anteriores internamente, em modo somente leitura e sem ação de pagamento; o Portal permanece para assinaturas ativas ou que precisam regularizar pagamento. Implementado em 2026-08-03 com a Edge Function autenticada `stripe-invoice-history`; falta apenas a validação visual pós-publicação.
+
 ## Backlog operacional: Codex e Git
 
 - [ ] Corrigir o perfil de execucao das conversas locais do Codex para permitir escrita em `.git`: a nova conversa local foi criada, mas tambem iniciou com `.git` somente leitura e aguarda aprovacao explicita para escrita no repositorio e acesso de rede. Nao tentar contornar por script, alterar permissoes Unix do repositorio ou ampliar acesso global sem necessidade.
