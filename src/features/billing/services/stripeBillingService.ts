@@ -2,6 +2,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type {
   BillingCatalogPlan,
+  BillingInvoiceHistoryItem,
   BillingOverview,
   BillingPlanCode,
 } from '@/features/billing/types';
@@ -60,6 +61,13 @@ export const createStripeCheckout = async (
 
 export const createStripePortal = async () =>
   invokeBillingFunction<{ url: string }>('stripe-create-portal');
+
+export const getStripeInvoiceHistory = async (): Promise<BillingInvoiceHistoryItem[]> => {
+  const response = await invokeBillingFunction<{ invoices: BillingInvoiceHistoryItem[] }>(
+    'stripe-invoice-history',
+  );
+  return response.invoices;
+};
 
 export const getStripeBillingOverview = async (): Promise<BillingOverview> => {
   // The RPC is introduced by the Stripe migration. Keep the generated database

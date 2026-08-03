@@ -7,6 +7,7 @@ const readProjectFile = (path: string) =>
 
 const checkoutSource = readProjectFile('supabase/functions/stripe-create-checkout/index.ts');
 const catalogSource = readProjectFile('supabase/functions/stripe-catalog/index.ts');
+const invoiceHistorySource = readProjectFile('supabase/functions/stripe-invoice-history/index.ts');
 const webhookSource = readProjectFile('supabase/functions/stripe-webhook/index.ts');
 const sharedSource = readProjectFile('supabase/functions/_shared/stripeBilling.ts');
 const migrationSource = readProjectFile(
@@ -82,6 +83,14 @@ describe('Stripe billing security boundaries', () => {
     expect(webhookSource).toContain('constructEventAsync');
     expect(webhookSource).toContain('STRIPE_WEBHOOK_SECRET');
     expect(configSource).toContain('[functions.stripe-webhook]\nverify_jwt = false');
+  });
+
+  it('keeps terminated-account invoice history authenticated, read-only and free of payment links', () => {
+    expect(configSource).toContain('[functions.stripe-invoice-history]\nverify_jwt = true');
+    expect(invoiceHistorySource).toContain('requireAuthenticatedUser(request, supabase)');
+    expect(invoiceHistorySource).toContain('.eq("user_id", user.id)');
+    expect(invoiceHistorySource).toContain('stripe.invoices.list');
+    expect(invoiceHistorySource).not.toMatch(/hosted_invoice_url|invoice_pdf|payment_url/i);
   });
 
   it('does not let an old refund or dispute revoke a newer paid period', () => {
