@@ -87,7 +87,7 @@ export const getAccountSubscriptionState = (
       summaryLabel: 'Renovação',
       summaryValue: 'Sem renovação ativa',
       asideTitle: 'Pronto para retomar?',
-      asideDescription: 'Escolha um novo plano para recuperar o acesso. Quitar uma fatura antiga não reativa uma assinatura encerrada.',
+      asideDescription: 'Para voltar a estudar, escolha um novo plano. Se houver uma fatura pendente, ela pode ser regularizada no histórico, mas não inicia uma nova assinatura.',
       primaryAction: 'plans',
       primaryActionLabel: 'Escolher novo plano',
       secondaryPortalLabel: 'Ver histórico e faturas',

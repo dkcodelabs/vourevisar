@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BillingOverview } from '@/features/billing/types';
@@ -85,5 +85,36 @@ describe('AccountSubscription', () => {
     expect(screen.getByText('Retomar assinatura')).toBeInTheDocument();
     expect(screen.queryByText('Próxima renovação')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /gerenciar pagamento/i })).not.toBeInTheDocument();
+  });
+
+  it('opens the Stripe history portal in a separate tab without replacing the account page', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/p/session/test_portal' });
+    const portalWindow = {
+      opener: window,
+      close: vi.fn(),
+      location: { assign: vi.fn() },
+    };
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(portalWindow as unknown as Window);
+
+    mocks.useStripePortal.mockReturnValue({
+      isPending: false,
+      isError: false,
+      mutateAsync,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/conta/assinatura']}>
+        <AccountSubscription />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /ver histórico e faturas/i }));
+
+    expect(openSpy).toHaveBeenCalledWith('about:blank', '_blank');
+    expect(portalWindow.opener).toBeNull();
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledOnce();
+      expect(portalWindow.location.assign).toHaveBeenCalledWith('https://billing.stripe.com/p/session/test_portal');
+    });
   });
 });
