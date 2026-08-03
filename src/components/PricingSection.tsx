@@ -1,12 +1,13 @@
 import React from 'react';
-import { PlanConfig } from '@/hooks/usePlanConfigs';
+import type { BillingPricingPlans } from '@/features/billing/types';
 
 interface PricingSectionProps {
   onPlanSelect: (plan: 'monthly' | 'annual') => void;
-  plans?: { monthly: PlanConfig | null; annual: PlanConfig | null };
+  plans: BillingPricingPlans | null;
   loading?: boolean;
   currentPlan?: 'monthly' | 'annual' | null;
   annualUpgradeBlocked?: boolean;
+  renewalCanceled?: boolean;
 }
 
 const PlanCardSkeleton = () => (
@@ -27,36 +28,19 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
   loading,
   currentPlan = null,
   annualUpgradeBlocked = false,
+  renewalCanceled = false,
 }) => {
   
-  // Fallback values if plans haven't loaded yet
-  const monthly = plans?.monthly || {
-    name: 'Mensal', value: 9.90, description: '',
-    features: ['Acesso completo ao app', '5 extrações com IA por mês', 'Catálogo e criação manual sem limite', 'Suporte prioritário'],
-    badge: null
-  };
-  const annual = plans?.annual || {
-    name: 'Anual', value: 99.90, description: '',
-    features: ['Tudo do plano mensal', '10 extrações com IA por mês', '2 meses de economia', 'Prioridade em melhorias e suporte'],
-    badge: 'Melhor custo-benefício'
-  };
+  const monthly = plans?.monthly;
+  const annual = plans?.annual;
   const isMonthlyCurrent = currentPlan === 'monthly';
   const isAnnualCurrent = currentPlan === 'annual';
   const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
-  const annualEquivalentMonthly = annual.value / 12;
-  const annualFeatures = (annual.features as string[]).map((item) =>
-    item.toLowerCase().includes('economia') ? 'Acesso por 12 meses' : item
-  );
-  const monthlyButtonLabel = isMonthlyCurrent ? 'Ver assinatura' : isAnnualCurrent ? 'Incluso no anual' : `Assinar ${monthly.name}`;
-  const annualButtonLabel = isAnnualCurrent
-    ? 'Ver assinatura'
-    : isMonthlyCurrent
-      ? 'Migrar para anual'
-      : `Assinar ${annual.name}`;
-  const isMonthlyDisabled = isAnnualCurrent;
-  const showAnnualAction = !annualUpgradeBlocked || isAnnualCurrent;
+  const isMonthlyDisabled = isMonthlyCurrent || isAnnualCurrent;
+  const isAnnualDisabled = isAnnualCurrent || annualUpgradeBlocked || (renewalCanceled && isMonthlyCurrent);
+  const showAnnualAction = true;
 
-  if (loading) {
+  if (loading || !monthly || !annual) {
     return (
       <section id="precos" className="py-8 bg-transparent">
         <div className="max-w-5xl mx-auto px-4">
@@ -68,6 +52,18 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
       </section>
     );
   }
+
+  const annualEquivalentMonthly = annual.value / 12;
+  const monthlyButtonLabel = isMonthlyCurrent
+    ? 'Plano atual'
+    : isAnnualCurrent
+      ? 'Incluído no plano anual'
+      : `Assinar ${monthly.name}`;
+  const annualButtonLabel = isAnnualCurrent
+    ? 'Plano atual'
+    : isAnnualDisabled
+      ? 'Disponível após o plano atual'
+      : `Assinar ${annual.name}`;
 
   return (
     <section id="precos" className="py-8 bg-transparent">
@@ -87,7 +83,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
               </div>
               
               <ul className="space-y-3.5 mb-8 flex-grow">
-                {(monthly.features as string[]).map((item, i) => (
+                {monthly.features.map((item, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
                       <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -100,7 +96,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
               <button 
                 onClick={() => onPlanSelect('monthly')}
                 disabled={isMonthlyDisabled}
-                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs tracking-widest uppercase shadow-lg shadow-blue-600/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
+                className="w-full min-h-12 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs tracking-widest uppercase shadow-lg shadow-blue-600/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
               >
                 {monthlyButtonLabel}
               </button>
@@ -131,7 +127,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
               ) : null}
               
               <ul className="space-y-3.5 mb-8 flex-grow">
-                {annualFeatures.map((item, i) => (
+                {annual.features.map((item, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
                       <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -144,8 +140,8 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
               {showAnnualAction ? (
                 <button
                   onClick={() => onPlanSelect('annual')}
-                  disabled={false}
-                  className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs tracking-widest uppercase shadow-lg shadow-blue-600/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
+                  disabled={isAnnualDisabled}
+                  className="w-full min-h-12 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs tracking-widest uppercase shadow-lg shadow-blue-600/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
                 >
                   {annualButtonLabel}
                 </button>

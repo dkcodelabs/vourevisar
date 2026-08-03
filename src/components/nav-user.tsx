@@ -28,7 +28,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/contexts/AuthContext"
-import { useSubscriptionInfo } from "@/hooks/useSubscriptionInfo"
+import { useStripeBillingOverview } from "@/features/billing/hooks/useStripeBilling"
+import { getBillingAccessLabel } from "@/features/billing/utils/billingAccessLabel"
 import { useUserProfile } from "@/hooks/useUserProfile"
 import { useUserRole } from "@/hooks/useUserRole"
 
@@ -42,7 +43,7 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
   const { isMobile, setOpenMobile } = useSidebar()
   const { user, signOut } = useAuth()
   const { profile } = useUserProfile()
-  const { subscriptionInfo, loading: subscriptionLoading } = useSubscriptionInfo()
+  const billingOverview = useStripeBillingOverview()
   const { isAdmin, isOwner, loading: roleLoading } = useUserRole()
   const navigate = useNavigate()
 
@@ -52,13 +53,10 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
   const email = user.email || ""
   const initials = getInitials(profile?.name || email)
   const planLabel = (() => {
-    if (roleLoading || subscriptionLoading) return "Carregando..."
+    if (roleLoading || billingOverview.isLoading) return "Carregando..."
     if (isOwner) return "Proprietário"
     if (isAdmin) return "Administrador"
-    if (!subscriptionInfo) return "Sem plano ativo"
-    if (!subscriptionInfo.is_active) return "Sem plano ativo"
-    if (subscriptionInfo.status === "trial") return "Teste gratuito"
-    return subscriptionInfo.plan === "annual" ? "Plano anual" : "Plano mensal"
+    return getBillingAccessLabel(billingOverview.data)
   })()
 
   const handleSignOut = async () => {

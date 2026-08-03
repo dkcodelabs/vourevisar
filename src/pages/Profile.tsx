@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import {
-  User, Mail, Calendar, Phone, Lock, Shield, CreditCard,
+  User, Mail, Calendar, Phone, Lock, Shield,
   GraduationCap, Target, Clock, BookOpen, Camera, Loader2,
   CheckCircle2, ShieldCheck, Pencil, ExternalLink
 } from 'lucide-react';
@@ -20,8 +20,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { GradientButton } from '@/components/ui';
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useSubscriptionInfo } from '@/hooks/useSubscriptionInfo';
-import { getSubscriptionRemainingLabel, getSubscriptionRenewalLabel } from '@/utils/subscriptionDisplay';
 
 // ─── Schemas ────────────────────────────────────────────────
 const profileSchema = z.object({
@@ -51,20 +49,6 @@ interface AcademicInfo {
 }
 
 // ─── Constantes ─────────────────────────────────────────────
-const PLAN_LABELS: Record<string, string> = {
-  free_trial: 'Teste Gratuito',
-  monthly: 'Mensal',
-  annual: 'Anual',
-};
-
-const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  trial: { label: 'Em teste', variant: 'secondary' },
-  active: { label: 'Ativo', variant: 'default' },
-  expired: { label: 'Expirado', variant: 'destructive' },
-  canceled: { label: 'Cancelado', variant: 'destructive' },
-  suspended: { label: 'Suspenso', variant: 'destructive' },
-};
-
 // ─── Componente de Card (padrão do Dashboard) ───────────────
 const ProfileCard = ({
   children,
@@ -141,7 +125,6 @@ type ResetFormValues = z.infer<typeof resetPasswordSchema>;
 // ═══════════════════════════════════════════════════════════
 const Profile = () => {
   const { profile, user, updateProfile, resetPassword } = useAuth();
-  const { subscriptionInfo, loading: subLoading } = useSubscriptionInfo();
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingAcademic, setIsSavingAcademic] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
@@ -299,15 +282,6 @@ const Profile = () => {
   if (!user) return <LoadingSpinner size="large" fullPage />;
 
   const academic = ((profile?.preferences as Record<string, unknown>) || {}).academic as AcademicInfo | undefined;
-  const subscriptionRenewalDate = subscriptionInfo?.status === 'trial'
-    ? subscriptionInfo.trial_ends_at
-    : subscriptionInfo?.next_billing_date || subscriptionInfo?.subscription_ends_at;
-  const subscriptionRemainingLabel = getSubscriptionRemainingLabel({
-    plan: subscriptionInfo?.plan,
-    status: subscriptionInfo?.status,
-    renewalDate: subscriptionRenewalDate,
-  });
-
   // ═══════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════
@@ -317,9 +291,9 @@ const Profile = () => {
         <div className="w-full pb-8 pt-0">
 
           {/* ────────────────────────────────────────── */}
-          {/* LINHA 1: 3 Cards no topo (como Dashboard) */}
+          {/* LINHA 1: identidade e segurança */}
           {/* ────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
 
             {/* CARD 1: Identidade — Avatar + Nome + Email */}
             <ProfileCard delay={0}>
@@ -379,78 +353,8 @@ const Profile = () => {
               />
             </ProfileCard>
 
-            {/* CARD 2: Assinatura */}
+            {/* CARD 2: Segurança */}
             <ProfileCard delay={1}>
-              <SectionHeader
-                icon={CreditCard}
-                iconColor="bg-amber-500/10 text-amber-500"
-                label="ASSINATURA"
-              />
-
-              {subLoading ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : subscriptionInfo ? (
-                <>
-                  <div className="text-center mb-4">
-                    <p className="text-3xl font-black text-foreground">
-                      {PLAN_LABELS[subscriptionInfo.plan] || subscriptionInfo.plan}
-                    </p>
-                    <Badge
-                      variant={STATUS_CONFIG[subscriptionInfo.status]?.variant || 'outline'}
-                      className="mt-1"
-                    >
-                      {STATUS_CONFIG[subscriptionInfo.status]?.label || subscriptionInfo.status}
-                    </Badge>
-                  </div>
-
-                  <DataRow
-                    icon={Calendar}
-                    label="Ativado em"
-                    value={formatDate(subscriptionInfo.subscription_started_at || subscriptionInfo.trial_started_at || subscriptionInfo.created_at)}
-                  />
-                  <DataRow
-                    icon={Calendar}
-                    label={getSubscriptionRenewalLabel(subscriptionInfo.plan)}
-                    value={formatDate(subscriptionRenewalDate)}
-                  />
-                  {subscriptionRemainingLabel && (
-                    <DataRow
-                      icon={Clock}
-                      label="Tempo restante"
-                      value={subscriptionRemainingLabel}
-                      valueColor={
-                        subscriptionInfo.status === 'expired' || subscriptionInfo.status === 'canceled' || subscriptionInfo.status === 'suspended'
-                          ? 'text-red-500'
-                          : subscriptionRemainingLabel === 'Vence hoje' || subscriptionRemainingLabel === '1 dia'
-                            ? 'text-amber-500'
-                            : 'text-emerald-500 font-bold'
-                      }
-                    />
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-4">
-                  <CreditCard className="h-6 w-6 mx-auto mb-1 opacity-30" />
-                  <p className="text-xs text-muted-foreground">Sem assinatura</p>
-                </div>
-              )}
-
-              <div className="mt-3">
-                <GradientButton
-                  type="button"
-                  variant="outline"
-                  className="w-full text-xs py-1.5"
-                  onClick={() => toast.info('Em breve: Portal de gerenciamento')}
-                >
-                  Gerenciar Assinatura
-                </GradientButton>
-              </div>
-            </ProfileCard>
-
-            {/* CARD 3: Segurança */}
-            <ProfileCard delay={2}>
               <SectionHeader
                 icon={Lock}
                 iconColor="bg-red-500/10 text-red-500"

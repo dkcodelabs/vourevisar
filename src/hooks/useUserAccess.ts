@@ -1,101 +1,67 @@
-// =====================================================
-// HOOK COMBINADO - ROLES + ASSINATURAS
-// =====================================================
-import { useCallback } from 'react'
-import { useUserRole } from './useUserRole'
-import { useSubscription } from './useSubscription'
+import { useCallback } from 'react';
+import { useStripeBillingOverview } from '@/features/billing/hooks/useStripeBilling';
+import { getBillingAccessLabel } from '@/features/billing/utils/billingAccessLabel';
+import { useUserRole } from '@/hooks/useUserRole';
 
-export type UserAccessBlockReason = 'subscription_required' | 'subscription_expired' | 'unknown'
+export type UserAccessBlockReason = 'subscription_required' | 'subscription_expired' | 'unknown';
 
 export function useUserAccess() {
-  const roleData = useUserRole()
-  const subscriptionData = useSubscription()
-  const { refetch: refetchRoles } = roleData
-  const { refetch: refetchSubscription } = subscriptionData
+  const roleData = useUserRole();
+  const billingOverview = useStripeBillingOverview();
+  const { refetch: refetchRoles } = roleData;
+  const { refetch: refetchBilling } = billingOverview;
 
   const refetch = useCallback(async () => {
-    await Promise.all([
-      refetchRoles(),
-      refetchSubscription()
-    ])
-  }, [refetchRoles, refetchSubscription])
+    await Promise.all([refetchRoles(), refetchBilling()]);
+  }, [refetchBilling, refetchRoles]);
 
-  // Combinar loading states
-  const loading = roleData.loading || subscriptionData.loading
+  const billing = billingOverview.data;
+  const hasInternalAccess = roleData.isOwner || roleData.isAdmin;
+  const hasFullAccess = hasInternalAccess || Boolean(billing?.is_active);
+  const isTrial = billing?.source === 'trial' || billing?.plan === 'free_trial';
+  const isPaid = Boolean(billing?.is_active && !isTrial);
 
-  // Falha ao buscar role não deve deixar usuário comum em limbo.
-  // A assinatura continua sendo a fonte de acesso para rotas pagas.
-  const error = subscriptionData.error
+  const accessLevel = roleData.isOwner
+    ? 'owner'
+    : roleData.isAdmin
+      ? 'admin'
+      : roleData.isModerator
+        ? 'moderator'
+        : isPaid
+          ? 'paid'
+          : billing?.is_active
+            ? 'trial'
+            : 'none';
 
-  // Verificações de acesso
-  const hasFullAccess = () => {
-    // Owners e admins sempre têm acesso
-    if (roleData.isOwner || roleData.isAdmin) return true
-    
-    // Usuários normais precisam de assinatura ativa
-    return subscriptionData.isActive
-  }
+  const accessMessage = roleData.isOwner
+    ? 'Acesso total como proprietário'
+    : roleData.isAdmin
+      ? 'Acesso administrativo'
+      : roleData.isModerator
+        ? 'Acesso de moderador'
+        : billing?.is_active
+          ? getBillingAccessLabel(billing)
+          : billingOverview.isError
+            ? 'Não foi possível confirmar o acesso'
+            : 'Sem acesso';
 
-  const canAccessPremiumFeatures = () => {
-    // Owners e admins sempre podem
-    if (roleData.isOwner || roleData.isAdmin) return true
-    
-    // Usuários normais precisam de assinatura paga (não trial)
-    return subscriptionData.isPaid
-  }
-
-  const canManageUsers = () => {
-    // Apenas admins e owners
-    return roleData.isAdmin || roleData.isOwner
-  }
-
-  const getAccessLevel = () => {
-    if (roleData.isOwner) return 'owner'
-    if (roleData.isAdmin) return 'admin'
-    if (roleData.isModerator) return 'moderator'
-    if (subscriptionData.isPaid) return 'paid'
-    if (subscriptionData.isTrial) return 'trial'
-    return 'none'
-  }
-
-  const getAccessMessage = () => {
-    if (roleData.isOwner) return 'Acesso total como proprietário'
-    if (roleData.isAdmin) return 'Acesso administrativo'
-    if (roleData.isModerator) return 'Acesso de moderador'
-    if (subscriptionData.isPaid) return `Assinante ${subscriptionData.planName}`
-    if (subscriptionData.isTrial) return `Trial - ${subscriptionData.daysRemaining} dias restantes`
-    if (subscriptionData.isExpired) return 'Assinatura expirada'
-    return 'Sem acesso'
-  }
-
-  const getBlockedReason = (): UserAccessBlockReason => {
-    if (subscriptionData.hasSubscriptionRecord) return 'subscription_expired'
-    if (subscriptionData.subscription !== null || subscriptionData.planName === 'Free') {
-      return 'subscription_required'
-    }
-    return 'unknown'
-  }
+  const blockedReason: UserAccessBlockReason = !billing
+    ? 'unknown'
+    : billing.status === 'expired' || billing.status === 'canceled'
+      ? 'subscription_expired'
+      : 'subscription_required';
 
   return {
-    // Estados
-    loading,
-    error,
-    
-    // Dados originais
+    loading: roleData.loading || billingOverview.isLoading,
+    error: billingOverview.error instanceof Error ? billingOverview.error.message : null,
     roles: roleData,
-    subscription: subscriptionData,
-    
-    // Verificações combinadas
-    hasFullAccess: hasFullAccess(),
-    canAccessPremiumFeatures: canAccessPremiumFeatures(),
-    canManageUsers: canManageUsers(),
-    
-    // Informações
-    accessLevel: getAccessLevel(),
-    accessMessage: getAccessMessage(),
-    blockedReason: getBlockedReason(),
-    
-    // Funções
-    refetch
-  }
+    subscription: billingOverview,
+    hasFullAccess,
+    canAccessPremiumFeatures: hasInternalAccess || isPaid,
+    canManageUsers: roleData.isAdmin || roleData.isOwner,
+    accessLevel,
+    accessMessage,
+    blockedReason,
+    refetch,
+  };
 }

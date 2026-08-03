@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { PlanConfig } from '@/hooks/usePlanConfigs';
+import { getAccountSubscription } from '@/services/accountSubscriptionService';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -47,13 +48,18 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
 
   // Checkout Status
   const [pixData, setPixData] = useState<{ encodedImage: string, payload: string } | null>(null);
+  const [checkoutPaymentId, setCheckoutPaymentId] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [subscriptionInfo, setSubscriptionInfo] = useState<{ plan: string; started_at: string; billing_type?: string; value?: number } | null>(null);
   const [checkoutTimestamp, setCheckoutTimestamp] = useState<string | null>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [confirmationTimedOut, setConfirmationTimedOut] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const paymentConfirmedRef = useRef(false);
 
   const handlePaymentConfirmed = useCallback((plan: string, startedAt: string, billingType?: string, value?: number) => {
+    if (paymentConfirmedRef.current) return;
+    paymentConfirmedRef.current = true;
     setSubscriptionInfo({ 
       plan, 
       started_at: startedAt,
@@ -67,7 +73,7 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
 
   // Listener Realtime (principal)
   useEffect(() => {
-    if (!user || (!pixData && !awaitingConfirmation) || !checkoutTimestamp) return;
+    if (!user || (!pixData && !awaitingConfirmation) || !checkoutTimestamp || confirmationTimedOut) return;
 
     const threshold = new Date(new Date(checkoutTimestamp).getTime() - 60000); // 1 min margin
 
@@ -84,29 +90,67 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
       )
       .subscribe();
 
-    // Polling como fallback (a cada 5s)
-    pollingRef.current = setInterval(async () => {
-      const { data } = await supabase
-        .from('user_subscriptions')
-        .select('status, plan, subscription_started_at, billing_type')
-        .eq('user_id', user.id)
-        .single();
-      const subData = data as unknown as Record<string, unknown> | null;
-      if (subData?.status === 'active' && subData.subscription_started_at && new Date(subData.subscription_started_at as string) > threshold) {
-        if (pollingRef.current) clearInterval(pollingRef.current);
-        handlePaymentConfirmed(
-          subData.plan as string, 
-          subData.subscription_started_at as string, 
-          subData.billing_type as string | undefined
-        );
+    // Consulta local + Asaas como fallback. O pagamento confirmado pode chegar
+    // antes ou depois do webhook, então a UI consulta o pagamento criado neste checkout.
+    let checking = false;
+    const checkPaymentStatus = async () => {
+      if (checking || paymentConfirmedRef.current) return;
+      checking = true;
+
+      try {
+        const { data } = await supabase
+          .from('user_subscriptions')
+          .select('status, plan, subscription_started_at, billing_type')
+          .eq('user_id', user.id)
+          .single();
+        const subData = data as unknown as Record<string, unknown> | null;
+        if (
+          subData?.status === 'active' &&
+          subData.subscription_started_at &&
+          new Date(subData.subscription_started_at as string) > threshold
+        ) {
+          handlePaymentConfirmed(
+            subData.plan as string,
+            subData.subscription_started_at as string,
+            subData.billing_type as string | undefined,
+          );
+          return;
+        }
+
+        if (!checkoutPaymentId) return;
+
+        const account = await getAccountSubscription();
+        const payment = checkoutPaymentId
+          ? account.asaas.payments.find((item) => item.id === checkoutPaymentId)
+          : account.asaas.payments[0];
+        const paymentStatus = payment?.status?.toUpperCase();
+        if (payment && (paymentStatus === 'RECEIVED' || paymentStatus === 'CONFIRMED')) {
+          handlePaymentConfirmed(
+            account.subscription?.plan || selectedPlan,
+            account.subscription?.subscriptionStartedAt || payment.paymentDate || new Date().toISOString(),
+            payment.billingType || account.subscription?.billingType || undefined,
+            payment.value || baseValue,
+          );
+        }
+      } catch (error) {
+        // O polling não deve interromper o checkout por uma falha transitória de rede.
+        console.debug('[CheckoutModal] Falha transitória ao consultar pagamento', error);
+      } finally {
+        checking = false;
       }
-    }, 5000);
+    };
+
+    void checkPaymentStatus();
+    pollingRef.current = setInterval(() => void checkPaymentStatus(), 5000);
+    const timeoutMs = Math.max(0, new Date(checkoutTimestamp).getTime() + 120000 - Date.now());
+    const timeoutId = window.setTimeout(() => setConfirmationTimedOut(true), timeoutMs);
 
     return () => {
       supabase.removeChannel(channel);
       if (pollingRef.current) clearInterval(pollingRef.current);
+      window.clearTimeout(timeoutId);
     };
-  }, [user, pixData, awaitingConfirmation, checkoutTimestamp, handlePaymentConfirmed]);
+  }, [user, pixData, awaitingConfirmation, confirmationTimedOut, checkoutTimestamp, checkoutPaymentId, selectedPlan, baseValue, handlePaymentConfirmed]);
 
   const handleGoToEditais = () => {
     onClose();
@@ -139,6 +183,10 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    paymentConfirmedRef.current = false;
+    setConfirmationTimedOut(false);
+    setCheckoutPaymentId(null);
+    setCheckoutTimestamp(new Date().toISOString());
     
     try {
       if (!name || !cpfCnpj || !mobilePhone) {
@@ -173,17 +221,19 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
       const response = await asaasService.processCheckout(payload);
       
       if (!response.success) {
+        if (response.code === 'ASAAS_SUBSCRIPTION_ALREADY_ACTIVE' || response.code === 'PAID_PERIOD_STILL_ACTIVE') {
+          throw new Error('Seu plano atual ainda está ativo. O plano anual ficará disponível após o fim do período pago.');
+        }
         throw new Error(response.error || 'Erro ao processar pagamento');
       }
 
       if (billingType === 'PIX' && response.pix) {
-        setCheckoutTimestamp(new Date().toISOString());
+        setCheckoutPaymentId(response.paymentId || null);
         setPixData(response.pix as { encodedImage: string; payload: string; });
       } else if (billingType === 'CREDIT_CARD' && response.subscription) {
-        setCheckoutTimestamp(new Date().toISOString());
+        setCheckoutPaymentId(response.paymentId || null);
         setAwaitingConfirmation(true);
       } else {
-        setCheckoutTimestamp(new Date().toISOString());
         setAwaitingConfirmation(true);
         toast.info('Aguardando confirmação de pagamento...');
       }
@@ -282,13 +332,29 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
           <svg className="w-10 h-10 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         </div>
       </div>
-      <h3 className="text-xl font-bold text-white mb-2">Processando Cartão...</h3>
-      <p className="text-slate-400 text-sm mb-6 max-w-sm">Estamos processando seu pagamento com a operadora do cartão. Isso pode levar alguns segundos.</p>
-      
-      <div className="flex items-center justify-center gap-2 text-sm text-slate-400">
-        <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-        Aguardando confirmação...
-      </div>
+      <h3 className="text-xl font-bold text-white mb-2">
+        {confirmationTimedOut ? 'Pagamento enviado' : 'Processando Cartão...'}
+      </h3>
+      <p className="text-slate-400 text-sm mb-6 max-w-sm">
+        {confirmationTimedOut
+          ? 'Ainda não recebemos a confirmação. Você pode fechar esta janela; o acesso será liberado automaticamente quando o pagamento for confirmado.'
+          : 'Estamos processando seu pagamento com a operadora do cartão. Isso pode levar alguns segundos.'}
+      </p>
+
+      {confirmationTimedOut ? (
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full max-w-sm bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm py-3 rounded-xl transition-colors"
+        >
+          Fechar
+        </button>
+      ) : (
+        <div className="flex items-center justify-center gap-2 text-sm text-slate-400">
+          <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+          Aguardando confirmação...
+        </div>
+      )}
     </div>
   );
 
@@ -603,11 +669,9 @@ export function CheckoutModal({ isOpen, onClose, selectedPlan, planData }: Check
                 <div className="p-3.5 bg-blue-500/5 border border-blue-500/15 rounded-xl flex items-start gap-2.5">
                   <svg className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                    {selectedPlan === 'annual' ? (
-                      <>Assinatura anual com <strong className="text-slate-300">acesso por 12 meses</strong>. O valor será cobrado uma vez por ano na renovação.</>
-                    ) : (
-                      <>Assinatura <strong className="text-slate-300">mensal recorrente</strong>. {billingType === 'CREDIT_CARD' ? 'O valor será debitado automaticamente do seu cartão a cada 30 dias.' : 'Uma nova cobrança Pix será gerada a cada 30 dias.'}</>
-                    )}
+                    {billingType === 'CREDIT_CARD'
+                      ? <>Assinatura <strong className="text-slate-300">{selectedPlan === 'annual' ? 'anual recorrente' : 'mensal recorrente'}</strong>. O valor será debitado automaticamente do seu cartão a cada ciclo.</>
+                      : <>Pagamento único via <strong className="text-slate-300">Pix</strong>. Não há renovação automática; para continuar depois do período, faça uma nova contratação.</>}
                   </p>
                 </div>
 

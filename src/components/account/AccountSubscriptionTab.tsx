@@ -1,15 +1,27 @@
-import { AlertCircle, CalendarDays, CreditCard, FileText, RefreshCw, ShieldCheck } from 'lucide-react';
+import { AlertCircle, CalendarDays, CreditCard, FileText, RefreshCw, ShieldCheck, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAccountSubscription } from '@/hooks/useAccountSubscription';
+import { accountSubscriptionQueryKey, useAccountSubscription } from '@/hooks/useAccountSubscription';
+import { cancelAccountRenewal } from '@/services/accountSubscriptionService';
+import { toast } from '@/lib/toast';
+import { toastGate } from '@/lib/errors/toastGate';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type {
   AccountAsaasPayment,
   AccountAsaasSubscription,
   LocalAccountSubscription,
 } from '@/services/accountSubscriptionService';
+import {
+  getSubscriptionDisplayDate,
+  getSubscriptionDisplayDateLabel,
+  hasAutomaticRenewal,
+} from '@/utils/subscriptionDisplay';
 
 const PLAN_LABELS: Record<string, string> = {
   free: 'Free',
@@ -44,6 +56,14 @@ const BILLING_TYPE_LABELS: Record<string, string> = {
   BOLETO: 'Boleto',
 };
 
+const formatBillingMethod = (billingType?: string | null, last4?: string | null, brand?: string | null) => {
+  const method = formatLabel(billingType, BILLING_TYPE_LABELS);
+  if (billingType === 'CREDIT_CARD' && last4) {
+    return `${brand ? `${brand} ` : ''}•••• ${last4}`;
+  }
+  return method;
+};
+
 const CYCLE_LABELS: Record<string, string> = {
   MONTHLY: 'Mensal',
   YEARLY: 'Anual',
@@ -70,24 +90,35 @@ const formatCurrency = (value?: number | null) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-const isRecurringActiveSubscription = (
-  subscription: LocalAccountSubscription | null,
-  remoteSubscription: AccountAsaasSubscription | null | undefined,
-) => {
-  const hasActiveAsaasCycle = remoteSubscription?.status === 'ACTIVE' && Boolean(remoteSubscription.nextDueDate);
-  const hasActiveLocalCycle =
-    subscription?.status === 'active' &&
-    (subscription.plan === 'monthly' || subscription.plan === 'annual') &&
-    Boolean(subscription.nextBillingDate);
+const getAccessEndDate = (subscription: LocalAccountSubscription | null) => {
+  if (!subscription) return null;
+  if (subscription.subscriptionEndsAt) return subscription.subscriptionEndsAt;
+  return subscription.billingType === 'CREDIT_CARD' ? subscription.nextBillingDate || null : null;
+};
 
-  return hasActiveAsaasCycle || hasActiveLocalCycle;
+const hasPaidAccess = (subscription: LocalAccountSubscription | null) => {
+  const accessEndDate = getAccessEndDate(subscription);
+  return Boolean(
+    subscription &&
+      (subscription.plan === 'monthly' || subscription.plan === 'annual') &&
+      accessEndDate &&
+      new Date(accessEndDate).getTime() > Date.now(),
+  );
 };
 
 const formatSubscriptionEndDate = (
   subscription: LocalAccountSubscription | null,
   remoteSubscription: AccountAsaasSubscription | null | undefined,
 ) => {
-  if (isRecurringActiveSubscription(subscription, remoteSubscription)) return 'Não aplicável';
+  const recurringActive = hasAutomaticRenewal({
+    plan: subscription?.plan,
+    status: subscription?.status,
+    billingType: remoteSubscription?.billingType || subscription?.billingType,
+    nextBillingDate: remoteSubscription?.nextDueDate || subscription?.nextBillingDate,
+    subscriptionEndsAt: subscription?.subscriptionEndsAt,
+    cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd,
+  });
+  if (recurringActive) return 'Não aplicável';
   return formatDate(subscription?.subscriptionEndsAt);
 };
 
@@ -120,22 +151,49 @@ const SubscriptionSummary = ({
   subscription,
   remoteSubscription,
   remoteValue,
+  renewalCanceled,
+  paidAccess,
 }: {
   subscription: LocalAccountSubscription | null;
   remoteSubscription: AccountAsaasSubscription | null | undefined;
   remoteValue: number | null | undefined;
-}) => (
-  <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    <InfoItem label="Plano" value={formatLabel(subscription?.plan, PLAN_LABELS)} />
-    <InfoItem label="Status" value={formatLabel(subscription?.status, STATUS_LABELS)} />
-    <InfoItem label="Pagamento" value={formatLabel(subscription?.billingType, BILLING_TYPE_LABELS)} />
-    <InfoItem label="Valor" value={formatCurrency(remoteValue)} />
-    <InfoItem label="Início" value={formatDate(subscription?.subscriptionStartedAt)} />
-    <InfoItem label="Próxima cobrança" value={formatDate(subscription?.nextBillingDate)} />
-    <InfoItem label="Fim previsto" value={formatSubscriptionEndDate(subscription, remoteSubscription)} />
-    <InfoItem label="Último pagamento" value={formatDate(subscription?.lastPaymentAt)} />
-  </dl>
-);
+  renewalCanceled: boolean;
+  paidAccess: boolean;
+}) => {
+  const displayInput = {
+    plan: subscription?.plan,
+    status: subscription?.status,
+    billingType: remoteSubscription?.billingType || subscription?.billingType,
+    nextBillingDate: remoteSubscription?.nextDueDate || subscription?.nextBillingDate,
+    subscriptionEndsAt: subscription?.subscriptionEndsAt,
+    trialEndsAt: subscription?.trialEndsAt,
+    cancelAtPeriodEnd: renewalCanceled,
+  };
+  const displayDate = getSubscriptionDisplayDate(displayInput);
+
+  return (
+    <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <InfoItem label="Plano" value={formatLabel(subscription?.plan, PLAN_LABELS)} />
+      <InfoItem
+        label="Acesso"
+        value={paidAccess && renewalCanceled ? 'Ativo até o fim do período' : formatLabel(subscription?.status, STATUS_LABELS)}
+      />
+      <InfoItem label="Pagamento" value={formatBillingMethod(
+        remoteSubscription?.billingType || subscription?.billingType,
+        remoteSubscription?.creditCardLast4,
+        remoteSubscription?.creditCardBrand,
+      )} />
+      <InfoItem label="Valor" value={formatCurrency(remoteValue)} />
+      <InfoItem label="Início" value={formatDate(subscription?.subscriptionStartedAt)} />
+      <InfoItem label={getSubscriptionDisplayDateLabel(displayInput)} value={formatDate(displayDate)} />
+      <InfoItem
+        label="Fim previsto"
+        value={paidAccess ? formatDate(getAccessEndDate(subscription)) : formatSubscriptionEndDate(subscription, remoteSubscription)}
+      />
+      <InfoItem label="Último pagamento" value={formatDate(subscription?.lastPaymentAt)} />
+    </dl>
+  );
+};
 
 const PaymentRow = ({ payment }: { payment: AccountAsaasPayment }) => (
   <li className="grid gap-3 rounded-lg border border-border/60 bg-background/70 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -161,7 +219,25 @@ const LoadingState = () => (
 );
 
 export function AccountSubscriptionTab() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data, error, isError, isLoading, isFetching } = useAccountSubscription();
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = React.useState(false);
+  const cancelRenewalMutation = useMutation({
+    mutationFn: cancelAccountRenewal,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: accountSubscriptionQueryKey });
+      setIsCancelDialogOpen(false);
+      toast.success('Renovação automática cancelada. Seu acesso permanece ativo até o fim do período pago.');
+    },
+    onError: (mutationError) => {
+      toastGate.notifyError(
+        mutationError instanceof Error ? mutationError.message : 'Não foi possível cancelar a renovação.',
+        'ACCOUNT-SUBSCRIPTION-CANCEL-01',
+        { flowKey: 'account-subscription-cancel', severity: 'medium' },
+      );
+    },
+  });
 
   if (isLoading) {
     return <LoadingState />;
@@ -182,6 +258,19 @@ export function AccountSubscriptionTab() {
   const subscription = data?.subscription ?? null;
   const asaas = data?.asaas;
   const remoteSubscription = asaas?.subscription ?? null;
+  const renewalCanceled = Boolean(subscription?.cancelAtPeriodEnd);
+  const paidAccess = hasPaidAccess(subscription);
+  const accessEndDate = getAccessEndDate(subscription);
+  const billingType = remoteSubscription?.billingType || subscription?.billingType;
+  const isCardBilling = billingType === 'CREDIT_CARD';
+  const recurringActive = hasAutomaticRenewal({
+    plan: subscription?.plan,
+    status: subscription?.status,
+    billingType,
+    nextBillingDate: remoteSubscription?.nextDueDate || subscription?.nextBillingDate,
+    subscriptionEndsAt: subscription?.subscriptionEndsAt,
+    cancelAtPeriodEnd: renewalCanceled,
+  });
 
   return (
     <div className="grid gap-5">
@@ -202,14 +291,47 @@ export function AccountSubscriptionTab() {
               </CardTitle>
               <CardDescription>Leitura segura do seu plano e ciclo de cobrança.</CardDescription>
             </div>
-            <Badge variant="outline">{formatLabel(subscription?.status, STATUS_LABELS)}</Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">
+                {paidAccess && renewalCanceled ? 'Ativa até o fim do período' : formatLabel(subscription?.status, STATUS_LABELS)}
+              </Badge>
+              {recurringActive ? (
+                <button
+                  type="button"
+                  onClick={() => setIsCancelDialogOpen(true)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-destructive/40 px-3 text-xs font-semibold text-destructive transition hover:bg-destructive/10"
+                >
+                  {isCardBilling ? 'Cancelar renovação' : 'Cancelar próximas cobranças'}
+                </button>
+              ) : subscription?.plan === 'monthly' ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/planos')}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+                >
+                  Ver opções de plano
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
+          {renewalCanceled && paidAccess ? (
+            <Alert className="mb-4 border-amber-500/30 bg-amber-500/10">
+              <CalendarDays className="h-4 w-4 text-amber-500" />
+              <AlertTitle>Renovação cancelada, acesso preservado</AlertTitle>
+              <AlertDescription>
+                Seu pagamento continua válido e o acesso permanece disponível até {formatDate(accessEndDate)}. Nenhuma nova cobrança será gerada.
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <SubscriptionSummary
             subscription={subscription}
             remoteSubscription={remoteSubscription}
             remoteValue={remoteSubscription?.value}
+            renewalCanceled={renewalCanceled}
+            paidAccess={paidAccess}
           />
         </CardContent>
       </Card>
@@ -232,10 +354,24 @@ export function AccountSubscriptionTab() {
         </CardHeader>
         <CardContent>
           <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <InfoItem label="Status Asaas" value={formatLabel(remoteSubscription?.status, STATUS_LABELS)} />
-            <InfoItem label="Ciclo" value={formatLabel(remoteSubscription?.cycle, CYCLE_LABELS)} />
-            <InfoItem label="Método" value={formatLabel(remoteSubscription?.billingType, BILLING_TYPE_LABELS)} />
-            <InfoItem label="Vencimento" value={formatDate(remoteSubscription?.nextDueDate)} />
+            <InfoItem
+              label={isCardBilling ? 'Recorrência no Asaas' : 'Cobrança'}
+              value={isCardBilling ? (renewalCanceled ? 'Encerrada' : formatLabel(remoteSubscription?.status, STATUS_LABELS)) : 'Pagamento avulso'}
+            />
+            <InfoItem label="Período" value={formatLabel(remoteSubscription?.cycle, CYCLE_LABELS)} />
+            <InfoItem label="Método" value={formatBillingMethod(
+              remoteSubscription?.billingType || subscription?.billingType,
+              remoteSubscription?.creditCardLast4,
+              remoteSubscription?.creditCardBrand,
+            )} />
+            <InfoItem
+              label={recurringActive ? 'Próxima cobrança' : 'Acesso até'}
+              value={recurringActive ? formatDate(remoteSubscription?.nextDueDate) : formatDate(accessEndDate)}
+            />
+            <InfoItem
+              label="Renovação automática"
+              value={isCardBilling ? (renewalCanceled ? 'Cancelada' : recurringActive ? 'Ativa no cartão' : 'Não ativa') : 'Não'}
+            />
           </dl>
         </CardContent>
       </Card>
@@ -263,13 +399,52 @@ export function AccountSubscriptionTab() {
         </CardContent>
       </Card>
 
-      <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 p-4 text-xs text-content-muted">
+      <div className="flex items-start justify-between gap-4 rounded-lg border border-border/60 bg-muted/30 p-4 text-xs text-content-muted">
         <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          Cancelamento, troca de plano, alteração de pagamento e segunda via ficam bloqueados até a leitura de cobrança
-          estar confiável em produção.
+          {renewalCanceled
+            ? `As cobranças futuras foram canceladas. O acesso permanece ativo até ${formatDate(accessEndDate)}.`
+            : isCardBilling
+              ? 'Seu cartão será cobrado automaticamente na data indicada enquanto a assinatura estiver ativa.'
+              : 'Este pagamento foi feito via Pix e não será renovado automaticamente. Para continuar, faça uma nova contratação após o período atual.'}
         </p>
+        <button
+          type="button"
+          onClick={() => navigate('/planos')}
+          className="shrink-0 font-semibold text-primary hover:underline"
+        >
+          Ver planos
+        </button>
       </div>
+
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isCardBilling ? 'Cancelar renovação automática?' : 'Cancelar próximas cobranças?'}</DialogTitle>
+            <DialogDescription>
+              {isCardBilling
+                ? `Seu cartão não será cobrado novamente. Você continuará com acesso até ${formatDate(accessEndDate)}.`
+                : `Nenhuma nova cobrança PIX será gerada. Você continuará com acesso até ${formatDate(accessEndDate)}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-muted-foreground">
+            Você poderá assinar outro plano quando o período terminar.
+          </div>
+          <DialogFooter>
+            <button type="button" onClick={() => setIsCancelDialogOpen(false)} className="h-10 rounded-lg border border-border px-4 text-sm font-semibold text-foreground hover:bg-muted">
+              Manter renovação
+            </button>
+            <button
+              type="button"
+              disabled={cancelRenewalMutation.isPending}
+              onClick={() => cancelRenewalMutation.mutate()}
+              className="h-10 rounded-lg bg-destructive px-4 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {cancelRenewalMutation.isPending ? 'Cancelando...' : isCardBilling ? 'Cancelar renovação' : 'Cancelar cobranças'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

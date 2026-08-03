@@ -15,6 +15,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useSubscriptionInfo } from '@/hooks/useSubscriptionInfo';
 import { UserAvatar } from '@/components/ui/UserAvatar';
+import {
+  getSubscriptionDisplayDate,
+  getSubscriptionDisplayDateLabel,
+  getSubscriptionAccessStatusLabel,
+} from '@/utils/subscriptionDisplay';
 
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -163,16 +168,25 @@ const getSubscriptionView = (
   }
 
   const isAnnual = subscriptionInfo.plan === 'annual';
-  const renewalDate = subscriptionInfo.next_billing_date || subscriptionInfo.subscription_ends_at;
+  const subscriptionDisplayInput = {
+    plan: subscriptionInfo.plan,
+    status: subscriptionInfo.status,
+    billingType: subscriptionInfo.billing_type,
+    nextBillingDate: subscriptionInfo.next_billing_date,
+    subscriptionEndsAt: subscriptionInfo.subscription_ends_at,
+    trialEndsAt: subscriptionInfo.trial_ends_at,
+    cancelAtPeriodEnd: subscriptionInfo.cancel_at_period_end,
+  };
+  const renewalDate = getSubscriptionDisplayDate(subscriptionDisplayInput);
   const daysUntilRenewal = getDaysUntil(renewalDate);
   const renewalSummary = renewalDate
-    ? `Renova em ${formatDate(renewalDate)}`
+    ? `${getSubscriptionDisplayDateLabel(subscriptionDisplayInput)} ${formatDate(renewalDate)}`
     : 'Assinatura ativa';
 
   return {
     badge: isAnnual ? 'ANUAL' : 'MENSAL',
     title: isAnnual ? 'Plano Anual' : 'Plano Mensal',
-    status: 'Ativo',
+    status: getSubscriptionAccessStatusLabel(subscriptionDisplayInput),
     tone: 'text-emerald-400',
     cta: 'Gerenciar',
     summary: daysUntilRenewal !== null

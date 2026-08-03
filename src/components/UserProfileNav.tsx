@@ -1,62 +1,35 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, Settings, User, UserCheck, Crown, Shield, Users, XCircle, Clock } from "lucide-react";
+import { LogOut, Settings, User } from "lucide-react";
 import { Link } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { useSimpleSubscription } from '@/hooks/useSimpleSubscription';
+import { useStripeBillingOverview } from '@/features/billing/hooks/useStripeBilling';
+import { getBillingAccessLabel } from '@/features/billing/utils/billingAccessLabel';
+import { useUserRole } from '@/hooks/useUserRole';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserAvatar } from './ui/UserAvatar';
-
-// Função para determinar o ícone baseado no badge
-const getBadgeIcon = (displayBadge: string, _badgeColor: string) => {
-  if (displayBadge.includes('Proprietário')) return Crown;
-  if (displayBadge.includes('Administrador')) return Shield;
-  if (displayBadge.includes('Moderador')) return Users;
-  if (displayBadge.includes('Anual') || displayBadge.includes('Mensal')) return UserCheck;
-  if (displayBadge.includes('Trial')) return Clock;
-  if (displayBadge.includes('Expirado')) return XCircle;
-  return User;
-};
-
-// Função para determinar as classes CSS baseado na cor
-const getBadgeClasses = (badgeColor: string) => {
-  switch (badgeColor) {
-    case 'purple':
-      return 'text-purple-600 bg-purple-50 border-purple-200';
-    case 'blue':
-      return 'text-blue-600 bg-blue-50 border-blue-200';
-    case 'green':
-      return 'text-green-600 bg-green-50 border-green-200';
-    case 'yellow':
-      return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-    case 'red':
-      return 'text-red-600 bg-red-50 border-red-200';
-    case 'gray':
-    default:
-      return 'text-gray-600 bg-gray-50 border-gray-200';
-  }
-};
 
 const UserProfileNavComponent = () => {
   const { user, signOut } = useAuth();
   const {
     profile,
-    loading: profileLoading
   } = useUserProfile();
-  const {
-    displayBadge,
-    badgeColor,
-    isActive: hasActiveSubscription,
-    loading: subscriptionLoading
-  } = useSimpleSubscription();
+  const billingOverview = useStripeBillingOverview();
+  const { isOwner, isAdmin, isModerator, loading: roleLoading } = useUserRole();
   const [firstName, setFirstName] = useState<string>('');
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
 
-  const loading = profileLoading || subscriptionLoading;
+  const displayBadge = (() => {
+    if (roleLoading || billingOverview.isLoading) return 'Carregando...';
+    if (isOwner) return 'Proprietário';
+    if (isAdmin) return 'Administrador';
+    if (isModerator) return 'Moderador';
+    return getBillingAccessLabel(billingOverview.data);
+  })();
 
   useEffect(() => {
     if (profile?.name) {
@@ -106,9 +79,6 @@ const UserProfileNavComponent = () => {
   const userInitials = profile?.name
     ? profile.name.trim().split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
     : user.email?.charAt(0).toUpperCase() || 'U';
-
-  const AccountIcon = getBadgeIcon(displayBadge, badgeColor);
-  const badgeClasses = getBadgeClasses(badgeColor);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);

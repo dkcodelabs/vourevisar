@@ -14,12 +14,19 @@ interface SubscriptionInfo {
   is_active: boolean
   days_remaining: number | null
   billing_type: string | null
+  cancel_at_period_end: boolean
   next_billing_date: string | null
   last_payment_at: string | null
   trial_started_at: string | null
   trial_ends_at: string | null
   subscription_started_at: string | null
   subscription_ends_at: string | null
+  scheduled_plan: 'free_trial' | 'monthly' | 'annual' | null
+  scheduled_plan_at: string | null
+  manual_access_until: string | null
+  manual_access_plan: 'free_trial' | 'monthly' | 'annual' | null
+  manual_access_reason: string | null
+  manual_access_granted_at: string | null
   created_at: string
   updated_at: string
 }
@@ -64,7 +71,7 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
       }))
       const localSubscriptionPromise = supabase
         .from('user_subscriptions')
-        .select('plan, status, billing_type, next_billing_date, last_payment_at, trial_started_at, trial_ends_at, subscription_started_at, subscription_ends_at, created_at, updated_at')
+        .select('plan, status, billing_type, cancel_at_period_end, next_billing_date, last_payment_at, trial_started_at, trial_ends_at, subscription_started_at, subscription_ends_at, scheduled_plan, scheduled_plan_at, manual_access_until, manual_access_plan, manual_access_reason, manual_access_granted_at, created_at, updated_at')
         .eq('user_id', user.id)
         .maybeSingle()
 
@@ -98,25 +105,33 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
           trialEndsAt: localSubscription.trial_ends_at,
           subscriptionEndsAt: localSubscription.subscription_ends_at,
           nextBillingAt: localSubscription.next_billing_date,
+          manualAccessUntil: localSubscription.manual_access_until,
+          manualAccessPlan: localSubscription.manual_access_plan,
         });
-        const rpcIsActive = rpcSubscription?.is_active ?? entitlement.isActive;
-        const isActive = rpcIsActive && entitlement.isActive;
+        const isActive = entitlement.isActive;
 
         setSubscriptionInfo({
           user_id: user.id,
-          plan: isActive ? (rpcSubscription?.plan ?? entitlement.plan) : 'free_trial',
+          plan: isActive ? entitlement.plan : 'free_trial',
           status: isActive ? entitlement.status : 'expired',
           is_active: isActive,
           days_remaining: isActive
-            ? Math.min(rpcSubscription?.days_remaining ?? entitlement.daysRemaining, entitlement.daysRemaining || Number.MAX_SAFE_INTEGER)
+            ? entitlement.daysRemaining
             : 0,
           billing_type: localSubscription.billing_type,
+          cancel_at_period_end: Boolean(localSubscription.cancel_at_period_end),
           next_billing_date: localSubscription.next_billing_date,
           last_payment_at: localSubscription.last_payment_at,
           trial_started_at: localSubscription.trial_started_at,
           trial_ends_at: localSubscription.trial_ends_at,
           subscription_started_at: localSubscription.subscription_started_at,
           subscription_ends_at: localSubscription.subscription_ends_at,
+          scheduled_plan: localSubscription.scheduled_plan,
+          scheduled_plan_at: localSubscription.scheduled_plan_at,
+          manual_access_until: localSubscription.manual_access_until,
+          manual_access_plan: localSubscription.manual_access_plan,
+          manual_access_reason: localSubscription.manual_access_reason,
+          manual_access_granted_at: localSubscription.manual_access_granted_at,
           created_at: localSubscription.created_at,
           updated_at: localSubscription.updated_at,
         });
@@ -135,19 +150,29 @@ export function useSubscriptionInfo(): UseSubscriptionInfoReturn {
           is_active: true,
           days_remaining: 99999,
           billing_type: null,
+          cancel_at_period_end: false,
           next_billing_date: null,
           last_payment_at: null,
           trial_started_at: null,
           trial_ends_at: null,
           subscription_started_at: new Date().toISOString(),
           subscription_ends_at: null,
+          scheduled_plan: null,
+          scheduled_plan_at: null,
+          manual_access_until: null,
+          manual_access_plan: null,
+          manual_access_reason: null,
+          manual_access_granted_at: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         return
       }
 
-      setSubscriptionInfo(rpcSubscription)
+      setSubscriptionInfo(rpcSubscription ? {
+        ...rpcSubscription,
+        cancel_at_period_end: Boolean(rpcSubscription.cancel_at_period_end),
+      } : null)
     } catch (err) {
       console.error('Error fetching subscription info:', err)
       setError(err instanceof Error ? err.message : 'Erro ao carregar informações da assinatura')

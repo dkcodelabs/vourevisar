@@ -19,7 +19,7 @@ export interface AsaasPayment {
   subscription: string;
   value: number;
   netValue: number;
-  status: 'PENDING' | 'RECEIVED' | 'CONFIRMED' | 'OVERDUE' | 'REFUNDED' | 'RECEIVED_IN_CASH' | 'REFUND_REQUESTED' | 'CHARGEBACK_REQUESTED' | 'CHARGEBACK_DISPUTE' | 'AWAITING_CHARGEBACK_REVERSAL' | 'DUNNING_REQUESTED' | 'DUNNING_RECEIVED' | 'AWAITING_RISK_ANALYSIS';
+  status: 'PENDING' | 'RECEIVED' | 'CONFIRMED' | 'OVERDUE' | 'REFUNDED' | 'PARTIALLY_REFUNDED' | 'REFUND_IN_PROGRESS' | 'REFUND_REQUESTED' | 'RECEIVED_IN_CASH' | 'CHARGEBACK_REQUESTED' | 'CHARGEBACK_DISPUTE' | 'AWAITING_CHARGEBACK_REVERSAL' | 'DUNNING_REQUESTED' | 'DUNNING_RECEIVED' | 'AWAITING_RISK_ANALYSIS';
   billingType: 'PIX' | 'CREDIT_CARD' | 'BOLETO';
   dueDate: string;
   paymentDate?: string;
@@ -41,7 +41,7 @@ export const asaasAdminService = {
   /**
    * Invoca a Edge Function asaas-admin
    */
-  async invokeAdminFunction(action: string, params: Record<string, unknown> = {}) {
+  async invokeAdminFunction<T = unknown>(action: string, params: Record<string, unknown> = {}): Promise<T> {
     try {
       const { data, error } = await supabase.functions.invoke('asaas-admin', {
         body: { action, params }
@@ -55,7 +55,7 @@ export const asaasAdminService = {
         throw new Error(data?.error || `Erro retornado pelo asaas-admin: ${action}`);
       }
 
-      return data.data;
+      return data.data as T;
     } catch (error: unknown) {
       errorService.report(error as Error, {
         module: 'asaasAdminService',
@@ -69,38 +69,22 @@ export const asaasAdminService = {
 
   async getSubscription(subscriptionId: string): Promise<AsaasSubscription | null> {
     if (!subscriptionId) return null;
-    try {
-      return await this.invokeAdminFunction('get_subscription', { id: subscriptionId });
-    } catch (e) {
-      return null; // Silent catch, already reported
-    }
+    return await this.invokeAdminFunction('get_subscription', { id: subscriptionId });
   },
 
   async getSubscriptionPayments(subscriptionId: string): Promise<AsaasPayment[]> {
     if (!subscriptionId) return [];
-    try {
-      const res = await this.invokeAdminFunction('get_payments', { id: subscriptionId });
-      return res?.data || [];
-    } catch (e) {
-      return [];
-    }
+    const res = await this.invokeAdminFunction('get_payments', { id: subscriptionId }) as { data?: AsaasPayment[] };
+    return res?.data || [];
   },
 
   async getCustomer(customerId: string): Promise<AsaasCustomer | null> {
     if (!customerId) return null;
-    try {
-      return await this.invokeAdminFunction('get_customer', { id: customerId });
-    } catch (e) {
-      return null;
-    }
+    return await this.invokeAdminFunction('get_customer', { id: customerId });
   },
   
   async getPayment(paymentId: string): Promise<AsaasPayment | null> {
     if (!paymentId) return null;
-    try {
-      return await this.invokeAdminFunction('get_payment', { id: paymentId });
-    } catch (e) {
-      return null;
-    }
+    return await this.invokeAdminFunction('get_payment', { id: paymentId });
   }
 };

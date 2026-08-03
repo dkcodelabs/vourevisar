@@ -19,7 +19,7 @@ export function NavProjects({
     name: string
     url: string
     icon: LucideIcon
-    status?: "ok" | "error" | "idle"
+    status?: "ok" | "error" | "idle" | "unread"
   }[]
 }) {
   const location = useLocation()
@@ -48,9 +48,11 @@ export function NavProjects({
                         item.status === "ok" && "bg-emerald-500",
                         item.status === "error" && "bg-red-500",
                         item.status === "idle" && "bg-muted-foreground/50",
+                        item.status === "unread" && "bg-blue-500",
                       ]
                         .filter(Boolean)
                         .join(" ")}
+                      aria-label={item.status === "unread" ? "Há atualizações não lidas" : undefined}
                     />
                   )}
                 </NavLink>

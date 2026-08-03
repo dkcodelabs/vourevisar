@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement'
+import { withTimeout } from '@/utils/withTimeout'
 
 export type SubscriptionPlan = 'free_trial' | 'monthly' | 'annual'
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'canceled' | 'suspended'
@@ -59,19 +60,27 @@ export function useSubscription(): UseSubscriptionReturn {
       // Log removido para otimização
 
       // Buscar diretamente da tabela para garantir dados atualizados
-      const { data: subscriptionData, error: directError } = await supabase
-        .from('user_subscriptions')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      const { data: subscriptionData, error: directError } = await withTimeout(
+        supabase
+          .from('user_subscriptions')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        10000,
+        'Não foi possível confirmar sua assinatura. Tente novamente.',
+      )
 
       if (directError) throw directError
 
       // Verificar se o usuário possui a role de admin ou owner ou se é email protegido
-      const { data: rolesData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
+      const { data: rolesData } = await withTimeout(
+        supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id),
+        10000,
+        'Não foi possível confirmar suas permissões. Tente novamente.',
+      )
 
       const isOwnerOrAdmin = user.email === 'vourevisar@gmail.com' || 
                              user.email === 'darciliok@gmail.com' || 
@@ -120,6 +129,8 @@ export function useSubscription(): UseSubscriptionReturn {
         trialEndsAt: subscriptionData.trial_ends_at,
         subscriptionEndsAt: subscriptionData.subscription_ends_at,
         nextBillingAt: subscriptionData.next_billing_date,
+        manualAccessUntil: subscriptionData.manual_access_until,
+        manualAccessPlan: subscriptionData.manual_access_plan,
       })
 
       const processedSubscription = {

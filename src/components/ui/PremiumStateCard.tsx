@@ -13,6 +13,7 @@ interface PremiumStateCardProps {
   actionLabel?: string;
   onAction?: () => void;
   actionIcon?: LucideIcon;
+  requiresOnline?: boolean;
   helperText?: string;
   technicalDetail?: string;
   className?: string;
@@ -28,15 +29,37 @@ export const PremiumStateCard = ({
   actionLabel,
   onAction,
   actionIcon: ActionIcon,
+  requiresOnline = false,
   helperText,
   technicalDetail,
   className
 }: PremiumStateCardProps) => {
   const [imageStatus, setImageStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [isOnline, setIsOnline] = useState(() => {
+    if (typeof navigator === 'undefined') return true;
+    return navigator.onLine;
+  });
 
   useEffect(() => {
     setImageStatus('loading');
   }, [imageSrc]);
+
+  useEffect(() => {
+    if (!requiresOnline) return;
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [requiresOnline]);
+
+  const actionDisabled = requiresOnline && !isOnline;
 
   return (
     <div
@@ -96,10 +119,11 @@ export const PremiumStateCard = ({
               {actionLabel && onAction && (
                 <Button
                   onClick={onAction}
+                  disabled={actionDisabled}
                   className="h-11 rounded-xl px-5 font-bold text-primary-foreground shadow-lg shadow-primary/20"
                 >
                   {ActionIcon && <ActionIcon size={16} />}
-                  {actionLabel}
+                  {actionDisabled ? 'Aguardando conexão' : actionLabel}
                 </Button>
               )}
               {helperText && (

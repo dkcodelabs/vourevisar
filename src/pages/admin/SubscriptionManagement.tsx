@@ -35,6 +35,10 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { invokeAdminRpc } from '@/services/adminRpcService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement';
+import {
+    getSubscriptionDisplayDate,
+    getSubscriptionDisplayDateLabel,
+} from '@/utils/subscriptionDisplay';
 
 interface UserWithSubscription {
     id: string;
@@ -50,7 +54,59 @@ interface UserWithSubscription {
     avatar_url?: string | null;
     asaas_subscription_id?: string | null;
     billing_type?: string | null;
+    cancel_at_period_end?: boolean;
 }
+
+const hasAsaasAutomaticRenewal = (
+    user: UserWithSubscription,
+    subscription: AsaasSubscription | null | undefined,
+) => Boolean(
+    subscription?.status === 'ACTIVE' &&
+    subscription.billingType === 'CREDIT_CARD' &&
+    !user.cancel_at_period_end &&
+    subscription.nextDueDate,
+);
+
+const formatAsaasDate = (value?: string | null) =>
+    value ? new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR') : 'N/A';
+
+const formatAsaasCurrency = (value?: number | null) =>
+    typeof value === 'number'
+        ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+        : 'N/A';
+
+const formatAsaasBillingType = (value?: string | null) => {
+    switch (value) {
+        case 'PIX': return 'Pix';
+        case 'CREDIT_CARD': return 'Cartão de crédito';
+        case 'BOLETO': return 'Boleto';
+        default: return value || 'N/A';
+    }
+};
+
+const formatAsaasSubscriptionStatus = (value?: string | null) => {
+    switch (value) {
+        case 'ACTIVE': return 'Ativa';
+        case 'INACTIVE': return 'Inativa';
+        case 'EXPIRED': return 'Expirada';
+        case 'OVERDUE': return 'Em atraso';
+        case 'SUSPENDED': return 'Suspensa';
+        default: return value || 'N/A';
+    }
+};
+
+const formatAsaasPaymentStatus = (value?: string | null) => {
+    switch (value) {
+        case 'RECEIVED': return 'Recebida';
+        case 'CONFIRMED': return 'Confirmada';
+        case 'PENDING': return 'Pendente';
+        case 'OVERDUE': return 'Em atraso';
+        case 'REFUNDED': return 'Estornada';
+        case 'PARTIALLY_REFUNDED': return 'Estornada parcialmente';
+        case 'REFUND_IN_PROGRESS': return 'Estorno em andamento';
+        default: return value || 'N/A';
+    }
+};
 
 const SubscriptionManagement = () => {
     const navigate = useNavigate();
@@ -87,7 +143,7 @@ const SubscriptionManagement = () => {
 
             const { data: subscriptions, error: subscriptionsError } = await supabase
                 .from('user_subscriptions')
-                .select('user_id, plan, status, trial_ends_at, subscription_ends_at, next_billing_date, trial_started_at, subscription_started_at, asaas_subscription_id, billing_type');
+                .select('user_id, plan, status, trial_ends_at, subscription_ends_at, next_billing_date, trial_started_at, subscription_started_at, asaas_subscription_id, billing_type, cancel_at_period_end');
 
             if (subscriptionsError) throw subscriptionsError;
 
@@ -99,6 +155,7 @@ const SubscriptionManagement = () => {
                     trial_ends_at?: string;
                     subscription_ends_at?: string;
                     next_billing_date?: string;
+                    cancel_at_period_end?: boolean;
                     asaas_subscription_id?: string;
                     billing_type?: string;
                 } | undefined;
@@ -121,12 +178,17 @@ const SubscriptionManagement = () => {
                     effectiveStatus = entitlement.status;
                 }
 
-                const displayDate = isActive
-                    ? subscription?.next_billing_date || subscription?.subscription_ends_at || subscription?.trial_ends_at || null
-                    : subscription?.subscription_ends_at || subscription?.trial_ends_at || subscription?.next_billing_date || null;
-                const displayDateLabel = isActive && subscription?.status === 'active'
-                    ? 'Próxima cobrança:'
-                    : 'Vence em:';
+                const displayInput = {
+                    plan: subscription?.plan,
+                    status: subscription?.status,
+                    billingType: subscription?.billing_type,
+                    nextBillingDate: subscription?.next_billing_date,
+                    subscriptionEndsAt: subscription?.subscription_ends_at,
+                    trialEndsAt: subscription?.trial_ends_at,
+                    cancelAtPeriodEnd: subscription?.cancel_at_period_end,
+                };
+                const displayDate = getSubscriptionDisplayDate(displayInput);
+                const displayDateLabel = `${getSubscriptionDisplayDateLabel(displayInput)}:`;
 
                 return {
                     id: user.id,
@@ -141,7 +203,8 @@ const SubscriptionManagement = () => {
                     subscription_date_label: displayDate ? displayDateLabel : null,
                     avatar_url: user.avatar_url || null,
                     asaas_subscription_id: subscription?.asaas_subscription_id || null,
-                    billing_type: subscription?.billing_type || null
+                    billing_type: subscription?.billing_type || null,
+                    cancel_at_period_end: Boolean(subscription?.cancel_at_period_end),
                 };
             });
 
@@ -168,6 +231,7 @@ const SubscriptionManagement = () => {
     const handleViewAsaas = async (user: UserWithSubscription) => {
         if (!user.asaas_subscription_id) return;
         setSelectedAsaasUser(user);
+        setAsaasDetails(null);
         setLoadingAsaas(true);
         try {
             const [subscription, payments] = await Promise.all([
@@ -188,18 +252,14 @@ const SubscriptionManagement = () => {
     const changeSubscription = async (userId: string, action: 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate') => {
         try {
             const targetUser = users.find(user => user.id === userId);
-            if (targetUser?.asaas_subscription_id) {
-                toastGate.notifyError('Esta assinatura é gerenciada pelo Asaas. Altere o plano no Asaas e sincronize o cadastro.', 'ASAAS-SUB-MANAGED', { severity: 'low' });
-                return;
-            }
-
             const actionLabel = {
                 activate_trial: 'conceder um trial manual de 7 dias',
                 activate_monthly: 'conceder acesso manual mensal',
                 activate_annual: 'conceder acesso manual anual',
                 deactivate: 'remover o acesso manual',
             }[action];
-            if (!window.confirm(`Você vai ${actionLabel}. Esta ação não cria nem altera uma cobrança no Asaas. Continuar?`)) {
+            const asaasNotice = ' Esta ação concede ou remove acesso manual no vouRevisar e não cria, cancela ou altera cobranças no Asaas.';
+            if (!window.confirm(`Você vai ${actionLabel}.${asaasNotice} Continuar?`)) {
                 return;
             }
 
@@ -396,11 +456,11 @@ const SubscriptionManagement = () => {
                                             </div>
                                         ) : (
                                             <Select
-                                                disabled={user.role === 'owner' || Boolean(user.asaas_subscription_id)}
+                                                disabled={user.role === 'owner'}
                                                 onValueChange={(value) => changeSubscription(user.id, value as 'activate_monthly' | 'activate_annual' | 'activate_trial' | 'deactivate')}
                                             >
                                                 <SelectTrigger className="w-full h-full text-xs font-semibold bg-black/5 dark:bg-white/5 border-transparent outline-none ring-0 hover:bg-black/10 dark:hover:bg-white/10 transition-colors rounded-xl focus:ring-0">
-                                                    <SelectValue placeholder={user.asaas_subscription_id ? 'Gerenciado pelo Asaas' : 'Ações manuais'} />
+                                                    <SelectValue placeholder="Ações manuais" />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-2xl shadow-xl overflow-hidden glass-card p-1 border border-black/10 dark:border-white/10">
                                                     <SelectItem value="activate_trial" className="rounded-xl font-medium m-0.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5">Conceder trial manual (7 dias)</SelectItem>
@@ -441,30 +501,59 @@ const SubscriptionManagement = () => {
                             ) : asaasDetails ? (
                                 <div className="space-y-6">
                                     <div className="bg-black/5 dark:bg-white/5 rounded-2xl p-5 border border-black/5 dark:border-white/5">
-                                        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Assinatura Atual</h3>
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Assinatura no Asaas</h3>
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                             <div>
-                                                <div className="text-xs text-muted-foreground mb-1">Status</div>
-                                                <div className="font-semibold text-foreground">{asaasDetails.subscription?.status || 'N/A'}</div>
+                                                <div className="text-xs text-muted-foreground mb-1">Status externo</div>
+                                                <div className="font-semibold text-foreground">{formatAsaasSubscriptionStatus(asaasDetails.subscription?.status)}</div>
                                             </div>
                                             <div>
                                                 <div className="text-xs text-muted-foreground mb-1">Valor</div>
                                                 <div className="font-semibold text-foreground">
-                                                    {asaasDetails.subscription?.value ? `R$ ${asaasDetails.subscription.value.toFixed(2)}` : 'N/A'}
+                                                    {formatAsaasCurrency(asaasDetails.subscription?.value)}
                                                 </div>
                                             </div>
                                             <div>
                                                 <div className="text-xs text-muted-foreground mb-1">Método</div>
-                                                <div className="font-semibold text-foreground">{asaasDetails.subscription?.billingType || 'N/A'}</div>
+                                                <div className="font-semibold text-foreground">{formatAsaasBillingType(asaasDetails.subscription?.billingType)}</div>
                                             </div>
                                             <div>
-                                                <div className="text-xs text-muted-foreground mb-1">Próx. Vencimento</div>
+                                                <div className="text-xs text-muted-foreground mb-1">
+                                                    {hasAsaasAutomaticRenewal(selectedAsaasUser, asaasDetails.subscription)
+                                                        ? 'Próxima cobrança no Asaas'
+                                                        : 'Período pago até'}
+                                                </div>
                                                 <div className="font-semibold text-foreground">
-                                                    {asaasDetails.subscription?.nextDueDate ? new Date(asaasDetails.subscription.nextDueDate).toLocaleDateString('pt-BR') : 'N/A'}
+                                                    {formatAsaasDate(
+                                                        hasAsaasAutomaticRenewal(selectedAsaasUser, asaasDetails.subscription)
+                                                            ? asaasDetails.subscription?.nextDueDate
+                                                            : selectedAsaasUser.subscription_ends_at || asaasDetails.subscription?.nextDueDate,
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
+                                    {asaasDetails.subscription?.status !== 'ACTIVE' && (
+                                        <p className="-mt-3 text-xs text-muted-foreground">
+                                            A assinatura não está ativa no Asaas. Não há nova cobrança recorrente prevista.
+                                        </p>
+                                    )}
+                                    {selectedAsaasUser.subscription_status !== 'active' && asaasDetails.subscription?.status === 'ACTIVE' && (
+                                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+                                            <div className="font-semibold text-foreground">Acesso no vouRevisar: indisponível</div>
+                                            <p className="mt-1 text-muted-foreground">
+                                                O aluno não consegue usar o sistema. O Asaas ainda mostra um cadastro externo ativo, mas ele só pode gerar nova cobrança quando a renovação automática estiver habilitada. Esse cadastro externo não libera acesso por si só.
+                                            </p>
+                                        </div>
+                                    )}
+                                    {selectedAsaasUser.subscription_status !== 'active' && asaasDetails.subscription?.status !== 'ACTIVE' && (
+                                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+                                            <div className="font-semibold text-foreground">Acesso no vouRevisar: indisponível</div>
+                                            <p className="mt-1 text-muted-foreground">
+                                                Não há acesso ativo no sistema. O histórico abaixo registra cobranças do Asaas; uma cobrança estornada não concede acesso e uma cobrança pendente só deve ser considerada após confirmação do pagamento.
+                                            </p>
+                                        </div>
+                                    )}
 
                                     <div>
                                         <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 px-1">Histórico de Cobranças</h3>
@@ -473,9 +562,9 @@ const SubscriptionManagement = () => {
                                                 {asaasDetails.payments.map((payment: AsaasPayment) => (
                                                     <div key={payment.id} className="bg-black/5 dark:bg-white/5 rounded-xl p-4 flex justify-between items-center border border-black/5 dark:border-white/5">
                                                         <div>
-                                                            <div className="font-bold text-foreground mb-1">R$ {payment.value.toFixed(2)}</div>
+                                                            <div className="font-bold text-foreground mb-1">{formatAsaasCurrency(payment.value)}</div>
                                                             <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                                                <Calendar className="w-3 h-3" /> Vencimento: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
+                                                                <Calendar className="w-3 h-3" /> Vencimento: {formatAsaasDate(payment.dueDate)}
                                                             </div>
                                                         </div>
                                                         <div className="flex flex-col items-end gap-2">
@@ -484,7 +573,7 @@ const SubscriptionManagement = () => {
                                                                 payment.status === 'PENDING' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' :
                                                                 payment.status === 'OVERDUE' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' :
                                                                 'bg-black/10 dark:bg-white/10 text-foreground border-black/20 dark:border-white/20'
-                                                            }`}>{payment.status}</Badge>
+                                                            }`}>{formatAsaasPaymentStatus(payment.status)}{payment.status === 'PENDING' && asaasDetails.subscription?.status === 'ACTIVE' ? ' no Asaas' : ''}</Badge>
                                                             {payment.invoiceUrl && (
                                                                 <a href={payment.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
                                                                     Ver Fatura <ExternalLink className="w-3 h-3" />

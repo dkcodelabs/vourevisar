@@ -20,7 +20,9 @@ export interface CheckoutPayload {
 
 export interface CheckoutResponse {
   success: boolean;
+  code?: string;
   subscription?: Record<string, unknown>;
+  paymentId?: string | null;
   pix?: Record<string, unknown>;
   billingType?: 'PIX' | 'CREDIT_CARD';
   value?: number;
@@ -88,7 +90,7 @@ export const asaasService = {
             const errorBody = await error.context.json();
             console.error('Corpo do erro:', errorBody);
             if (errorBody?.error) {
-              return { success: false, error: errorBody.error };
+              return { success: false, code: errorBody.code, error: errorBody.error };
             }
           } catch {
             // json() falhou, usar mensagem genérica
@@ -113,5 +115,6 @@ export const asaasService = {
       const message = err instanceof Error ? err.message : 'Falha ao processar pagamento';
       return { success: false, error: message };
     }
-  }
+  },
+
 };
