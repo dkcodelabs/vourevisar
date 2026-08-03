@@ -2,23 +2,23 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
-import { CheckoutModal } from '@/components/CheckoutModal';
 import { PricingSection } from '@/components/PricingSection';
+import { useStripeCatalog } from '@/features/billing/hooks/useStripeBilling';
+import { buildStripePricingPlans } from '@/features/billing/utils/catalogPricing';
 
 const LandingPage = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = React.useState(false);
-  const [selectedPlan, setSelectedPlan] = React.useState<'monthly' | 'annual'>('annual');
+  const catalog = useStripeCatalog();
+  const pricingPlans = buildStripePricingPlans(catalog.data);
 
   const handlePlanClick = (plan: 'monthly' | 'annual', e?: React.MouseEvent) => {
     e?.preventDefault();
     if (user) {
-      setSelectedPlan(plan);
-      setIsCheckoutOpen(true);
+      navigate(`/checkout?plan=${plan}`);
     } else {
-      navigate('/login?redirect=subscriptions');
+      navigate('/login?redirect=planos');
     }
   };
 
@@ -306,7 +306,24 @@ const LandingPage = () => {
       </section>
 
       {/* PRICING */}
-      <PricingSection onPlanSelect={handlePlanClick} />
+      {catalog.isError ? (
+        <section id="precos" className="bg-white px-4 py-16 text-center">
+          <p className="text-sm font-bold text-slate-700">Os preços oficiais estão temporariamente indisponíveis.</p>
+          <button
+            type="button"
+            onClick={() => void catalog.refetch()}
+            className="mt-4 rounded-xl bg-brand-blue px-5 py-3 text-xs font-black uppercase tracking-wider text-white"
+          >
+            Tentar novamente
+          </button>
+        </section>
+      ) : (
+        <PricingSection
+          onPlanSelect={handlePlanClick}
+          plans={pricingPlans}
+          loading={catalog.isLoading}
+        />
+      )}
 
       {/* CTA FINAL */}
       <section className="py-20 bg-slate-900 text-white relative overflow-hidden">
@@ -341,12 +358,6 @@ const LandingPage = () => {
           <p className="text-slate-400 text-sm">© 2023 vouRevisar. Todos os direitos reservados.</p>
         </div>
       </footer>
-      {/* Checkout Modal */}
-      <CheckoutModal 
-        isOpen={isCheckoutOpen} 
-        onClose={() => setIsCheckoutOpen(false)} 
-        selectedPlan={selectedPlan} 
-      />
     </div>
   );
 };

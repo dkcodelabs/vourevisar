@@ -24,6 +24,7 @@ const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Subjects = lazy(() => import("@/pages/Subjects"));
 const Account = lazy(() => import("@/pages/Account"));
+const Feedback = lazy(() => import("@/pages/Feedback"));
 const Statistics = lazy(() => import("@/pages/Statistics"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Login = lazy(() => import("@/pages/Login"));
@@ -33,6 +34,9 @@ const Revisoes = lazy(() => import("@/pages/Revisoes"));
 const Editais = lazy(() => import("@/pages/Editais"));
 const Cadernos = lazy(() => import("@/pages/Cadernos"));
 const Planos = lazy(() => import("@/pages/Planos"));
+const StripeCheckout = lazy(() => import("@/pages/StripeCheckout"));
+const StripeCheckoutReturn = lazy(() => import("@/pages/StripeCheckoutReturn"));
+const AccountSubscription = lazy(() => import("@/pages/AccountSubscription"));
 const UserManagement = lazy(() => import("@/pages/admin/UserManagement"));
 const SubscriptionManagement = lazy(() => import("@/pages/admin/SubscriptionManagement"));
 const SystemErrors = lazy(() => import("@/pages/admin/system/SystemErrors"));
@@ -89,6 +93,8 @@ const App = () => {
                         <Route path="/confirm-email" element={<ConfirmEmail />} />
                         <Route path="/auth/callback" element={<AuthCallback />} />
                         <Route path="/*" element={<ProtectedRoute />}>
+                          <Route path="checkout" element={<StripeCheckout />} />
+                          <Route path="checkout/retorno" element={<StripeCheckoutReturn />} />
                           <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
                             <Route path="dashboard" element={<RequireActiveSubscription><Dashboard /></RequireActiveSubscription>} />
                             <Route path="meus-editais" element={<RequireActiveSubscription><Editais /></RequireActiveSubscription>} />
@@ -125,6 +131,8 @@ const App = () => {
                             {exposeDebugRoutes && SimpleRoleTest && <Route path="test-roles" element={<SimpleRoleTest />} />}
                             <Route path="planos" element={<Planos />} />
                             <Route path="conta" element={<Account />} />
+                            <Route path="conta/assinatura" element={<AccountSubscription />} />
+                            <Route path="feedback" element={<Feedback />} />
                             <Route path="perfil" element={<Navigate to="/conta?tab=perfil" replace />} />
                             <Route path="configuracoes" element={<Navigate to="/conta?tab=configuracoes" replace />} />
                           </Route>

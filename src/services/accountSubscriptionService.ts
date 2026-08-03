@@ -10,6 +10,10 @@ export type LocalAccountSubscription = {
   trialEndsAt?: string | null;
   nextBillingDate?: string | null;
   lastPaymentAt?: string | null;
+  scheduledPlan?: string | null;
+  scheduledPlanAt?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  canceledAt?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -20,6 +24,8 @@ export type AccountAsaasSubscription = {
   cycle: string | null;
   billingType: string | null;
   nextDueDate: string | null;
+  creditCardLast4?: string | null;
+  creditCardBrand?: string | null;
 };
 
 export type AccountAsaasPayment = {
@@ -29,6 +35,8 @@ export type AccountAsaasPayment = {
   dueDate: string | null;
   paymentDate: string | null;
   billingType: string | null;
+  creditCardLast4?: string | null;
+  creditCardBrand?: string | null;
 };
 
 export type AccountAsaasData = {
@@ -63,4 +71,18 @@ export async function getAccountSubscription(): Promise<AccountSubscription> {
   }
 
   return data.data;
+}
+
+export async function cancelAccountRenewal(): Promise<void> {
+  const { data, error } = await supabase.functions.invoke<{ success?: boolean; error?: string }>('asaas-account', {
+    body: { action: 'cancel_renewal' },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Nao foi possivel cancelar a renovacao');
+  }
+
+  if (!data?.success) {
+    throw new Error(data?.error || 'Nao foi possivel cancelar a renovacao');
+  }
 }

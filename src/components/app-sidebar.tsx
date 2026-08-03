@@ -26,6 +26,7 @@ import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { useAdminFeedbackQueueCount } from "@/hooks/useAdminFeedbackQueueCount"
 import { useAIStatus } from "@/hooks/useAIStatus"
 import { useUserRole } from "@/hooks/useUserRole"
 import {
@@ -44,13 +45,15 @@ import {
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   onOpenHelp?: () => void
+  studentFeedbackUnreadCount?: number
 }
 
-export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
+export function AppSidebar({ onOpenHelp, studentFeedbackUnreadCount = 0, ...props }: AppSidebarProps) {
   const { isAdmin, isOwner } = useUserRole()
   const { state, isMobile, setOpenMobile } = useSidebar()
   const location = useLocation()
   const { aiStatus } = useAIStatus({ enabled: isAdmin })
+  const { pendingCount: adminFeedbackPendingCount } = useAdminFeedbackQueueCount(isAdmin)
   const collapsed = state === "collapsed" && !isMobile
   const closeMobileSidebar = () => {
     if (isMobile) setOpenMobile(false)
@@ -69,7 +72,7 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
     name: string
     url: string
     icon: LucideIcon
-    status?: "error" | "ok" | "idle"
+    status?: "error" | "ok" | "idle" | "unread"
   }> = isAdmin
     ? [
         { name: "Gerenciar Usuários", url: "/admin/users", icon: Users },
@@ -90,7 +93,12 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
                 ? "error"
                 : "idle",
         },
-        { name: "Feedback", url: "/admin/feedback", icon: MessageSquare },
+        {
+          name: "Feedback",
+          url: "/admin/feedback",
+          icon: MessageSquare,
+          status: adminFeedbackPendingCount > 0 ? "unread" : undefined,
+        },
       ]
     : []
 
@@ -137,6 +145,12 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
               >
                 <CircleHelp />
                 <span>Ajuda</span>
+                {!isAdmin && studentFeedbackUnreadCount > 0 && (
+                  <span
+                    className="ml-auto size-1.5 rounded-full bg-blue-500 group-data-[collapsible=icon]:hidden"
+                    aria-label={`${studentFeedbackUnreadCount} atualização(ões) de feedback não lida(s)`}
+                  />
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

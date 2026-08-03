@@ -58,34 +58,36 @@ serve(async (req: Request) => {
 
     let responseData = null;
 
+    const fetchAsaasJson = async (url: string) => {
+      const response = await fetch(url, { headers: asaasHeaders });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        const detail = Array.isArray(payload?.errors)
+          ? payload.errors.map((item: { description?: string }) => item.description).filter(Boolean).join('; ')
+          : payload?.message;
+        throw new Error(detail || `Asaas respondeu HTTP ${response.status}`);
+      }
+
+      return payload;
+    };
+
     if (action === 'get_subscription') {
       const { id } = params;
       if (!id) throw new Error('Subscription ID is required');
-      const res = await fetch(`${asaasUrl}/subscriptions/${id}`, {
-        headers: asaasHeaders
-      });
-      responseData = await res.json();
+      responseData = await fetchAsaasJson(`${asaasUrl}/subscriptions/${id}`);
     } else if (action === 'get_payments') {
       const { id } = params;
       if (!id) throw new Error('Subscription ID is required');
-      const res = await fetch(`${asaasUrl}/subscriptions/${id}/payments`, {
-        headers: asaasHeaders
-      });
-      responseData = await res.json();
+      responseData = await fetchAsaasJson(`${asaasUrl}/subscriptions/${id}/payments`);
     } else if (action === 'get_customer') {
       const { id } = params;
       if (!id) throw new Error('Customer ID is required');
-      const res = await fetch(`${asaasUrl}/customers/${id}`, {
-        headers: asaasHeaders
-      });
-      responseData = await res.json();
+      responseData = await fetchAsaasJson(`${asaasUrl}/customers/${id}`);
     } else if (action === 'get_payment') {
       const { id } = params;
       if (!id) throw new Error('Payment ID is required');
-      const res = await fetch(`${asaasUrl}/payments/${id}`, {
-        headers: asaasHeaders
-      });
-      responseData = await res.json();
+      responseData = await fetchAsaasJson(`${asaasUrl}/payments/${id}`);
     } else {
       throw new Error(`Invalid action: ${action}`);
     }

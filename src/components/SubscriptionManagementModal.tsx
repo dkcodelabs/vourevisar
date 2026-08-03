@@ -3,7 +3,6 @@
 // =====================================================
 import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
-import { invokeUserRpc } from '@/services/userRpcService'
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -24,6 +23,8 @@ import { UserCheck, User, Crown, Shield, Users, Calendar, DollarSign, XCircle } 
 import { useSubscriptionStats } from '@/hooks/useSubscriptionStats'
 import type { Database } from '@/integrations/supabase/types'
 import { invokeAdminRpc } from '@/services/adminRpcService'
+import { invokeUserRpc } from '@/services/userRpcService'
+import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement'
 
 type AppRole = Database['public']['Enums']['app_role']
 type SubscriptionPlan = Database['public']['Enums']['subscription_plan']
@@ -40,6 +41,10 @@ interface UserWithSubscription {
   is_active: boolean
   days_remaining: number | null
   subscription_ends_at: string | null
+  manual_access_until: string | null
+  manual_access_plan: SubscriptionPlan | null
+  manual_access_reason: string | null
+  manual_access_granted_at: string | null
 }
 
 interface SubscriptionManagementModalProps {
@@ -89,7 +94,7 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
       // Buscar assinaturas separadamente
       const { data: subscriptions, error: subscriptionsError } = await supabase
         .from('user_subscriptions')
-        .select('user_id, plan, status, trial_ends_at, subscription_ends_at, trial_started_at, subscription_started_at')
+        .select('user_id, plan, status, trial_ends_at, subscription_ends_at, trial_started_at, subscription_started_at, manual_access_until, manual_access_plan, manual_access_reason, manual_access_granted_at')
 
       if (subscriptionsError) {
         console.error('Error fetching subscriptions:', subscriptionsError)
@@ -104,38 +109,33 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
         const subscription = subscriptions?.find(s => s.user_id === user.id)
         const role = userRole?.role || 'user'
 
-        // Calcular se a assinatura está ativa e dias restantes
-        let daysRemaining = null
-        let isActive = false
-
-        if (subscription) {
-          const now = new Date()
-
-          // Para trial, verificar trial_ends_at
-          if (subscription.status === 'trial' && subscription.trial_ends_at) {
-            const trialEndDate = new Date(subscription.trial_ends_at)
-            isActive = trialEndDate > now
-            daysRemaining = Math.max(0, Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-          }
-
-          // Para assinaturas pagas, verificar subscription_ends_at
-          if (subscription.status === 'active' && subscription.subscription_ends_at) {
-            const subEndDate = new Date(subscription.subscription_ends_at)
-            isActive = subEndDate > now
-            daysRemaining = Math.max(0, Math.ceil((subEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-          }
-        }
+        const entitlement = subscription
+          ? getSubscriptionEntitlement({
+              plan: subscription.plan,
+              status: subscription.status,
+              trialEndsAt: subscription.trial_ends_at,
+              subscriptionEndsAt: subscription.subscription_ends_at,
+              manualAccessUntil: subscription.manual_access_until,
+              manualAccessPlan: subscription.manual_access_plan,
+            })
+          : null
 
         const processedUser = {
           id: user.id,
           email: user.email,
           name: user.name || user.email?.split('@')[0] || 'Sem nome',
           role,
-          subscription_plan: subscription?.plan || null,
+          subscription_plan: entitlement?.isActive ? entitlement.plan : subscription?.plan || null,
           subscription_status: subscription?.status || null,
-          is_active: isActive,
-          days_remaining: daysRemaining,
-          subscription_ends_at: subscription?.subscription_ends_at || subscription?.trial_ends_at || null
+          is_active: entitlement?.isActive ?? false,
+          days_remaining: entitlement?.isActive ? entitlement.daysRemaining : null,
+          subscription_ends_at: entitlement?.isActive
+            ? (subscription?.manual_access_until || subscription?.subscription_ends_at || subscription?.trial_ends_at || null)
+            : subscription?.subscription_ends_at || subscription?.trial_ends_at || null,
+          manual_access_until: subscription?.manual_access_until || null,
+          manual_access_plan: subscription?.manual_access_plan || null,
+          manual_access_reason: subscription?.manual_access_reason || null,
+          manual_access_granted_at: subscription?.manual_access_granted_at || null,
         }
 
         console.log('Processed user:', processedUser)
@@ -160,92 +160,19 @@ export function SubscriptionManagementModal({ isOpen, onClose }: SubscriptionMan
 
       console.log(`Changing subscription for user ${userId} to ${action}`)
 
-      // Verificar se o usuário já tem uma assinatura na tabela
-      const { data: existingSub, error: checkError } = await supabase
-        .from('user_subscriptions')
-        .select('user_id')
-        .eq('user_id', userId)
-        .maybeSingle()
+      const rpcAction = action === 'deactivate'
+        ? 'deactivate_subscription'
+        : action === 'activate_trial'
+          ? 'activate_trial_subscription'
+          : 'activate_paid_subscription'
 
-      if (checkError) throw checkError
-
-      if (action === 'deactivate') {
-        // Desativar assinatura - usar deactivate_subscription
-        await invokeAdminRpc('deactivate_subscription', {
-          target_user_id: userId
-        })
-        console.log('Subscription deactivated successfully')
-      } else if (action === 'activate_trial') {
-        // Ativar Free - 7 dias
-        const trialEndDate = new Date()
-        trialEndDate.setDate(trialEndDate.getDate() + 7)
-
-        const subscriptionData = {
-          plan: 'free_trial' as const,
-          status: 'trial' as const,
-          trial_started_at: new Date().toISOString(),
-          trial_ends_at: trialEndDate.toISOString(),
-          subscription_started_at: null,
-          subscription_ends_at: null,
-          updated_at: new Date().toISOString()
-        }
-
-        if (existingSub) {
-          const { error: updateError } = await supabase
-            .from('user_subscriptions')
-            .update(subscriptionData)
-            .eq('user_id', userId)
-          if (updateError) throw updateError
-        } else {
-          const { error: insertError } = await supabase
-            .from('user_subscriptions')
-            .insert({
-              user_id: userId,
-              ...subscriptionData
-            })
-          if (insertError) throw insertError
-        }
-
-        console.log('Free activated successfully')
-      } else {
-        // Ativar assinatura paga
-        const planMap: Record<Exclude<SubscriptionAction, 'activate_trial' | 'deactivate'>, Extract<SubscriptionPlan, 'monthly' | 'annual'>> = {
-          activate_monthly: 'monthly',
-          activate_annual: 'annual'
-        }
-
-        const plan = planMap[action]
-        const subscriptionEndDate = new Date()
-        subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + (plan === 'annual' ? 12 : 1))
-        
-        const subscriptionData = {
-          plan,
-          status: 'active' as const,
-          subscription_started_at: new Date().toISOString(),
-          subscription_ends_at: subscriptionEndDate.toISOString(),
-          trial_started_at: null,
-          trial_ends_at: null,
-          updated_at: new Date().toISOString()
-        }
-
-        if (existingSub) {
-          const { error: updateError } = await supabase
-            .from('user_subscriptions')
-            .update(subscriptionData)
-            .eq('user_id', userId)
-          if (updateError) throw updateError
-        } else {
-          const { error: insertError } = await supabase
-            .from('user_subscriptions')
-            .insert({
-              user_id: userId,
-              ...subscriptionData
-            })
-          if (insertError) throw insertError
-        }
-
-        console.log('Paid subscription activated successfully')
-      }
+      await invokeAdminRpc(rpcAction, {
+        target_user_id: userId,
+        ...(action === 'activate_trial' ? { trial_days: 7 } : {}),
+        ...(action === 'activate_monthly' || action === 'activate_annual'
+          ? { plan_type: action === 'activate_annual' ? 'annual' : 'monthly' }
+          : {}),
+      })
 
       // Forçar atualização IMEDIATA de todos os componentes
       console.log('🎯 Dispatching events for user:', userId, 'action:', action)

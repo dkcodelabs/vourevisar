@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       active_study_timers: {
@@ -455,6 +430,260 @@ export type Database = {
           table_name?: string | null
           user_agent?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      billing_access_grants: {
+        Row: {
+          created_at: string
+          ends_at: string
+          granted_by: string | null
+          id: string
+          plan_code: string
+          reason: string | null
+          revoked_at: string | null
+          source: string
+          starts_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ends_at: string
+          granted_by?: string | null
+          id?: string
+          plan_code: string
+          reason?: string | null
+          revoked_at?: string | null
+          source: string
+          starts_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string
+          granted_by?: string | null
+          id?: string
+          plan_code?: string
+          reason?: string | null
+          revoked_at?: string | null
+          source?: string
+          starts_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      billing_checkout_attempts: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_code: string | null
+          expires_at: string | null
+          id: string
+          plan_code: string
+          request_id: string
+          status: string
+          stripe_checkout_session_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          expires_at?: string | null
+          id?: string
+          plan_code: string
+          request_id: string
+          status?: string
+          stripe_checkout_session_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          expires_at?: string | null
+          id?: string
+          plan_code?: string
+          request_id?: string
+          status?: string
+          stripe_checkout_session_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      billing_customers: {
+        Row: {
+          created_at: string
+          id: string
+          livemode: boolean
+          provider: string
+          stripe_customer_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          livemode?: boolean
+          provider?: string
+          stripe_customer_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          livemode?: boolean
+          provider?: string
+          stripe_customer_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      billing_subscriptions: {
+        Row: {
+          access_restored_at: string | null
+          access_suspended_at: string | null
+          access_suspension_reason: string | null
+          amount_cents: number
+          billing_customer_id: string
+          billing_interval: string
+          cancel_at: string | null
+          cancel_at_period_end: boolean
+          canceled_at: string | null
+          card_brand: string | null
+          card_last4: string | null
+          created_at: string
+          currency: string
+          current_period_end: string | null
+          current_period_start: string | null
+          default_payment_method_id: string | null
+          id: string
+          last_event_created_at: string | null
+          latest_invoice_id: string | null
+          plan_code: string
+          provider_created_at: string | null
+          scheduled_plan_code: string | null
+          status: string
+          stripe_price_id: string
+          stripe_product_id: string
+          stripe_schedule_id: string | null
+          stripe_subscription_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_restored_at?: string | null
+          access_suspended_at?: string | null
+          access_suspension_reason?: string | null
+          amount_cents: number
+          billing_customer_id: string
+          billing_interval: string
+          cancel_at?: string | null
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          card_brand?: string | null
+          card_last4?: string | null
+          created_at?: string
+          currency?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          default_payment_method_id?: string | null
+          id?: string
+          last_event_created_at?: string | null
+          latest_invoice_id?: string | null
+          plan_code: string
+          provider_created_at?: string | null
+          scheduled_plan_code?: string | null
+          status: string
+          stripe_price_id: string
+          stripe_product_id: string
+          stripe_schedule_id?: string | null
+          stripe_subscription_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_restored_at?: string | null
+          access_suspended_at?: string | null
+          access_suspension_reason?: string | null
+          amount_cents?: number
+          billing_customer_id?: string
+          billing_interval?: string
+          cancel_at?: string | null
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          card_brand?: string | null
+          card_last4?: string | null
+          created_at?: string
+          currency?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          default_payment_method_id?: string | null
+          id?: string
+          last_event_created_at?: string | null
+          latest_invoice_id?: string | null
+          plan_code?: string
+          provider_created_at?: string | null
+          scheduled_plan_code?: string | null
+          status?: string
+          stripe_price_id?: string
+          stripe_product_id?: string
+          stripe_schedule_id?: string | null
+          stripe_subscription_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_subscriptions_billing_customer_id_fkey"
+            columns: ["billing_customer_id"]
+            isOneToOne: false
+            referencedRelation: "billing_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_webhook_events: {
+        Row: {
+          attempts: number
+          error_code: string | null
+          event_created_at: string
+          event_type: string
+          livemode: boolean
+          processed_at: string | null
+          processing_status: string
+          received_at: string
+          stripe_event_id: string
+          stripe_object_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          error_code?: string | null
+          event_created_at: string
+          event_type: string
+          livemode: boolean
+          processed_at?: string | null
+          processing_status?: string
+          received_at?: string
+          stripe_event_id: string
+          stripe_object_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          error_code?: string | null
+          event_created_at?: string
+          event_type?: string
+          livemode?: boolean
+          processed_at?: string | null
+          processing_status?: string
+          received_at?: string
+          stripe_event_id?: string
+          stripe_object_id?: string | null
         }
         Relationships: []
       }
@@ -2785,13 +3014,26 @@ export type Database = {
         Row: {
           ai_quota_reset_at: string | null
           asaas_customer_id: string | null
+          asaas_payment_id: string | null
           asaas_subscription_id: string | null
           billing_type: string | null
+          cancel_at_period_end: boolean
+          canceled_at: string | null
           created_at: string | null
           id: string
           last_payment_at: string | null
+          manual_access_granted_at: string | null
+          manual_access_plan:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          manual_access_reason: string | null
+          manual_access_until: string | null
           next_billing_date: string | null
           plan: Database["public"]["Enums"]["subscription_plan"]
+          scheduled_plan:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          scheduled_plan_at: string | null
           status: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -2805,13 +3047,26 @@ export type Database = {
         Insert: {
           ai_quota_reset_at?: string | null
           asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
           asaas_subscription_id?: string | null
           billing_type?: string | null
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
           created_at?: string | null
           id?: string
           last_payment_at?: string | null
+          manual_access_granted_at?: string | null
+          manual_access_plan?:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          manual_access_reason?: string | null
+          manual_access_until?: string | null
           next_billing_date?: string | null
           plan?: Database["public"]["Enums"]["subscription_plan"]
+          scheduled_plan?:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          scheduled_plan_at?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -2825,13 +3080,26 @@ export type Database = {
         Update: {
           ai_quota_reset_at?: string | null
           asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
           asaas_subscription_id?: string | null
           billing_type?: string | null
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
           created_at?: string | null
           id?: string
           last_payment_at?: string | null
+          manual_access_granted_at?: string | null
+          manual_access_plan?:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          manual_access_reason?: string | null
+          manual_access_until?: string | null
           next_billing_date?: string | null
           plan?: Database["public"]["Enums"]["subscription_plan"]
+          scheduled_plan?:
+            | Database["public"]["Enums"]["subscription_plan"]
+            | null
+          scheduled_plan_at?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -3072,6 +3340,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_stripe_billing_overview: { Args: never; Returns: Json }
       get_subscription_info: { Args: { check_user_id?: string }; Returns: Json }
       get_unified_subject_name: {
         Args: { subject_id: string; user_id: string }
@@ -3261,6 +3530,7 @@ export type Database = {
         Args: { p_edital_id: string; p_user_id: string }
         Returns: Json
       }
+      reset_user_ai_quota: { Args: { p_user_id: string }; Returns: Json }
       revert_subject_merge:
         | { Args: { merge_id: string }; Returns: undefined }
         | { Args: { p_merge_id: string; p_user_id: string }; Returns: Json }
@@ -3448,9 +3718,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: ["owner", "admin", "moderator", "user"],

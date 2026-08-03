@@ -12,7 +12,7 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
-import { getAccountSubscription } from './accountSubscriptionService';
+import { cancelAccountRenewal, getAccountSubscription } from './accountSubscriptionService';
 
 describe('getAccountSubscription', () => {
   beforeEach(() => {
@@ -67,5 +67,29 @@ describe('getAccountSubscription', () => {
     });
 
     await expect(getAccountSubscription()).rejects.toThrow('Sessao invalida');
+  });
+});
+
+describe('cancelAccountRenewal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('requests cancellation through the authenticated account function', async () => {
+    mocks.invoke.mockResolvedValue({ data: { success: true }, error: null });
+
+    await expect(cancelAccountRenewal()).resolves.toBeUndefined();
+    expect(mocks.invoke).toHaveBeenCalledWith('asaas-account', {
+      body: { action: 'cancel_renewal' },
+    });
+  });
+
+  it('surfaces a cancellation error from the function', async () => {
+    mocks.invoke.mockResolvedValue({
+      data: { success: false, error: 'A assinatura não está ativa no Asaas.' },
+      error: null,
+    });
+
+    await expect(cancelAccountRenewal()).rejects.toThrow('A assinatura não está ativa no Asaas.');
   });
 });

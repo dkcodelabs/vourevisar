@@ -26,15 +26,53 @@ const ALLOWED_ACTIONS = new Set([
   "set_user_role",
 ]);
 
+type AdminRpcRequest = {
+  action?: string;
+  args?: Record<string, unknown>;
+};
+
 const MANUAL_SUBSCRIPTION_ACTIONS = new Set([
   "activate_paid_subscription",
   "activate_trial_subscription",
   "deactivate_subscription",
 ]);
 
-type AdminRpcRequest = {
-  action?: string;
-  args?: Record<string, unknown>;
+const deactivateExternalSubscriptionIfActive = async (
+  supabase: ReturnType<typeof createClient>,
+  targetUserId: string,
+) => {
+  const { data: subscription, error } = await supabase
+    .from("user_subscriptions")
+    .select("asaas_subscription_id")
+    .eq("user_id", targetUserId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!subscription?.asaas_subscription_id) return;
+
+  const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
+  if (!asaasApiKey) return;
+
+  const asaasUrl = Deno.env.get("ASAAS_API_URL") || "https://api-sandbox.asaas.com/v3";
+  const headers = {
+    "Content-Type": "application/json",
+    "User-Agent": "vourevisar/1.0 (Supabase Edge Function)",
+    access_token: asaasApiKey,
+  };
+  const currentResponse = await fetch(`${asaasUrl}/subscriptions/${subscription.asaas_subscription_id}`, { headers });
+  const currentBody = await currentResponse.json().catch(() => ({}));
+  if (!currentResponse.ok) {
+    throw new Error(`Nao foi possivel consultar a assinatura externa antes da concessao (${currentResponse.status})`);
+  }
+  if (currentBody.status !== "ACTIVE") return;
+
+  const updateResponse = await fetch(`${asaasUrl}/subscriptions/${subscription.asaas_subscription_id}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ status: "INACTIVE" }),
+  });
+  if (!updateResponse.ok) {
+    throw new Error(`Nao foi possivel encerrar a recorrencia externa (${updateResponse.status})`);
+  }
 };
 
 serve(async (req: Request) => {
@@ -79,27 +117,6 @@ serve(async (req: Request) => {
     if (roleError) throw roleError;
     if (!roleRows || roleRows.length === 0) {
       return json({ error: "Permissao administrativa obrigatoria" }, 403);
-    }
-
-    if (MANUAL_SUBSCRIPTION_ACTIONS.has(action)) {
-      const targetUserId = typeof args.target_user_id === "string" ? args.target_user_id : null;
-      if (!targetUserId) {
-        return json({ error: "Usuario alvo obrigatorio para alterar assinatura" }, 400);
-      }
-
-      const { data: targetSubscription, error: targetSubscriptionError } = await supabase
-        .from("user_subscriptions")
-        .select("asaas_subscription_id")
-        .eq("user_id", targetUserId)
-        .maybeSingle();
-
-      if (targetSubscriptionError) throw targetSubscriptionError;
-      if (targetSubscription?.asaas_subscription_id) {
-        return json({
-          error: "Esta assinatura e gerenciada pelo Asaas. Altere o plano no Asaas e aguarde a sincronizacao.",
-          code: "ASAAS_SUBSCRIPTION_MANAGED_EXTERNALLY",
-        }, 409);
-      }
     }
 
     if (action === "get_auth_user_statuses") {
@@ -154,6 +171,12 @@ serve(async (req: Request) => {
       return json({ data });
     }
 
+    if (MANUAL_SUBSCRIPTION_ACTIONS.has(action)) {
+      const targetUserId = typeof args.target_user_id === "string" ? args.target_user_id : null;
+      if (!targetUserId) return json({ error: "Usuario alvo obrigatorio" }, 400);
+      await deactivateExternalSubscriptionIfActive(supabase, targetUserId);
+    }
+
     const { data, error } = await supabase.rpc("admin_rpc_dispatch", {
       p_action: action,
       p_args: args,
@@ -163,7 +186,39 @@ serve(async (req: Request) => {
       return json({ error: error.message, code: error.code }, 400);
     }
 
-    return json({ data });
+    if (action === "activate_trial_subscription" || action === "activate_paid_subscription" || action === "deactivate_subscription") {
+      const targetUserId = typeof args.target_user_id === "string" ? args.target_user_id : null;
+      if (!targetUserId) return json({ error: "Usuario alvo obrigatorio" }, 400);
+
+      const now = new Date();
+      const manualPayload = action === "deactivate_subscription"
+        ? {
+            manual_access_until: null,
+            manual_access_plan: null,
+            manual_access_reason: null,
+            manual_access_granted_at: null,
+          }
+        : action === "activate_trial_subscription"
+          ? {
+              manual_access_until: new Date(now.getTime() + (Number(args.trial_days) || 7) * 86400000).toISOString(),
+              manual_access_plan: "free_trial",
+              manual_access_reason: "Concessao administrativa",
+              manual_access_granted_at: now.toISOString(),
+            }
+          : {
+              manual_access_until: new Date(now.getTime() + (String(args.plan_type) === "annual" ? 365 : 30) * 86400000).toISOString(),
+              manual_access_plan: String(args.plan_type) === "annual" ? "annual" : "monthly",
+              manual_access_reason: "Concessao administrativa",
+              manual_access_granted_at: now.toISOString(),
+            };
+
+      const { error: manualAccessError } = await supabase
+        .from("user_subscriptions")
+        .upsert({ user_id: targetUserId, ...manualPayload }, { onConflict: "user_id" });
+      if (manualAccessError) throw manualAccessError;
+    }
+
+    return json({ data, manualAccessIndependent: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro interno";
     return json({ error: message }, 500);

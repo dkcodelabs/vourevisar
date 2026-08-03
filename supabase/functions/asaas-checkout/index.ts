@@ -56,20 +56,104 @@ serve(async (req: Request) => {
       throw new Error('Plano inválido ou indisponível');
     }
 
+    // 1. Verificar a assinatura externa antes de consumir cupom ou criar cobrança.
+    let asaasCustomerId;
+    const { data: subData, error: subFetchError } = await supabase
+      .from('user_subscriptions')
+      .select('asaas_customer_id, asaas_subscription_id, asaas_payment_id, status, plan, subscription_ends_at, next_billing_date, cancel_at_period_end, manual_access_until, manual_access_plan')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (subFetchError) {
+      throw new Error(`Não foi possível verificar a assinatura atual: ${subFetchError.message}`);
+    }
+
+    if (subData?.manual_access_until && new Date(subData.manual_access_until).getTime() > Date.now()) {
+      return new Response(JSON.stringify({
+        success: false,
+        code: 'MANUAL_ACCESS_STILL_ACTIVE',
+        error: 'O acesso concedido pela administração ainda está ativo. Aguarde o fim do período atual.',
+      }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    if (subData?.asaas_subscription_id) {
+      const existingSubscriptionRes = await fetch(
+        `${asaasUrl}/subscriptions/${subData.asaas_subscription_id}`,
+        { headers: asaasHeaders }
+      );
+      const existingSubscriptionJson = await existingSubscriptionRes.json();
+
+      if (existingSubscriptionRes.ok && existingSubscriptionJson.status === 'ACTIVE') {
+        const localAccessEnd = subData.subscription_ends_at ?? subData.next_billing_date;
+        const localAccessStillActive =
+          (subData.status === 'active' || subData.status === 'canceled') &&
+          (!localAccessEnd || new Date(localAccessEnd).getTime() > Date.now());
+
+        if (localAccessStillActive) {
+          return new Response(JSON.stringify({
+            success: false,
+            code: 'ASAAS_SUBSCRIPTION_ALREADY_ACTIVE',
+            error: 'Sua assinatura atual ainda está ativa. Você poderá assinar outro plano após o fim do período pago.',
+          }), {
+            status: 409,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Depois de um estorno, o Asaas pode manter a recorrência ACTIVE.
+        // Inative o vínculo anterior antes de criar outra assinatura para
+        // evitar uma cobrança futura órfã.
+        const deactivateResponse = await fetch(
+          `${asaasUrl}/subscriptions/${subData.asaas_subscription_id}`,
+          {
+            method: 'PUT',
+            headers: asaasHeaders,
+            body: JSON.stringify({ status: 'INACTIVE' }),
+          },
+        );
+
+        if (!deactivateResponse.ok) {
+          console.error('[Checkout] Não foi possível inativar assinatura externa anterior', {
+            status: deactivateResponse.status,
+          });
+          throw new Error('Não foi possível encerrar a assinatura anterior no Asaas. Tente novamente.');
+        }
+      }
+
+      if (!existingSubscriptionRes.ok && existingSubscriptionRes.status !== 404) {
+        throw new Error('Não foi possível confirmar o status da assinatura atual no Asaas. Tente novamente.');
+      }
+    }
+
+    if (
+      (subData?.status === 'active' || subData?.status === 'canceled') &&
+      (subData.subscription_ends_at ?? subData.next_billing_date) &&
+      new Date(subData.subscription_ends_at ?? subData.next_billing_date).getTime() > Date.now()
+    ) {
+      return new Response(JSON.stringify({
+        success: false,
+        code: 'PAID_PERIOD_STILL_ACTIVE',
+        error: 'Seu período pago ainda está ativo. Você poderá assinar outro plano após o vencimento.',
+      }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     let finalValue = parseFloat(planConfig.value);
     let appliedCoupon = null;
 
-    // 1. Validar e Aplicar Cupom
+    // 2. Validar e aplicar cupom somente depois da proteção contra duplicidade.
     if (couponCode) {
       const { data: couponData, error: couponError } = await supabase
-        .rpc('use_coupon', { 
-          target_coupon_code: couponCode, 
-          target_user_id: user.id 
+        .rpc('use_coupon', {
+          target_coupon_code: couponCode,
+          target_user_id: user.id
         });
 
       if (couponError) throw new Error(`Erro ao validar cupom: ${couponError.message}`);
       if (!couponData.success) throw new Error(couponData.error);
-      
+
       appliedCoupon = couponData;
       if (couponData.discount_type === 'PERCENTAGE') {
         finalValue = finalValue - (finalValue * (couponData.discount_value / 100));
@@ -78,13 +162,7 @@ serve(async (req: Request) => {
       }
     }
 
-    // 2. Buscar/Criar Cliente no Asaas
-    let asaasCustomerId;
-    const { data: subData, error: subFetchError } = await supabase
-      .from('user_subscriptions')
-      .select('asaas_customer_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    // 3. Buscar/Criar Cliente no Asaas
 
     console.log(`[Checkout] Buscando customer ID para ${user.id}:`, subData?.asaas_customer_id);
 
@@ -138,91 +216,87 @@ serve(async (req: Request) => {
       if (updateSubError) console.error('[Checkout] Erro ao salvar customer_id no DB:', updateSubError);
     }
 
-    // 3. Criar Subscrição/Cobrança no Asaas
+    // 3. Criar cobrança. Cartão é recorrente; Pix é sempre avulso.
     const nextDueDate = new Date();
     // nextDueDate.setDate(nextDueDate.getDate() + 1); // Removido para gerar cobrança imediata
     
-    const subscriptionPayload: Record<string, unknown> = {
-      customer: asaasCustomerId,
-      billingType: billingType,
-      value: finalValue,
-      nextDueDate: nextDueDate.toISOString().split('T')[0],
-      description: planConfig.description || `Plano ${planConfig.name} - vouRevisar`,
-      cycle: plan === 'annual' ? 'YEARLY' : 'MONTHLY',
-    };
+    const description = planConfig.description || `Plano ${planConfig.name} - vouRevisar`;
+    let subJson: Record<string, unknown> | null = null;
+    let paymentId: string | null = null;
+    let pixData: Record<string, unknown> | null = null;
 
-    if (billingType === 'CREDIT_CARD' && creditCard) {
-      subscriptionPayload.creditCard = {
-        holderName: creditCard.holderName,
-        number: creditCard.number,
-        expiryMonth: creditCard.expiryMonth,
-        expiryYear: creditCard.expiryYear,
-        ccv: creditCard.ccv
+    if (billingType === 'PIX') {
+      const paymentRes = await fetch(`${asaasUrl}/payments`, {
+        method: 'POST', headers: asaasHeaders,
+        body: JSON.stringify({
+          customer: asaasCustomerId, billingType: 'PIX', value: finalValue,
+          dueDate: nextDueDate.toISOString().split('T')[0], description,
+        }),
+      });
+      const paymentJson = await paymentRes.json();
+      if (!paymentRes.ok) throw new Error(`Erro Asaas Payment: ${paymentJson.errors?.[0]?.description || JSON.stringify(paymentJson)}`);
+      paymentId = paymentJson.id;
+      const qrCodeRes = await fetch(`${asaasUrl}/payments/${paymentId}/pixQrCode`, { headers: asaasHeaders });
+      pixData = await qrCodeRes.json();
+    } else {
+      const subscriptionPayload: Record<string, unknown> = {
+        customer: asaasCustomerId, billingType, value: finalValue,
+        nextDueDate: nextDueDate.toISOString().split('T')[0], description,
+        cycle: plan === 'annual' ? 'YEARLY' : 'MONTHLY',
       };
-      subscriptionPayload.creditCardHolderInfo = {
-        name: name,
-        email: user.email,
-        cpfCnpj: cpfCnpj,
-        postalCode: '13010151', // Pode ser dinâmico depois
-        addressNumber: '123',
-        phone: mobilePhone
-      };
+      if (creditCard) {
+        subscriptionPayload.creditCard = {
+          holderName: creditCard.holderName, number: creditCard.number,
+          expiryMonth: creditCard.expiryMonth, expiryYear: creditCard.expiryYear, ccv: creditCard.ccv,
+        };
+        subscriptionPayload.creditCardHolderInfo = {
+          name, email: user.email, cpfCnpj, postalCode: '13010151', addressNumber: '123', phone: mobilePhone,
+        };
+      }
+      const subRes = await fetch(`${asaasUrl}/subscriptions`, {
+        method: 'POST', headers: asaasHeaders, body: JSON.stringify(subscriptionPayload),
+      });
+      subJson = await subRes.json();
+      if (!subRes.ok) throw new Error(`Erro Asaas Subscription: ${subJson?.errors?.[0]?.description || JSON.stringify(subJson)}`);
+      const chargesRes = await fetch(`${asaasUrl}/subscriptions/${subJson.id}/payments`, { headers: asaasHeaders });
+      const chargesJson = await chargesRes.json();
+      paymentId = chargesJson.data?.[0]?.id ?? null;
     }
 
-    const subRes = await fetch(`${asaasUrl}/subscriptions`, {
-      method: 'POST',
-      headers: asaasHeaders,
-      body: JSON.stringify(subscriptionPayload)
-    });
-    
-    const subJson = await subRes.json();
-    if (!subRes.ok) {
-      console.error(`[Checkout] Erro Asaas Subscription (${subRes.status}):`, subJson);
-      throw new Error(`Erro Asaas Subscription: ${subJson.errors?.[0]?.description || JSON.stringify(subJson)}`);
-    }
-
-    // Atualizar no DB
-    const { error: dbError } = await supabase.from('user_subscriptions')
-      .update({ 
-        asaas_subscription_id: subJson.id,
+    const { error: dbError } = await supabase.from('user_subscriptions').upsert({
+        user_id: user.id,
+        asaas_customer_id: asaasCustomerId,
+        asaas_subscription_id: subJson?.id ?? null,
+        asaas_payment_id: paymentId,
         billing_type: billingType,
-        plan: plan
-      })
-      .eq('user_id', user.id);
+        plan,
+        status: 'expired',
+        subscription_started_at: null,
+        subscription_ends_at: null,
+        next_billing_date: null,
+        cancel_at_period_end: false,
+        canceled_at: null,
+        scheduled_plan: null,
+        scheduled_plan_at: null,
+      }, { onConflict: 'user_id' });
     
     if (dbError) console.error('[Checkout] Erro ao salvar subscription no DB:', dbError);
       
     // Atualizar uso do cupom com o ID da assinatura
     if (appliedCoupon && appliedCoupon.coupon_id) {
-       console.log(`[Checkout] Registrando uso do cupom ${couponCode} para sub ${subJson.id}`);
+       console.log(`[Checkout] Registrando uso do cupom ${couponCode}`);
        const { error: couponUsageError } = await supabase.from('coupon_uses')
-        .update({ asaas_subscription_id: subJson.id })
+        .update({ asaas_subscription_id: subJson?.id ?? null })
         .eq('user_id', user.id)
         .eq('coupon_id', appliedCoupon.coupon_id);
       
        if (couponUsageError) console.error('[Checkout] Erro ao registrar uso do cupom no DB:', couponUsageError);
     }
 
-    // Se for PIX, precisamos buscar o QR Code da cobrança gerada pela subscription
-    let pixData = null;
-    if (billingType === 'PIX') {
-      const chargesRes = await fetch(`${asaasUrl}/subscriptions/${subJson.id}/payments`, {
-        headers: asaasHeaders
-      });
-      const chargesJson = await chargesRes.json();
-      
-      if (chargesJson.data && chargesJson.data.length > 0) {
-        const paymentId = chargesJson.data[0].id;
-        const qrCodeRes = await fetch(`${asaasUrl}/payments/${paymentId}/pixQrCode`, {
-          headers: asaasHeaders
-        });
-        pixData = await qrCodeRes.json();
-      }
-    }
-
     return new Response(JSON.stringify({ 
       success: true, 
       subscription: subJson,
+      paymentId,
       pix: pixData
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

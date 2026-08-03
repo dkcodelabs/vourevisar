@@ -1,4 +1,6 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -10,6 +12,17 @@ vi.mock('@/hooks/useAccountSubscription', () => ({
 }));
 
 import { AccountSubscriptionTab } from './AccountSubscriptionTab';
+
+const renderAccountSubscription = () => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <AccountSubscriptionTab />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+};
 
 describe('AccountSubscriptionTab', () => {
   beforeEach(() => {
@@ -53,15 +66,15 @@ describe('AccountSubscriptionTab', () => {
       isFetching: false,
     });
 
-    render(<AccountSubscriptionTab />);
+    renderAccountSubscription();
 
     expect(screen.getAllByText('Mensal').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Ativa').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Cartão de crédito').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/R\$\s*49,90/)).toHaveLength(2);
-    expect(screen.getByText('Não aplicável')).toBeInTheDocument();
+    expect(screen.getAllByText('01/08/2026').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Pagamento recebido')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /cancelar|trocar|segunda via/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancelar renovação/i })).toBeInTheDocument();
   });
 
   it('keeps billing data visibly degraded when Asaas is unavailable', () => {
@@ -85,10 +98,44 @@ describe('AccountSubscriptionTab', () => {
       isFetching: false,
     });
 
-    render(<AccountSubscriptionTab />);
+    renderAccountSubscription();
 
     expect(screen.getByText('Free')).toBeInTheDocument();
     expect(screen.getByText('Dados de cobrança indisponíveis')).toBeInTheDocument();
     expect(screen.getByText('Sua assinatura ainda não tem vínculo de cobrança no Asaas.')).toBeInTheDocument();
+  });
+
+  it('distinguishes recurring PIX charges from automatic card renewal', () => {
+    mocks.useAccountSubscription.mockReturnValue({
+      data: {
+        subscription: {
+          plan: 'annual',
+          status: 'active',
+          billingType: 'PIX',
+          nextBillingDate: '2027-07-27',
+          subscriptionEndsAt: '2027-07-27',
+        },
+        asaas: {
+          available: true,
+          subscription: {
+            status: 'ACTIVE',
+            value: 99.9,
+            cycle: 'YEARLY',
+            billingType: 'PIX',
+            nextDueDate: '2027-07-27',
+          },
+          payments: [],
+        },
+      },
+      error: null,
+      isError: false,
+      isLoading: false,
+      isFetching: false,
+    });
+
+    renderAccountSubscription();
+
+    expect(screen.getByText('Pagamento avulso')).toBeInTheDocument();
+    expect(screen.getByText('Não')).toBeInTheDocument();
   });
 });
