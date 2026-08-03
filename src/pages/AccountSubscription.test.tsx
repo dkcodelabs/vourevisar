@@ -52,6 +52,15 @@ const canceledOverview: BillingOverview = {
   },
 };
 
+const manualTrialWithHistoricalStripeSubscription: BillingOverview = {
+  ...canceledOverview,
+  is_active: true,
+  source: 'manual',
+  plan: 'free_trial',
+  status: 'trial',
+  access_until: '2026-08-10T00:00:00.000Z',
+};
+
 describe('AccountSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -108,5 +117,30 @@ describe('AccountSubscription', () => {
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
     expect(mocks.useStripePortal().mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('does not present a historical Stripe plan or card as current during a manual trial', () => {
+    mocks.useStripeBillingOverview.mockReturnValue({
+      data: manualTrialWithHistoricalStripeSubscription,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/conta/assinatura']}>
+        <AccountSubscription />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Teste gratuito')).toBeInTheDocument();
+    expect(screen.getByText('Acesso gratuito')).toBeInTheDocument();
+    expect(screen.getAllByText('Sem cobrança')).toHaveLength(1);
+    expect(screen.getByText('Fim do período')).toBeInTheDocument();
+    expect(screen.getByText('10 de agosto de 2026')).toBeInTheDocument();
+    expect(screen.getByText('Nenhum cartão necessário')).toBeInTheDocument();
+    expect(screen.queryByText(/VISA •••• 0341/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('R$ 16,00')).not.toBeInTheDocument();
+    expect(screen.queryByText('por mês')).not.toBeInTheDocument();
   });
 });
