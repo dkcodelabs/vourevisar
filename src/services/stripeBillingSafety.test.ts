@@ -7,6 +7,8 @@ const readProjectFile = (path: string) =>
 
 const checkoutSource = readProjectFile('supabase/functions/stripe-create-checkout/index.ts');
 const catalogSource = readProjectFile('supabase/functions/stripe-catalog/index.ts');
+const invoiceHistorySource = readProjectFile('supabase/functions/stripe-invoice-history/index.ts');
+const adminBillingSource = readProjectFile('supabase/functions/admin-billing/index.ts');
 const webhookSource = readProjectFile('supabase/functions/stripe-webhook/index.ts');
 const sharedSource = readProjectFile('supabase/functions/_shared/stripeBilling.ts');
 const migrationSource = readProjectFile(
@@ -84,6 +86,14 @@ describe('Stripe billing security boundaries', () => {
     expect(configSource).toContain('[functions.stripe-webhook]\nverify_jwt = false');
   });
 
+  it('keeps terminated-account invoice history authenticated, read-only and free of payment links', () => {
+    expect(configSource).toContain('[functions.stripe-invoice-history]\nverify_jwt = true');
+    expect(invoiceHistorySource).toContain('requireAuthenticatedUser(request, supabase)');
+    expect(invoiceHistorySource).toContain('.eq("user_id", user.id)');
+    expect(invoiceHistorySource).toContain('stripe.invoices.list');
+    expect(invoiceHistorySource).not.toMatch(/hosted_invoice_url|invoice_pdf|payment_url/i);
+  });
+
   it('does not let an old refund or dispute revoke a newer paid period', () => {
     expect(webhookSource).toContain('chargeSustainsCurrentAccess');
     expect(webhookSource).toContain('latest_invoice_id');
@@ -140,5 +150,14 @@ describe('Stripe billing security boundaries', () => {
     expect(legacyGrantMigrationSource).not.toMatch(/asaas_customer_id|asaas_subscription_id|asaas_payment_id/);
     expect(legacyBridgeRemovalSource).toContain("WHERE source = 'migration'");
     expect(legacyBridgeRemovalSource).toContain('revoked_at = COALESCE(revoked_at, now())');
+  });
+
+  it('gives the admin panel the same canonical access contract without mutating Asaas history', () => {
+    expect(adminBillingSource).toContain('requireAdmin(actor.id, supabase)');
+    expect(adminBillingSource).toContain('from("billing_subscriptions")');
+    expect(adminBillingSource).toContain('from("billing_access_grants")');
+    expect(adminBillingSource).toContain('Legacy data is deliberately an audit marker only');
+    expect(adminBillingSource).not.toMatch(/from\("user_subscriptions"\)\.(update|insert|upsert|delete)/);
+    expect(adminBillingSource).not.toMatch(/asaas_/i);
   });
 });

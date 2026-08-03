@@ -56,3 +56,11 @@ export interface BillingOverview {
   access_until: string | null;
   subscription: BillingSubscription | null;
 }
+
+/** Sanitized read-only history. It never exposes Stripe IDs or payment URLs. */
+export interface BillingInvoiceHistoryItem {
+  status: 'paid' | 'pending' | 'closed';
+  amount_cents: number;
+  currency: string;
+  occurred_at: string | null;
+}

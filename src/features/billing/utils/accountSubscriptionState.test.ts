@@ -46,7 +46,11 @@ describe('getAccountSubscriptionState', () => {
     expect(state.summaryValue).toBe('Sem renovação ativa');
     expect(state.primaryAction).toBe('plans');
     expect(state.primaryActionLabel).toBe('Escolher novo plano');
-    expect(state.secondaryPortalLabel).toBe('Ver histórico e faturas');
+    expect(state.secondaryAction).toBe('history');
+    expect(state.secondaryActionLabel).toBe('Ver histórico financeiro');
+    expect(state.asideDescription).toBe(
+      'Escolha um novo plano para recuperar o acesso. Suas cobranças anteriores ficam disponíveis apenas para consulta.',
+    );
     expect(state.artworkNextStep).toBe('Retomar assinatura');
   });
 

@@ -1,16 +1,18 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BillingOverview } from '@/features/billing/types';
 
 const mocks = vi.hoisted(() => ({
   useStripeBillingOverview: vi.fn(),
+  useStripeInvoiceHistory: vi.fn(),
   useStripePortal: vi.fn(),
   useUserRole: vi.fn(),
 }));
 
 vi.mock('@/features/billing/hooks/useStripeBilling', () => ({
   useStripeBillingOverview: mocks.useStripeBillingOverview,
+  useStripeInvoiceHistory: mocks.useStripeInvoiceHistory,
   useStripePortal: mocks.useStripePortal,
 }));
 
@@ -64,6 +66,11 @@ describe('AccountSubscription', () => {
       isError: false,
       mutateAsync: vi.fn(),
     });
+    mocks.useStripeInvoiceHistory.mockReturnValue({
+      data: [{ status: 'closed', amount_cents: 1600, currency: 'brl', occurred_at: '2026-09-02T00:00:00.000Z' }],
+      isLoading: false,
+      isError: false,
+    });
     mocks.useUserRole.mockReturnValue({
       isAdmin: false,
       isOwner: false,
@@ -81,9 +88,25 @@ describe('AccountSubscription', () => {
     expect(screen.getByText('Assinatura encerrada')).toBeInTheDocument();
     expect(screen.getByText('Sem renovação ativa')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /escolher novo plano/i })).toHaveAttribute('href', '/planos');
-    expect(screen.getByRole('button', { name: /ver histórico e faturas/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ver histórico financeiro/i })).toBeInTheDocument();
+    expect(screen.getByText('Cobrança encerrada')).toBeInTheDocument();
     expect(screen.getByText('Retomar assinatura')).toBeInTheDocument();
     expect(screen.queryByText('Próxima renovação')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /gerenciar pagamento/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps terminated-account history inside the product without opening the payment portal', () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    render(
+      <MemoryRouter initialEntries={['/conta/assinatura']}>
+        <AccountSubscription />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /ver histórico financeiro/i }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(mocks.useStripePortal().mutateAsync).not.toHaveBeenCalled();
   });
 });
