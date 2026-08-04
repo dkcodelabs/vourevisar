@@ -30,6 +30,23 @@ const paymentFormSource = readProjectFile(
 const billingHookSource = readProjectFile(
   'src/features/billing/hooks/useStripeBilling.ts',
 );
+const sidebarSubscriptionSource = readProjectFile('src/hooks/useSubscriptionInfo.ts');
+const userManagementSource = readProjectFile('src/pages/admin/UserManagement.tsx');
+const importEditalSource = readProjectFile('src/components/subjects/ImportEditalModal.tsx');
+const extractEditalSource = readProjectFile('supabase/functions/extract-edital/index.ts');
+const processTopicIncidenceSource = readProjectFile('supabase/functions/process-topic-incidence/index.ts');
+const aiQuotaMigrationSource = readProjectFile(
+  'supabase/migrations/20260804170000_move_ai_quota_off_legacy_subscriptions.sql',
+);
+const legacyTableRetirementSource = readProjectFile(
+  'supabase/migrations/20260804173000_remove_legacy_subscription_table.sql',
+);
+const finalAsaasResidueRemovalSource = readProjectFile(
+  'supabase/migrations/20260804174500_remove_final_asaas_schema_residue.sql',
+);
+const couponFunctionRetirementSource = readProjectFile(
+  'supabase/migrations/20260804175500_remove_asaas_coupon_function_parameter.sql',
+);
 const userFacingBillingSource = [
   'src/pages/StripeCheckout.tsx',
   'src/pages/StripeCheckoutReturn.tsx',
@@ -152,12 +169,61 @@ describe('Stripe billing security boundaries', () => {
     expect(legacyBridgeRemovalSource).toContain('revoked_at = COALESCE(revoked_at, now())');
   });
 
-  it('gives the admin panel the same canonical access contract without mutating Asaas history', () => {
+  it('gives the admin panel the same canonical access contract without any legacy billing dependency', () => {
     expect(adminBillingSource).toContain('requireAdmin(actor.id, supabase)');
     expect(adminBillingSource).toContain('from("billing_subscriptions")');
     expect(adminBillingSource).toContain('from("billing_access_grants")');
-    expect(adminBillingSource).toContain('Legacy data is deliberately an audit marker only');
-    expect(adminBillingSource).not.toMatch(/from\("user_subscriptions"\)\.(update|insert|upsert|delete)/);
+    expect(adminBillingSource).not.toContain('user_subscriptions');
     expect(adminBillingSource).not.toMatch(/asaas_/i);
+  });
+
+  it('keeps account suspension separate from subscription and entitlement records', () => {
+    expect(userManagementSource).toContain('Suspender conta');
+    expect(userManagementSource).toContain('Reativar conta');
+    expect(userManagementSource).not.toMatch(
+      /from\(["']user_subscriptions["']\)\.(update|insert|upsert|delete)/,
+    );
+    expect(userManagementSource).not.toMatch(
+      /from\(["']billing_(subscriptions|access_grants)["']\)\.(update|insert|upsert|delete)/,
+    );
+  });
+
+  it('derives the sidebar subscription summary from the canonical billing overview', () => {
+    expect(sidebarSubscriptionSource).toContain('useStripeBillingOverview');
+    expect(sidebarSubscriptionSource).not.toContain('user_subscriptions');
+    expect(sidebarSubscriptionSource).not.toMatch(/asaas_/i);
+  });
+
+  it('derives AI quotas and paid-only processing from the canonical billing domain', () => {
+    expect(aiQuotaMigrationSource).toContain('public.billing_subscriptions');
+    expect(aiQuotaMigrationSource).toContain('public.billing_access_grants');
+    expect(aiQuotaMigrationSource).toContain('public.user_ai_quota_resets');
+    expect(importEditalSource).not.toContain('user_subscriptions');
+    expect(extractEditalSource).not.toContain('user_subscriptions');
+    expect(processTopicIncidenceSource).not.toContain('user_subscriptions');
+    expect(extractEditalSource).toContain('AI_QUOTA_UNAVAILABLE');
+  });
+
+  it('retires the legacy subscription table after moving all active contracts', () => {
+    expect(legacyTableRetirementSource).toContain('CREATE OR REPLACE FUNCTION public.handle_new_user()');
+    expect(legacyTableRetirementSource).toContain('public.billing_access_grants');
+    expect(legacyTableRetirementSource).toContain('CREATE OR REPLACE FUNCTION public.get_subscription_info');
+    expect(legacyTableRetirementSource).toContain('DROP FUNCTION IF EXISTS public.has_active_subscription(uuid)');
+    expect(legacyTableRetirementSource).toContain('DROP TABLE public.payment_history');
+    expect(legacyTableRetirementSource).toContain('DROP TABLE public.user_subscriptions');
+  });
+
+  it('removes the final provider-specific schema and coupon function residue', () => {
+    expect(finalAsaasResidueRemovalSource).toContain(
+      'DROP COLUMN IF EXISTS asaas_subscription_id',
+    );
+    expect(finalAsaasResidueRemovalSource).not.toContain('payment_history WHERE');
+    expect(couponFunctionRetirementSource).toContain(
+      'DROP FUNCTION IF EXISTS public.use_coupon(text, uuid, text)',
+    );
+    expect(couponFunctionRetirementSource).toContain(
+      'CREATE FUNCTION public.use_coupon(target_coupon_code text, target_user_id uuid)',
+    );
+    expect(couponFunctionRetirementSource).not.toContain('asaas_');
   });
 });

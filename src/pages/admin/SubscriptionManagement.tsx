@@ -25,7 +25,7 @@ const planLabel: Record<AdminBillingPlan, string> = {
 const sourceLabel: Record<AdminBillingUser['source'], string> = {
   stripe: 'Stripe',
   trial: 'Trial',
-  manual: 'Manual',
+  manual: 'Cortesia',
   goodwill: 'Cortesia',
   migration: 'Migração',
   none: 'Sem acesso',
@@ -75,21 +75,21 @@ const SubscriptionManagement = () => {
   }), [users]);
 
   const grant = async (user: AdminBillingUser, plan: AdminBillingPlan) => {
-    const label = plan === 'free_trial' ? 'trial manual de 7 dias' : `acesso manual ${planLabel[plan].toLowerCase()}`;
-    if (!window.confirm(`Conceder ${label} para ${user.email}? Isso não cria, altera ou cancela uma cobrança na Stripe.`)) return;
+    const label = plan === 'free_trial' ? 'teste de cortesia por 7 dias' : `cortesia ${planLabel[plan].toLowerCase()}`;
+    if (!window.confirm(`Conceder ${label} para ${user.email}? Isso libera somente o acesso ao produto e não cria, altera ou cancela cobranças na Stripe.`)) return;
     try {
       await grantMutation.mutateAsync({ userId: user.id, plan });
-      toast.success('Acesso manual concedido. Nenhuma cobrança foi alterada.');
+      toast.success('Cortesia de acesso concedida. Nenhuma cobrança foi alterada.');
     } catch (error) {
       toastGate.notifyError(error instanceof Error ? error.message : 'Não foi possível conceder o acesso manual.', 'ADMIN-BILLING-GRANT', { severity: 'medium' });
     }
   };
 
   const revoke = async (user: AdminBillingUser) => {
-    if (!window.confirm(`Remover apenas a concessão manual de ${user.email}? Assinaturas Stripe não serão alteradas.`)) return;
+    if (!window.confirm(`Revogar a cortesia de ${user.email}? O usuário pode perder o acesso ao produto imediatamente. A conta e qualquer assinatura Stripe permanecerão inalteradas.`)) return;
     try {
       await revokeMutation.mutateAsync(user.id);
-      toast.success('Concessão manual removida. Assinaturas Stripe permaneceram inalteradas.');
+      toast.success('Cortesia de acesso revogada. A conta e a Stripe permaneceram inalteradas.');
     } catch (error) {
       toastGate.notifyError(error instanceof Error ? error.message : 'Não foi possível remover a concessão manual.', 'ADMIN-BILLING-REVOKE', { severity: 'medium' });
     }
@@ -167,14 +167,14 @@ const SubscriptionManagement = () => {
 
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                   {statusBadge(user)}
-                  {user.source !== 'none' && user.role !== 'owner' && user.role !== 'admin' && <Badge variant="outline" className="border-black/10 text-muted-foreground dark:border-white/10">{sourceLabel[user.source]}</Badge>}
+                  {user.source !== 'none' && user.role !== 'owner' && user.role !== 'admin' && <Badge variant="outline" className="border-black/10 text-muted-foreground dark:border-white/10">{user.source === 'stripe' && !user.is_active ? 'Stripe — histórico' : sourceLabel[user.source]}</Badge>}
                   <div className="h-7 w-px bg-black/10 dark:bg-white/10" />
                   {processing ? <div className="flex h-10 min-w-44 items-center justify-center gap-2 rounded-xl border border-primary/15 bg-primary/5 px-3 text-xs font-semibold text-primary" role="status"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Atualizando acesso</div> : <select defaultValue="" onChange={(event) => { const value = event.target.value; event.currentTarget.value = ''; if (value === 'revoke') void revoke(user); else if (value) void grant(user, value as AdminBillingPlan); }} disabled={user.role === 'owner' || user.role === 'admin'} className="h-9 min-w-52 rounded-xl border border-black/10 bg-background px-3 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10">
                     <option value="">Ações de acesso</option>
-                    <option value="free_trial">Conceder trial manual (7 dias)</option>
-                    <option value="monthly">Conceder acesso manual mensal</option>
-                    <option value="annual">Conceder acesso manual anual</option>
-                    {user.manual_access && <option value="revoke">Remover concessão manual</option>}
+                    <option value="free_trial">Conceder teste de cortesia (7 dias)</option>
+                    <option value="monthly">Conceder cortesia mensal (30 dias)</option>
+                    <option value="annual">Conceder cortesia anual (365 dias)</option>
+                    {user.manual_access && <option value="revoke">Revogar cortesia ativa</option>}
                   </select>}
                 </div>
               </div>

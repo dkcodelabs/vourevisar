@@ -16,8 +16,6 @@ export interface AdminBillingUser {
   access_until: string | null;
   source: AdminBillingSource;
   cancel_at_period_end: boolean;
-  has_legacy_record: boolean;
-  legacy_is_history_only: boolean;
   manual_access: {
     plan: AdminBillingPlan;
     ends_at: string;

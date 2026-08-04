@@ -2,16 +2,15 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('admin subscription mutation safety', () => {
-  it('closes an active Asaas link before a manual subscription mutation', () => {
+  it('does not expose legacy provider or subscription mutation actions', () => {
     const source = readFileSync('supabase/functions/admin-rpc/index.ts', 'utf8');
 
-    expect(source).toContain('MANUAL_SUBSCRIPTION_ACTIONS');
-    expect(source).toContain('asaas_subscription_id');
-    expect(source).toContain('deactivateExternalSubscriptionIfActive');
-    expect(source).toContain('ASAAS_API_KEY');
-    expect(source).toContain('method: "PUT"');
-    expect(source).toContain('status: "INACTIVE"');
-    expect(source).not.toContain('ASAAS_SUBSCRIPTION_MANAGED_EXTERNALLY');
+    expect(source).not.toContain('activate_paid_subscription');
+    expect(source).not.toContain('activate_trial_subscription');
+    expect(source).not.toContain('deactivate_subscription');
+    expect(source).not.toContain('user_subscriptions');
+    expect(source).not.toContain('ASAAS_');
+    expect(source).not.toContain('asaas_');
   });
 
   it('resets AI quota through the authorized admin action without rewriting edital origin', () => {

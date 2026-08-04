@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { invokeUserRpc } from '@/services/userRpcService'
 import { useAuth } from '@/contexts/AuthContext'
+import { retryAsync } from '@/utils/retryAsync'
 
 interface UserProfile {
   id: string
@@ -73,9 +74,12 @@ export function useUserProfile(): UseUserProfileReturn {
           .maybeSingle(),
 
         // Consulta 2: Assinatura via Edge Function, sem expor RPC SECURITY DEFINER no REST
-        invokeUserRpc<UserProfile['subscription'] | { error?: string } | null>('get_subscription_info', {
-          check_user_id: user.id,
-        }),
+        retryAsync(
+          () => invokeUserRpc<UserProfile['subscription'] | { error?: string } | null>('get_subscription_info', {
+            check_user_id: user.id,
+          }),
+          { attempts: 3, delayMs: 350 },
+        ),
 
         // Consulta 3: Perfil (Avatar + Nome)
         supabase
@@ -141,16 +145,6 @@ export function useUserProfile(): UseUserProfileReturn {
             event: '*',
             schema: 'public',
             table: 'user_roles',
-            filter: `user_id=eq.${profile.id}`
-          },
-          () => forceRefresh()
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'user_subscriptions',
             filter: `user_id=eq.${profile.id}`
           },
           () => forceRefresh()
