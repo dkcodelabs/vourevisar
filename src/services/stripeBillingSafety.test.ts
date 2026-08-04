@@ -115,6 +115,11 @@ describe('Stripe billing security boundaries', () => {
     expect(webhookSource).toContain('chargeSustainsCurrentAccess');
     expect(webhookSource).toContain('latest_invoice_id');
     expect(webhookSource).toContain('data?.latest_invoice_id === invoiceId');
+    expect(webhookSource).toContain('resolveChargeInvoiceId');
+    expect(webhookSource).toContain('stripe.paymentIntents.retrieve(paymentIntentId)');
+    expect(webhookSource).toContain('payment_details?.order_reference');
+    expect(webhookSource).toContain('supabase: ServiceClient,\n  stripe: Stripe,\n  subscriptionId: string');
+    expect(webhookSource).toContain('chargeSustainsCurrentAccess(supabase, stripe, subscriptionId, charge)');
   });
 
   it('supports scheduled cancellation in Stripe classic and flexible billing modes', () => {

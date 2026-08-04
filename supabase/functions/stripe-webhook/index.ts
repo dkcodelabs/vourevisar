@@ -40,6 +40,30 @@ const getChargeInvoiceId = (charge: Stripe.Charge) => {
   return getExpandableId(candidate.invoice);
 };
 
+const getPaymentIntentInvoiceId = (paymentIntent: Stripe.PaymentIntent) => {
+  const candidate = paymentIntent as Stripe.PaymentIntent & {
+    invoice?: string | Stripe.Invoice | null;
+    payment_details?: {
+      order_reference?: string | Stripe.Invoice | null;
+    } | null;
+  };
+  return getExpandableId(candidate.invoice)
+    ?? getExpandableId(candidate.payment_details?.order_reference);
+};
+
+const resolveChargeInvoiceId = async (stripe: Stripe, charge: Stripe.Charge) => {
+  const chargeInvoiceId = getChargeInvoiceId(charge);
+  if (chargeInvoiceId) return chargeInvoiceId;
+
+  // Newer Stripe event payloads can omit Charge.invoice. The PaymentIntent
+  // remains the stable path back to the invoice and its subscription.
+  const paymentIntentId = getExpandableId(charge.payment_intent);
+  if (!paymentIntentId) return null;
+
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  return getPaymentIntentInvoiceId(paymentIntent);
+};
+
 const resolveBillingCustomer = async (
   supabase: ServiceClient,
   stripe: Stripe,
@@ -196,7 +220,7 @@ const syncSubscriptionById = async (
 };
 
 const getSubscriptionIdFromCharge = async (stripe: Stripe, charge: Stripe.Charge) => {
-  const invoiceId = getChargeInvoiceId(charge);
+  const invoiceId = await resolveChargeInvoiceId(stripe, charge);
   if (!invoiceId) return null;
   const invoice = await stripe.invoices.retrieve(invoiceId);
   return getInvoiceSubscriptionId(invoice);
@@ -204,10 +228,11 @@ const getSubscriptionIdFromCharge = async (stripe: Stripe, charge: Stripe.Charge
 
 const chargeSustainsCurrentAccess = async (
   supabase: ServiceClient,
+  stripe: Stripe,
   subscriptionId: string,
   charge: Stripe.Charge,
 ) => {
-  const invoiceId = getChargeInvoiceId(charge);
+  const invoiceId = await resolveChargeInvoiceId(stripe, charge);
   if (!invoiceId) return false;
 
   const { data, error } = await supabase
@@ -354,7 +379,7 @@ Deno.serve(async (request) => {
           const subscriptionId = await getSubscriptionIdFromCharge(stripe, charge);
           if (
             subscriptionId &&
-            await chargeSustainsCurrentAccess(supabase, subscriptionId, charge)
+            await chargeSustainsCurrentAccess(supabase, stripe, subscriptionId, charge)
           ) {
             const canceled = await stripe.subscriptions.cancel(subscriptionId);
             await syncSubscription(supabase, stripe, canceled, event.created);
@@ -378,7 +403,7 @@ Deno.serve(async (request) => {
         const subscriptionId = await getSubscriptionIdFromCharge(stripe, charge);
         if (
           !subscriptionId ||
-          !await chargeSustainsCurrentAccess(supabase, subscriptionId, charge)
+          !await chargeSustainsCurrentAccess(supabase, stripe, subscriptionId, charge)
         ) {
           processingStatus = "ignored";
           break;
@@ -405,7 +430,7 @@ Deno.serve(async (request) => {
         const subscriptionId = await getSubscriptionIdFromCharge(stripe, charge);
         if (
           !subscriptionId ||
-          !await chargeSustainsCurrentAccess(supabase, subscriptionId, charge)
+          !await chargeSustainsCurrentAccess(supabase, stripe, subscriptionId, charge)
         ) {
           processingStatus = "ignored";
           break;
