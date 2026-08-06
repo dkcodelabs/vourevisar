@@ -1,29 +1,17 @@
-import React, { createContext, useState, useEffect, useContext, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { toast } from '@/lib/toast';
+import { toastManager } from '@/utils/toastManager';
 import { useAuthOperations } from '@/hooks/useAuthOperations';
 import { useUserLogger } from '@/hooks/useUserLogger';
-import { Database } from '@/integrations/supabase/types';
 import { isEmailConfirmationPending } from '@/utils/authConfirmation';
+import { retryProfileLookup } from '@/utils/retryProfileLookup';
+import { withTimeout } from '@/utils/withTimeout';
+import { AuthContext, AuthContextType } from './auth-context';
+import type { Database } from '@/integrations/supabase/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
-
-interface AuthContextType {
-  user: User | null;
-  profile: Profile | null;
-  loading: boolean;
-  signUp: (email: string, password: string, name: string, phone?: string) => Promise<{ success: boolean; user?: User; error?: string; confirmationPending?: boolean }>;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
-  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
-  signOut: () => Promise<{ success: boolean; error?: string }>;
-  updateProfile: (profileData: Partial<Profile>) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
-  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const isInvalidServerSessionError = (error: unknown) => {
   if (!error || typeof error !== 'object') return false;
@@ -77,6 +65,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // browser lock.
   const sessionReadInFlightRef = useRef<ReturnType<typeof supabase.auth.getSession> | null>(null);
   const sessionValidationInFlightRef = useRef(false);
+  const lastAuthStateChangeAtRef = useRef(0);
   // Every auth event invalidates profile work started by an older identity.
   // This prevents a late RLS-empty response for user A from signing out user B.
   const authTransitionRef = useRef(0);
@@ -87,13 +76,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       isFetchingProfileRef.current = true;
       setProfileLoading(true);
-      // Silencioso
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      const { data, error } = await withTimeout(
+        retryProfileLookup(
+          () => supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle(),
+        ),
+        10000,
+        'Não foi possível carregar seu perfil. Tente novamente.',
+      );
 
       if (error) {
         console.error("[AuthContext] Erro ao buscar perfil:", error);
@@ -171,6 +165,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const validateServerSession = async () => {
       if (location.pathname === '/auth/callback') return;
+      // Do not validate a session while Supabase is still finishing the same
+      // SIGNED_IN transition. Safari can dispatch focus/visibility immediately
+      // after login; treating that short window as an invalid session causes a
+      // successful login to be cleared and leaves the app in a loading loop.
+      if (Date.now() - lastAuthStateChangeAtRef.current < 3000) return;
       if (sessionValidationInFlightRef.current) return;
       sessionValidationInFlightRef.current = true;
 
@@ -198,6 +197,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!isMounted) return;
+        lastAuthStateChangeAtRef.current = Date.now();
         const authTransition = ++authTransitionRef.current;
 
         // Supabase explicitly warns against awaiting Supabase calls inside this
@@ -207,44 +207,71 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           deferredAuthStateTimers.delete(timer);
           if (!isMounted) return;
 
-          if (session?.user && isEmailConfirmationPending(session.user)) {
-            localStorage.setItem('pendingConfirmationEmail', session.user.email || '');
-            await supabase.auth.signOut();
-            setUser(null);
-            setProfile(null);
-            lastLoginSignature.current = null;
-            if (isMounted) setLoading(false);
-            return;
-          }
+          try {
+            if (session?.user && isEmailConfirmationPending(session.user)) {
+              localStorage.setItem('pendingConfirmationEmail', session.user.email || '');
+              await supabase.auth.signOut();
+              setUser(null);
+              setProfile(null);
+              lastLoginSignature.current = null;
+              return;
+            }
 
-          if (session?.user) {
+            if (session?.user) {
             // A deleted/orphaned profile can still produce a valid Supabase auth
             // session. Validate ownership before exposing the session to the app
             // or recording LOGIN_SUCCESS, otherwise admin access metrics become
             // incorrect and the user briefly appears authenticated.
-            const { data: profileRow, error: profileLookupError } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('id', session.user.id)
-              .maybeSingle();
+            const { data: profileRow, error: profileLookupError } = await withTimeout(
+              retryProfileLookup(
+                () => supabase
+                  .from('profiles')
+                  .select('id, is_active')
+                  .eq('id', session.user.id)
+                  .maybeSingle(),
+              ),
+              10000,
+              'Não foi possível confirmar seu perfil. Tente novamente.',
+            );
 
-            if (authTransitionRef.current !== authTransition) return;
+              if (authTransitionRef.current !== authTransition) return;
 
-            if (!profileLookupError && !profileRow) {
+              if (!profileLookupError && !profileRow) {
               console.warn('[AuthContext] Sessão sem perfil; encerrando sessão local antes de registrar acesso.');
               await supabase.auth.signOut({ scope: 'local' });
               setUser(null);
               setProfile(null);
               lastLoginSignature.current = null;
               if (isMounted) setLoading(false);
-              return;
-            }
+                return;
+              }
 
-            setUser(session.user);
+              if (!profileLookupError && profileRow?.is_active === false) {
+              await withTimeout(
+                supabase.auth.signOut({ scope: 'local' }),
+                5000,
+                'Logout local da conta desativada',
+              ).catch(() => undefined);
+              setUser(null);
+              setProfile(null);
+              lastLoginSignature.current = null;
+              if (isMounted) {
+                setLoading(false);
+                toastManager.warning('Sua conta está desativada. Entre em contato com o suporte.', {
+                  id: 'account-deactivated',
+                });
+                navigate('/login', {
+                  replace: true,
+                });
+              }
+                return;
+              }
+
+              setUser(session.user);
 
             // Log LOGIN_SUCCESS only after the profile check succeeds. A network
             // error must not be converted into a successful access metric.
-            if (!profileLookupError && event === 'SIGNED_IN' && !isEmailConfirmationCallbackSession(session.user)) {
+              if (!profileLookupError && event === 'SIGNED_IN' && !isEmailConfirmationCallbackSession(session.user)) {
               const signature = session.access_token?.slice(-16);
               if (signature && signature !== lastLoginSignature.current) {
                 lastLoginSignature.current = signature;
@@ -255,7 +282,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
             }
 
-            if (!isFetchingProfileRef.current) {
+              if (!isFetchingProfileRef.current) {
               const profileTimer = setTimeout(() => {
                 deferredAuthStateTimers.delete(profileTimer);
                 if (isMounted && authTransitionRef.current === authTransition) {
@@ -263,14 +290,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 }
               }, 100);
               deferredAuthStateTimers.add(profileTimer);
+              }
+            } else {
+              setUser(null);
+              setProfile(null);
+              lastLoginSignature.current = null;
             }
-          } else {
+
+          } catch (error) {
+            if (!isMounted) return;
+            if (authTransitionRef.current !== authTransition) return;
+
+            console.error('[AuthContext] Falha ao concluir autenticação:', error);
+            await withTimeout(
+              supabase.auth.signOut({ scope: 'local' }),
+              5000,
+              'Logout local',
+            ).catch(() => undefined);
             setUser(null);
             setProfile(null);
             lastLoginSignature.current = null;
+            toastManager.error('Não foi possível confirmar seu acesso. Tente novamente.', {
+              id: 'auth-bootstrap-failed',
+            });
+          } finally {
+            if (isMounted) setLoading(false);
           }
-
-          if (isMounted) setLoading(false);
         }, 0);
 
         deferredAuthStateTimers.add(timer);
@@ -291,7 +336,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       window.removeEventListener('focus', validateServerSession);
       document.removeEventListener('visibilitychange', validateServerSession);
     };
-  }, [fetchProfile, location.pathname, logEvent]);
+  }, [fetchProfile, location.pathname, logEvent, navigate]);
 
   const signUp = useCallback(async (email: string, password: string, name: string, phone?: string) => {
     try {
@@ -335,7 +380,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [authOps]);
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (options: { redirect?: boolean; skipAudit?: boolean } = {}) => {
     // Prevent re-entry using Ref (Hardening)
     if (isSigningOutRef.current) return { success: true };
     isSigningOutRef.current = true;
@@ -343,7 +388,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setLoading(true);
 
-      if (user) {
+      if (user && !options.skipAudit) {
         try { await logEvent('LOGOUT', { source: 'signOut_handler_v2' }, 'web_app', { user }); } catch (e) { /* ignore */ }
       }
 
@@ -356,7 +401,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setProfile(null);
       lastLoginSignature.current = null;
 
-      navigate('/login');
+      if (options.redirect !== false) {
+        navigate('/login');
+      }
       return { success: true };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';

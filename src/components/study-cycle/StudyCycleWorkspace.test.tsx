@@ -48,6 +48,7 @@ const makeProps = (
   isLoading: false,
   localSubjectsCount: 1,
   onGoToEditais: vi.fn(),
+  onOpenImport: vi.fn(),
   onLoadMore: vi.fn(),
   onNavigate: vi.fn(),
   onStartNextCycle: vi.fn(),

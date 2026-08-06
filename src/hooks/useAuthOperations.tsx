@@ -7,6 +7,7 @@ import { Database } from '@/integrations/supabase/types';
 import {
   EMAIL_NOT_CONFIRMED_ERROR,
   isEmailConfirmationPending,
+  isExpectedPasswordSignInError,
 } from '@/utils/authConfirmation';
 import { getAuthCallbackUrl } from '@/utils/authRedirect';
 
@@ -32,7 +33,9 @@ export function useAuthOperations() {
       // });
       return data;
     } catch (error: unknown) {
-      console.error('Sign in error:', error);
+      if (!isExpectedPasswordSignInError(error)) {
+        console.error('Sign in error:', error);
+      }
       if (error instanceof Error && error.message.toLowerCase().includes('email not confirmed')) {
         localStorage.setItem('pendingConfirmationEmail', email.trim().toLowerCase());
       }

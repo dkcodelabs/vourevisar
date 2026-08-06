@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { User } from '@supabase/supabase-js'
 import { useAuth } from '@/contexts/AuthContext'
+import { withTimeout } from '@/utils/withTimeout'
 
 export type AppRole = 'owner' | 'admin' | 'moderator' | 'user'
 
@@ -44,10 +45,14 @@ export function useUserRole(): UserRoleData & {
       }
 
       // Busca roles do usuário
-      const { data: userRoles, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', currentUser.id)
+      const { data: userRoles, error: roleError } = await withTimeout(
+        supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', currentUser.id),
+        10000,
+        'Não foi possível confirmar suas permissões. Tente novamente.',
+      )
 
       if (roleError) {
         throw roleError

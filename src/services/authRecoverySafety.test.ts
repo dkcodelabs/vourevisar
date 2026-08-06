@@ -17,7 +17,7 @@ describe('password recovery safety boundaries', () => {
   it('keeps credential callbacks out of the global auth bootstrap', () => {
     expect(authContextSource).toContain("location.pathname === '/auth/callback'");
     expect(authContextSource).toContain("location.pathname === '/reset-password'");
-    expect(authContextSource.match(/authTransitionRef\.current !== authTransition/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(authContextSource.match(/authTransitionRef\.current !== authTransition/g)?.length).toBeGreaterThanOrEqual(3);
     expect(authContextSource).toContain('authTransitionRef.current === authTransition');
   });
 

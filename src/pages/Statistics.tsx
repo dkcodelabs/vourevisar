@@ -90,6 +90,7 @@ const Statistics = () => {
           description="A tela de estatísticas precisa consultar o Supabase, mas o navegador está sem conexão no momento. Assim que a internet voltar, tente carregar os dados novamente."
           actionLabel="Tentar novamente"
           actionIcon={RefreshCw}
+          requiresOnline
           onAction={() => window.location.reload()}
           helperText="Quando a conexão voltar, seus dados aparecem aqui."
         />
@@ -106,6 +107,7 @@ const Statistics = () => {
     const emptyStateKind = getStudyEmptyStateKind({
       editalCount: editaisData.length || (hasAnyEdital ? 1 : 0),
       editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
+      hasAnyContent: subjects.length > 0,
       hasActiveCycle: false,
     });
 

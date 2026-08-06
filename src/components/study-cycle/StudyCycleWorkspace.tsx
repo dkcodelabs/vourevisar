@@ -23,6 +23,7 @@ type StudyCycleWorkspaceProps = {
   isLoading: boolean;
   localSubjectsCount: number;
   onGoToEditais: () => void;
+  onOpenImport: (tab: 'ready' | 'ia' | 'manual') => void;
   onLoadMore: () => void;
   onNavigate: (to: string) => void;
   onStartNextCycle: () => void;
@@ -48,6 +49,7 @@ export function StudyCycleWorkspace({
   isLoading,
   localSubjectsCount,
   onGoToEditais,
+  onOpenImport,
   onLoadMore,
   onNavigate,
   onStartNextCycle,
@@ -97,6 +99,7 @@ export function StudyCycleWorkspace({
                   <CycleEmptyState
                     state={cycleEntryState}
                     onGoToEditais={onGoToEditais}
+                    onOpenImport={onOpenImport}
                   />
                 )}
               </div>

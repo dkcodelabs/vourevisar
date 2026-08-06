@@ -69,4 +69,9 @@ describe('authConfirmation', () => {
       app_metadata: {},
     })).toBe(true);
   });
+
+  it('classifica credenciais inválidas como rejeição esperada do login', () => {
+    expect(isExpectedPasswordSignInError(new Error('Invalid login credentials'))).toBe(true);
+    expect(isExpectedPasswordSignInError(new Error('Failed to fetch'))).toBe(false);
+  });
 });

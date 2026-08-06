@@ -24,24 +24,35 @@ export const useDataLoading = (
     setError(null);
 
     try {
-      const { data: subjectsData, error: subjectsError } = await withTimeout(
-        supabase
-          .from('subjects')
-          .select(`
-            *,
-            topics (
+      // Auth can emit SIGNED_IN a few milliseconds before PostgREST sees the
+      // persisted token (most visible after reactivation or in Safari). Retry
+      // only that transient boundary; real data errors still reach the UI.
+      const fetchSubjects = () => withTimeout(
+          supabase
+            .from('subjects')
+            .select(`
               *,
-              difficulty_level,
-              next_review
-            )
-          `)
-          .eq('user_id', userId)
-          .eq('topics.is_active', true)
-          .order('priority', { ascending: true })
-          .order('position', { foreignTable: 'topics', ascending: true }),
-        12000,
-        'Carregamento de materias'
-      );
+              topics (
+                *,
+                difficulty_level,
+                next_review
+              )
+            `)
+            .eq('user_id', userId)
+            .eq('topics.is_active', true)
+            .order('priority', { ascending: true })
+            .order('position', { foreignTable: 'topics', ascending: true }),
+          12000,
+          'Carregamento de materias'
+        );
+
+      let result = await fetchSubjects();
+      if (result.error && [401, 403].includes(Number((result.error as { status?: number }).status))) {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        result = await fetchSubjects();
+      }
+
+      const { data: subjectsData, error: subjectsError } = result;
 
       if (subjectsError) throw subjectsError;
 

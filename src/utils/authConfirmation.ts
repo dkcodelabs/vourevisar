@@ -3,6 +3,10 @@ import { User } from '@supabase/supabase-js';
 export const EMAIL_NOT_CONFIRMED_ERROR = 'Email not confirmed';
 export const EMAIL_NOT_CONFIRMED_MESSAGE = 'Email não confirmado. Verifique sua caixa de entrada.';
 
+export const isExpectedPasswordSignInError = (error: unknown): boolean => {
+  return error instanceof Error && error.message.toLowerCase().includes('invalid login credentials');
+};
+
 const EMAIL_AUTH_PROVIDERS = new Set(['email', 'password']);
 
 type AuthMethodUser = Pick<User, 'app_metadata'> & {

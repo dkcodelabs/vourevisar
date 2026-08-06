@@ -3,6 +3,7 @@ export type StudyEmptyStateKind = 'no-edital' | 'empty-edital' | 'no-cycle';
 type StudyEntryStateInput = {
   editalCount: number;
   editaisWithContentCount: number;
+  hasAnyContent?: boolean;
   hasActiveCycle: boolean;
 };
 
@@ -13,10 +14,12 @@ type StudyEntryStateInput = {
 export function getStudyEmptyStateKind({
   editalCount,
   editaisWithContentCount,
+  hasAnyContent = false,
   hasActiveCycle,
 }: StudyEntryStateInput): StudyEmptyStateKind | null {
   if (hasActiveCycle) return null;
-  if (editalCount === 0) return 'no-edital';
-  if (editaisWithContentCount === 0) return 'empty-edital';
+  const hasContent = editaisWithContentCount > 0 || hasAnyContent;
+  if (editalCount === 0 && !hasContent) return 'no-edital';
+  if (!hasContent) return 'empty-edital';
   return 'no-cycle';
 }

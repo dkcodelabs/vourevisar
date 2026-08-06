@@ -1,14 +1,16 @@
-import { Search } from 'lucide-react';
+import { BookOpen, FilePlus2, Library, Search, Sparkles } from 'lucide-react';
 import type { CycleEntryState } from '@/utils/cycleEntryState';
 
 type CycleEmptyStateProps = {
   state: CycleEntryState;
   onGoToEditais: () => void;
+  onOpenImport?: (tab: 'ready' | 'ia' | 'manual') => void;
 };
 
 export function CycleEmptyState({
   state,
   onGoToEditais,
+  onOpenImport,
 }: CycleEmptyStateProps) {
   if (state.kind === 'access_loading'
     || state.kind === 'access_error'
@@ -36,20 +38,52 @@ export function CycleEmptyState({
     return (
       <>
         <div className="app-empty-orb mb-6 flex h-20 w-20 items-center justify-center rounded-full">
-          <span className="text-4xl text-primary">📚</span>
+          <BookOpen className="text-primary" size={36} aria-hidden="true" />
         </div>
         <h3 className="mb-3 text-xl font-bold text-title-section">
-          Nenhuma matéria cadastrada
+          Comece pelo seu primeiro edital
         </h3>
         <p className="text-content-muted max-w-md mx-auto mb-8 leading-relaxed">
-          Importe um edital ou cadastre matérias em Meus Editais para montar uma fila de ciclo confiável.
+          Escolha como quer começar. O ciclo será montado a partir do conteúdo que você cadastrar.
         </p>
-        <button
-          onClick={onGoToEditais}
-          className="app-primary-button px-6 py-3"
-        >
-          Ir para Meus Editais
-        </button>
+        <div className="grid w-full max-w-2xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenImport) onOpenImport('ia');
+              else onGoToEditais();
+            }}
+            className="app-surface group rounded-2xl border border-primary/25 p-4 transition-colors hover:border-primary/60 hover:bg-primary/5"
+          >
+            <Sparkles className="mb-3 text-primary" size={20} aria-hidden="true" />
+            <span className="block text-sm font-bold text-foreground">Importar com IA</span>
+            <span className="mt-1 block text-xs leading-5 text-content-muted">Use um PDF ou link do edital.</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenImport) onOpenImport('ready');
+              else onGoToEditais();
+            }}
+            className="app-surface group rounded-2xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
+          >
+            <Library className="mb-3 text-cyan-400" size={20} aria-hidden="true" />
+            <span className="block text-sm font-bold text-foreground">Usar catálogo</span>
+            <span className="mt-1 block text-xs leading-5 text-content-muted">Escolha um edital já preparado.</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (onOpenImport) onOpenImport('manual');
+              else onGoToEditais();
+            }}
+            className="app-surface group rounded-2xl border border-border p-4 transition-colors hover:border-primary/50 hover:bg-primary/5"
+          >
+            <FilePlus2 className="mb-3 text-emerald-400" size={20} aria-hidden="true" />
+            <span className="block text-sm font-bold text-foreground">Criar manualmente</span>
+            <span className="mt-1 block text-xs leading-5 text-content-muted">Comece com matérias e tópicos próprios.</span>
+          </button>
+        </div>
       </>
     );
   }

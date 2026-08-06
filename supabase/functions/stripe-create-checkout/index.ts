@@ -16,6 +16,66 @@ import {
 
 const CHECKOUT_IDEMPOTENCY_VERSION = "elements-v1";
 
+const createOrRefreshBillingCustomer = async (
+  supabase: ReturnType<typeof createServiceClient>,
+  stripe: ReturnType<typeof createStripeClient>,
+  user: Awaited<ReturnType<typeof requireAuthenticatedUser>>,
+  replacedCustomerId?: string,
+) => {
+  const customer = await stripe.customers.create(
+    {
+      email: user.email,
+      name: typeof user.user_metadata?.name === "string"
+        ? user.user_metadata.name
+        : typeof user.user_metadata?.full_name === "string"
+          ? user.user_metadata.full_name
+          : undefined,
+      metadata: { supabase_user_id: user.id },
+    },
+    {
+      // A deleted Stripe customer cannot be reused. Include its ID only for a
+      // recovery so Stripe does not replay an old idempotent creation result.
+      idempotencyKey: `billing-customer:${user.id}:${replacedCustomerId ?? "initial"}`,
+    },
+  );
+
+  const { error: customerUpsertError } = await supabase
+    .from("billing_customers")
+    .upsert(
+      {
+        user_id: user.id,
+        stripe_customer_id: customer.id,
+        livemode: customer.livemode,
+      },
+      { onConflict: "user_id" },
+    );
+  if (customerUpsertError) throw customerUpsertError;
+
+  return customer.id;
+};
+
+const resolveBillingCustomer = async (
+  supabase: ReturnType<typeof createServiceClient>,
+  stripe: ReturnType<typeof createStripeClient>,
+  user: Awaited<ReturnType<typeof requireAuthenticatedUser>>,
+  stripeCustomerId: string | null | undefined,
+) => {
+  if (!stripeCustomerId) {
+    return createOrRefreshBillingCustomer(supabase, stripe, user);
+  }
+
+  try {
+    const existingCustomer = await stripe.customers.retrieve(stripeCustomerId);
+    if (!existingCustomer.deleted) return existingCustomer.id;
+  } catch (error) {
+    if (safeStripeErrorDetails(error)?.code !== "resource_missing") {
+      throw error;
+    }
+  }
+
+  return createOrRefreshBillingCustomer(supabase, stripe, user, stripeCustomerId);
+};
+
 Deno.serve(async (request) => {
   let attemptToFail: { userId: string; requestId: string } | null = null;
   let stage = "request";
@@ -130,7 +190,6 @@ Deno.serve(async (request) => {
     }
     if (attemptError && attemptError.code !== "23505") throw attemptError;
 
-    let customerId: string;
     stage = "customer_lookup";
     const { data: customerRecord, error: customerLookupError } = await supabase
       .from("billing_customers")
@@ -140,36 +199,13 @@ Deno.serve(async (request) => {
 
     if (customerLookupError) throw customerLookupError;
 
-    if (customerRecord?.stripe_customer_id) {
-      customerId = customerRecord.stripe_customer_id;
-    } else {
-      stage = "customer_create";
-      const customer = await stripe.customers.create(
-        {
-          email: user.email,
-          name: typeof user.user_metadata?.name === "string"
-            ? user.user_metadata.name
-            : typeof user.user_metadata?.full_name === "string"
-              ? user.user_metadata.full_name
-              : undefined,
-          metadata: { supabase_user_id: user.id },
-        },
-        { idempotencyKey: `billing-customer:${user.id}` },
-      );
-      customerId = customer.id;
-
-      const { error: customerInsertError } = await supabase
-        .from("billing_customers")
-        .upsert(
-          {
-            user_id: user.id,
-            stripe_customer_id: customer.id,
-            livemode: customer.livemode,
-          },
-          { onConflict: "user_id" },
-        );
-      if (customerInsertError) throw customerInsertError;
-    }
+    stage = "customer_reconcile";
+    const customerId = await resolveBillingCustomer(
+      supabase,
+      stripe,
+      user,
+      customerRecord?.stripe_customer_id,
+    );
 
     stage = "checkout_session_create";
     const appUrl = getAppUrl();

@@ -329,8 +329,8 @@ describe('Subjects cycle integration', () => {
   it('shows the empty state only after loading and navigates to Meus Editais', async () => {
     renderSubjects();
 
-    expect(await screen.findByText('Seu ciclo ainda não está montado')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Ir para Meus Editais' }));
+    expect(await screen.findByText('Comece pelo seu primeiro edital')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Importar com IA/ }));
     expect(screen.getByText('Destino Meus Editais')).toBeInTheDocument();
   });
 
@@ -345,12 +345,12 @@ describe('Subjects cycle integration', () => {
 
     expect(await screen.findByText('Não foi possível carregar seu ciclo.')).toBeInTheDocument();
     const retryButton = screen.getByRole('button', { name: 'Tentar novamente' });
-    expect(screen.queryByText('Seu ciclo ainda não está montado')).not.toBeInTheDocument();
+    expect(screen.queryByText('Comece pelo seu primeiro edital')).not.toBeInTheDocument();
 
     setScenario({ subjects: [], cycle: null });
     fireEvent.click(retryButton);
 
-    expect(await screen.findByText('Seu ciclo ainda não está montado')).toBeInTheDocument();
+    expect(await screen.findByText('Comece pelo seu primeiro edital')).toBeInTheDocument();
     expect(screen.queryByText('Não foi possível carregar seu ciclo.')).not.toBeInTheDocument();
   });
 

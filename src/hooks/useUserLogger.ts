@@ -44,47 +44,50 @@ export const useUserLogger = () => {
         origin: string | null = 'web_app',
         sessionContext?: LoggerSessionContext
     ) => {
+        let lockKey: string | null = null;
         try {
-            const session = sessionContext
-                ? { user: sessionContext.user, access_token: sessionContext.accessToken ?? null }
+            const session = sessionContext?.accessToken
+                ? { user: sessionContext.user, access_token: sessionContext.accessToken }
                 : (await supabase.auth.getSession()).data.session;
 
             if (!session?.user) return;
+            if (sessionContext && session.user.id !== sessionContext.user.id) return;
 
             const userId = session.user.id;
             const now = Date.now();
 
             // === DEDUPLICATION logic === 
-            let lockKey = '';
+            let resolvedLockKey = '';
             let releaseDelay = 0; // ms to keep lock after completion
 
             if (eventType === 'LOGIN_SUCCESS') {
                 // Key: LOGIN_SUCCESS:<userId>:<requestId>
                 // requestId MUST be passed in metadata for this to work effectively across calls
                 const reqId = metadata.request_id || 'auto-gen';
-                lockKey = `LOGIN_SUCCESS:${userId}:${reqId}`;
+                resolvedLockKey = `LOGIN_SUCCESS:${userId}:${reqId}`;
                 releaseDelay = 5000; // Keep lock for 5s to prevent immediate re-login spam with same ID
             } else if (eventType === 'LOGOUT') {
                 // Key: LOGOUT:<userId>:<5sec_bucket>
                 // Bucket ensures only 1 logout attempt per 5 seconds is processed
                 const bucket = Math.floor(now / 5000);
-                lockKey = `LOGOUT:${userId}:${bucket}`;
+                resolvedLockKey = `LOGOUT:${userId}:${bucket}`;
                 releaseDelay = 1000;
             } else if (eventType === 'SESSION_START') {
                 // Key: SESSION_START:<userId>:<30min_bucket>
                 const bucket = Math.floor(now / (30 * 60 * 1000));
-                lockKey = `SESSION_START:${userId}:${bucket}`;
+                resolvedLockKey = `SESSION_START:${userId}:${bucket}`;
                 releaseDelay = 1000;
             } else {
                 // Generic lock
-                lockKey = `${eventType}:${userId}:${now}`;
+                resolvedLockKey = `${eventType}:${userId}:${now}`;
             }
+            lockKey = resolvedLockKey;
 
             // Check Lock
-            if (inFlightRequests.has(lockKey)) {
+            if (inFlightRequests.has(resolvedLockKey)) {
                 return;
             }
-            inFlightRequests.add(lockKey);
+            inFlightRequests.add(resolvedLockKey);
 
             // Collect environment info
             const userAgent = navigator.userAgent;
@@ -106,7 +109,7 @@ export const useUserLogger = () => {
                 tz,
                 utc_offset: utcOffset,
                 user_agent: userAgent,
-                dedupe_key: lockKey // Send lock key to backend for extra safety
+                dedupe_key: resolvedLockKey // Send lock key to backend for extra safety
             };
 
             // public.log_user_event(p_event_type, p_target_user_id, p_actor_user_id, p_origin, p_metadata, p_status)
@@ -117,14 +120,12 @@ export const useUserLogger = () => {
                 p_origin: origin || 'web_app',
                 p_metadata: finalMetadata,
                 p_status: 'SUCCESS'
-            });
+            }, session.access_token);
 
             const res = data as AuditLogResponse | null;
             if (res?.status === 'error') {
                 // Check if it's a duplicate key error (safe to ignore as it means deduplication worked)
-                if (res.message?.includes('duplicate key') || res.message?.includes('unique constraint')) {
-                    return;
-                } else {
+                if (!(res.message?.includes('duplicate key') || res.message?.includes('unique constraint'))) {
                     console.error(`[Audit] Failed to log ${eventType} (Backend Error):`, res.message);
                 }
             }
@@ -132,14 +133,17 @@ export const useUserLogger = () => {
             // Release lock after delay
             if (releaseDelay > 0) {
                 setTimeout(() => {
-                    inFlightRequests.delete(lockKey);
+                    inFlightRequests.delete(resolvedLockKey);
                 }, releaseDelay);
             } else {
-                inFlightRequests.delete(lockKey);
+                inFlightRequests.delete(resolvedLockKey);
             }
 
         } catch (err) {
-            console.warn('Error in useUserLogger:', err);
+            // Audit is best-effort. A stale token during auth bootstrap must
+            // never sign the user out or turn a successful login into a data
+            // loading error.
+            if (lockKey) inFlightRequests.delete(lockKey);
         }
     }, []);
 
@@ -177,11 +181,14 @@ export const useUserLogger = () => {
             }
 
             // Attempt to log
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token || session.user.id !== currentUser.id) return;
+
             await logEvent('SESSION_START', {
                 source: 'app_boot',
                 url: window.location.href,
                 referrer: document.referrer
-            }, 'web_app', { user: currentUser });
+            }, 'web_app', { user: currentUser, accessToken: session.access_token });
             // We set the timestamp optimistically.
             localStorage.setItem(LAST_SESSION_LOG_KEY, now.toString());
 

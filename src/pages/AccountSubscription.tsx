@@ -148,9 +148,9 @@ const AccountSubscription = () => {
                   <Sparkles className="h-4 w-4 text-[#dfff65]" />
                   {pageState.badge}
                 </span>
-                <h1 className="mt-6 text-3xl font-black tracking-[-0.045em] sm:text-4xl">
+                <h2 className="mt-6 text-3xl font-black tracking-[-0.045em] sm:text-4xl">
                   {hasInternalAccess ? (isOwner ? 'Proprietário' : 'Administrador') : planNames[data.plan]}
-                </h1>
+                </h2>
                 <p className="mt-3 max-w-md text-sm font-medium leading-6 text-white/60">
                   {pageState.heroDescription}
                 </p>
@@ -292,16 +292,16 @@ const AccountSubscription = () => {
 const SubscriptionFrame = ({ children }: { children: React.ReactNode }) => (
   <div className="w-full pb-10">
     <AccountNavigation current="assinatura" />
-    <main className="-mx-3 min-h-full overflow-hidden bg-[#f8f6ff] px-4 py-7 text-[#17122b] sm:-mx-4 sm:px-7 lg:-mx-5 xl:-mx-6 xl:px-10">
+    <section aria-labelledby="account-subscription-title" className="-mx-3 min-h-full overflow-hidden bg-[#f8f6ff] px-4 py-7 text-[#17122b] sm:-mx-4 sm:px-7 lg:-mx-5 xl:-mx-6 xl:px-10">
       <div className="pointer-events-none absolute right-[3%] top-[12%] h-72 w-72 rounded-full bg-[#bcd6ff]/25 blur-3xl" />
       <div className="relative mx-auto max-w-6xl">
         <div className="mb-7">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#6652ee]">Conta e pagamento</p>
-          <h1 className="mt-2 text-3xl font-black tracking-[-0.04em]">Minha assinatura</h1>
+          <h1 id="account-subscription-title" className="mt-2 text-3xl font-black tracking-[-0.04em]">Minha assinatura</h1>
         </div>
         {children}
       </div>
-    </main>
+    </section>
   </div>
 );
 

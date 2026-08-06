@@ -39,6 +39,7 @@ export const NetworkStatusOverlay = ({ appError }: NetworkStatusOverlayProps) =>
         description="Parece que a internet caiu ou ficou instável por alguns segundos. Confira sua conexão e tente novamente para recarregar o painel."
         actionLabel="Tentar novamente"
         actionIcon={RefreshCw}
+        requiresOnline
         onAction={() => window.location.reload()}
         helperText="Quando a conexão voltar, você continua de onde parou."
         technicalDetail={appError ? (isOnline ? appError : 'Sem conexão com a internet') : undefined}
