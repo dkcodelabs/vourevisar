@@ -21,7 +21,10 @@ import {
   useStripeInvoiceHistory,
   useStripePortal,
 } from '@/features/billing/hooks/useStripeBilling';
-import { formatBillingPrice } from '@/features/billing/services/stripeBillingService';
+import {
+  formatBillingPrice,
+  getSafeBillingErrorMessage,
+} from '@/features/billing/services/stripeBillingService';
 import { getAccountSubscriptionState } from '@/features/billing/utils/accountSubscriptionState';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -111,6 +114,12 @@ const AccountSubscription = () => {
   const subscriptionEnd = activeStripeSubscription?.cancel_at ?? activeStripeSubscription?.current_period_end;
   const pageState = getAccountSubscriptionState(data, hasInternalAccess);
   const isComplimentaryAccess = data.plan === 'free_trial' || data.source === 'trial';
+  const portalErrorMessage = portal.isError
+    ? getSafeBillingErrorMessage(
+        portal.error,
+        'Não conseguimos abrir o gerenciamento agora. Nenhuma alteração foi feita. Tente novamente em alguns instantes.',
+      )
+    : null;
   const nonStripePaymentLabel = isComplimentaryAccess
     ? 'Nenhum cartão necessário'
     : 'Sem cobrança vinculada';
@@ -266,7 +275,7 @@ const AccountSubscription = () => {
             )}
             {portal.isError && (
               <p role="alert" className="mt-4 text-sm font-bold text-[#a52d3b]">
-                Não conseguimos abrir o gerenciamento agora. Nenhuma alteração foi feita. Tente novamente.
+                {portalErrorMessage}
               </p>
             )}
           </div>

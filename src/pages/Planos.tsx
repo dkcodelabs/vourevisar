@@ -6,6 +6,7 @@ import {
   useStripeBillingOverview,
   useStripeCatalog,
 } from '@/features/billing/hooks/useStripeBilling';
+import { getSafeBillingErrorMessage } from '@/features/billing/services/stripeBillingService';
 import { buildStripePricingPlans } from '@/features/billing/utils/catalogPricing';
 
 const formatDate = (value?: string | null) => {
@@ -83,6 +84,12 @@ const Planos = () => {
     : isMonthlyActive
       ? 'Confira sua assinatura atual e os valores dos planos disponíveis.'
       : 'Escolha o plano que mantém suas revisões, editais e ciclo de estudos sempre ao seu alcance.';
+  const catalogErrorMessage = catalog.isError
+    ? getSafeBillingErrorMessage(
+        catalog.error,
+        'Não conseguimos carregar os planos agora. Nenhuma cobrança foi iniciada. Tente novamente em alguns instantes.',
+      )
+    : null;
 
   return (
     <div className="w-full pb-10">
@@ -152,7 +159,7 @@ const Planos = () => {
         {catalog.isError ? (
           <div className="mx-auto max-w-xl rounded-2xl border border-destructive/25 bg-destructive/10 px-5 py-5 text-center">
             <p className="text-sm font-bold text-foreground">Não conseguimos carregar os planos agora.</p>
-            <p className="mt-1 text-xs font-medium text-muted-foreground">Nenhuma cobrança foi iniciada. Tente novamente em alguns instantes.</p>
+            <p className="mt-1 text-xs font-medium text-muted-foreground">{catalogErrorMessage}</p>
             <button
               type="button"
               onClick={() => void catalog.refetch()}
