@@ -9,6 +9,7 @@ import { StripePaymentForm } from '@/features/billing/components/StripePaymentFo
 import {
   createStripeCheckout,
   formatBillingPrice,
+  getSafeBillingErrorMessage,
 } from '@/features/billing/services/stripeBillingService';
 import { useStripeCatalog } from '@/features/billing/hooks/useStripeBilling';
 import { getCheckoutRequestId } from '@/features/billing/utils/checkoutRequest';
@@ -40,6 +41,14 @@ const StripeCheckout = () => {
   const priceLabel = selectedPlan
     ? formatBillingPrice(selectedPlan.amountCents, selectedPlan.currency)
     : '—';
+  const checkoutErrorMessage = checkout.isError
+    ? getSafeBillingErrorMessage(
+        checkout.error,
+        'Não conseguimos preparar o pagamento agora. Nenhuma cobrança foi iniciada. Tente novamente em alguns instantes.',
+      )
+    : catalog.isError
+      ? 'Não conseguimos carregar os dados do plano agora. Nenhuma cobrança foi iniciada. Tente novamente em alguns instantes.'
+      : 'Não conseguimos preparar o pagamento agora. Nenhuma cobrança foi iniciada. Tente novamente em alguns instantes.';
 
   return (
     <BillingShell
@@ -56,7 +65,7 @@ const StripeCheckout = () => {
       ) : catalog.isError || checkout.isError || !checkout.data?.clientSecret ? (
         <CheckoutState
           title="Não foi possível abrir o pagamento"
-          description="Nenhuma cobrança foi feita. Confira sua conexão e tente novamente."
+          description={checkoutErrorMessage}
           onRetry={() => void checkout.refetch()}
         />
       ) : (
