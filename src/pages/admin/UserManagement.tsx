@@ -380,32 +380,29 @@ const UserManagement = () => {
         const isCurrentlyActive = user.is_active !== false;
         const newActiveState = !isCurrentlyActive;
         const rpcFunction = newActiveState ? 'admin_reactivate_user' : 'admin_deactivate_user';
+        const actionLabel = newActiveState ? 'reativar' : 'suspender';
+
+        const confirmed = window.confirm(
+            newActiveState
+                ? `Reativar a conta de ${user.email}? Isso restabelece o acesso à conta, mas não cria nem altera uma assinatura ou cobrança.`
+                : `Suspender a conta de ${user.email}? O usuário perderá acesso ao produto. Esta ação não cancela nem altera assinatura Stripe, faturas ou concessões de cortesia.`,
+        );
+
+        if (!confirmed) return;
 
         try {
-            // 1. Call RPC to toggle access (Security Layer)
+            // Security/account state only. Billing and product entitlements are managed
+            // exclusively by the isolated Stripe billing module.
             await invokeAdminRpc(rpcFunction, { target_user_id: user.id });
 
-            // 2. Update Subscription Status (Business Layer)
-            const newSubStatus = newActiveState ? 'active' : 'canceled';
-            const { error: subError } = await supabase
-                .from('user_subscriptions')
-                .update({ status: newSubStatus })
-                .eq('user_id', user.id);
-
-            if (subError) {
-                console.error('Error updating subscription:', subError);
-                // Non-blocking error, user access changed but sub failed
-                toastGate.notifyError('Acesso alterado, mas houve erro ao atualizar assinatura.', "USER-SUB-ERR", { severity: 'medium' });
-            }
-
-            // 3. Optimistic Update
+            // Optimistic account-state update. Financial status is deliberately untouched.
             setUsers(users.map(u => u.id === user.id ? {
                 ...u,
                 status: newActiveState ? 'Active' : 'Inactive',
                 is_active: newActiveState
             } : u));
 
-            toast.success(`Usuário ${newActiveState ? 'ativado' : 'desativado'} com sucesso`);
+            toast.success(`Conta ${actionLabel === 'suspender' ? 'suspensa' : 'reativada'} com sucesso`);
 
         } catch (error: unknown) {
             console.error('Error updating status:', error);
@@ -648,7 +645,7 @@ const UserManagement = () => {
                                                                             className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
                                                                         >
                                                                             <Power className="w-3.5 h-3.5 text-slate-400" />
-                                                                            {user.status === 'Active' ? 'Desativar acesso' : 'Ativar acesso'}
+                                                                            {user.status === 'Active' ? 'Suspender conta' : 'Reativar conta'}
                                                                         </DropdownMenuItem>
 
                                                                         <DropdownMenuItem

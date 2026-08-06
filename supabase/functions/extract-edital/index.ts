@@ -1539,71 +1539,23 @@ serve(async (req) => {
       const { data: limitsData, error: limitsError } = await supabaseClient
         .rpc("get_user_ai_limits", { p_user_id: userId });
 
-      if (!limitsError && limitsData) {
-        const parsed = limitsData as JsonBoundary;
-        canImport = parsed.can_import !== false;
-        userLimit = parsed.limit;
-        userUsage = parsed.usage;
-      } else {
-        console.warn("[extract-edital] RPC get_user_ai_limits failed, attempting direct query fallback:", limitsError?.message);
-        try {
-          const { data: subData, error: subError } = await supabaseClient
-            .from("user_subscriptions")
-            .select("plan, status, subscription_ends_at, trial_ends_at")
-            .eq("user_id", userId)
-            .maybeSingle();
-
-          const sub = subData as JsonBoundary;
-          const subscriptionEnd = sub?.subscription_ends_at ? new Date(sub.subscription_ends_at) : null;
-          const isPaidActive = sub && ["monthly", "annual"].includes(sub.plan) && sub.status === "active" && (!subscriptionEnd || subscriptionEnd > new Date());
-          const trialEnd = sub?.trial_ends_at ? new Date(sub.trial_ends_at) : null;
-          const isTrialActive = sub?.plan === "free_trial" && sub?.status === "trial" && trialEnd && trialEnd > new Date();
-
-          if (isPaidActive) {
-            userLimit = sub.plan === "annual" ? 10 : 5;
-            const firstDayOfMonth = new Date();
-            firstDayOfMonth.setDate(1);
-            firstDayOfMonth.setHours(0, 0, 0, 0);
-            const firstDayStr = firstDayOfMonth.toISOString();
-
-            const { count, error: countError } = await supabaseClient
-              .from("user_editais")
-              .select("*", { count: "exact", head: true })
-              .eq("user_id", userId)
-              .eq("ai_extraction_used", true)
-              .gte("created_at", firstDayStr);
-
-            if (!countError && count !== null) {
-              userUsage = count;
-            }
-          } else if (isTrialActive) {
-            userLimit = 1;
-            const { count, error: countError } = await supabaseClient
-              .from("user_editais")
-              .select("*", { count: "exact", head: true })
-              .eq("user_id", userId)
-              .eq("ai_extraction_used", true);
-
-            if (!countError && count !== null) {
-              userUsage = count;
-            }
-          } else {
-            userLimit = 0;
-            const { count, error: countError } = await supabaseClient
-              .from("user_editais")
-              .select("*", { count: "exact", head: true })
-              .eq("user_id", userId)
-              .eq("ai_extraction_used", true);
-
-            if (!countError && count !== null) {
-              userUsage = count;
-            }
-          }
-          canImport = userUsage < userLimit;
-        } catch (fallbackErr) {
-          console.error("[extract-edital] Commercial limit fallback queries failed:", fallbackErr);
-        }
+      if (limitsError || !limitsData) {
+        console.error("[extract-edital] Não foi possível consultar a cota de IA:", limitsError?.message);
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Não foi possível verificar sua cota de importações com IA. Atualize a página e tente novamente.",
+          message: "Não foi possível verificar sua cota de importações com IA. Atualize a página e tente novamente.",
+          code: "AI_QUOTA_UNAVAILABLE",
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 503,
+        });
       }
+
+      const parsed = limitsData as JsonBoundary;
+      canImport = parsed.can_import !== false;
+      userLimit = parsed.limit;
+      userUsage = parsed.usage;
 
       if (!canImport) {
         return new Response(JSON.stringify({

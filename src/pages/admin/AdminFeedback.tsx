@@ -453,19 +453,19 @@ const AdminFeedback: React.FC = () => {
 
     return (
         <>
-            <div className="space-y-6">
+            <div className="space-y-5">
                 {/* ── Top Actions ────────────────────────── */}
-                <div className="flex justify-end gap-3 mb-2">
+                <div className="flex justify-end gap-2 mb-1">
                     <button
                         onClick={fetchFeedbacks}
-                        className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-700 dark:text-slate-300 shadow-sm"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-700 dark:text-slate-300"
                     >
                         <RefreshCw size={14} />
                         <span className="hidden sm:inline">Atualizar</span>
                     </button>
                     <button
                         onClick={() => setShowAnalytics(!showAnalytics)}
-                        className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl transition-colors shadow-sm ${showAnalytics
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${showAnalytics
                             ? 'bg-red-50 text-red-600 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/30'
                             : 'bg-blue-500 text-white border border-blue-600 hover:bg-blue-600 shadow-blue-500/20'}`}
                     >
@@ -478,7 +478,7 @@ const AdminFeedback: React.FC = () => {
                 {showAnalytics && <SLAAnalyticsDashboard />}
 
                 {/* ── Filtros e Ações ───────────────────────── */}
-                <div className="glass-card p-4 sm:p-5 rounded-3xl flex flex-col lg:flex-row gap-4 lg:items-center">
+                <div className="glass-card p-3.5 sm:p-4 rounded-2xl flex flex-col lg:flex-row gap-3 lg:items-center">
                     {/* Linha 1: Busca */}
                     <div className="relative min-w-[180px] lg:max-w-[16rem] xl:max-w-sm flex-1">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
@@ -549,13 +549,13 @@ const AdminFeedback: React.FC = () => {
 
                 {/* ── KPIs (Resultados da Busca) ────────────────── */}
                 {/* ── KPIs (Resultados da Busca) ────────────────── */}
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
                     {[
-                        { label: 'Total Encontrado', value: kpis.total, color: 'text-blue-600 dark:text-blue-400', icon: '📋' },
-                        { label: 'Novos', value: kpis.novos, color: 'text-amber-600 dark:text-amber-400', icon: '✨' },
-                        { label: 'Em Desenvolvimento', value: kpis.emDev, color: 'text-purple-600 dark:text-purple-400', icon: '⚙️' },
-                        { label: 'Não Planejada', value: kpis.naoPlanejadas, color: 'text-rose-600 dark:text-rose-400', icon: '❌' },
-                        { label: 'Concluídos', value: kpis.concluidos, color: 'text-green-600 dark:text-green-400', icon: '✅' },
+                        { label: 'Total Encontrado', value: kpis.total, color: 'text-blue-600 dark:text-blue-400', icon: <Inbox size={16} /> },
+                        { label: 'Novos', value: kpis.novos, color: 'text-amber-600 dark:text-amber-400', icon: <Clock size={16} /> },
+                        { label: 'Em Desenvolvimento', value: kpis.emDev, color: 'text-purple-600 dark:text-purple-400', icon: <Loader2 size={16} /> },
+                        { label: 'Não Planejada', value: kpis.naoPlanejadas, color: 'text-rose-600 dark:text-rose-400', icon: <X size={16} /> },
+                        { label: 'Concluídos', value: kpis.concluidos, color: 'text-green-600 dark:text-green-400', icon: <CheckCircle2 size={16} /> },
                     ].map((kpi) => (
                         <div key={kpi.label} className="glow-card p-3 sm:p-4 rounded-2xl flex items-center justify-between group">
                             <div className="flex flex-col gap-0.5">
@@ -564,8 +564,8 @@ const AdminFeedback: React.FC = () => {
                                     <p className={`text-xl sm:text-2xl font-black ${kpi.color}`}>{kpi.value}</p>
                                 </div>
                             </div>
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-black/5 dark:bg-white/5 rounded-xl flex items-center justify-center shrink-0">
-                                <span className="text-base sm:text-lg opacity-80">{kpi.icon}</span>
+                            <div className="w-8 h-8 bg-black/5 dark:bg-white/5 rounded-lg flex items-center justify-center shrink-0">
+                                <span className="opacity-80">{kpi.icon}</span>
                             </div>
                         </div>
                     ))}

@@ -685,6 +685,7 @@ export const Revisoes = () => {
     const emptyStateKind = getStudyEmptyStateKind({
       editalCount: editaisData.length || (hasAnyEdital ? 1 : 0),
       editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
+      hasAnyContent: subjects.length > 0,
       hasActiveCycle: false,
     });
 

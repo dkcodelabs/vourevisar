@@ -12,7 +12,6 @@ export const errorMessageMap: Record<string, string> = {
     // Constraints específicas do sistema
     'user_events_event_type_check': 'Não foi possível concluir a ação. Verifique os dados e tente novamente.',
     'profiles_email_key': 'Este email já está cadastrado no sistema.',
-    'user_subscriptions_user_id_key': 'Assinatura duplicada detectada.',
 
     // Erros de Rede / Fetch
     'TypeError: Failed to fetch': 'Não foi possível conectar ao servidor. Verifique sua conexão.',

@@ -124,6 +124,7 @@ const Cadernos = () => {
     const emptyStateKind = getStudyEmptyStateKind({
       editalCount: editaisData.length || (visibleSubjects.length > 0 ? 1 : 0),
       editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
+      hasAnyContent: visibleSubjects.length > 0,
       hasActiveCycle: false,
     });
 

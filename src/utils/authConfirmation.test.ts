@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isEmailConfirmationPending, isEmailPasswordUser } from './authConfirmation';
+import {
+  isEmailConfirmationPending,
+  isEmailPasswordUser,
+  isExpectedPasswordSignInError,
+} from './authConfirmation';
 
 describe('authConfirmation', () => {
   it('bloqueia usuário de email e senha sem confirmação', () => {
@@ -29,5 +33,10 @@ describe('authConfirmation', () => {
       email: 'aluno@example.com',
       app_metadata: {},
     })).toBe(true);
+  });
+
+  it('classifica credenciais inválidas como rejeição esperada do login', () => {
+    expect(isExpectedPasswordSignInError(new Error('Invalid login credentials'))).toBe(true);
+    expect(isExpectedPasswordSignInError(new Error('Failed to fetch'))).toBe(false);
   });
 });

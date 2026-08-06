@@ -55,6 +55,7 @@ import { resetEditalStudyProgress } from '@/services/editalStudyProgressResetSer
 import { getPendingMergeForCycleLoad } from '@/utils/cycleLoadPendingMerge';
 import { shouldBlockCycleConflictClose } from '@/utils/cycleConflictModalClose';
 import { formatRecoveredMergeTimestamp } from '@/utils/recoveredMergeTimestamp';
+import { compareEditaisByCreatedOrder } from '@/utils/editalOrder';
 import { guardActiveTimerOperation } from '@/utils/activeTimerOperationGuard';
 import { buildConsolidatedTopicProgress, type TopicProgressRow } from '@/utils/topicProgressConsolidation';
 import { buildEditalProgressSummary, type EditalProgressSummary } from '@/utils/editalProgressSummary';
@@ -232,16 +233,6 @@ const rowToEdital = (row: Record<string, unknown>): UserEdital => ({
     mergedIntoCycle: (row.merged_into_cycle as boolean) || false,
 });
 
-const getTimestamp = (date?: string): number => {
-    if (!date) return Number.POSITIVE_INFINITY;
-    const time = new Date(date).getTime();
-    return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
-};
-
-const compareEditaisByCreatedOrder = (left: UserEdital, right: UserEdital): number => (
-    getTimestamp(left.createdAt) - getTimestamp(right.createdAt)
-);
-
 const editaisTable = () => supabase.from('user_editais');
 
 // ─── Componente Principal ───────────────────────────────────────────────────
@@ -284,7 +275,7 @@ const Editais = () => {
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [isMerging, setIsMerging] = useState(false);
     const [isCycleFinalizationLocked, setIsCycleFinalizationLocked] = useState(false);
-    const [isSavingCycleName, setIsSavingCycleName] = useState(false);
+    const [isOpeningCycle, setIsOpeningCycle] = useState(false);
     const [cycleNameDraft, setCycleNameDraft] = useState('');
     const [selectedCycleNameSourceIds, setSelectedCycleNameSourceIds] = useState<string[]>([]);
     const [cycleExamDateDraft, setCycleExamDateDraft] = useState<string>('');
@@ -582,7 +573,7 @@ const Editais = () => {
                 editaisTable()
                     .select('*')
                     .eq('user_id', user.id)
-                    .order('created_at', { ascending: true }),
+                    .order('created_at', { ascending: false }),
                 10000,
                 'Carregamento de editais'
                 ),
@@ -1788,6 +1779,7 @@ const Editais = () => {
 
     const handleGoToCycleAfterSuccess = useCallback(async () => {
         if (!user?.id) return;
+        setIsOpeningCycle(true);
 
         if (cycleConflict.action === 'replace') {
             setCycleConflict({
@@ -1803,12 +1795,12 @@ const Editais = () => {
             setSelectedCycleNameSourceIds([]);
             setCycleExamDateDraft('');
             navigate('/ciclo-estudos');
+            setIsOpeningCycle(false);
             return;
         }
 
         const cleanCycleName = cycleNameDraft.trim() || cycleNameCandidates[0] || cycleConflict.edital?.name || 'Ciclo de estudos';
         const cleanCycleExamDate = sanitizeExamDate(cycleExamDateDraft) || null;
-        setIsSavingCycleName(true);
 
         try {
             const { error } = await supabase
@@ -1842,7 +1834,7 @@ const Editais = () => {
                 userMessage: 'Não foi possível salvar o nome do ciclo.',
             });
         } finally {
-            setIsSavingCycleName(false);
+            setIsOpeningCycle(false);
         }
     }, [cycleConflict.action, cycleConflict.edital?.name, cycleExamDateDraft, cycleNameCandidates, cycleNameDraft, navigate, user?.id]);
 
@@ -3811,13 +3803,13 @@ const Editais = () => {
                                         <Button
                                             type="button"
                                             onClick={handleGoToCycleAfterSuccess}
-                                            disabled={isSavingCycleName}
+                                            disabled={isOpeningCycle}
                                             className="h-10 px-5 text-[11px] font-black uppercase tracking-widest"
                                         >
-                                            {isSavingCycleName ? (
+                                            {isOpeningCycle ? (
                                                 <>
                                                     <Loader2 size={15} className="animate-spin" />
-                                                    Salvando
+                                                    Abrindo ciclo
                                                 </>
                                             ) : (
                                                 <>

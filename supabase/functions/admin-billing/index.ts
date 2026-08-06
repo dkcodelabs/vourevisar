@@ -60,7 +60,7 @@ const manualAccessEnd = (plan: PlanCode, now: Date) => {
 const listBilling = async (supabase: ReturnType<typeof createServiceClient>) => {
   const now = new Date();
   const nowIso = now.toISOString();
-  const [profilesResult, rolesResult, subscriptionsResult, grantsResult, legacyResult] = await Promise.all([
+  const [profilesResult, rolesResult, subscriptionsResult, grantsResult] = await Promise.all([
     supabase.from("profiles").select("id, email, name, avatar_url").order("email"),
     supabase.from("user_roles").select("user_id, role"),
     supabase
@@ -73,16 +73,13 @@ const listBilling = async (supabase: ReturnType<typeof createServiceClient>) => 
       .is("revoked_at", null)
       .lte("starts_at", nowIso)
       .gt("ends_at", nowIso),
-    // Legacy data is deliberately an audit marker only. It never determines access.
-    supabase.from("user_subscriptions").select("user_id"),
   ]);
 
-  for (const result of [profilesResult, rolesResult, subscriptionsResult, grantsResult, legacyResult]) {
+  for (const result of [profilesResult, rolesResult, subscriptionsResult, grantsResult]) {
     if (result.error) throw result.error;
   }
 
   const roles = new Map((rolesResult.data ?? []).map((row) => [row.user_id, row.role]));
-  const legacyUserIds = new Set((legacyResult.data ?? []).map((row) => row.user_id));
   const latestSubscription = new Map<string, BillingSubscriptionRow>();
 
   for (const subscription of subscriptionsResult.data ?? []) {
@@ -134,8 +131,6 @@ const listBilling = async (supabase: ReturnType<typeof createServiceClient>) => 
       access_until: accessUntil,
       source,
       cancel_at_period_end: Boolean(subscription?.cancel_at || subscription?.cancel_at_period_end),
-      has_legacy_record: legacyUserIds.has(profile.id),
-      legacy_is_history_only: legacyUserIds.has(profile.id) && !stripeIsActive && !grant,
       manual_access: grant?.source === "manual" ? {
         plan: grant.plan_code,
         ends_at: grant.ends_at,
@@ -186,7 +181,7 @@ Deno.serve(async (request) => {
       const now = new Date();
       const { error: revokeError } = await supabase
         .from("billing_access_grants")
-        .update({ revoked_at: now.toISOString(), reason: "Concessão manual substituída" })
+        .update({ revoked_at: now.toISOString(), reason: "Cortesia administrativa substituída" })
         .eq("user_id", body.userId)
         .eq("source", "manual")
         .is("revoked_at", null);
@@ -198,7 +193,7 @@ Deno.serve(async (request) => {
         plan_code: body.plan,
         starts_at: now.toISOString(),
         ends_at: manualAccessEnd(body.plan, now),
-        reason: "Concessão administrativa",
+        reason: "Cortesia administrativa",
         granted_by: actor.id,
       });
       if (grantError) throw grantError;
@@ -208,7 +203,7 @@ Deno.serve(async (request) => {
     if (action === "revoke_manual_access") {
       const { error } = await supabase
         .from("billing_access_grants")
-        .update({ revoked_at: new Date().toISOString(), reason: "Concessão administrativa removida" })
+        .update({ revoked_at: new Date().toISOString(), reason: "Cortesia administrativa revogada" })
         .eq("user_id", body.userId)
         .eq("source", "manual")
         .is("revoked_at", null);

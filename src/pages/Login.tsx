@@ -4,7 +4,7 @@ import { useUserLogger } from '@/hooks/useUserLogger';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toastManager } from '@/utils/toastManager';
-import { isEmailConfirmationPending } from '@/utils/authConfirmation';
+import { isEmailConfirmationPending, isExpectedPasswordSignInError } from '@/utils/authConfirmation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail,
@@ -16,9 +16,11 @@ import {
   ArrowRight,
   UserPlus,
   CheckCircle,
+  MessageCircle,
 } from 'lucide-react';
 import { TracerLogo } from '@/components/ui/TracerLogo';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { getSupportWhatsAppUrl } from '@/config/support';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -39,6 +41,9 @@ const Login = () => {
   const [shakePassword, setShakePassword] = useState(false);
   const passwordInputRef = React.useRef<HTMLInputElement>(null);
   const emailConfirmed = new URLSearchParams(location.search).get('confirmed') === '1';
+  const supportWhatsAppUrl = getSupportWhatsAppUrl(
+    'Olá, preciso de ajuda para acessar o vouRevisar.',
+  );
 
   useEffect(() => {
     const confirmedEmail = localStorage.getItem('confirmedEmail');
@@ -61,21 +66,6 @@ const Login = () => {
           await supabase.auth.signOut();
           toastManager.error('Email não confirmado. Verifique sua caixa de entrada.');
           navigate('/confirm-email', { replace: true });
-          return;
-        }
-
-        // Security Check: Active Status before redirecting
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_active')
-          .eq('id', user.id)
-          .single();
-
-        if (profile && profile.is_active === false) {
-          // If inactive, ensure we are signed out and show error
-          await supabase.auth.signOut();
-          toastManager.error("Sua conta está desativada. Entre em contato com o suporte.", { id: 'account-deactivated' });
-          setIsLoading(false);
           return;
         }
 
@@ -157,10 +147,15 @@ const Login = () => {
           // Keep this marker available long enough for an older confirmation
           // tab to redirect, then consume it after the login is accepted.
           localStorage.removeItem('confirmedEmail');
+          localStorage.removeItem('pendingConfirmationEmail');
+          localStorage.removeItem('pendingConfirmationCooldownUntil');
+          setIsLoading(false);
         }
       }
     } catch (error: unknown) {
-      console.error('Login/Signup error:', error);
+      if (!isExpectedPasswordSignInError(error)) {
+        console.error('Login/Signup error:', error);
+      }
       const errorMessage = error instanceof Error ? error.message : '';
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('AuthRetryableFetchError')) {
         toastManager.error('Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.');
@@ -230,39 +225,6 @@ const Login = () => {
     } catch (error) {
       console.error('❌ Erro inesperado:', error);
       toastManager.error('Erro ao enviar email de recuperação. Tente novamente mais tarde.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const clearSessionCache = async () => {
-    setIsLoading(true);
-    try {
-      console.log("[Auth] Limpando cache de sessão...");
-      
-      // Clear Supabase session items from localStorage
-      const keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.includes('sb-') || key.includes('supabase'))) {
-          keysToRemove.push(key);
-        }
-      }
-      
-      keysToRemove.forEach(k => localStorage.removeItem(k));
-      
-      // Also try formal sign out if possible
-      try {
-        await supabase.auth.signOut();
-      } catch (e) {
-        // Ignore if this fails due to connection
-      }
-      
-      toastManager.success("Cache de conexão limpo. Tente entrar novamente.");
-      window.location.reload();
-    } catch (error) {
-      console.error("Erro ao limpar cache:", error);
-      toastManager.error("Erro ao limpar cache local.");
     } finally {
       setIsLoading(false);
     }
@@ -348,7 +310,9 @@ const Login = () => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                }}
                 className="w-full bg-primary/5 border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30"
                 placeholder="seu@email.com"
                 required
@@ -481,7 +445,9 @@ const Login = () => {
                 {isRegistering ? 'Já tem uma conta?' : 'Não tem uma conta?'} {' '}
                 <button
                   type="button"
-                  onClick={() => setIsRegistering(!isRegistering)}
+                  onClick={() => {
+                    setIsRegistering(!isRegistering);
+                  }}
                   className="text-primary font-bold hover:underline transition-colors"
                 >
                   {isRegistering ? 'Entre aqui' : 'Registre-se'}
@@ -489,15 +455,16 @@ const Login = () => {
               </p>
 
               {!isRegistering && (
-                <div className="pt-4 border-t border-border dark:border-white/5 flex flex-col items-center gap-2">
-                  <p className="text-[10px] text-muted-foreground text-center uppercase tracking-tighter opacity-50">Problemas de conexão?</p>
-                  <button 
-                    type="button"
-                    onClick={clearSessionCache}
-                    className="text-[10px] font-bold text-brand-blue hover:text-blue-400 transition underline uppercase tracking-widest"
+                <div className="mt-6 pt-4 border-t border-border dark:border-white/5 flex flex-col items-center gap-3">
+                  <a
+                    href={supportWhatsAppUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    Limpar cache de conexão
-                  </button>
+                    <MessageCircle size={14} aria-hidden="true" />
+                    Precisa de ajuda? Fale com o suporte
+                  </a>
                 </div>
               )}
             </div>

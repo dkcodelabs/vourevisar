@@ -740,21 +740,18 @@ export type Database = {
       }
       coupon_uses: {
         Row: {
-          asaas_subscription_id: string | null
           coupon_id: string
           id: string
           used_at: string
           user_id: string
         }
         Insert: {
-          asaas_subscription_id?: string | null
           coupon_id: string
           id?: string
           used_at?: string
           user_id: string
         }
         Update: {
-          asaas_subscription_id?: string | null
           coupon_id?: string
           id?: string
           used_at?: string
@@ -1386,62 +1383,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      payment_history: {
-        Row: {
-          amount: number
-          created_at: string | null
-          currency: string | null
-          id: string
-          paid_at: string | null
-          payment_status: string | null
-          period_end: string
-          period_start: string
-          plan: Database["public"]["Enums"]["subscription_plan"]
-          stripe_invoice_id: string | null
-          stripe_payment_intent_id: string | null
-          subscription_id: string
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string | null
-          currency?: string | null
-          id?: string
-          paid_at?: string | null
-          payment_status?: string | null
-          period_end: string
-          period_start: string
-          plan: Database["public"]["Enums"]["subscription_plan"]
-          stripe_invoice_id?: string | null
-          stripe_payment_intent_id?: string | null
-          subscription_id: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string | null
-          currency?: string | null
-          id?: string
-          paid_at?: string | null
-          payment_status?: string | null
-          period_end?: string
-          period_start?: string
-          plan?: Database["public"]["Enums"]["subscription_plan"]
-          stripe_invoice_id?: string | null
-          stripe_payment_intent_id?: string | null
-          subscription_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_history_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "user_subscriptions"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       pending_ai_extractions: {
         Row: {
@@ -2549,6 +2490,30 @@ export type Database = {
           },
         ]
       }
+      user_ai_quota_resets: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          reset_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          reset_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          reset_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_cycles: {
         Row: {
           atualizado_em: string | null
@@ -3010,108 +2975,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_subscriptions: {
-        Row: {
-          ai_quota_reset_at: string | null
-          asaas_customer_id: string | null
-          asaas_payment_id: string | null
-          asaas_subscription_id: string | null
-          billing_type: string | null
-          cancel_at_period_end: boolean
-          canceled_at: string | null
-          created_at: string | null
-          id: string
-          last_payment_at: string | null
-          manual_access_granted_at: string | null
-          manual_access_plan:
-            | Database["public"]["Enums"]["subscription_plan"]
-            | null
-          manual_access_reason: string | null
-          manual_access_until: string | null
-          next_billing_date: string | null
-          plan: Database["public"]["Enums"]["subscription_plan"]
-          scheduled_plan:
-            | Database["public"]["Enums"]["subscription_plan"]
-            | null
-          scheduled_plan_at: string | null
-          status: Database["public"]["Enums"]["subscription_status"]
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
-          subscription_ends_at: string | null
-          subscription_started_at: string | null
-          trial_ends_at: string | null
-          trial_started_at: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          ai_quota_reset_at?: string | null
-          asaas_customer_id?: string | null
-          asaas_payment_id?: string | null
-          asaas_subscription_id?: string | null
-          billing_type?: string | null
-          cancel_at_period_end?: boolean
-          canceled_at?: string | null
-          created_at?: string | null
-          id?: string
-          last_payment_at?: string | null
-          manual_access_granted_at?: string | null
-          manual_access_plan?:
-            | Database["public"]["Enums"]["subscription_plan"]
-            | null
-          manual_access_reason?: string | null
-          manual_access_until?: string | null
-          next_billing_date?: string | null
-          plan?: Database["public"]["Enums"]["subscription_plan"]
-          scheduled_plan?:
-            | Database["public"]["Enums"]["subscription_plan"]
-            | null
-          scheduled_plan_at?: string | null
-          status?: Database["public"]["Enums"]["subscription_status"]
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          subscription_ends_at?: string | null
-          subscription_started_at?: string | null
-          trial_ends_at?: string | null
-          trial_started_at?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          ai_quota_reset_at?: string | null
-          asaas_customer_id?: string | null
-          asaas_payment_id?: string | null
-          asaas_subscription_id?: string | null
-          billing_type?: string | null
-          cancel_at_period_end?: boolean
-          canceled_at?: string | null
-          created_at?: string | null
-          id?: string
-          last_payment_at?: string | null
-          manual_access_granted_at?: string | null
-          manual_access_plan?:
-            | Database["public"]["Enums"]["subscription_plan"]
-            | null
-          manual_access_reason?: string | null
-          manual_access_until?: string | null
-          next_billing_date?: string | null
-          plan?: Database["public"]["Enums"]["subscription_plan"]
-          scheduled_plan?:
-            | Database["public"]["Enums"]["subscription_plan"]
-            | null
-          scheduled_plan_at?: string | null
-          status?: Database["public"]["Enums"]["subscription_status"]
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          subscription_ends_at?: string | null
-          subscription_started_at?: string | null
-          trial_ends_at?: string | null
-          trial_started_at?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       user_difficulty_overview: {
@@ -3131,14 +2994,6 @@ export type Database = {
       }
     }
     Functions: {
-      activate_paid_subscription: {
-        Args: { plan_type: string; target_user_id: string }
-        Returns: Json
-      }
-      activate_trial_subscription: {
-        Args: { target_user_id: string; trial_days?: number }
-        Returns: Json
-      }
       admin_deactivate_user: {
         Args: { target_user_id: string }
         Returns: undefined
@@ -3404,10 +3259,6 @@ export type Database = {
           subject_name: string
         }[]
       }
-      has_active_subscription: {
-        Args: { check_user_id?: string }
-        Returns: boolean
-      }
       has_role:
         | {
             Args: {
@@ -3573,7 +3424,6 @@ export type Database = {
       use_coupon: {
         Args: {
           target_coupon_code: string
-          target_sub_id?: string
           target_user_id: string
         }
         Returns: Json

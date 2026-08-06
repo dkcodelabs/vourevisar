@@ -289,19 +289,41 @@ const buildQueryCandidates = (
 };
 
 const hasPaidSubscription = async (supabase: JsonBoundary, userId: string) => {
-  const { data, error } = await supabase
-    .from('user_subscriptions')
-    .select('plan,status,subscription_ends_at')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .neq('plan', 'free_trial')
-    .limit(1)
-    .maybeSingle();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const [{ data: subscriptions, error: subscriptionsError }, { data: grants, error: grantsError }] = await Promise.all([
+    supabase
+      .from('billing_subscriptions')
+      .select('current_period_end,cancel_at')
+      .eq('user_id', userId)
+      .in('status', ['active', 'trialing', 'past_due'])
+      .is('access_suspended_at', null),
+    supabase
+      .from('billing_access_grants')
+      .select('plan_code,ends_at')
+      .eq('user_id', userId)
+      .is('revoked_at', null)
+      .lte('starts_at', nowIso)
+      .gt('ends_at', nowIso)
+      .in('plan_code', ['monthly', 'annual']),
+  ]);
 
-  if (error) throw error;
-  if (!data) return false;
+  if (subscriptionsError) throw subscriptionsError;
+  if (grantsError) throw grantsError;
 
-  return !data.subscription_ends_at || new Date(data.subscription_ends_at).getTime() > Date.now();
+  const hasStripeEntitlement = (subscriptions || []).some((subscription: JsonBoundary) => {
+    const periodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end).getTime()
+      : Number.NEGATIVE_INFINITY;
+    const cancelAt = subscription.cancel_at ? new Date(subscription.cancel_at).getTime() : null;
+    const accessEnd = cancelAt === null ? periodEnd : Math.min(periodEnd, cancelAt);
+    return Number.isFinite(accessEnd) && accessEnd > now.getTime();
+  });
+
+  return hasStripeEntitlement || (grants || []).some((grant: JsonBoundary) => {
+    const endsAt = grant.ends_at ? new Date(grant.ends_at).getTime() : Number.NEGATIVE_INFINITY;
+    return Number.isFinite(endsAt) && endsAt > now.getTime();
+  });
 };
 
 const getCandidateDateValue = (value?: string | null) => {
@@ -327,6 +349,62 @@ const sortPaidUserCandidates = (candidates: PaidUserCandidate[]) => {
 
 const hasCurrentPaidEntitlement = (candidate: PaidUserCandidate) => {
   return !candidate.subscription_ends_at || getCandidateDateValue(candidate.subscription_ends_at) > Date.now();
+};
+
+const getPaidUserCandidates = async (supabase: JsonBoundary): Promise<PaidUserCandidate[]> => {
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const [{ data: subscriptions, error: subscriptionsError }, { data: grants, error: grantsError }] = await Promise.all([
+    supabase
+      .from('billing_subscriptions')
+      .select('user_id,current_period_start,current_period_end,cancel_at,created_at')
+      .in('status', ['active', 'trialing', 'past_due'])
+      .is('access_suspended_at', null)
+      .order('current_period_start', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+      .limit(50),
+    supabase
+      .from('billing_access_grants')
+      .select('user_id,starts_at,ends_at,created_at')
+      .is('revoked_at', null)
+      .lte('starts_at', nowIso)
+      .gt('ends_at', nowIso)
+      .in('plan_code', ['monthly', 'annual'])
+      .order('starts_at', { ascending: true })
+      .limit(50),
+  ]);
+
+  if (subscriptionsError) throw subscriptionsError;
+  if (grantsError) throw grantsError;
+
+  const candidatesByUserId = new Map<string, PaidUserCandidate>();
+  for (const subscription of subscriptions || []) {
+    const periodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end).getTime()
+      : Number.NEGATIVE_INFINITY;
+    const cancelAt = subscription.cancel_at ? new Date(subscription.cancel_at).getTime() : null;
+    const accessEnd = cancelAt === null ? periodEnd : Math.min(periodEnd, cancelAt);
+    if (!subscription.user_id || !Number.isFinite(accessEnd) || accessEnd <= now.getTime()) continue;
+
+    candidatesByUserId.set(subscription.user_id, {
+      user_id: subscription.user_id,
+      subscription_started_at: subscription.current_period_start,
+      subscription_ends_at: new Date(accessEnd).toISOString(),
+      created_at: subscription.created_at,
+    });
+  }
+
+  for (const grant of grants || []) {
+    if (!grant.user_id || candidatesByUserId.has(grant.user_id)) continue;
+    candidatesByUserId.set(grant.user_id, {
+      user_id: grant.user_id,
+      subscription_started_at: grant.starts_at,
+      subscription_ends_at: grant.ends_at,
+      created_at: grant.created_at,
+    });
+  }
+
+  return [...candidatesByUserId.values()];
 };
 
 const attachCycleSnapshotPriority = async (
@@ -974,21 +1052,10 @@ serve(async (req) => {
     }
 
     if (!targetUserId && workerSecret && providedSecret === workerSecret) {
-      const { data: paidUsers, error: paidUsersError } = await supabase
-        .from('user_subscriptions')
-        .select('user_id,subscription_started_at,subscription_ends_at,created_at')
-        .eq('status', 'active')
-        .neq('plan', 'free_trial')
-        .order('subscription_started_at', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true })
-        .limit(25);
-
-      if (paidUsersError) throw paidUsersError;
-
       const paidUserCandidates = sortPaidUserCandidates(
         await attachCycleSnapshotPriority(
           supabase,
-          ((paidUsers || []) as PaidUserCandidate[]).filter(hasCurrentPaidEntitlement),
+          (await getPaidUserCandidates(supabase)).filter(hasCurrentPaidEntitlement),
         ),
       );
 

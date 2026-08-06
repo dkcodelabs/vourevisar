@@ -6,6 +6,25 @@ import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 
+const getConfirmEmailRedirect = (
+  status: 'expired' | 'error' | 'unconfirmed',
+  email?: string | null
+) => {
+  const params = new URLSearchParams({ status });
+  const normalizedEmail = email?.trim();
+
+  if (normalizedEmail) {
+    params.set('email', normalizedEmail);
+  }
+
+  return `/confirm-email?${params.toString()}`;
+};
+
+const clearPendingConfirmationMarkers = () => {
+  localStorage.removeItem('pendingConfirmationEmail');
+  localStorage.removeItem('pendingConfirmationCooldownUntil');
+};
+
 export function AuthCallback() {
   const [loading, setLoading] = useState(true);
   const [redirectPath, setRedirectPath] = useState('/');
@@ -42,7 +61,7 @@ export function AuthCallback() {
 
           if (sessionError || !sessionData.session?.user) {
             await supabase.auth.signOut({ scope: 'local' });
-            setRedirectPath('/confirm-email?status=error');
+            setRedirectPath(getConfirmEmailRedirect('error', pendingConfirmationEmail));
             return;
           }
 
@@ -59,6 +78,7 @@ export function AuthCallback() {
             if (sessionData.session.user.email) {
               localStorage.setItem('confirmedEmail', sessionData.session.user.email);
             }
+            clearPendingConfirmationMarkers();
             await supabase.auth.signOut();
             setRedirectPath('/login?confirmed=1');
           } else {
@@ -73,9 +93,9 @@ export function AuthCallback() {
           // Do not let a previous browser session survive an auth-link error.
           await supabase.auth.signOut();
           if (errorCode === 'otp_expired' || errorDescription?.toLowerCase().includes('expired')) {
-            setRedirectPath('/confirm-email?status=expired');
+            setRedirectPath(getConfirmEmailRedirect('expired', pendingConfirmationEmail));
           } else {
-            setRedirectPath('/confirm-email?status=error');
+            setRedirectPath(getConfirmEmailRedirect('error', pendingConfirmationEmail));
           }
           return;
         }
@@ -94,11 +114,11 @@ export function AuthCallback() {
             const message = exchangeError.message.toLowerCase();
             if (exchangeError.code === 'otp_expired' || message.includes('expired') || message.includes('invalid')) {
               await supabase.auth.signOut();
-              setRedirectPath('/confirm-email?status=expired');
+              setRedirectPath(getConfirmEmailRedirect('expired', pendingConfirmationEmail));
             } else {
               await supabase.auth.signOut();
               toastGate.notifyError('Não foi possível concluir a confirmação. Tente reenviar o email.', 'AUTH-CALLBACK-02', { severity: 'low' });
-              setRedirectPath('/confirm-email?status=error');
+              setRedirectPath(getConfirmEmailRedirect('error', pendingConfirmationEmail));
             }
             return;
           }
@@ -106,7 +126,7 @@ export function AuthCallback() {
           if (exchangedSession.user && isEmailConfirmationPending(exchangedSession.user)) {
             localStorage.setItem('pendingConfirmationEmail', exchangedSession.user.email || '');
             await supabase.auth.signOut();
-            setRedirectPath('/confirm-email');
+            setRedirectPath(getConfirmEmailRedirect('unconfirmed', exchangedSession.user.email));
             return;
           }
 
@@ -118,11 +138,21 @@ export function AuthCallback() {
             || Boolean(pendingConfirmationEmail && exchangedUserEmail === pendingConfirmationEmail);
 
           if (isSignupConfirmation) {
+            clearPendingConfirmationMarkers();
             await supabase.auth.signOut();
             setRedirectPath('/login?confirmed=1');
           } else {
             setRedirectPath('/dashboard');
           }
+          return;
+        }
+
+        // Sem credenciais de callback, não transformar uma confirmação pendente
+        // em acesso só porque havia sessão antiga no navegador. Alguns links
+        // expirados/malformados podem voltar para o redirect_to sem parâmetros.
+        if (pendingConfirmationEmail) {
+          await supabase.auth.signOut();
+          setRedirectPath(getConfirmEmailRedirect('expired', pendingConfirmationEmail));
           return;
         }
 
@@ -132,7 +162,7 @@ export function AuthCallback() {
         if (existingSession?.user && isEmailConfirmationPending(existingSession.user)) {
           localStorage.setItem('pendingConfirmationEmail', existingSession.user.email || '');
           await supabase.auth.signOut();
-          setRedirectPath('/confirm-email');
+          setRedirectPath(getConfirmEmailRedirect('unconfirmed', existingSession.user.email));
           return;
         }
 

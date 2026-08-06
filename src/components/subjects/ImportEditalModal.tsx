@@ -11,7 +11,6 @@ import { toastGate } from '@/lib/errors/toastGate';
 import { errorService } from '@/lib/errors/errorService';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeUserRpc } from '@/services/userRpcService';
-import { getSubscriptionEntitlement } from '@/utils/subscriptionEntitlement';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { mergeRecoveredCesgranrioBasicSubjects, recoverCesgranrioBasicSubjects } from '@/utils/cesgranrioContentStructure';
 import { detectCargoOptionsFromEditalText, type DetectedCargoOption } from '@/utils/editalCargoDetector';
@@ -400,106 +399,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return;
             }
 
-            if (rpcError) {
-                console.warn('[ImportEdititalModal] Falha ao buscar limites via RPC, usando fallback local:', getErrorMessage(rpcError));
-            }
-
-            // Verificar antes se é admin/owner no cliente para evitar chamada desnecessária que dá 404 no console
-            const isOwnerOrAdminEmail = user.email === 'vourevisar@gmail.com' || user.email === 'darciliok@gmail.com';
-            
-            let isOwnerOrAdmin = isOwnerOrAdminEmail;
-            let rolesData = null;
-            
-            if (!isOwnerOrAdmin) {
-                const { data } = await supabase
-                    .from('user_roles')
-                    .select('role')
-                    .eq('user_id', user.id);
-                rolesData = data;
-                if (rolesData && rolesData.some(r => r.role === 'owner' || r.role === 'admin')) {
-                    isOwnerOrAdmin = true;
-                }
-            }
-
-            if (isOwnerOrAdmin) {
-                const query = supabase
-                    .from('user_editais')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('user_id', user.id)
-                    .eq('ai_extraction_used', true);
-
-                const { count } = await query;
-                const usage = count || 0;
-
-                setAiLimits({
-                    plan: 'admin',
-                    status: 'active',
-                    limit: -1,
-                    usage: usage,
-                    total_usage: usage,
-                    has_bypass: true,
-                    can_import: true
-                });
-                setLoadingAiLimits(false);
-                return;
-            }
-
-            // Usa apenas a lógica de fallback (RPC 'get_user_ai_limits' removido para evitar erros 404 no console)
-            let query = supabase
-                .from('user_editais')
-                .select('id', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .eq('ai_extraction_used', true);
-
-            const { data: subData } = await supabase
-                .from('user_subscriptions')
-                .select('plan, status, subscription_ends_at, trial_ends_at, next_billing_date')
-                .eq('user_id', user.id)
-                .maybeSingle();
-            
-            const entitlement = getSubscriptionEntitlement({
-                plan: subData?.plan,
-                status: subData?.status,
-                trialEndsAt: subData?.trial_ends_at,
-                subscriptionEndsAt: subData?.subscription_ends_at,
-                nextBillingAt: subData?.next_billing_date,
-            });
-            const isPaidActive = entitlement.isActive && entitlement.status === 'active';
-            const isTrialActive = entitlement.isActive && entitlement.status === 'trial';
-            const limit = isPaidActive ? (entitlement.plan === 'annual' ? 10 : 5) : isTrialActive ? 1 : 0;
-            
-            if (isPaidActive && !isOwnerOrAdmin) {
-                const firstDayOfMonth = new Date();
-                firstDayOfMonth.setDate(1);
-                firstDayOfMonth.setHours(0, 0, 0, 0);
-                query = query.gte('created_at', firstDayOfMonth.toISOString());
-            }
-            
-            const { count, error: countError } = await query;
-            const usage = countError ? 0 : (count || 0);
-
-            if (isOwnerOrAdmin) {
-                setAiLimits({
-                    plan: 'admin',
-                    status: 'active',
-                    limit: -1,
-                    usage: usage,
-                    total_usage: usage,
-                    has_bypass: true,
-                    can_import: true
-                });
-            } else {
-                setAiLimits({
-                    plan: isPaidActive ? entitlement.plan : 'free_trial',
-                    status: isPaidActive ? entitlement.status : isTrialActive ? 'trial' : 'expired',
-                    limit: limit,
-                    usage: usage,
-                    remaining: Math.max(limit - usage, 0),
-                    usage_period: isPaidActive ? 'monthly' : 'lifetime',
-                    has_bypass: false,
-                    can_import: usage < limit
-                });
-            }
+            console.error('[ImportEditalModal] Não foi possível verificar a cota de IA:', getErrorMessage(rpcError));
+            setAiLimits(null);
+            toastGate.notifyError('Não foi possível verificar sua cota de IA. Atualize a página e tente novamente.', 'IA-QUOTA-01');
         } catch (err) {
             console.error("Falha ao buscar limites da IA:", err);
         } finally {

@@ -28,6 +28,7 @@ const Dashboard = () => {
           description="Parece que a internet caiu ou ficou instável por alguns segundos. Confira sua conexão e tente novamente para recarregar o painel."
           actionLabel="Tentar novamente"
           actionIcon={RefreshCw}
+          requiresOnline
           onAction={() => window.location.reload()}
           helperText="Se voltar sozinho, é só continuar de onde parou."
           technicalDetail={model.error instanceof Error ? model.error.message : String(model.error)}

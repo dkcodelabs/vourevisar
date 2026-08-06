@@ -1,12 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, CalendarDays, AlertTriangle, Wand2, PlusCircle, RefreshCw, BellOff, MessageSquarePlus, SearchX } from 'lucide-react';
+import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, CalendarDays, AlertTriangle, Wand2, PlusCircle, RefreshCw, BellOff, MessageSquarePlus, SearchX, MessageCircle } from 'lucide-react';
 import { FeedbackModal } from './FeedbackModal';
 import { useNotifications, type UserNotification, type NotificationFilter } from '@/hooks/useNotifications';
 import { useUserFeedbacks, type UserFeedback, type FeedbackStatus } from '@/hooks/useUserFeedbacks';
 import { useStudentHubBadge } from '@/hooks/useStudentHubBadge';
 import { getFeedbackStatusLabel } from '@/services/feedbackService';
 import { analytics } from '@/lib/analytics';
+import { getSupportWhatsAppUrl } from '@/config/support';
 
 // ─── Status Config ──────────────────────────────────────────
 const STATUS_CONFIG: Record<FeedbackStatus, { label: string; dotClass: string; bgClass: string; textClass: string }> = {
@@ -92,6 +93,7 @@ interface StudentHubPanelProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: 'notificacoes' | 'feedbacks';
+  notificationsOnly?: boolean;
 }
 
 // ─── Skeleton Components ─────────────────────────────────────
@@ -120,7 +122,7 @@ const SkeletonCard: React.FC = () => (
 );
 
 // ─── Componente Principal ────────────────────────────────────
-export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClose, initialTab = 'notificacoes' }) => {
+export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClose, initialTab = 'notificacoes', notificationsOnly = false }) => {
   // Analytics: Log opening
   useEffect(() => {
     if (isOpen) {
@@ -135,12 +137,15 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const supportWhatsAppUrl = getSupportWhatsAppUrl('Olá, preciso de ajuda para usar o vouRevisar.');
 
   useEffect(() => {
-    if (isOpen && initialTab === 'feedbacks') {
+    if (isOpen && initialTab === 'feedbacks' && !notificationsOnly) {
       setActiveTab('feedbacks');
+    } else if (isOpen && notificationsOnly) {
+      setActiveTab('notificacoes');
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, notificationsOnly]);
 
   // ── Hooks ───────────────────────────────────────────────────
   // Hook unificado para Unread/Fingerprint logic
@@ -148,8 +153,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
     unreadFeedbackIds,
     markFeedbackAsRead,
     studyUnreadCount,
-    feedbackUnreadCount,
-    totalUnreadCount
+    feedbackUnreadCount
   } = useStudentHubBadge();
 
   const {
@@ -176,28 +180,25 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   useEffect(() => {
     // Reset de estado apenas na transição de FECHADO -> ABERTO
     if (isOpen && !wasOpenRef.current) {
-      // 1. Filtro Inteligente: 
-      // Se houver feedbacks não lidos, mostramos "Todas" para que itens recém-concluídos apareçam.
-      // Caso contrário, mantemos "Em aberto" para focar no que falta.
-      setStatusFilter(feedbackUnreadCount > 0 ? 'todas' : 'em_aberto');
-
-      // 2. Navegação Inteligente:
-      // A sidebar pode abrir direto em Feedback; o sino mantém o comportamento inteligente.
-      if (initialTab === 'feedbacks') {
-        setActiveTab('feedbacks');
-      } else if (studyUnreadCount === 0 && feedbackUnreadCount > 0) {
+      // O sino nunca navega para feedback. Feedback possui seu proprio indicador
+      // na sidebar e fica disponivel exclusivamente na pagina Ajuda.
+      if (notificationsOnly) {
+        setActiveTab('notificacoes');
+      } else if (initialTab === 'feedbacks') {
         setActiveTab('feedbacks');
       } else {
         setActiveTab('notificacoes');
       }
 
-      // 3. Refresh inicial ao abrir para garantir dados frescos
+      setStatusFilter('em_aberto');
+
+      // Refresh inicial ao abrir para garantir dados frescos
       refetchNotifs({ silent: true });
-      refetchFeedbacks({ silent: true });
+      if (!notificationsOnly) refetchFeedbacks({ silent: true });
     }
 
     wasOpenRef.current = isOpen;
-  }, [isOpen, initialTab, studyUnreadCount, feedbackUnreadCount, refetchNotifs, refetchFeedbacks]);
+  }, [isOpen, initialTab, notificationsOnly, studyUnreadCount, feedbackUnreadCount, refetchNotifs, refetchFeedbacks]);
 
 
   // Filtrar notificações (Exclusivo Estudo)
@@ -272,14 +273,6 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
     }
   }, [isOpen, onClose, showFeedbackModal]);
 
-  // Bloquear scroll do body
-  React.useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
-    }
-  }, [isOpen]);
-
   // Foco no drawer ao abrir
   useEffect(() => {
     if (isOpen && drawerRef.current) {
@@ -332,11 +325,13 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
     }
   };
 
+  const renderedTab = notificationsOnly ? 'notificacoes' : activeTab;
+
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[40]"
+        className="fixed inset-0 bg-black/60 z-[40]"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -346,21 +341,21 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Central do Aluno"
+        aria-label={notificationsOnly ? 'Notificações' : 'Central do Aluno'}
         tabIndex={-1}
-        className="fixed top-0 right-0 h-screen w-full sm:w-[400px] md:w-[420px] bg-white dark:bg-[#181A1C] shadow-2xl z-[50] flex flex-col border-l border-white/5 animate-in slide-in-from-right duration-300 outline-none overscroll-behavior-contain"
+        className="fixed top-0 right-0 h-screen w-full sm:w-[400px] md:w-[420px] bg-white dark:bg-[#181A1C] shadow-2xl z-[50] flex flex-col border-l border-white/5 outline-none overscroll-behavior-contain"
       >
         {/* ── Sticky Header + Tabs ─────────────────────────────── */}
         <div className="sticky top-0 z-10 bg-white dark:bg-[#181A1C]">
           {/* Header */}
           <div className="px-5 py-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Central de Notificações</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">{notificationsOnly ? 'Notificações' : 'Central de Notificações'}</h2>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
                     refetchNotifs({ silent: true });
-                    refetchFeedbacks({ silent: true });
+                    if (!notificationsOnly) refetchFeedbacks({ silent: true });
                   }}
                   className={`flex items-center justify-center w-[32px] h-[32px] rounded-lg text-blue-500 hover:text-blue-600 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 transition-all ${(notifLoading || fbLoading) ? 'animate-spin' : ''}`}
                   title="Atualizar dados"
@@ -380,7 +375,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-slate-100 dark:border-white/5" role="tablist" aria-label="Seções da Central">
+          {!notificationsOnly && <div className="flex border-b border-slate-100 dark:border-white/5" role="tablist" aria-label="Seções da Central">
             <button
               role="tab"
               id="tab-notificacoes"
@@ -429,11 +424,11 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                 <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500" aria-hidden="true" />
               )}
             </button>
-          </div>
+          </div>}
         </div>
 
         {/* ── Conteúdo da aba ativa ─────────────────────────── */}
-        {activeTab === 'notificacoes' ? (
+        {renderedTab === 'notificacoes' ? (
           <div role="tabpanel" id="tabpanel-notificacoes" aria-labelledby="tab-notificacoes" className="flex-1 flex flex-col min-h-0">
             {/* Filtros + Link */}
             <div className="px-5 py-3 space-y-2.5">
@@ -451,7 +446,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   </button>
                 ))}
               </div>
-              {totalUnreadCount > 0 && (
+              {studyUnreadCount > 0 && (
                 <div className="flex justify-end">
                   <button
                     onClick={() => markAllNotificationsRead()}
@@ -593,12 +588,24 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
           <div role="tabpanel" id="tabpanel-feedbacks" aria-labelledby="tab-feedbacks" className="flex-1 flex flex-col min-h-0">
             {/* Botão + Filtro — sticky */}
             <div className="sticky top-0 z-[5] bg-white dark:bg-[#181A1C] flex items-center justify-between px-5 py-3 border-b border-slate-50 dark:border-white/5">
-              <button
-                onClick={() => setShowFeedbackModal(true)}
-                className="flex items-center justify-center px-3 py-2 text-[12px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all duration-200"
-              >
-                Nova Solicitação
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="flex items-center justify-center px-3 py-2 text-[12px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all duration-200"
+                >
+                  Nova Solicitação
+                </button>
+                <a
+                  href={supportWhatsAppUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12px] font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+                  title="Falar com o suporte pelo WhatsApp"
+                >
+                  <MessageCircle size={14} aria-hidden="true" />
+                  <span className="hidden sm:inline">Suporte</span>
+                </a>
+              </div>
               <div className="relative">
                 <button
                   onClick={() => setShowStatusDropdown(!showStatusDropdown)}

@@ -5,10 +5,10 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getUnifiedSubjectId } from '@/services/cycleMergeService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
-import { CycleInactiveState } from '@/components/study-cycle/CycleInactiveState';
 import { renderCycleTooltip } from '@/components/study-cycle/CycleTooltip';
 import { StudyCycleLoadError } from '@/components/study-cycle/StudyCycleLoadError';
 import { StudyCycleWorkspace } from '@/components/study-cycle/StudyCycleWorkspace';
+import { CycleEmptyState } from '@/components/study-cycle/CycleEmptyState';
 import { SubjectsModalLayer } from '@/components/study-cycle/SubjectsModalLayer';
 
 import { errorService } from '@/lib/errors/errorService';
@@ -425,6 +425,12 @@ const Subjects = () => {
     },
   }), [cycleSearchQuery, displayList.length, editaisData, expandedSubjectList.length, hasActiveCycle, isLoading, isOriginsLoading, loadError, loading]);
 
+  const handleOpenImport = useCallback((tab: 'ready' | 'ia' | 'manual') => {
+    navigate('/meus-editais', {
+      state: { openImportModal: true, importTab: tab },
+    });
+  }, [navigate]);
+
   const handleRenameCycle = useCallback(async (name: string) => {
     if (!user?.id || !userCycle) throw new Error('Ciclo ativo não encontrado');
 
@@ -712,6 +718,7 @@ const Subjects = () => {
       isLoading={isLoading}
       localSubjectsCount={localSubjects.length}
       onGoToEditais={() => navigate('/meus-editais')}
+      onOpenImport={handleOpenImport}
       onLoadMore={handleLoadMore}
       onNavigate={navigate}
       onStartNextCycle={handleStartNextCycleWithTimerGuard}
@@ -842,10 +849,15 @@ const Subjects = () => {
               showCycleWorkspace ? (
                 mainSubjectUI
               ) : (
-                <CycleInactiveState
-                  hasActiveCycle={hasActiveCycle}
-                  onGoToEditais={() => navigate('/meus-editais', { state: { filterCycle: hasActiveCycle } })}
-                />
+                <div className="flex min-h-[520px] w-full items-center justify-center text-center">
+                  <div className="w-full max-w-3xl">
+                    <CycleEmptyState
+                      state={cycleEntryState}
+                      onGoToEditais={() => navigate('/meus-editais', { state: { filterCycle: hasActiveCycle } })}
+                      onOpenImport={handleOpenImport}
+                    />
+                  </div>
+                </div>
               )
             )}
           </div>
