@@ -2,6 +2,7 @@ import * as React from 'https://esm.sh/react@18.3.1'
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0'
 import { Resend } from 'https://esm.sh/resend@4.0.0'
 import { renderAsync } from 'https://esm.sh/@react-email/render@0.0.12?deps=react@18.3.1'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
 import { ConfirmationEmail } from './_templates/confirmation.tsx'
 import { RecoveryEmail } from './_templates/recovery.tsx'
 import { MagicLinkEmail } from './_templates/magic-link.tsx'
@@ -28,6 +29,7 @@ interface EmailData {
 
 interface WebhookPayload {
   user: {
+    id: string
     email: string
     new_email?: string
     user_metadata?: {
@@ -157,7 +159,35 @@ Deno.serve(async (req) => {
         )
         break
 
-      case 'recovery':
+      case 'recovery': {
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        if (!supabaseUrl || !serviceRoleKey) {
+          throw new Error('Supabase service configuration is unavailable')
+        }
+
+        const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        })
+        const { data: authMethods, error: authMethodsError } = await serviceClient
+          .rpc('internal_get_auth_methods', { p_user_id: user.id })
+
+        if (authMethodsError || !authMethods?.[0]) {
+          throw authMethodsError ?? new Error('Authentication methods not found')
+        }
+
+        // A Google-only account has no vouRevisar password to recover. Returning
+        // success without delivery keeps the public endpoint enumeration-safe
+        // and prevents recovery from silently creating a new password method.
+        if (!authMethods[0].has_password) {
+          console.log('Recovery email suppressed for account without password method', {
+            user_id: user.id,
+          })
+          return new Response(JSON.stringify({ success: true, delivery: 'suppressed' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          })
+        }
+
         subject = 'Redefinir sua senha - vouRevisar'
         html = await renderAsync(
           React.createElement(RecoveryEmail, {
@@ -169,6 +199,7 @@ Deno.serve(async (req) => {
           })
         )
         break
+      }
 
       case 'magiclink':
         subject = 'Seu link de acesso - vouRevisar'

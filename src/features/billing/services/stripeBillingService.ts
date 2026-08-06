@@ -22,6 +22,19 @@ const errorMessages: Record<string, string> = {
   billing_customer_not_found: 'Ainda não há uma assinatura ativa para gerenciar.',
 };
 
+const fallbackBillingMessage =
+  'Não foi possível concluir esta ação agora. Nenhuma alteração foi feita. Tente novamente em alguns instantes.';
+
+/**
+ * Edge Functions return only allowlisted domain messages. Network and browser
+ * errors, however, must never be rendered directly because they can disclose
+ * provider, CORS or infrastructure details to the customer.
+ */
+export const getSafeBillingErrorMessage = (error: unknown, fallback = fallbackBillingMessage) => {
+  const candidate = error instanceof Error ? error.message : '';
+  return Object.values(errorMessages).includes(candidate) ? candidate : fallback;
+};
+
 const getFunctionErrorCode = async (error: unknown) => {
   if (error instanceof FunctionsHttpError) {
     try {
@@ -42,7 +55,7 @@ const invokeBillingFunction = async <T>(
   if (!error) return data;
 
   const code = await getFunctionErrorCode(error);
-  throw new Error(errorMessages[code] ?? 'Não foi possível concluir esta ação. Nenhuma alteração foi feita. Tente novamente.');
+  throw new Error(errorMessages[code] ?? fallbackBillingMessage);
 };
 
 export const getStripeCatalog = async (): Promise<BillingCatalogPlan[]> => {
