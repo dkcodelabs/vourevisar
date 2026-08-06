@@ -26,7 +26,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logEvent } = useUserLogger();
-  const { signIn, signUp, signInWithGoogle, user } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -229,6 +229,12 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+
+  // Do not expose the empty login form while Supabase is restoring a persisted
+  // session or while a successful password sign-in is validating the profile.
+  if (authLoading && !user) {
+    return <LoadingSpinner size="large" showText fullPage message="Entrando..." />;
+  }
 
   return (
     <div className="min-h-screen w-full flex items-start sm:items-center justify-center bg-background p-4 sm:p-6 transition-colors duration-300 font-sans overflow-y-auto pt-8 pb-8 sm:pt-4 sm:pb-4">

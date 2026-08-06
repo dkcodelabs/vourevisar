@@ -359,10 +359,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await authOps.signIn(email, password);
       return { success: true };
     } catch (error: unknown) {
+      // A failed sign-in has no auth event that could finish the transition.
+      // Successful attempts remain loading until SIGNED_IN validates the
+      // profile and exposes the authenticated user to the application.
+      setLoading(false);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
     }
   }, [authOps]);
 
