@@ -430,6 +430,11 @@ const UserManagement = () => {
             return;
         }
 
+        if (!user.has_password) {
+            toastGate.notifyError('Esta conta não possui senha no vouRevisar. O acesso é gerenciado pelo provedor conectado.', 'USER-NO-PASSWORD', { severity: 'low' });
+            return;
+        }
+
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
                 redirectTo: `${window.location.origin}/reset-password`,
@@ -648,13 +653,20 @@ const UserManagement = () => {
                                                                             {user.status === 'Active' ? 'Suspender conta' : 'Reativar conta'}
                                                                         </DropdownMenuItem>
 
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => handleResetPassword(user)}
-                                                                            className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
-                                                                        >
-                                                                            <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-                                                                            Redefinir senha
-                                                                        </DropdownMenuItem>
+                                                                        {user.has_password ? (
+                                                                            <DropdownMenuItem
+                                                                                onClick={() => handleResetPassword(user)}
+                                                                                className="gap-2.5 cursor-pointer text-slate-600 text-xs py-2 px-3 focus:bg-slate-50 focus:text-slate-900 rounded-sm"
+                                                                            >
+                                                                                <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                                                                                Redefinir senha
+                                                                            </DropdownMenuItem>
+                                                                        ) : (
+                                                                            <DropdownMenuItem disabled className="gap-2.5 text-slate-500 text-xs py-2 px-3 rounded-sm">
+                                                                                <Shield className="w-3.5 h-3.5" />
+                                                                                Senha gerenciada externamente
+                                                                            </DropdownMenuItem>
+                                                                        )}
 
                                                                         <DropdownMenuSeparator className="bg-slate-50 my-1" />
 

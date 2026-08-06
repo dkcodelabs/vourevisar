@@ -209,7 +209,7 @@ const Login = () => {
         } else if (error.message.includes('rate limit')) {
           toastManager.error('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
         } else if (error.message.includes('User not found')) {
-          toastManager.success('Se este email estiver cadastrado, você receberá um link para redefinir sua senha.');
+          toastManager.success('Se esta conta usar email e senha, enviaremos as instruções. Se você entra com Google, continue pelo botão do Google.');
           setShowForgotPassword(false);
         } else {
           toastManager.error('Erro ao enviar email de recuperação. Tente novamente.');
@@ -218,7 +218,7 @@ const Login = () => {
       }
 
       toastManager.success(
-        'Email enviado! Verifique sua caixa de entrada (e spam) para redefinir sua senha.',
+        'Se esta conta usar email e senha, enviaremos as instruções. Se você entra com Google, continue pelo botão do Google.',
         { duration: 6000 }
       );
       setShowForgotPassword(false);
@@ -321,6 +321,12 @@ const Login = () => {
             </div>
           </div>
 
+          {showForgotPassword && (
+            <p className="rounded-xl border border-border/60 bg-secondary/30 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+              A recuperação de senha é para contas que entram com email e senha. Se você usa Google, continue pelo Google abaixo.
+            </p>
+          )}
+
           {!showForgotPassword && (
             <div className="space-y-1.5 sm:space-y-2">
               <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Senha</label>
@@ -411,7 +417,7 @@ const Login = () => {
             </div>
           )}
 
-          {!isRegistering && !showForgotPassword && (
+          {!isRegistering && (
             <>
               <div className="relative py-4">
                 <div className="absolute inset-0 flex items-center">

@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { errorService } from '@/lib/errors/errorService';
+import { toastManager } from '@/utils/toastManager';
+import { getMyAuthMethods } from '@/services/authMethodsService';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff } from 'lucide-react';
-import PageContainer from '@/components/layout/PageContainer';
-import { GlassCard, GradientButton, AnimatedTitle } from '@/components/ui';
 import { TracerLogo } from '@/components/ui/TracerLogo';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,9 +21,14 @@ const ResetPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isValidToken, setIsValidToken] = useState(false);
   const [isCheckingToken, setIsCheckingToken] = useState(true);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const hasProcessedRecoveryRef = useRef(false);
 
   useEffect(() => {
     const handleAuthRedirect = async () => {
+      if (hasProcessedRecoveryRef.current) return;
+      hasProcessedRecoveryRef.current = true;
+
       try {
         // Get URL params from current location
         const urlParams = new URLSearchParams(window.location.search);
@@ -41,10 +46,23 @@ const ResetPassword = () => {
           accessToken: !!accessToken,
           type,
           hasCode: !!code,
-          url: window.location.href,
-          search: window.location.search,
-          hash: window.location.hash
         });
+
+        const acceptRecoverySession = async (session: Session) => {
+          const authMethods = await getMyAuthMethods();
+          if (!authMethods.hasPassword) {
+            await supabase.auth.signOut({ scope: 'local' });
+            toastManager.warning('Esta conta usa o acesso pelo Google e não possui senha no vouRevisar. Continue com Google.');
+            navigate('/login', { replace: true });
+            return false;
+          }
+
+          setRecoveryEmail(session.user.email ?? '');
+          setIsValidToken(true);
+          // Recovery credentials must not remain in browser history or logs.
+          window.history.replaceState({}, document.title, '/reset-password');
+          return true;
+        };
 
         // Validate an explicit recovery credential before considering any browser session.
         // An existing session must never make an invalid or unrelated reset link valid.
@@ -61,7 +79,7 @@ const ResetPassword = () => {
             return;
           }
 
-          setIsValidToken(true);
+          await acceptRecoverySession(data.session);
           return;
         }
 
@@ -82,7 +100,7 @@ const ResetPassword = () => {
 
           if (data.session) {
             console.log('OTP verified successfully, session established.');
-            setIsValidToken(true);
+            await acceptRecoverySession(data.session);
             return; // Success!
           }
         }
@@ -103,7 +121,7 @@ const ResetPassword = () => {
 
             if (data.session) {
               console.log('Successfully exchanged code for session');
-              setIsValidToken(true);
+              await acceptRecoverySession(data.session);
             } else {
               console.error('No session returned from code exchange');
               toastGate.notifyError('Link inválido ou expirado. Faça login novamente.', 'AUTH-LINK-EXP', { severity: 'low' });
@@ -226,6 +244,16 @@ const ResetPassword = () => {
         </div>
 
         <form onSubmit={handleResetPassword} className="space-y-4">
+          <input
+            type="email"
+            name="username"
+            value={recoveryEmail}
+            readOnly
+            tabIndex={-1}
+            autoComplete="username"
+            className="sr-only"
+            aria-hidden="true"
+          />
           <div className="space-y-1.5 sm:space-y-2">
             <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Nova Senha</label>
             <div className="relative group">

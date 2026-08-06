@@ -66,8 +66,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const sessionReadInFlightRef = useRef<ReturnType<typeof supabase.auth.getSession> | null>(null);
   const sessionValidationInFlightRef = useRef(false);
   const lastAuthStateChangeAtRef = useRef(0);
+  // Every auth event invalidates profile work started by an older identity.
+  // This prevents a late RLS-empty response for user A from signing out user B.
+  const authTransitionRef = useRef(0);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string, authTransition: number) => {
     if (isFetchingProfileRef.current) return;
 
     try {
@@ -91,6 +94,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
+      if (authTransitionRef.current !== authTransition) return;
+
       if (!data) {
         console.warn("[AuthContext] Perfil não encontrado para a sessão; encerrando sessão local.");
         setProfile(null);
@@ -109,12 +114,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
-    const isAuthCallback = location.pathname === '/auth/callback';
+    const isCredentialCallback = location.pathname === '/auth/callback'
+      || location.pathname === '/reset-password';
 
-    // AuthCallback is the sole owner of setSession/exchangeCodeForSession.
+    // AuthCallback and ResetPassword own their credential-establishment flows.
     // Bootstrapping Auth here at the same time makes Supabase's browser lock
     // race with the callback, especially under React Strict Mode.
-    if (isAuthCallback) {
+    if (isCredentialCallback) {
       setLoading(false);
       return () => {
         isMounted = false;
@@ -192,6 +198,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       (event, session) => {
         if (!isMounted) return;
         lastAuthStateChangeAtRef.current = Date.now();
+        const authTransition = ++authTransitionRef.current;
 
         // Supabase explicitly warns against awaiting Supabase calls inside this
         // callback: it owns the auth lock while dispatching the event. Defer all
@@ -226,6 +233,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               10000,
               'Não foi possível confirmar seu perfil. Tente novamente.',
             );
+
+              if (authTransitionRef.current !== authTransition) return;
 
               if (!profileLookupError && !profileRow) {
               console.warn('[AuthContext] Sessão sem perfil; encerrando sessão local antes de registrar acesso.');
@@ -276,7 +285,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               if (!isFetchingProfileRef.current) {
               const profileTimer = setTimeout(() => {
                 deferredAuthStateTimers.delete(profileTimer);
-                if (isMounted) fetchProfile(session.user.id);
+                if (isMounted && authTransitionRef.current === authTransition) {
+                  fetchProfile(session.user.id, authTransition);
+                }
               }, 100);
               deferredAuthStateTimers.add(profileTimer);
               }
@@ -288,6 +299,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           } catch (error) {
             if (!isMounted) return;
+            if (authTransitionRef.current !== authTransition) return;
 
             console.error('[AuthContext] Falha ao concluir autenticação:', error);
             await withTimeout(

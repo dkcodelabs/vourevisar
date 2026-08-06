@@ -77,7 +77,15 @@ serve(async (req: Request) => {
         id: string;
         email_confirmed_at: string | null;
         confirmed_at: string | null;
+        has_password: boolean;
+        auth_methods: string[];
       }> = [];
+      const { data: authCapabilities, error: authCapabilitiesError } = await supabase
+        .rpc("internal_get_auth_methods", { p_user_id: null });
+      if (authCapabilitiesError) throw authCapabilitiesError;
+      const authCapabilitiesById = new Map(
+        (authCapabilities ?? []).map((capability) => [capability.user_id, capability]),
+      );
       let page = 1;
       const perPage = 1000;
 
@@ -89,11 +97,17 @@ serve(async (req: Request) => {
 
         if (pageError) throw pageError;
 
-        users.push(...pageData.users.map((targetUser) => ({
-          id: targetUser.id,
-          email_confirmed_at: targetUser.email_confirmed_at ?? null,
-          confirmed_at: targetUser.confirmed_at ?? null,
-        })));
+        users.push(...pageData.users.map((targetUser) => {
+          const capability = authCapabilitiesById.get(targetUser.id);
+
+          return {
+            id: targetUser.id,
+            email_confirmed_at: targetUser.email_confirmed_at ?? null,
+            confirmed_at: targetUser.confirmed_at ?? null,
+            has_password: capability?.has_password === true,
+            auth_methods: capability?.providers ?? [],
+          };
+        }));
 
         if (pageData.users.length < perPage) break;
         page += 1;

@@ -18,6 +18,8 @@ export interface AdminUser {
     status: string; // Active/Inactive/Archived
     is_active?: boolean; // New field
     source?: string; // Google, Email, etc.
+    has_password: boolean;
+    auth_methods: string[];
     deleted_at?: string | null;
     email_confirmed?: boolean;
 }
@@ -43,6 +45,8 @@ export function useAdminUsers() {
                 id: string;
                 email_confirmed_at: string | null;
                 confirmed_at: string | null;
+                has_password: boolean;
+                auth_methods: string[];
             }>>('get_auth_user_statuses');
             const authStatusById = new Map(authStatuses.map((authUser) => [authUser.id, authUser]));
 
@@ -56,9 +60,12 @@ export function useAdminUsers() {
             // 3. Map Data
             const combinedUsers: AdminUser[] = (profiles || []).map((profile: ProfileRow) => {
                 const userRole = roles?.find((role: RoleRow) => role.user_id === profile.id)?.role || 'user';
-                const isGoogle = profile.avatar_url?.includes('googleusercontent');
-                const source = isGoogle ? 'Email, Google' : 'Email';
                 const authStatus = authStatusById.get(profile.id);
+                const authMethods = authStatus?.auth_methods ?? [];
+                const source = [
+                    authStatus?.has_password ? 'Email' : null,
+                    authMethods.includes('google') ? 'Google' : null,
+                ].filter(Boolean).join(', ') || 'Não identificado';
                 const emailConfirmed = authStatus
                     ? Boolean(authStatus.email_confirmed_at || authStatus.confirmed_at)
                     : undefined;
@@ -80,6 +87,8 @@ export function useAdminUsers() {
                     status: status,
                     is_active: profile.is_active,
                     source: source,
+                    has_password: authStatus?.has_password === true,
+                    auth_methods: authMethods,
                     deleted_at: profile.deleted_at,
                     last_sign_in_at: profile.last_sign_in_at,
                     // Auth confirmation can update Supabase's last_sign_in_at even
