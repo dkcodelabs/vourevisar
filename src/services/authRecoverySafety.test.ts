@@ -18,6 +18,7 @@ describe('password recovery safety boundaries', () => {
     expect(authContextSource).toContain("location.pathname === '/auth/callback'");
     expect(authContextSource).toContain("location.pathname === '/reset-password'");
     expect(authContextSource.match(/authTransitionRef\.current !== authTransition/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(authContextSource).toContain('authTransitionRef.current === authTransition');
   });
 
   it('does not let recovery create a password for a Google-only account', () => {
