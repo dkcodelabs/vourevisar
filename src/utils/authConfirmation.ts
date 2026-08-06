@@ -5,24 +5,55 @@ export const EMAIL_NOT_CONFIRMED_MESSAGE = 'Email não confirmado. Verifique sua
 
 const EMAIL_AUTH_PROVIDERS = new Set(['email', 'password']);
 
-const getProviderNames = (user: Pick<User, 'app_metadata'>): string[] => {
+type AuthMethodUser = Pick<User, 'app_metadata'> & {
+  email?: string;
+  identities?: Array<{ provider?: string }> | null;
+};
+
+export type AuthMethodKind = 'email' | 'google' | 'hybrid' | 'unknown';
+
+export const getAuthProviderNames = (user: AuthMethodUser): string[] => {
   const provider = user.app_metadata?.provider;
   const providers = user.app_metadata?.providers;
+  const identityProviders = user.identities?.map((identity) => identity.provider) ?? [];
 
-  return [provider, ...(Array.isArray(providers) ? providers : [])]
+  return [...new Set([provider, ...(Array.isArray(providers) ? providers : []), ...identityProviders]
     .filter((value): value is string => typeof value === 'string')
-    .map((value) => value.toLowerCase());
+    .map((value) => value.toLowerCase()))];
 };
 
-export const isEmailPasswordUser = (user: Pick<User, 'app_metadata' | 'email'>): boolean => {
-  const providerNames = getProviderNames(user);
+export const hasPasswordAuthMethod = (user: AuthMethodUser): boolean => {
+  const providerNames = getAuthProviderNames(user);
 
-  if (providerNames.some((provider) => !EMAIL_AUTH_PROVIDERS.has(provider))) {
-    return false;
+  if (providerNames.some((provider) => EMAIL_AUTH_PROVIDERS.has(provider))) {
+    return true;
   }
 
-  return Boolean(user.email);
+  // Older email/password users may not have provider metadata populated.
+  if (providerNames.length === 0) {
+    return Boolean(user.email);
+  }
+
+  return false;
 };
+
+export const hasGoogleAuthMethod = (user: AuthMethodUser): boolean =>
+  getAuthProviderNames(user).includes('google');
+
+export const getAuthMethodKind = (
+  user: AuthMethodUser,
+  hasPasswordCredential?: boolean,
+): AuthMethodKind => {
+  const hasPassword = hasPasswordCredential ?? hasPasswordAuthMethod(user);
+  const hasGoogle = hasGoogleAuthMethod(user);
+
+  if (hasPassword && hasGoogle) return 'hybrid';
+  if (hasPassword) return 'email';
+  if (hasGoogle) return 'google';
+  return 'unknown';
+};
+
+export const isEmailPasswordUser = hasPasswordAuthMethod;
 
 export const hasConfirmedEmail = (user: Pick<User, 'email_confirmed_at' | 'confirmed_at'>): boolean => {
   return Boolean(user.email_confirmed_at || user.confirmed_at);

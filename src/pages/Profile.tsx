@@ -20,6 +20,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { GradientButton } from '@/components/ui';
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { getAuthMethodKind } from '@/utils/authConfirmation';
+import { useAuthMethods } from '@/hooks/useAuthMethods';
 
 // ─── Schemas ────────────────────────────────────────────────
 const profileSchema = z.object({
@@ -125,6 +127,7 @@ type ResetFormValues = z.infer<typeof resetPasswordSchema>;
 // ═══════════════════════════════════════════════════════════
 const Profile = () => {
   const { profile, user, updateProfile, resetPassword } = useAuth();
+  const { data: authMethods, isLoading: isLoadingAuthMethods } = useAuthMethods(user?.id);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingAcademic, setIsSavingAcademic] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
@@ -134,8 +137,20 @@ const Profile = () => {
   const [isEditingAcademic, setIsEditingAcademic] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const authProviders = user?.identities?.map((identity) => identity.provider) || [];
-  const isGoogleUser = user?.app_metadata?.provider === 'google' || authProviders.includes('google');
+  const authMethodKind = user && authMethods
+    ? getAuthMethodKind(user, authMethods.hasPassword)
+    : 'unknown';
+  const hasPasswordMethod = authMethodKind === 'email' || authMethodKind === 'hybrid';
+  const isGoogleOnly = authMethodKind === 'google';
+  const authMethodLabel = isLoadingAuthMethods
+    ? 'Carregando...'
+    : authMethodKind === 'hybrid'
+    ? '📧 Email e 🔗 Google'
+    : authMethodKind === 'google'
+      ? '🔗 Google'
+      : authMethodKind === 'email'
+        ? '📧 Email'
+        : 'Não identificado';
 
   // ─── Forms ──────────────────────────────────────────────
   const profileForm = useForm({
@@ -347,7 +362,7 @@ const Profile = () => {
                 label="Login"
                 value={
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                    {isGoogleUser ? '🔗 Google' : '📧 Email'}
+                    {authMethodLabel}
                   </Badge>
                 }
               />
@@ -368,7 +383,7 @@ const Profile = () => {
                     <Lock className="h-3.5 w-3.5 text-muted-foreground/60" />
                     <span className="text-sm text-muted-foreground">Senha</span>
                   </div>
-                  {isGoogleUser ? (
+                  {isGoogleOnly ? (
                     <div className="flex flex-col items-end gap-1 text-right">
                       <span className="text-xs font-medium text-muted-foreground">Gerenciada pelo Google</span>
                       <a
@@ -381,7 +396,7 @@ const Profile = () => {
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     </div>
-                  ) : (
+                  ) : hasPasswordMethod ? (
                     <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
                       <DialogTrigger asChild>
                         <button className="text-xs text-primary font-medium hover:underline">
@@ -420,6 +435,8 @@ const Profile = () => {
                         </Form>
                       </DialogContent>
                     </Dialog>
+                  ) : (
+                    <span className="text-xs font-medium text-muted-foreground">Método não identificado</span>
                   )}
                 </div>
 
@@ -440,7 +457,7 @@ const Profile = () => {
                   label="Método"
                   value={
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                      {isGoogleUser ? '🔗 Google' : '📧 Email'}
+                      {authMethodLabel}
                     </Badge>
                   }
                 />

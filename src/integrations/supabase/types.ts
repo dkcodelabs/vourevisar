@@ -3176,6 +3176,7 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_my_auth_methods: { Args: never; Returns: Json }
       get_organization_role: {
         Args: { _org_id: string; _user_id?: string }
         Returns: string
@@ -3296,6 +3297,14 @@ export type Database = {
       }
       is_owner: { Args: { _user_id: string }; Returns: boolean }
       is_user_active: { Args: never; Returns: boolean }
+      internal_get_auth_methods: {
+        Args: { p_user_id?: string }
+        Returns: {
+          has_password: boolean
+          providers: string[]
+          user_id: string
+        }[]
+      }
       list_users_with_roles: {
         Args: never
         Returns: {
