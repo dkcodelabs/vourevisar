@@ -1,5 +1,5 @@
-import * as pdfjs from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -151,6 +151,9 @@ function scorePdfText(fullText: string, pageCount: number): PdfTextMetrics {
 
 export async function extractPdfText(file: Blob): Promise<PdfTextExtractionResult> {
   const data = new Uint8Array(await file.arrayBuffer());
+  // Uploaded edital PDFs are untrusted input. This flow only calls
+  // getTextContent and never instantiates PDF.js's annotation/viewer layer,
+  // where embedded PDF actions and scripting are handled.
   const documentTask = pdfjs.getDocument({ data });
   const document = await documentTask.promise;
   const pages: PdfTextPage[] = [];
@@ -172,7 +175,7 @@ export async function extractPdfText(file: Blob): Promise<PdfTextExtractionResul
       });
     }
   } finally {
-    document.destroy();
+    await documentTask.destroy();
   }
 
   const fullText = normalizeWhitespace(pages.map((page) => page.text).join('\n\n'));
