@@ -54,7 +54,6 @@ export default defineConfig(({ mode }) => {
         "@supabase/supabase-js",
         "framer-motion",
         "lucide-react",
-        "react-toastify",
       ],
     },
     build: {
@@ -125,7 +124,7 @@ export default defineConfig(({ mode }) => {
               return "vendor-utils";
             }
 
-            if (id.includes("react-toastify") || id.includes("canvas-confetti") || id.includes("next-themes")) {
+            if (id.includes("canvas-confetti") || id.includes("next-themes")) {
               return "vendor-shell";
             }
 

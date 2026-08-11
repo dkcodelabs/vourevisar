@@ -289,7 +289,6 @@ const renderSubjects = (initialEntry: string | { pathname: string; state?: unkno
     <QueryClientProvider client={queryClient}>
       <MemoryRouter
         initialEntries={[initialEntry]}
-        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
         <Routes>
           <Route path="/ciclo-estudos" element={<Subjects />} />
