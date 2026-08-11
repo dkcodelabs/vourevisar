@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AiOptionalContext } from './AiOptionalContext';
+import { AiContentSourceRecovery } from './AiContentSourceRecovery';
 import { AiSourceStep } from './AiSourceStep';
+import { ImportJourneyProgress } from './ImportJourneyProgress';
 import { ImportMethodSelector } from './ImportMethodSelector';
 
 describe('ImportMethodSelector', () => {
@@ -60,5 +62,64 @@ describe('AiOptionalContext', () => {
     expect(screen.getByText('Banca')).toBeInTheDocument();
     expect(screen.getByText('Órgão ou concurso')).toBeInTheDocument();
     expect(screen.getByText('Cargo, área ou ênfase')).toBeInTheDocument();
+  });
+});
+
+describe('ImportJourneyProgress', () => {
+  it('substitui a troca de método pela etapa atual e permite cancelar o processamento', () => {
+    const onSecondaryAction = vi.fn();
+    render(<ImportJourneyProgress stage="extracting" onSecondaryAction={onSecondaryAction} />);
+
+    expect(screen.getByRole('list', { name: 'Progresso da importação' })).toBeInTheDocument();
+    expect(screen.getByText('Cargo').closest('li')).toHaveAttribute('aria-current', 'step');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar extração' }));
+    expect(onSecondaryAction).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('tab', { name: 'Manual' })).not.toBeInTheDocument();
+  });
+});
+
+describe('AiContentSourceRecovery', () => {
+  it('mostra o anexo confirmado e associa o arquivo ao cargo preservado', () => {
+    const files = [
+      new File(['principal'], 'edital.pdf', { type: 'application/pdf', lastModified: 1 }),
+      new File(['anexo'], 'anexo-iii.pdf', { type: 'application/pdf', lastModified: 2 }),
+    ];
+    const onRemove = vi.fn();
+
+    render(
+      <AiContentSourceRecovery
+        message="O edital referencia o Anexo III."
+        files={files}
+        originalFileCount={1}
+        selectedCargoName="Analista"
+        onAdd={vi.fn()}
+        onRemove={onRemove}
+      />,
+    );
+
+    expect(screen.getByText('O conteúdo está em outro arquivo')).toBeInTheDocument();
+    expect(screen.getByText('Anexo adicionado')).toBeInTheDocument();
+    expect(screen.getByText('anexo-iii.pdf')).toBeInTheDocument();
+    expect(screen.getByText('Será usado para Analista')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remover anexo-iii.pdf' }));
+    expect(onRemove).toHaveBeenCalledWith(1);
+  });
+
+  it('pede o documento sem usar linguagem de erro quando nenhum anexo foi adicionado', () => {
+    const onAdd = vi.fn();
+    render(
+      <AiContentSourceRecovery
+        message="O edital informa onde o conteúdo foi publicado."
+        files={[new File(['principal'], 'edital.pdf', { type: 'application/pdf' })]}
+        originalFileCount={1}
+        selectedCargoName=""
+        onAdd={onAdd}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar o anexo indicado' }));
+    expect(onAdd).toHaveBeenCalledOnce();
+    expect(screen.queryByText(/erro/i)).not.toBeInTheDocument();
   });
 });

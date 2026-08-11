@@ -54,18 +54,18 @@ Ao abrir por uma ação genérica como `Adicionar edital`, mostrar primeiro a es
 
 ### Etapa 3: análise e extração
 
-- [ ] Exibir progresso semântico: `Documento`, `Cargo` e `Revisão`.
-- [ ] Preservar mensagens de processamento e feedback de erro existentes.
-- [ ] Manter cancelamento seguro durante análise/extração.
-- [ ] Preservar restauração de extração pendente.
+- [x] Exibir progresso semântico: `Documento`, `Cargo` e `Revisão`.
+- [x] Separar falha real de recuperação quando o edital aponta o conteúdo para outro documento.
+- [x] Manter cancelamento seguro durante análise/extração.
+- [x] Preservar restauração de extração pendente.
 - [ ] Não descartar rascunho ao trocar de método sem confirmação quando houver trabalho recuperável.
 
 ### Etapa 4: revisão
 
 - [ ] Permitir revisar edital, cargo, matérias, tópicos e pesos encontrados.
 - [ ] Manter estados honestos quando peso ou algum metadado não for encontrado.
-- [ ] Usar um único CTA primário: `Importar edital`.
-- [ ] Manter ação secundária clara para voltar e corrigir a fonte ou o cargo.
+- [x] Usar um único CTA primário por etapa, com rótulo específico para usar o anexo quando necessário.
+- [x] Manter ação secundária clara para voltar e corrigir a fonte ou o cargo.
 
 ## Fluxo manual
 
@@ -91,8 +91,8 @@ Ao abrir por uma ação genérica como `Adicionar edital`, mostrar primeiro a es
 - [ ] Manter a cota em formato compacto no cabeçalho, por exemplo `3 realizadas · ilimitado`.
 - [ ] Reduzir repetição de títulos e textos explicativos.
 - [ ] Evitar corpo de texto com 9 ou 10 px; manter legibilidade real em desktop e mobile.
-- [ ] Ter apenas um CTA primário por etapa.
-- [ ] Usar superfícies, tokens, botões e ícones já existentes no projeto.
+- [x] Ter apenas um CTA primário por etapa.
+- [x] Usar superfícies, tokens, botões e ícones já existentes no projeto.
 - [ ] Preservar dark e light mode com contraste suficiente.
 - [ ] Usar transições curtas apenas para explicar mudança de etapa ou abertura de disclosure.
 
@@ -104,6 +104,7 @@ Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalMod
 - [x] Extrair `ImportMethodSelector`.
 - [x] Extrair `AiSourceStep`.
 - [x] Extrair `AiOptionalContext`.
+- [x] Extrair o progresso da jornada e a recuperação de documento complementar em componentes de apresentação.
 - [ ] Extrair `AiProcessingStep` quando a separação reduzir acoplamento real.
 - [ ] Extrair `AiCargoStep`.
 - [ ] Extrair `AiReviewStep`.
@@ -118,6 +119,7 @@ Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalMod
 - [x] Campos manuais não podem sobrescrever uma análise recuperada.
 - [x] Trocar de método sem dados iniciados deve ser imediato.
 - [x] Trocar de método com extração, PDF ou formulário preenchido preserva os estados separados; o descarte continua sendo uma acao explicita.
+- [x] Bloquear a troca de método durante análise, seleção de cargo, extração e revisão; nesses estados mostrar progresso e retorno explícito.
 - [ ] Catálogo e criação manual devem permanecer disponíveis quando a cota de IA acabar.
 - [ ] O bloqueio de cota não deve dominar visualmente o modal inteiro.
 
@@ -144,6 +146,9 @@ Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalMod
 - [ ] Testar restauração e descarte de extração pendente.
 - [ ] Testar limite de IA sem bloquear catálogo ou manual.
 - [ ] Testar seleção de cargo e revisão da extração.
+- [x] Testar o progresso semântico e a recuperação com confirmação do anexo adicionado.
+- [ ] Validar em sessão autenticada o fluxo real `edital principal -> aviso de documento separado -> Anexo III -> revisão`, usando um dos pares IDCAP já analisados.
+- [ ] Validar em sessão autenticada que consumir a última extração fecha a jornada sem reabrir o modal de limite.
 - [ ] Testar criação manual e abertura imediata do cadastro de matérias.
 - [x] Rodar testes focados com Vitest/Testing Library.
 - [x] Rodar `npm run lint` e `npm run build`.
@@ -159,6 +164,13 @@ Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalMod
 - [ ] Trocas de método não provocam perda silenciosa de trabalho.
 - [ ] Cota, recuperação, extração, seleção de cargo e revisão continuam funcionando.
 - [ ] O modal fica menor em responsabilidade e não recebe outra expansão monolítica.
+
+## Encerramento pós-importação
+
+- [x] Fechar a jornada assim que a persistência do edital for confirmada, antes de recarregar cota e lista.
+- [x] Não remontar o modal de IA após consumir a última extração disponível.
+- [x] Permanecer em `Meus editais`, destacar e rolar até o edital recém-importado.
+- [x] Manter a abertura do cadastro de matérias somente para a criação manual.
 
 ## Fora do escopo inicial
 

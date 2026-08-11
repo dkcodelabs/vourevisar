@@ -647,7 +647,9 @@ const Editais = () => {
     }, [fetchEditais, user?.id]);
 
     const [searchParams] = useSearchParams();
-    const highlightedSourceId = searchParams.get('sourceId');
+    const routeHighlightedSourceId = searchParams.get('sourceId');
+    const [recentlyImportedEditalId, setRecentlyImportedEditalId] = useState<string | null>(null);
+    const highlightedSourceId = recentlyImportedEditalId || routeHighlightedSourceId;
     const [scrolledTo, setScrolledTo] = useState(false);
 
     const [publicEditais, setPublicEditais] = useState<PublicEditalSource[]>([]);
@@ -1897,6 +1899,12 @@ const Editais = () => {
                 userId: user.id,
             });
 
+            // A persistência terminou: feche a jornada antes de atualizar a lista.
+            // Isso evita remontar o modal já com a cota consumida e exibir um falso bloqueio.
+            setIsImportModalOpen(false);
+            setRecentlyImportedEditalId(editalId);
+            setScrolledTo(false);
+
             let finalEdital: UserEdital | null = null;
             if (!isImported) {
                 const { data: createdEdital, error: createdEditalError } = await editaisTable()
@@ -1909,13 +1917,10 @@ const Editais = () => {
                 finalEdital = rowToEdital(createdEdital);
             }
 
-            await fetchEditais();
-            await refreshData();
+            await Promise.all([fetchEditais(), refreshData()]);
 
             window.dispatchEvent(new CustomEvent('subjectUpdated'));
             window.dispatchEvent(new CustomEvent('topicUpdated'));
-
-            setIsImportModalOpen(false);
 
             if (!isImported && finalEdital) {
                 setSubjectsModal({ isOpen: true, edital: finalEdital });

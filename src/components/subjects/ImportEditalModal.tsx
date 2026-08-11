@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileText, Sparkles, Loader2, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Info, Eye, ArrowLeft, BookOpen, Settings } from 'lucide-react';
+import { Search, FileText, Sparkles, Loader2, ChevronUp, ChevronDown, Trash2, Save, Plus, X, MessageSquare, CalendarDays, Database, Send, CheckCircle2, AlertTriangle, Eye, ArrowLeft, BookOpen, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Subject } from '@/types';
@@ -18,6 +18,8 @@ import { sliceTextForSubjects } from '@/utils/editalTextSlicer';
 import { ImportMethodSelector, type ImportMethod } from '@/components/subjects/import-edital/ImportMethodSelector';
 import { AiOptionalContext } from '@/components/subjects/import-edital/AiOptionalContext';
 import { AiSourceStep, type AiSourceMode } from '@/components/subjects/import-edital/AiSourceStep';
+import { AiContentSourceRecovery } from '@/components/subjects/import-edital/AiContentSourceRecovery';
+import { ImportJourneyProgress } from '@/components/subjects/import-edital/ImportJourneyProgress';
 import {
     formatExamWeightInputValue,
     getExamWeightTotals,
@@ -216,6 +218,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [sourcePayload, setSourcePayload] = useState<DocumentPayload | null>(null);
     const [loadingPending, setLoadingPending] = useState(false);
     const [iaErrorMessage, setIaErrorMessage] = useState('');
+    const [missingContentSource, setMissingContentSource] = useState<{ message: string; originalFileCount: number } | null>(null);
     const [, setShowIaDataEditor] = useState(false);
     const [weightExtractionStatus, setWeightExtractionStatus] = useState<WeightExtractionStatus>('idle');
     const [weightBlockInfo, setWeightBlockInfo] = useState<ExtractedBlockWeight[]>([]);
@@ -645,6 +648,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setAiSourceMode('pdf');
         setShowOptionalContext(false);
         setExamDate('');
+        setMissingContentSource(null);
     };
 
     const handleCloseModal = async () => {
@@ -680,6 +684,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setAiSourceMode('pdf');
         setShowOptionalContext(false);
         setExamDate('');
+        setMissingContentSource(null);
     }, []);
 
     useEffect(() => {
@@ -773,6 +778,21 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     const handleImportMethodChange = (method: ImportMethod) => {
         setActiveTab(method);
+    };
+
+    const handleJourneySecondaryAction = () => {
+        if (iaStage === 'analyzing' || iaStage === 'extracting') {
+            iaFlowCancelledRef.current = true;
+            setIaStage(analysisResult ? 'selectCargo' : 'input');
+            return;
+        }
+
+        if (iaStage === 'review') {
+            setIaStage('selectCargo');
+            return;
+        }
+
+        setIaStage('input');
     };
 
     const repairJson = (jsonStr: string): string => {
@@ -1626,6 +1646,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     const handleIaImport = async () => {
         iaFlowCancelledRef.current = false;
+        setMissingContentSource(null);
         setIaStage('analyzing');
         setIaProgress(0);
         setProcessingMsg('Lendo o documento...');
@@ -1705,6 +1726,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             setIaStage('selectCargo');
 
         } catch (error: unknown) {
+            if (iaFlowCancelledRef.current) return;
             console.error('Erro na IA:', error);
             const msg = getErrorMessage(error);
 
@@ -1780,6 +1802,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         };
 
         setIaStage('extracting');
+        setMissingContentSource(null);
         setIaProgress(0);
         setIaErrorMessage('');
         setAnalysisResult(confirmedAnalysis);
@@ -1924,10 +1947,24 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             setIaStage('review');
         } catch (error: unknown) {
             stopProgressHints?.();
-            console.error('Erro na extração do cargo:', error);
+            if (iaFlowCancelledRef.current) return;
             const technicalMessage = getErrorMessage(error);
             const friendlyMessage = getFriendlyAiExtractionError(technicalMessage);
+
+            if (isMissingContentSourceMessage(technicalMessage)) {
+                console.info('[extract-edital] O edital informa que o conteúdo programático está em um documento separado.');
+                setIaErrorMessage('');
+                setMissingContentSource({
+                    message: friendlyMessage,
+                    originalFileCount: pdfFiles.length,
+                });
+                setIaStage(analysisResult ? 'selectCargo' : 'input');
+                return;
+            }
+
+            console.error('Erro na extração do cargo:', error);
             setIaErrorMessage(friendlyMessage);
+            setMissingContentSource(null);
             setShowIaDataEditor(true);
             errorService.report(error, {
                 module: 'ai-extraction',
@@ -2201,7 +2238,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             )}
 
             <div className={`${inlineMode ? 'px-2 pb-3' : 'px-5 pt-3'}`}>
-                <ImportMethodSelector value={activeTab} onChange={handleImportMethodChange} />
+                {activeTab === 'ia' && iaStage !== 'input' ? (
+                    <ImportJourneyProgress stage={iaStage} onSecondaryAction={handleJourneySecondaryAction} />
+                ) : (
+                    <ImportMethodSelector value={activeTab} onChange={handleImportMethodChange} />
+                )}
             </div>
             <input ref={pdfInputRef} type="file" accept="application/pdf,.pdf" multiple onChange={handleFileChange} className="hidden" aria-hidden="true" />
 
@@ -2886,9 +2927,14 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             })}
                                         </div>
                                         {iaStage === 'extracting' && (
-                                            <div className="mt-5 flex items-center gap-1.5 text-[10px] font-medium text-content-muted">
-                                                <Info size={12} className="shrink-0 text-primary/80" />
-                                                <span>Mantenha esta janela aberta até o resultado aparecer.</span>
+                                            <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-3 text-amber-800 dark:text-amber-100" role="status">
+                                                <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
+                                                <div>
+                                                    <p className="text-xs font-bold">Não feche esta janela</p>
+                                                    <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-amber-800/80 dark:text-amber-100/75">
+                                                        Mantenha esta tela aberta até a revisão aparecer.
+                                                    </p>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -2918,7 +2964,18 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                         )}
                                     </div>
 
-                                    {iaErrorMessage && (
+                                    {missingContentSource ? (
+                                        <AiContentSourceRecovery
+                                            message={missingContentSource.message}
+                                            files={pdfFiles}
+                                            originalFileCount={missingContentSource.originalFileCount}
+                                            selectedCargoName={selectedCargoName || iaPosition}
+                                            onAdd={() => pdfInputRef.current?.click()}
+                                            onRemove={handleRemovePdf}
+                                        />
+                                    ) : null}
+
+                                    {iaErrorMessage && !missingContentSource && (
                                         <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
                                             <p className="text-xs font-bold text-red-300">
                                                 {getAiErrorHeading()}
@@ -2926,15 +2983,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             <p className="text-[11px] text-red-200/80 mt-1 leading-relaxed">
                                                 {iaErrorMessage}
                                             </p>
-                                            {isMissingContentSourceMessage(iaErrorMessage) || iaErrorMessage.toLowerCase().includes('conteúdo programático') ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => pdfInputRef.current?.click()}
-                                                    className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-red-400/15 px-4 text-xs font-bold text-red-100 transition-colors hover:bg-red-400/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60"
-                                                >
-                                                    <Plus size={15} /> Adicionar o anexo indicado
-                                                </button>
-                                            ) : null}
                                         </div>
                                     )}
 
@@ -3451,11 +3499,17 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     <button
                         type="button"
                         onClick={hasOnlyGenericCargoAnalysis() ? handleIaImport : handleExtractSelectedCargo}
-                        disabled={!hasOnlyGenericCargoAnalysis() && !selectedCargoId}
+                        disabled={(!hasOnlyGenericCargoAnalysis() && !selectedCargoId) || Boolean(missingContentSource && pdfFiles.length <= missingContentSource.originalFileCount)}
                         className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-[6px] bg-primary px-5 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-lg shadow-primary/15 transition-all hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                     >
                         <Sparkles size={15} />
-                        {hasOnlyGenericCargoAnalysis() ? 'ANALISAR NOVAMENTE' : 'CONTINUAR EXTRAÇÃO'}
+                        {hasOnlyGenericCargoAnalysis()
+                            ? 'ANALISAR NOVAMENTE'
+                            : missingContentSource
+                                ? pdfFiles.length > missingContentSource.originalFileCount
+                                    ? 'USAR ANEXO E CONTINUAR'
+                                    : 'ADICIONE O ANEXO PARA CONTINUAR'
+                                : 'CONTINUAR EXTRAÇÃO'}
                     </button>
                 </div>
             )}
