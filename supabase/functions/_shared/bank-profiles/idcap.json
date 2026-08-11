@@ -1,0 +1,117 @@
+{
+  "banca": "IDCAP",
+  "aliases": [
+    "IDCAP",
+    "Instituto de Desenvolvimento e Capacitação",
+    "Instituto de Desenvolvimento e Capacitacao",
+    "Instituto de Desenvolvimento e Capacitação - IDCAP",
+    "Instituto de Desenvolvimento e Capacitacao - IDCAP"
+  ],
+  "objetivo": "Orientar a leitura estrutural de editais organizados pelo IDCAP sem transformar regras administrativas ou quadros de prova em conteúdo estudável.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "ANEXO II - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO II - CONTEUDO PROGRAMATICO",
+      "ANEXO II – CONTEÚDO PROGRAMÁTICO",
+      "ANEXO II – CONTEUDO PROGRAMATICO",
+      "ANEXO III - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO III - CONTEUDO PROGRAMATICO",
+      "ANEXO III – CONTEÚDO PROGRAMÁTICO",
+      "ANEXO III – CONTEUDO PROGRAMATICO",
+      "ANEXO DE CONTEÚDO PROGRAMÁTICO",
+      "ANEXO DE CONTEUDO PROGRAMATICO",
+      "CONTEÚDO PROGRAMÁTICO",
+      "CONTEUDO PROGRAMATICO",
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS COMUNS"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS",
+      "CONHECIMENTOS ESPECÍFICOS DO CARGO",
+      "CONHECIMENTOS ESPECIFICOS DO CARGO"
+    ],
+    "marcadores_de_opcao": [
+      "CARGO",
+      "CARGOS",
+      "FUNÇÃO",
+      "FUNCAO",
+      "ÁREA",
+      "AREA",
+      "ESPECIALIDADE",
+      "CATEGORIA",
+      "ÁREA FORMAÇÃO",
+      "AREA FORMACAO"
+    ],
+    "marcadores_de_agrupamento": [
+      "ANEXO DE CONTEÚDO PROGRAMÁTICO",
+      "ANEXO DE CONTEUDO PROGRAMATICO",
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS",
+      "PROVA OBJETIVA",
+      "PROVA DISCURSIVA",
+      "ETAPA"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "DAS DISPOSIÇÕES PRELIMINARES",
+      "DAS DISPOSICOES PRELIMINARES",
+      "DAS INSCRIÇÕES",
+      "DAS INSCRICOES",
+      "DAS VAGAS",
+      "DOS REQUISITOS",
+      "DAS ATRIBUIÇÕES",
+      "DAS ATRIBUICOES",
+      "DA REMUNERAÇÃO",
+      "DA REMUNERACAO",
+      "DAS PROVAS",
+      "DA PROVA OBJETIVA",
+      "DOS CRITÉRIOS DE AVALIAÇÃO",
+      "DOS CRITERIOS DE AVALIACAO",
+      "DO CRONOGRAMA"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "Identifique cargos, funções, categorias ou especialidades reais nas seções e tabelas oficiais de vagas, requisitos ou conteúdo. Não use etapa, turno, escolaridade, vaga, remuneração ou reserva como opção.",
+    "Quando houver somente uma opção real, preserve o nome integral do cargo ou categoria como aparece no edital. Nunca crie Cargo único como opção.",
+    "Quando Conhecimentos Específicos do Cargo for seguido por subtítulos numerados como 5.1, 5.2 ou 5.3 com nomes de categorias, trate cada subtítulo como opção real e aplique a ela apenas o conteúdo até a próxima categoria de mesmo nível.",
+    "Quando Conhecimentos Específicos (Área Formação) for seguido por linhas ou células com nomes de formações profissionais, combine o cargo indicado no cabeçalho com cada formação que realmente altera o conteúdo. A formação é uma opção do aluno, não uma disciplina.",
+    "Quando Conhecimentos Específicos for seguido diretamente por títulos completos de cargos ou funções em caixa alta, cada título delimita uma opção e não deve virar matéria.",
+    "Textos como COMUM A TODOS OS CARGOS indicam compartilhamento de conteúdo e nunca criam uma opção chamada Todos os cargos.",
+    "Em seleções portuárias, Trabalhador Portuário Avulso, sua categoria ou qualificadores como Multifuncional podem compor um único cargo. Só divida categorias quando o edital ou o anexo criar blocos explícitos de conteúdo, vagas, requisitos ou classificação para cada uma.",
+    "Em vestibulares, preserve curso ou opção de ingresso explicitamente indicada, como Medicina, sem inventar um cargo público.",
+    "Se um anexo isolado não trouxer nome suficiente do cargo, curso, categoria ou função, não deduza a opção a partir das leis ou dos tópicos. O edital de abertura deve complementar o anexo.",
+    "Anexos de atribuições e conteúdo podem confirmar o vínculo de um cargo, mas itens de atribuição não são disciplinas nem tópicos de estudo."
+  ],
+  "regras_para_extrair_conteudo": [
+    "A fonte primária é o anexo ou a seção intitulada CONTEÚDO PROGRAMÁTICO. O número não é fixo: derive do próprio documento, pois a IDCAP usa Anexo II, Anexo III ou outro identificador. Uma simples referência ao anexo ou sua presença na lista final de documentos não significa que o conteúdo esteja no PDF enviado.",
+    "Só considere o conteúdo programático presente quando houver um cabeçalho real de anexo/seção seguido por títulos de disciplinas ou opções e por tópicos substantivos. Se o documento apenas disser que a prova será baseada no conteúdo, mostrar uma tabela de disciplinas ou listar anexos, não invente matérias e não trate regras administrativas como conteúdo.",
+    "Quando houver um único cargo, curso ou opção e o anexo de conteúdo não repetir esse nome, trate o conteúdo inteiro do anexo como aplicável à opção já selecionada. Não retorne conteúdo vazio só porque a opção não aparece novamente dentro do anexo.",
+    "Conhecimentos Gerais, Conhecimentos Básicos, Conhecimentos Específicos, Conhecimentos Específicos do Cargo e Conhecimentos Específicos (Área Formação) normalmente são agrupadores de classificação. Use os títulos internos como matérias quando eles existirem explicitamente.",
+    "Exceção terminal: se um agrupador de Conhecimentos Específicos for seguido diretamente pelos tópicos da opção selecionada e não houver título interno de disciplina, crie uma única matéria chamada Conhecimentos Específicos. Não descarte o bloco e não invente subdivisões.",
+    "Títulos de disciplinas podem estar numerados ou não, em caixa alta ou em formato de título, com ou sem dois-pontos. Exemplos estruturais válidos incluem 1. Língua Portuguesa, LÍNGUA PORTUGUESA:, MATEMÁTICA e LEGISLAÇÃO MUNICIPAL. Separe o título dos itens que o sucedem.",
+    "Marcadores como COMUM A TODOS OS CARGOS classificam a aplicabilidade da matéria. Inclua essas matérias para toda opção selecionada e remova o marcador do nome exibido da disciplina.",
+    "Dentro de Conhecimentos Específicos, títulos internos explicitamente destacados como Direito Constitucional, Direito Administrativo ou equivalentes podem ser matérias separadas. Não crie matérias a partir de palavras apenas mencionadas no meio de um parágrafo.",
+    "Em blocos por categoria, formação, cargo ou função, o nome da opção delimita o conteúdo; ele não é matéria. Quando não houver título interno, represente o trecho selecionado como uma única matéria Conhecimentos Específicos.",
+    "Quando uma disciplina vier com lista numerada, preserve a numeração e mantenha complementos, normas e listas do mesmo item. Quando vier em texto corrido sem numeração, crie tópicos curtos e fiéis apenas quando houver separação explícita por ponto e vírgula, alínea ou enumeração.",
+    "Use quadros de prova, número de questões, pontuação, nota mínima e critérios apenas na etapa de pesos. Eles não criam matérias ou tópicos.",
+    "Pare a extração no próximo cargo, categoria, formação, função, especialidade, anexo ou seção administrativa de mesmo nível. Não misture conteúdo de outra opção.",
+    "Não transforme o número do anexo, prova, etapa, cargo, categoria, formação ou o marcador COMUM A TODOS OS CARGOS em disciplina."
+  ],
+  "regras_para_extrair_pesos": [
+    "A extração de pesos é separada da extração de matérias e tópicos.",
+    "Use quadro de provas, quantidade de questões, pontuação ou valor por questão somente quando a evidência estiver explicitamente ligada a uma disciplina ou bloco.",
+    "Quando houver apenas peso por Conhecimentos Gerais ou Específicos, retorne peso por bloco e não o distribua automaticamente entre as disciplinas internas.",
+    "Nunca deduza peso pela ordem, pelo número de tópicos ou pela importância percebida."
+  ],
+  "instrucao_para_ia": "Para IDCAP, diferencie referência de presença: o edital de abertura e o anexo de CONTEÚDO PROGRAMÁTICO podem ser PDFs separados, e o número do anexo deve ser lido no próprio documento, nunca fixado como III. Só extraia quando houver cabeçalho real do conteúdo seguido por matérias ou opções e tópicos substantivos; menção no corpo, tabela da prova ou lista de anexos não basta. Aceite matérias numeradas ou não, em caixa alta ou formato de título, com ou sem dois-pontos. Inclua para a opção selecionada toda matéria marcada COMUM A TODOS OS CARGOS, removendo esse marcador do nome. Conhecimentos Gerais/Básicos/Específicos são agrupadores quando possuem títulos internos; se Conhecimentos Específicos conduzir diretamente aos tópicos da opção e não houver disciplina interna, crie uma única matéria Conhecimentos Específicos para não perder o conteúdo. Subtítulos de categoria, formação, cargo ou função delimitam opções e não são matérias; extraia somente a opção escolhida e pare na próxima opção de mesmo nível. Em anexo de opção única, todo o programa pode ser aplicável mesmo sem repetir o cargo. Tabelas de vagas, atribuições, provas, pontuação, requisitos, cronograma e regras administrativas não são fonte de tópicos. Não invente opção a partir das leis ou do conteúdo quando o anexo isolado não trouxer nome suficiente."
+}

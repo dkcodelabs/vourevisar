@@ -86,7 +86,10 @@ export function useAuthOperations() {
         localStorage.setItem('pendingConfirmationCooldownUntil', String(Date.now() + 60_000));
       }
 
-      toastManager.success('Cadastro realizado! Verifique seu e-mail para confirmar o cadastro.');
+      // Supabase intentionally returns an obfuscated success for an address that
+      // already belongs to a confirmed account. Never promise an email here,
+      // because that would be false for that safe, generic response.
+      toastManager.success('Se este endereço precisar de confirmação, enviaremos um link por e-mail.');
       return { ...data, confirmationPending };
     } catch (error: unknown) {
       console.error('Sign up error:', error);

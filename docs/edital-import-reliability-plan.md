@@ -1,0 +1,16 @@
+# Plano: Confiabilidade da importacao de editais
+
+- [x] Investigar a falha do edital OGMO/ES 2022 (IDCAP): o PDF enviado tem somente o edital de abertura (20 paginas), referencia o Anexo III e termina na lista de anexos; o conteudo programatico foi publicado pelo IDCAP em outro PDF, de uma pagina.
+- [x] Adicionar perfil IDCAP isolado, com leitura de cargo unico e blocos de conhecimentos, sem alterar os perfis existentes.
+- [x] Corrigir o perfil IDCAP para diferenciar uma referencia ao Anexo III da presenca real do anexo: o cabecalho precisa ser seguido por titulos de disciplinas e topicos.
+- [x] Criar diagnostico estrutural reutilizavel para qualquer banca que publique o conteudo em arquivo separado, interrompendo o fallback duplicado e orientando o aluno a anexar o documento correto.
+- [x] Validar o detector com os dois PDFs oficiais: o edital de abertura aponta `EDITAL_CONTENT_SOURCE_MISSING / Anexo III`; o Anexo III real e liberado e contem Lingua Portuguesa, Matematica, Lingua Inglesa e Informatica Basica.
+- [x] Fazer deploy de `extract-edital` (versao 147, `verify_jwt=true`) e validar em producao que o edital de abertura mostra a orientacao de documento ausente sem executar o fallback antigo.
+- [x] Comparar seis pares/documentos IDCAP de 2025-2026 (FAESA, PPES, IASES, Vitoria, OGMO Santarem e Itupeva) e registrar as variacoes reaproveitaveis: Anexo II ou III, materias com ou sem numeracao/dois-pontos, conteudo comum e blocos especificos por cargo, categoria ou formacao.
+- [x] Corrigir o detector para reconhecer anexos substantivos com titulos sem dois-pontos e impedir o falso diagnostico de que um Anexo II/III presente esta ausente.
+- [x] Corrigir o diagnostico de documentos sem topicos: informar o anexo exato quando declarado, explicar quando o arquivo e apenas uma retificacao e usar mensagem neutra quando o edital mostra somente a estrutura da prova sem identificar outro arquivo.
+- [x] Generalizar o perfil IDCAP: derivar o numero do anexo, incluir materias comuns, separar opcoes de cargo/categoria/formacao e preservar Conhecimentos Especificos como materia terminal quando nao houver subtitulo interno.
+- [x] Validar a versao 148 em producao com o Anexo III do IASES: a analise encontrou cinco opcoes por formacao e a extracao de Servico Social chegou a revisao com cinco materias (tres comuns, legislacao socioeducativa comum e especificos de Servico Social), totalizando 103 topicos sem misturar as demais formacoes.
+- [ ] Validar em producao que o Anexo III segue ate a revisao com quatro materias; a tentativa local de 11/08/2026 nao chegou a Edge Function (`FunctionsFetchError: Failed to send a request`), portanto ainda nao prova a extracao completa.
+- [ ] Implementar no redesenho do modal a composicao de edital principal + anexo no mesmo rascunho; ate la, anexos isolados sem identificacao suficiente do cargo ainda exigem o edital de abertura ou contexto manual do aluno.
+- [ ] Registrar qualquer variacao estrutural nova no perfil IDCAP, nunca em regra especifica do componente.
