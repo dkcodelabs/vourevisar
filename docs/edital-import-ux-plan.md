@@ -56,7 +56,7 @@ Ao abrir por uma ação genérica como `Adicionar edital`, mostrar primeiro a es
 
 - [x] Exibir progresso semântico: `Documento`, `Cargo` e `Revisão`.
 - [x] Separar falha real de recuperação quando o edital aponta o conteúdo para outro documento.
-- [x] Manter cancelamento seguro durante análise/extração.
+- [x] Manter cancelamento seguro durante análise/extração, abortando as chamadas ativas da Edge Function com `AbortSignal`.
 - [x] Preservar restauração de extração pendente.
 - [ ] Não descartar rascunho ao trocar de método sem confirmação quando houver trabalho recuperável.
 
@@ -170,6 +170,8 @@ Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalMod
 - [x] Fechar a jornada assim que a persistência do edital for confirmada, antes de recarregar cota e lista.
 - [x] Não remontar o modal de IA após consumir a última extração disponível.
 - [x] Permanecer em `Meus editais`, destacar e rolar até o edital recém-importado.
+- [x] Remover o destaque transitório depois de alguns segundos, sem manter o card preso em estado especial.
+- [x] Tratar falha de atualização pós-importação como recuperação de tela, sem informar falsamente que a persistência falhou ou incentivar duplicidade.
 - [x] Manter a abertura do cadastro de matérias somente para a criação manual.
 
 ## Fora do escopo inicial

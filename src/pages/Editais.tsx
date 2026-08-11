@@ -565,7 +565,7 @@ const Editais = () => {
 
 
     // ── Fetch editais do Supabase ──
-    const fetchEditais = useCallback(async () => {
+    const fetchEditais = useCallback(async (options: { reportError?: boolean } = {}) => {
         if (!user?.id) return;
         try {
             const [{ data, error }, { data: sessionsData, error: sessionsError }] = await Promise.all([
@@ -592,6 +592,7 @@ const Editais = () => {
             setEditais((data || []).map(rowToEdital).sort(compareEditaisByCreatedOrder));
             setStudySessions((sessionsData || []) as StudySessionSummary[]);
         } catch (err) {
+            if (options.reportError === false) throw err;
             errorService.report(err, { module: 'editais', action: 'fetch', userMessage: 'Erro ao carregar editais.' });
         } finally {
             setLoadingEditais(false);
@@ -919,6 +920,12 @@ const Editais = () => {
             return () => clearTimeout(timer);
         }
     }, [highlightedSourceId, filteredEditais, scrolledTo]);
+
+    useEffect(() => {
+        if (!recentlyImportedEditalId) return;
+        const timer = window.setTimeout(() => setRecentlyImportedEditalId(null), 6000);
+        return () => window.clearTimeout(timer);
+    }, [recentlyImportedEditalId]);
 
     // ── Métricas por edital ──
     const getEditalMetrics = useCallback((edital: UserEdital) => {
@@ -1906,24 +1913,42 @@ const Editais = () => {
             setScrolledTo(false);
 
             let finalEdital: UserEdital | null = null;
-            if (!isImported) {
-                const { data: createdEdital, error: createdEditalError } = await editaisTable()
-                    .select('*')
-                    .eq('id', editalId)
-                    .eq('user_id', user.id)
-                    .single();
-                if (createdEditalError) throw createdEditalError;
-                if (!createdEdital) throw new Error('Edital criado, mas não foi possível carregá-lo.');
-                finalEdital = rowToEdital(createdEdital);
-            }
+            let postImportRefreshFailed = false;
+            try {
+                if (!isImported) {
+                    const { data: createdEdital, error: createdEditalError } = await editaisTable()
+                        .select('*')
+                        .eq('id', editalId)
+                        .eq('user_id', user.id)
+                        .single();
+                    if (createdEditalError) throw createdEditalError;
+                    if (!createdEdital) throw new Error('Edital criado, mas não foi possível carregá-lo.');
+                    finalEdital = rowToEdital(createdEdital);
+                }
 
-            await Promise.all([fetchEditais(), refreshData()]);
+                await Promise.all([fetchEditais({ reportError: false }), refreshData()]);
+            } catch (postImportError) {
+                postImportRefreshFailed = true;
+                await errorService.report(postImportError, {
+                    module: 'editais',
+                    action: 'refresh-after-import',
+                    severity: 'low',
+                    scope: 'core',
+                    userMessage: 'O edital foi salvo, mas a tela não conseguiu atualizar a lista.',
+                    showToast: false,
+                });
+            }
 
             window.dispatchEvent(new CustomEvent('subjectUpdated'));
             window.dispatchEvent(new CustomEvent('topicUpdated'));
 
             if (!isImported && finalEdital) {
                 setSubjectsModal({ isOpen: true, edital: finalEdital });
+            }
+
+            if (postImportRefreshFailed) {
+                toast.warning(`Edital "${finalName}" salvo. Atualize a página para carregar os dados mais recentes.`);
+            } else if (!isImported && finalEdital) {
                 toast.success(`Edital "${finalName}" criado! Agora adicione as matérias.`);
             } else {
                 toast.success(`Edital "${finalName}" com ${realSubjectIds.length} matéria(s) importado com sucesso!`);

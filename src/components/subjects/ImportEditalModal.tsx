@@ -224,6 +224,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const [weightBlockInfo, setWeightBlockInfo] = useState<ExtractedBlockWeight[]>([]);
     const [closeAttentionPulse, setCloseAttentionPulse] = useState(false);
     const iaFlowCancelledRef = useRef(false);
+    const aiRequestAbortRef = useRef<AbortController | null>(null);
     const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
     // IA Limits & Quota States
@@ -654,6 +655,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const handleCloseModal = async () => {
         if (activeTab === 'ia' && ['analyzing', 'extracting'].includes(iaStage)) {
             iaFlowCancelledRef.current = true;
+            aiRequestAbortRef.current?.abort();
         }
 
         onClose();
@@ -783,6 +785,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     const handleJourneySecondaryAction = () => {
         if (iaStage === 'analyzing' || iaStage === 'extracting') {
             iaFlowCancelledRef.current = true;
+            aiRequestAbortRef.current?.abort();
             setIaStage(analysisResult ? 'selectCargo' : 'input');
             return;
         }
@@ -1451,7 +1454,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         confirmedAnalysis: AiEditalAnalysis,
         cargo: AiEditalAnalysis['cargos'][number],
         confirmedCargoName: string,
-        baseSubjects: AiSubject[]
+        baseSubjects: AiSubject[],
+        signal: AbortSignal,
     ): Promise<AiSubject[]> => {
         if (!baseSubjects.length) return baseSubjects;
 
@@ -1485,7 +1489,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         title: subject.title,
                         knowledgeType: subject.knowledgeType || null
                     }))
-                }
+                },
+                signal,
             });
 
             if (result.error) {
@@ -1509,6 +1514,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
             return mergeSubjectsWithOptionalWeights(baseSubjects, weights);
         } catch (error) {
+            if (signal.aborted) return baseSubjects;
             console.warn('[extract-edital weights] Falha opcional. Continuando sem peso.', error);
             setWeightExtractionStatus('failed');
             return baseSubjects;
@@ -1519,7 +1525,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         documentPayload: DocumentPayload,
         confirmedAnalysis: AiEditalAnalysis,
         cargo: AiEditalAnalysis['cargos'][number],
-        confirmedCargoName: string
+        confirmedCargoName: string,
+        signal: AbortSignal,
     ): Promise<AiSubject[] | null> => {
         const fullText = documentPayload.inputText?.trim();
         if (!fullText || fullText.length < 3000) return null;
@@ -1534,7 +1541,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 selectedCargoId: cargo.id,
                 selectedCargo: confirmedCargoName,
                 analysis: confirmedAnalysis
-            }
+            },
+            signal,
         });
 
         if (structureResult.error) {
@@ -1591,7 +1599,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         subjectTitle,
                         knowledgeType: slice.subject.tipo_conhecimento,
                         sourceExcerpt: slice.sourceExcerpt
-                    }
+                    },
+                    signal,
                 });
 
                 if (subjectResult.error) {
@@ -1646,6 +1655,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     const handleIaImport = async () => {
         iaFlowCancelledRef.current = false;
+        aiRequestAbortRef.current?.abort();
+        const requestController = new AbortController();
+        aiRequestAbortRef.current = requestController;
         setMissingContentSource(null);
         setIaStage('analyzing');
         setIaProgress(0);
@@ -1661,6 +1673,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         try {
             const targetCargoBeforeAnalysis = iaPosition.trim();
             const documentPayload = await buildDocumentPayload();
+            if (iaFlowCancelledRef.current || requestController.signal.aborted) return;
             const detectedCargoOptions = getDetectedCargoOptionsForFunction(documentPayload);
             setSourcePayload(documentPayload);
             await sleep(250);
@@ -1678,7 +1691,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     year: iaYear,
                     targetCargo: targetCargoBeforeAnalysis || undefined,
                     detectedCargoOptions: detectedCargoOptions.length ? detectedCargoOptions : undefined
-                }
+                },
+                signal: requestController.signal,
             });
 
             if (result.error) {
@@ -1747,6 +1761,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             });
             toastGate.notifyError(friendlyMessage, 'IA-01');
             setIaStage('input');
+        } finally {
+            if (aiRequestAbortRef.current === requestController) {
+                aiRequestAbortRef.current = null;
+            }
         }
     };
 
@@ -1801,6 +1819,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 : [cargo, ...analysisResult.cargos]
         };
 
+        aiRequestAbortRef.current?.abort();
+        const requestController = new AbortController();
+        aiRequestAbortRef.current = requestController;
         setIaStage('extracting');
         setMissingContentSource(null);
         setIaProgress(0);
@@ -1818,7 +1839,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             setProcessingMsg(`Analisando conteúdo programático de ${confirmedCargoName}...`);
 
             try {
-                const incrementalResults = await tryIncrementalExtraction(documentPayload, confirmedAnalysis, cargo, confirmedCargoName);
+                const incrementalResults = await tryIncrementalExtraction(documentPayload, confirmedAnalysis, cargo, confirmedCargoName, requestController.signal);
                 if (incrementalResults && incrementalResults.length > 0) {
                     stopProgressHints?.();
                     stopProgressHints = null;
@@ -1842,7 +1863,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                         confirmedAnalysis,
                         cargo,
                         confirmedCargoName,
-                        incrementalResults
+                        incrementalResults,
+                        requestController.signal,
                     );
                     if (iaFlowCancelledRef.current) return;
                     setAiResult(weightedResults);
@@ -1859,6 +1881,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     return;
                 }
             } catch (incrementalError: unknown) {
+                if (iaFlowCancelledRef.current || requestController.signal.aborted) return;
                 const incrementalMessage = getErrorMessage(incrementalError);
                 if (isAiRateLimitMessage(incrementalMessage) || isMissingContentSourceMessage(incrementalMessage)) {
                     throw incrementalError;
@@ -1886,7 +1909,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     selectedCargoId: cargo.id,
                     selectedCargo: confirmedCargoName,
                     analysis: confirmedAnalysis
-                }
+                },
+                signal: requestController.signal,
             });
             stopProgressHints?.();
 
@@ -1930,7 +1954,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 confirmedAnalysis,
                 cargo,
                 confirmedCargoName,
-                mappedResults
+                mappedResults,
+                requestController.signal,
             );
             if (iaFlowCancelledRef.current) return;
             setAiResult(weightedResults);
@@ -1976,6 +2001,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             });
             toastGate.notifyError(friendlyMessage, 'IA-EXTRACT-01');
             setIaStage(analysisResult ? 'selectCargo' : 'input');
+        } finally {
+            if (aiRequestAbortRef.current === requestController) {
+                aiRequestAbortRef.current = null;
+            }
         }
     };
 
