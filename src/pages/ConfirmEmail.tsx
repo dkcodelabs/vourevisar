@@ -132,10 +132,10 @@ const ConfirmEmail = () => {
         return;
       }
 
-      toast.success('Solicitação de confirmação aceita. Verifique seu email.');
+      toast.success('Solicitação de confirmação aceita.');
       setResendFeedback({
         tone: 'success',
-        message: 'Solicitação aceita. Verifique sua caixa de entrada, spam ou lixo eletrônico. A entrega pode levar alguns minutos.'
+        message: 'Se a confirmação ainda estiver pendente, o email poderá chegar em alguns minutos. Verifique sua caixa de entrada, spam ou lixo eletrônico.'
       });
       setResendCooldown(60); // 60 second cooldown
       localStorage.setItem('pendingConfirmationCooldownUntil', String(Date.now() + 60_000));
@@ -175,7 +175,7 @@ const ConfirmEmail = () => {
                   ? 'O link não pôde ser concluído. Solicite um novo email e use o link mais recente.'
                   : isAwaitingConfirmation
                     ? 'Confirme seu cadastro pelo link enviado anteriormente. Se não encontrar o email, solicite um novo link.'
-                    : 'Enviamos um link de confirmação para:'}
+                    : 'Se este endereço precisar de confirmação, enviaremos um link para:'}
             </p>
             {email && (
               <p className="font-semibold text-foreground mt-2">
@@ -198,9 +198,8 @@ const ConfirmEmail = () => {
                 </>
               ) : (
                 <>
-                  <li>Abra seu email</li>
-                  <li>Procure por um email do vouRevisar</li>
-                  <li>Clique no botão "Confirmar meu cadastro"</li>
+                  <li>Aguarde alguns minutos e abra seu email</li>
+                  <li>Se receber uma mensagem do vouRevisar, clique em "Confirmar meu cadastro"</li>
                   <li>Você será redirecionado automaticamente</li>
                 </>
               )}

@@ -98,6 +98,13 @@ describe('ConfirmEmail', () => {
       email: 'aluno@example.com',
       options: { emailRedirectTo: 'https://www.vourevisar.com.br/auth/callback' },
     }));
-    expect(await screen.findByText(/solicitação aceita/i)).toBeInTheDocument();
+    expect(await screen.findByText(/se a confirmação ainda estiver pendente/i)).toBeInTheDocument();
+  });
+
+  it('não promete um email antes de o Supabase confirmar que há envio pendente', async () => {
+    renderConfirmEmail();
+
+    expect(screen.getByText(/se este endereço precisar de confirmação/i)).toBeInTheDocument();
+    expect(screen.queryByText(/enviamos um link de confirmação para/i)).not.toBeInTheDocument();
   });
 });
