@@ -1395,6 +1395,7 @@ export type Database = {
           pdf_url: string | null
           position: string | null
           selected_cargo: string | null
+          source_files: Json
           source_type: string | null
           updated_at: string | null
           user_id: string
@@ -1410,6 +1411,7 @@ export type Database = {
           pdf_url?: string | null
           position?: string | null
           selected_cargo?: string | null
+          source_files?: Json
           source_type?: string | null
           updated_at?: string | null
           user_id: string
@@ -1425,6 +1427,7 @@ export type Database = {
           pdf_url?: string | null
           position?: string | null
           selected_cargo?: string | null
+          source_files?: Json
           source_type?: string | null
           updated_at?: string | null
           user_id?: string

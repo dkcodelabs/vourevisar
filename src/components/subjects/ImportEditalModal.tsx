@@ -15,6 +15,9 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { mergeRecoveredCesgranrioBasicSubjects, recoverCesgranrioBasicSubjects } from '@/utils/cesgranrioContentStructure';
 import { detectCargoOptionsFromEditalText, type DetectedCargoOption } from '@/utils/editalCargoDetector';
 import { sliceTextForSubjects } from '@/utils/editalTextSlicer';
+import { ImportMethodSelector, type ImportMethod } from '@/components/subjects/import-edital/ImportMethodSelector';
+import { AiOptionalContext } from '@/components/subjects/import-edital/AiOptionalContext';
+import { AiSourceStep, type AiSourceMode } from '@/components/subjects/import-edital/AiSourceStep';
 import {
     formatExamWeightInputValue,
     getExamWeightTotals,
@@ -153,6 +156,7 @@ type DocumentPayload = {
     pdfUrl?: string;
     pdfPath?: string;
     pdfFileUri?: string;
+    pdfPaths?: string[];
     sourceType: 'text' | 'pdf';
     detectedCargoOptions?: DetectedCargoOption[];
 };
@@ -188,6 +192,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     // Manual States
     const [manualOrigin, setManualOrigin] = useState('');
     const [manualPosition, setManualPosition] = useState('');
+    const [manualBanca, setManualBanca] = useState('');
     const [importingManual, setImportingManual] = useState(false);
     const [manualYear, setManualYear] = useState('');
     const [iaYear, setIaYear] = useState('');
@@ -195,7 +200,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     // IA States
     const [inputText, setInputText] = useState('');
-    const [pdfFile, setPdfFile] = useState<File | null>(null);
+    const [pdfFiles, setPdfFiles] = useState<File[]>([]);
+    const [aiSourceMode, setAiSourceMode] = useState<AiSourceMode>('pdf');
+    const [showOptionalContext, setShowOptionalContext] = useState(false);
     const [iaStage, setIaStage] = useState<'input' | 'analyzing' | 'selectCargo' | 'extracting' | 'review'>('input');
     const [iaEditalName, setIaEditalName] = useState('');
     const [aiResult, setAiResult] = useState<AiSubject[]>([]);
@@ -415,7 +422,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         try {
             const { data, error } = await supabase
                 .from('pending_ai_extractions')
-                .select('id, edital_name, updated_at, ai_result, analysis_result, selected_cargo, source_type, pdf_url, origin, position, year')
+                .select('id, edital_name, updated_at, ai_result, analysis_result, selected_cargo, source_type, pdf_url, source_files, origin, position, year')
                 .eq('user_id', user.id)
                 .maybeSingle();
             
@@ -440,12 +447,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     updatedAt: data.updated_at,
                     source: 'db'
                 });
-                if (data.source_type || data.pdf_url) {
+                if (data.source_type || data.pdf_url || data.source_files) {
                     const storedPdfRef = data.pdf_url || undefined;
+                    const storedPdfPaths = Array.isArray(data.source_files)
+                        ? data.source_files.filter((value): value is string => typeof value === 'string')
+                        : [];
                     restoredSourcePayload = {
                         sourceType: data.source_type === 'pdf' ? 'pdf' : 'text',
                         pdfUrl: storedPdfRef?.startsWith('http') ? storedPdfRef : undefined,
-                        pdfPath: storedPdfRef && !storedPdfRef.startsWith('http') ? storedPdfRef : undefined
+                        pdfPath: storedPdfRef && !storedPdfRef.startsWith('http') ? storedPdfRef : undefined,
+                        pdfPaths: storedPdfPaths.length ? storedPdfPaths : undefined
                     };
                 }
 
@@ -562,7 +573,8 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 analysis_result: options?.analysis ?? analysisResult,
                 selected_cargo: (options?.selectedCargo ?? selectedCargoName) || null,
                 source_type: options?.source?.sourceType ?? sourcePayload?.sourceType ?? null,
-                pdf_url: options?.source?.pdfPath ?? options?.source?.pdfUrl ?? sourcePayload?.pdfPath ?? sourcePayload?.pdfUrl ?? null
+                pdf_url: options?.source?.pdfPath ?? options?.source?.pdfUrl ?? sourcePayload?.pdfPath ?? sourcePayload?.pdfUrl ?? null,
+                source_files: options?.source?.pdfPaths ?? sourcePayload?.pdfPaths ?? []
             };
 
             if (existing) {
@@ -629,7 +641,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setIaBanca('');
         setShowIaDataEditor(false);
         setInputText('');
-        setPdfFile(null);
+        setPdfFiles([]);
+        setAiSourceMode('pdf');
+        setShowOptionalContext(false);
         setExamDate('');
     };
 
@@ -648,12 +662,6 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         window.setTimeout(() => setCloseAttentionPulse(false), 900);
     };
 
-    const handleAttachPdfClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-        event.preventDefault();
-        event.stopPropagation();
-        pdfInputRef.current?.click();
-    };
-
     const resetPendingState = useCallback(() => {
         setPendingExtraction(null);
         setAiResult([]);
@@ -668,7 +676,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         setIaBanca('');
         setShowIaDataEditor(false);
         setInputText('');
-        setPdfFile(null);
+        setPdfFiles([]);
+        setAiSourceMode('pdf');
+        setShowOptionalContext(false);
         setExamDate('');
     }, []);
 
@@ -704,42 +714,65 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         }
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            if (file.size > 5 * 1024 * 1024) {
-                toastGate.notifyError('O arquivo deve ter no máximo 5MB. Use o campo de texto se o arquivo for maior.', 'PDF-01', { severity: 'low' });
-                e.target.value = '';
-                return;
-            }
-            if (file.type !== 'application/pdf') {
-                toastGate.notifyError('Apenas arquivos PDF são aceitos.', 'PDF-02', { severity: 'low' });
-                e.target.value = '';
-                return;
-            }
-            setPdfFile(file);
-            setSourcePayload(null);
-            setAnalysisResult(null);
-            setAiResult([]);
-            setIaErrorMessage('');
-            
+    const extractSelectedPdfText = async (files: File[]) => {
+        const { extractPdfText } = await import('@/utils/pdfTextExtractor');
+        const extracted = await Promise.all(files.map(async (file, index) => {
             try {
-                const { extractPdfText } = await import('@/utils/pdfTextExtractor');
                 const result = await extractPdfText(file);
-                console.log('📊 [pdfTextExtractor] Métricas de qualidade:', result.metrics);
-                
-                // Mesmo texto compacto pode ser util para recuperar escopos estruturais como CARGOS: da Cesgranrio.
-                if (result.metrics.extractionQuality !== 'poor' || result.fullText.length >= 1000) {
-                    setInputText(result.fullText);
-                } else {
-                    setInputText('');
-                    console.warn('⚠️ [pdfTextExtractor] Qualidade poor. O backend usará a File API.');
-                }
-            } catch (err) {
-                console.error('❌ [pdfTextExtractor] Erro ao extrair texto localmente:', err);
-                setInputText('');
+                console.log('[pdfTextExtractor] Métricas de qualidade:', { file: file.name, ...result.metrics });
+                if (result.metrics.extractionQuality === 'poor' && result.fullText.length < 1000) return '';
+                return `\n\n===== DOCUMENTO ${index + 1}: ${file.name} =====\n\n${result.fullText}`;
+            } catch (error) {
+                console.warn('[pdfTextExtractor] Falha na leitura local:', file.name, error);
+                return '';
             }
+        }));
+        return extracted.filter(Boolean).join('').trim();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const selected = Array.from(event.target.files || []);
+        event.target.value = '';
+        if (!selected.length) return;
+
+        const invalidType = selected.find(file => file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf'));
+        if (invalidType) {
+            toastGate.notifyError('Apenas arquivos PDF são aceitos.', 'PDF-02', { severity: 'low' });
+            return;
         }
+        const oversized = selected.find(file => file.size > 5 * 1024 * 1024);
+        if (oversized) {
+            toastGate.notifyError(`O arquivo ${oversized.name} excede 5 MB.`, 'PDF-01', { severity: 'low' });
+            return;
+        }
+
+        const uniqueFiles = [...pdfFiles, ...selected].filter((file, index, all) =>
+            all.findIndex(candidate => candidate.name === file.name && candidate.size === file.size && candidate.lastModified === file.lastModified) === index
+        );
+        if (uniqueFiles.length > 4) {
+            toastGate.notifyError('Envie no máximo 4 documentos por importação.', 'PDF-03', { severity: 'low' });
+            return;
+        }
+
+        setPdfFiles(uniqueFiles);
+        setAiSourceMode('pdf');
+        setSourcePayload(null);
+        setAiResult([]);
+        setIaErrorMessage('');
+        const extractedText = await extractSelectedPdfText(uniqueFiles);
+        setInputText(extractedText);
+    };
+
+    const handleRemovePdf = async (index: number) => {
+        const remaining = pdfFiles.filter((_, fileIndex) => fileIndex !== index);
+        setPdfFiles(remaining);
+        setSourcePayload(null);
+        setIaErrorMessage('');
+        setInputText(remaining.length ? await extractSelectedPdfText(remaining) : '');
+    };
+
+    const handleImportMethodChange = (method: ImportMethod) => {
+        setActiveTab(method);
     };
 
     const repairJson = (jsonStr: string): string => {
@@ -941,7 +974,9 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             try {
                 const body: unknown = await errorResponse.clone().json();
                 const bodyRecord = asRecord(body);
-                return getString(bodyRecord, 'error', 'message') || JSON.stringify(body);
+                const message = getString(bodyRecord, 'error', 'message') || JSON.stringify(body);
+                const code = getString(bodyRecord, 'code');
+                return code ? `${code}: ${message}` : message;
             } catch {
                 try {
                     const text = await errorResponse.clone().text();
@@ -956,6 +991,10 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
     const getFriendlyAiExtractionError = (message: string) => {
         const normalized = message.toLowerCase();
+
+        if (message.includes('EDITAL_CONTENT_SOURCE_MISSING')) {
+            return message.replace('EDITAL_CONTENT_SOURCE_MISSING:', '').trim();
+        }
 
         // 1. Tratar cota comercial do estudante excedida
         if (message.includes('AI_LIMIT_EXCEEDED') || normalized.includes('esgotou seu limite') || normalized.includes('cota comercial')) {
@@ -998,38 +1037,49 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
         );
     };
 
+    const isMissingContentSourceMessage = (message: string) => (
+        message.includes('EDITAL_CONTENT_SOURCE_MISSING')
+    );
+
+    const getAiErrorHeading = () => (
+        iaErrorMessage.toLowerCase().includes('conteúdo programático')
+            ? 'O conteúdo programático não está neste arquivo.'
+            : 'Não consegui concluir a extração agora.'
+    );
+
     const buildDocumentPayload = async () => {
         const payload: DocumentPayload = { sourceType: 'text' };
 
-        if (pdfFile) {
+        if (aiSourceMode === 'pdf' && pdfFiles.length > 0) {
             if (!user?.id) {
                 throw new Error('Sua sessão expirou. Faça login novamente para enviar o PDF.');
             }
 
-            setProcessingMsg('Lendo o documento...');
-            const safeFileName = pdfFile.name
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .replace(/[^a-zA-Z0-9._-]/g, '-')
-                .replace(/-+/g, '-')
-                .toLowerCase();
-            const fileName = `${user.id}/${Date.now()}-${crypto.randomUUID()}-${safeFileName || 'edital.pdf'}`;
-            const { error: uploadError } = await supabase.storage
-                .from('temporary_editais')
-                .upload(fileName, pdfFile, {
-                    contentType: 'application/pdf',
-                    upsert: false
-                });
-
-            if (uploadError) {
-                console.error('Erro no upload:', uploadError);
-                throw new Error('Falha ao enviar o arquivo para o storage temporário.');
+            setProcessingMsg(pdfFiles.length > 1 ? 'Lendo edital e anexos...' : 'Lendo o documento...');
+            const uploadedPaths: string[] = [];
+            for (const file of pdfFiles) {
+                const safeFileName = file.name
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^a-zA-Z0-9._-]/g, '-')
+                    .replace(/-+/g, '-')
+                    .toLowerCase();
+                const fileName = `${user.id}/${Date.now()}-${crypto.randomUUID()}-${safeFileName || 'edital.pdf'}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('temporary_editais')
+                    .upload(fileName, file, { contentType: 'application/pdf', upsert: false });
+                if (uploadError) {
+                    console.error('Erro no upload:', uploadError);
+                    throw new Error(`Falha ao enviar ${file.name} para o armazenamento temporário.`);
+                }
+                uploadedPaths.push(fileName);
             }
 
             if (inputText.trim()) {
                 payload.inputText = inputText;
             }
-            payload.pdfPath = fileName;
+            payload.pdfPath = uploadedPaths[0];
+            payload.pdfPaths = uploadedPaths;
             payload.sourceType = 'pdf';
             return payload;
         }
@@ -1044,34 +1094,36 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
     };
 
     const getInputTextForFunction = (payload: DocumentPayload) => {
+        if (payload.pdfPaths && payload.pdfPaths.length > 1 && payload.inputText?.trim()) return payload.inputText;
         if (payload.pdfFileUri || payload.pdfPath || payload.pdfUrl) return undefined;
         return payload.inputText?.trim() ? payload.inputText : undefined;
     };
 
     const hydrateDocumentPayloadText = async (payload: DocumentPayload): Promise<DocumentPayload> => {
-        if (payload.inputText?.trim() || !payload.pdfPath) return payload;
-
-        const { data, error } = await supabase.storage
-            .from('temporary_editais')
-            .download(payload.pdfPath);
-
-        if (error || !data) {
-            console.warn('[pdfTextExtractor] Não foi possível recuperar texto do PDF pendente.', error);
-            return payload;
-        }
+        const paths = payload.pdfPaths?.length ? payload.pdfPaths : payload.pdfPath ? [payload.pdfPath] : [];
+        if (payload.inputText?.trim() || !paths.length) return payload;
 
         try {
             const { extractPdfText } = await import('@/utils/pdfTextExtractor');
-            const result = await extractPdfText(data);
-            if (result.fullText.trim().length >= 1000) {
-                return {
-                    ...payload,
-                    inputText: result.fullText,
-                    detectedCargoOptions: payload.detectedCargoOptions || detectCargoOptionsFromEditalText(result.fullText)
-                };
-            }
+            const extracted = await Promise.all(paths.map(async (path, index) => {
+                const { data, error } = await supabase.storage.from('temporary_editais').download(path);
+                if (error || !data) {
+                    console.warn('[pdfTextExtractor] Não foi possível recuperar PDF pendente.', path, error);
+                    return '';
+                }
+                const result = await extractPdfText(data);
+                return result.fullText.trim().length >= 1000
+                    ? `\n\n===== DOCUMENTO ${index + 1} =====\n\n${result.fullText}`
+                    : '';
+            }));
+            const fullText = extracted.filter(Boolean).join('').trim();
+            if (fullText) return {
+                ...payload,
+                inputText: fullText,
+                detectedCargoOptions: payload.detectedCargoOptions || detectCargoOptionsFromEditalText(fullText)
+            };
         } catch (err) {
-            console.warn('[pdfTextExtractor] Falha ao reconstruir texto do PDF pendente.', err);
+            console.warn('[pdfTextExtractor] Falha ao reconstruir texto dos PDFs pendentes.', err);
         }
 
         return payload;
@@ -1784,10 +1836,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     return;
                 }
             } catch (incrementalError: unknown) {
-                if (isAiRateLimitMessage(getErrorMessage(incrementalError))) {
+                const incrementalMessage = getErrorMessage(incrementalError);
+                if (isAiRateLimitMessage(incrementalMessage) || isMissingContentSourceMessage(incrementalMessage)) {
                     throw incrementalError;
                 }
-                console.warn('[extract-edital incremental] Fallback para extração antiga:', getErrorMessage(incrementalError));
+                console.warn('[extract-edital incremental] Fallback para extração antiga:', incrementalMessage);
                 setProcessingMsg('Usando extração compatível...');
             }
 
@@ -1968,7 +2021,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                 return;
             }
 
-            const extraInfo = { organ: manualOrigin, position: manualPosition, year: manualYear, exam_date: examDate, exam_board: null };
+            const extraInfo = { organ: manualOrigin, position: manualPosition, year: manualYear, exam_date: examDate, exam_board: manualBanca.trim() || null };
             // Descartar extração por IA pendente se existir, para evitar conflitos
             await discardPendingExtractionData();
 
@@ -1978,6 +2031,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
             setManualOrigin('');
             setManualPosition('');
             setManualYear('');
+            setManualBanca('');
             setExamDate('');
         } catch (error) {
             console.error('Erro ao salvar edital manual:', error);
@@ -2145,6 +2199,11 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                     )}
                 </div>
             )}
+
+            <div className={`${inlineMode ? 'px-2 pb-3' : 'px-5 pt-3'}`}>
+                <ImportMethodSelector value={activeTab} onChange={handleImportMethodChange} />
+            </div>
+            <input ref={pdfInputRef} type="file" accept="application/pdf,.pdf" multiple onChange={handleFileChange} className="hidden" aria-hidden="true" />
 
             <div className={`${inlineMode ? 'overflow-visible flex-none pb-10 pt-0' : 'overflow-y-auto no-scrollbar flex-1 pt-2 px-5 pb-5'}`}>
 
@@ -2709,156 +2768,43 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
 
                                                 {iaErrorMessage && (
                                             <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
-                                                <p className="text-xs font-bold text-red-300">
-                                                    Não consegui concluir a análise do edital agora.
+                                        <p className="text-xs font-bold text-red-300">
+                                            {getAiErrorHeading()}
                                                 </p>
                                                 <p className="text-[11px] text-red-200/80 mt-1 leading-relaxed">
                                                     {iaErrorMessage}
                                                 </p>
                                             </div>
                                         )}
-                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 w-full">
-                                            {/* Coluna Esquerda: Informação */}
-                                            <div className="md:col-span-4 bg-secondary/40 dark:bg-white/[0.02] rounded-2xl p-5 flex flex-col justify-between items-start border border-border/50 dark:border-white/5 relative overflow-hidden min-h-[210px]">
-                                                <div>
-                                                    <h3 className="text-2xl font-bold text-foreground mb-3 leading-tight tracking-normal">Importar com IA</h3>
-                                                    <p className="text-xs text-content-muted font-medium leading-relaxed max-w-sm">
-                                                    Copie e cole o texto do seu edital ou envie o arquivo PDF, e a nossa IA fará todo o trabalho de estruturação da sua matriz de estudos.
-                                                    </p>
-                                                </div>
-                                                <div className="w-full flex justify-end text-primary/20 dark:text-white/10 mt-4">
-                                                    <div className="relative transform -rotate-6">
-                                                        <Sparkles size={76} strokeWidth={1} />
-                                                        <Settings className="absolute -bottom-2 -right-3 text-primary/80" size={34} strokeWidth={1.5} />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Coluna Direita: Contexto opcional */}
-                                            <div className="md:col-span-8 flex flex-col justify-start bg-card dark:bg-zinc-900/40 rounded-2xl p-5 border border-border/50 dark:border-white/5">
-                                                <div className="mb-3 flex items-center gap-2">
-                                                    <div className="w-1 h-4 bg-primary rounded-full" />
-                                                    <h4 className="text-xs font-bold text-foreground uppercase tracking-[0.14em]">Dados para melhorar a extração</h4>
-                                                </div>
-                                                <p className="text-[11px] text-content-muted font-medium leading-relaxed mb-5">
-                                                    Opcional. Se você souber a banca ou o cargo alvo, informe aqui para a IA usar as regras certas desde a primeira leitura. Ano e data da prova podem ser revisados antes de importar.
-                                                </p>
-                                                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 w-full">
-                                                    <div className="space-y-1.5 group sm:col-span-3">
-                                                        <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Banca</label>
-                                                        <input
-                                                            type="text"
-                                                            value={iaBanca}
-                                                            onChange={(e) => setIaBanca(e.target.value)}
-                                                            placeholder="EX: CEBRASPE"
-                                                            className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5 group sm:col-span-4">
-                                                        <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Órgão / concurso</label>
-                                                        <input
-                                                            type="text"
-                                                            value={iaOrigin}
-                                                            onChange={(e) => setIaOrigin(e.target.value)}
-                                                            placeholder="EX: POLÍCIA FEDERAL"
-                                                            className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5 group sm:col-span-5">
-                                                        <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em] ml-1">Cargo / área / ênfase alvo</label>
-                                                        <input
-                                                            type="text"
-                                                            value={iaPosition}
-                                                            onChange={(e) => {
-                                                                setIaPosition(e.target.value);
-                                                                setSelectedCargoName(e.target.value);
-                                                                setSelectedCargoId('');
-                                                            }}
-                                                            placeholder="EX: DELEGADO DE POLÍCIA FEDERAL"
-                                                            className="w-full h-10 bg-black/5 dark:bg-white/5 border-none rounded-lg px-3 text-[11px] font-semibold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="w-full bg-card dark:bg-zinc-900/40 rounded-2xl p-5 border border-border/50 dark:border-white/5 flex flex-col space-y-4">
-                                            <div className="w-full space-y-3">
-                                                <div className="flex items-center justify-between gap-3 px-1">
-                                                    <label className="text-[9px] font-bold text-content-muted uppercase tracking-[0.16em]">
-                                                        {isComplementMode ? 'Texto do Conteúdo Adicional' : 'Documento ou Texto'}
-                                                    </label>
-                                                    
-                                                    {!isComplementMode && (
-                                                        <div className="relative group/upload">
-                                                            <input 
-                                                                ref={pdfInputRef}
-                                                                type="file" 
-                                                                accept="application/pdf"
-                                                                onChange={handleFileChange}
-                                                                className="hidden"
-                                                                title="Fazer upload de PDF" 
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleAttachPdfClick}
-                                                                className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-bold rounded-lg transition-colors flex items-center gap-1.5 uppercase tracking-wider"
-                                                            >
-                                                                <FileText size={12} />
-                                                                {pdfFile ? 'Trocar PDF' : 'Anexar PDF (até 5MB)'}
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {pdfFile && !isComplementMode ? (
-                                                    <div className="w-full h-36 bg-secondary/50 dark:bg-white/[0.02] border border-dashed border-primary/30 rounded-xl flex flex-col items-center justify-center text-center transition-all px-4">
-                                                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mb-2">
-                                                            <FileText size={18} className="text-primary" />
-                                                        </div>
-                                                        <h4 className="text-xs font-bold text-content-main mb-1">Arquivo PDF Anexado</h4>
-                                                        <p className="text-[11px] text-content-muted font-medium mb-3 truncate max-w-full px-4">{pdfFile.name}</p>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setPdfFile(null)} 
-                                                            className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[9px] font-bold rounded-lg transition-colors uppercase tracking-wider flex items-center gap-1.5"
-                                                        >
-                                                            <Trash2 size={12} />
-                                                            Remover
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <textarea
-                                                        value={inputText}
-                                                        onChange={(e) => setInputText(e.target.value)}
-                                                        placeholder={isComplementMode ? "Cole aqui APENAS os tópicos da matéria (sem nome da matéria)..." : "Cole aqui o texto do conteúdo programático do edital.\n\nSe preferir, deixe este campo vazio e anexe o documento do edital no botão 'ANEXAR PDF' acima."}
-                                                        className="w-full h-[clamp(12rem,28vh,17rem)] bg-secondary/50 dark:bg-white/[0.02] border-none rounded-xl p-4 text-xs leading-relaxed font-medium text-content-main outline-none transition-all resize-none focus:bg-secondary/80 dark:focus:bg-white/[0.04] placeholder:text-content-muted/45"
-                                                    />
-                                                )}
-                                            </div>
-
-                                            <div className="flex justify-end w-full">
-                                                <button
-                                                    onClick={handleIaImport}
-                                                    disabled={
-                                                        isComplementMode 
-                                                            ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
-                                                            : (!inputText.trim() && !pdfFile)
-                                                    }
-                                                    className={`px-6 h-10 font-bold rounded-xl transition-all flex items-center gap-2 justify-center text-[10px] uppercase tracking-[0.12em] ${
-                                                        (isComplementMode 
-                                                            ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
-                                                            : (!inputText.trim() && !pdfFile)
-                                                        ) 
-                                                        ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-80' 
-                                                        : 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 active:scale-95'
-                                                    }`}
-                                                >
-                                                    <Sparkles size={14} />
-                                                    {isComplementMode ? 'Estruturar e Adicionar ao Edital' : 'Analisar edital'}
-                                                </button>
-                                            </div>
-                                        </div>
+                                        <AiSourceStep
+                                            mode={isComplementMode ? 'text' : aiSourceMode}
+                                            onModeChange={setAiSourceMode}
+                                            files={pdfFiles}
+                                            inputText={inputText}
+                                            onTextChange={setInputText}
+                                            onSelectFiles={() => pdfInputRef.current?.click()}
+                                            onRemoveFile={handleRemovePdf}
+                                            onAnalyze={handleIaImport}
+                                            disabled={isComplementMode
+                                                ? (!inputText.trim() || !selectedEditalToComplement || !iaComplementSubjectName.trim())
+                                                : (aiSourceMode === 'pdf' ? pdfFiles.length === 0 : !inputText.trim())}
+                                        />
+                                        {!isComplementMode && (
+                                            <AiOptionalContext
+                                                open={showOptionalContext}
+                                                onOpenChange={setShowOptionalContext}
+                                                banca={iaBanca}
+                                                organ={iaOrigin}
+                                                cargo={iaPosition}
+                                                onBancaChange={setIaBanca}
+                                                onOrganChange={setIaOrigin}
+                                                onCargoChange={(value) => {
+                                                    setIaPosition(value);
+                                                    setSelectedCargoName(value);
+                                                    setSelectedCargoId('');
+                                                }}
+                                            />
+                                        )}
                                     </>
                                 )}
                                     </div>
@@ -2975,11 +2921,20 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                     {iaErrorMessage && (
                                         <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-4">
                                             <p className="text-xs font-bold text-red-300">
-                                                Não consegui concluir a extração agora.
+                                                {getAiErrorHeading()}
                                             </p>
                                             <p className="text-[11px] text-red-200/80 mt-1 leading-relaxed">
                                                 {iaErrorMessage}
                                             </p>
+                                            {isMissingContentSourceMessage(iaErrorMessage) || iaErrorMessage.toLowerCase().includes('conteúdo programático') ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => pdfInputRef.current?.click()}
+                                                    className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-red-400/15 px-4 text-xs font-bold text-red-100 transition-colors hover:bg-red-400/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/60"
+                                                >
+                                                    <Plus size={15} /> Adicionar o anexo indicado
+                                                </button>
+                                            ) : null}
                                         </div>
                                     )}
 
@@ -3412,6 +3367,16 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                                     className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
                                                 />
                                             </div>
+                                            <div className="space-y-2 group">
+                                                <label className="text-[10px] font-black text-content-muted uppercase tracking-[0.2em] ml-1">Banca (opcional)</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="EX: IDCAP"
+                                                    value={manualBanca}
+                                                    onChange={(e) => setManualBanca(e.target.value)}
+                                                    className="w-full h-12 bg-black/5 dark:bg-white/5 border-none rounded-xl px-4 text-xs font-bold text-content-main outline-none transition-all uppercase placeholder:font-medium placeholder:text-content-muted/30 focus:bg-black/10 dark:focus:bg-white/10"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 
@@ -3429,7 +3394,7 @@ export const ImportEditalModal = ({ isOpen, onClose, onImport, subjects, userEdi
                                             ) : (
                                                 <>
                                                     <Plus size={18} strokeWidth={3} />
-                                                    CRIAR EDITAL
+                                                    CRIAR EDITAL E ADICIONAR MATÉRIAS
                                                 </>
                                             )}
                                         </button>

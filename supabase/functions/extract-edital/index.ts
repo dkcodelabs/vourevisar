@@ -4,6 +4,8 @@ import cebraspeProfile from "../_shared/bank-profiles/cebraspe.json" with { type
 import cesgranrioProfile from "../_shared/bank-profiles/cesgranrio.json" with { type: "json" };
 import fccProfile from "../_shared/bank-profiles/fcc.json" with { type: "json" };
 import fgvProfile from "../_shared/bank-profiles/fgv.json" with { type: "json" };
+import idcapProfile from "../_shared/bank-profiles/idcap.json" with { type: "json" };
+import { detectMissingContentProgramSource } from "../_shared/contentProgramSource.ts";
 import type { JsonBoundary } from "../_shared/jsonBoundary.ts";
 
 const corsHeaders = {
@@ -24,8 +26,22 @@ const BANK_PROFILES: BankProfile[] = [
   cesgranrioProfile as BankProfile,
   fccProfile as BankProfile,
   fgvProfile as BankProfile,
+  idcapProfile as BankProfile,
 ];
 const VALID_EXTRACT_MODES = ["analyze", "extractForCargo", "mapContentStructure", "extractSubject", "extractWeights"] as const;
+
+function throwMissingContentProgramSource(diagnostic: ReturnType<typeof detectMissingContentProgramSource>) {
+  if (!diagnostic) return;
+  const error = new Error(diagnostic.publicMessage) as Error & {
+    code: string;
+    publicMessage: string;
+    status: number;
+  };
+  error.code = diagnostic.code;
+  error.publicMessage = diagnostic.publicMessage;
+  error.status = 422;
+  throw error;
+}
 
 const DEFAULT_ANALYSIS_PROMPT = `Voce e um extrator de dados automatizado especializado em editais de concursos publicos. Sua tarefa e ler o documento fornecido e identificar a banca organizadora e os cargos ofertados.
 
@@ -1800,10 +1816,14 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     }
 
     if (mode === "mapContentStructure") {
+      const structure = normalizeContentStructure(parsed, selectedCargo || reqData.position || "");
+      throwMissingContentProgramSource(
+        detectMissingContentProgramSource(inputText, structure.materias.length),
+      );
       return new Response(JSON.stringify({
         success: true,
         mode,
-        structure: normalizeContentStructure(parsed, selectedCargo || reqData.position || ""),
+        structure,
         usage,
         modelName,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1834,10 +1854,14 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const extraction = normalizeExtraction(parsed, selectedCargo || reqData.position || "");
+    throwMissingContentProgramSource(
+      detectMissingContentProgramSource(inputText, extraction.subjects.length),
+    );
     return new Response(JSON.stringify({
       success: true,
       mode,
-      extraction: normalizeExtraction(parsed, selectedCargo || reqData.position || ""),
+      extraction,
       usage,
       modelName,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1847,7 +1871,7 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
     if (supabaseClient && userId) {
       await logAiUsage("failed", modelNameUsed, 0, 0);
     }
-    const status = error?.status === 429 ? 429 : error?.message === "Unauthorized" ? 401 : 400;
+    const status = error?.status === 429 ? 429 : error?.status === 422 ? 422 : error?.message === "Unauthorized" ? 401 : 400;
     const publicMessage = error?.publicMessage || error?.message || "Erro ao processar edital.";
     return new Response(JSON.stringify({
       success: false,
