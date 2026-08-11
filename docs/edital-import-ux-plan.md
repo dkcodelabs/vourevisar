@@ -37,20 +37,20 @@ Ao abrir por uma ação genérica como `Adicionar edital`, mostrar primeiro a es
 
 ### Etapa 1: fonte do edital
 
-- [ ] Mostrar `Anexar PDF` como ação principal e recomendada.
-- [ ] Informar de forma curta o limite aceito de PDF.
-- [ ] Oferecer `Colar texto` como alternativa secundária.
-- [ ] Não mostrar textarea e área de PDF simultaneamente.
-- [ ] Depois de selecionar uma fonte, exibir apenas o estado correspondente.
-- [ ] Permitir trocar ou remover o PDF sem perder silenciosamente outros dados válidos.
+- [x] Mostrar `Anexar PDF` como ação principal e recomendada.
+- [x] Informar de forma curta o limite aceito de PDF.
+- [x] Oferecer `Colar texto` como alternativa secundária.
+- [x] Não mostrar textarea e área de PDF simultaneamente.
+- [x] Depois de selecionar uma fonte, exibir apenas o estado correspondente.
+- [x] Permitir adicionar, trocar ou remover PDFs sem apagar silenciosamente o contexto opcional ou o cargo ja detectado.
 
 ### Etapa 2: contexto opcional
 
-- [ ] Criar disclosure fechado por padrão: `Já sabe a banca ou o cargo? Adicionar detalhes`.
-- [ ] Ao expandir, mostrar banca, órgão/concurso e cargo/área/ênfase.
-- [ ] Explicar que esses campos são pistas opcionais para melhorar a primeira leitura da IA.
-- [ ] Não chamar esse preenchimento de criação manual.
-- [ ] Manter labels reais e não depender apenas de placeholders.
+- [x] Criar disclosure fechado por padrão: `Já sabe a banca ou o cargo? Adicionar detalhes`.
+- [x] Ao expandir, mostrar banca, órgão/concurso e cargo/área/ênfase.
+- [x] Explicar que esses campos são pistas opcionais para melhorar a primeira leitura da IA.
+- [x] Não chamar esse preenchimento de criação manual.
+- [x] Manter labels reais e não depender apenas de placeholders.
 
 ### Etapa 3: análise e extração
 
@@ -70,10 +70,10 @@ Ao abrir por uma ação genérica como `Adicionar edital`, mostrar primeiro a es
 ## Fluxo manual
 
 - [ ] Mostrar somente o formulário manual, sem elementos ou linguagem de IA.
-- [ ] Campos obrigatórios: órgão/concurso, cargo e ano.
-- [ ] Campos opcionais: banca e data da prova.
+- [x] Campos obrigatórios: órgão/concurso, cargo e ano.
+- [x] Campos opcionais: banca e data da prova.
 - [ ] Validar cada campo próximo ao próprio input.
-- [ ] Trocar o CTA para `Criar edital e adicionar matérias`.
+- [x] Trocar o CTA para `Criar edital e adicionar matérias`.
 - [ ] Após criar, abrir diretamente o fluxo de cadastro de matérias e tópicos.
 - [ ] Preservar os dados preenchidos ao voltar dentro do fluxo.
 
@@ -81,13 +81,13 @@ Ao abrir por uma ação genérica como `Adicionar edital`, mostrar primeiro a es
 
 - [ ] Manter busca e importação de editais oficiais como terceiro método.
 - [ ] Manter alternativas para IA e manual quando a busca não retornar resultado.
-- [ ] Fazer a troca pelo mesmo seletor persistente, sem criar navegação paralela.
+- [x] Fazer a troca pelo mesmo seletor persistente, sem criar navegação paralela.
 - [ ] Preservar aviso e recuperação de extração pendente quando aplicável.
 
 ## Hierarquia visual
 
-- [ ] Remover o card decorativo grande da esquerda na entrada da IA.
-- [ ] Remover o banner duplicado `Importador Inteligente de Editais com IA`.
+- [x] Remover o card decorativo grande da esquerda na entrada da IA.
+- [x] Remover o banner duplicado `Importador Inteligente de Editais com IA` da area principal de envio.
 - [ ] Manter a cota em formato compacto no cabeçalho, por exemplo `3 realizadas · ilimitado`.
 - [ ] Reduzir repetição de títulos e textos explicativos.
 - [ ] Evitar corpo de texto com 9 ou 10 px; manter legibilidade real em desktop e mobile.
@@ -101,9 +101,9 @@ Ao abrir por uma ação genérica como `Adicionar edital`, mostrar primeiro a es
 Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalModal.tsx`.
 
 - [ ] Manter `ImportEditalModal` responsável por composição, abertura, fechamento e estado mínimo da jornada.
-- [ ] Extrair `ImportMethodSelector`.
-- [ ] Extrair `AiSourceStep`.
-- [ ] Extrair `AiOptionalContext`.
+- [x] Extrair `ImportMethodSelector`.
+- [x] Extrair `AiSourceStep`.
+- [x] Extrair `AiOptionalContext`.
 - [ ] Extrair `AiProcessingStep` quando a separação reduzir acoplamento real.
 - [ ] Extrair `AiCargoStep`.
 - [ ] Extrair `AiReviewStep`.
@@ -114,10 +114,10 @@ Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalMod
 
 ## Regras de troca de método
 
-- [ ] PDF ou texto da IA não pode contaminar o formulário manual.
-- [ ] Campos manuais não podem sobrescrever uma análise recuperada.
-- [ ] Trocar de método sem dados iniciados deve ser imediato.
-- [ ] Trocar de método com extração, PDF ou formulário preenchido deve preservar rascunho ou pedir confirmação antes de descartar.
+- [x] PDF ou texto da IA não pode contaminar o formulário manual.
+- [x] Campos manuais não podem sobrescrever uma análise recuperada.
+- [x] Trocar de método sem dados iniciados deve ser imediato.
+- [x] Trocar de método com extração, PDF ou formulário preenchido preserva os estados separados; o descarte continua sendo uma acao explicita.
 - [ ] Catálogo e criação manual devem permanecer disponíveis quando a cota de IA acabar.
 - [ ] O bloqueio de cota não deve dominar visualmente o modal inteiro.
 
@@ -138,15 +138,15 @@ Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalMod
 - [ ] Testar abertura genérica com escolha inicial de método.
 - [ ] Testar troca entre catálogo, IA e manual sem dados iniciados.
 - [ ] Testar confirmação/preservação ao trocar com dados iniciados.
-- [ ] Testar seleção de PDF, troca, remoção e limite de tamanho.
-- [ ] Testar alternativa de colar texto.
-- [ ] Testar disclosure dos campos opcionais.
+- [x] Testar seleção visual de PDF principal/anexo, troca de fonte e limite de documentos; tamanho e tipo permanecem validados pelo handler existente.
+- [x] Testar alternativa de colar texto.
+- [x] Testar disclosure dos campos opcionais.
 - [ ] Testar restauração e descarte de extração pendente.
 - [ ] Testar limite de IA sem bloquear catálogo ou manual.
 - [ ] Testar seleção de cargo e revisão da extração.
 - [ ] Testar criação manual e abertura imediata do cadastro de matérias.
-- [ ] Rodar testes focados com Vitest/Testing Library.
-- [ ] Rodar `npm run lint` e `npm run build`.
+- [x] Rodar testes focados com Vitest/Testing Library.
+- [x] Rodar `npm run lint` e `npm run build`.
 - [ ] Validar visualmente dark/light em desktop, tablet e mobile.
 
 ## Critérios de aceite
