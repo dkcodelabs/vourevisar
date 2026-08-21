@@ -442,8 +442,19 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   O commit `b1e22940` gerou o deployment Production
   `dpl_89cYK7farTYLrS9CM1VYxyNMwYF5`, em estado `READY`, associado aos domínios
   oficiais.
-- [ ] Fazer uma compra Live controlada e solicitar arrependimento/reembolso
-  dentro da janela; confirmar Stripe, webhook, banco, e-mail e UI.
+- [x] Fazer uma compra Live controlada e confirmar a etapa paga no Stripe,
+  webhook, banco e UI. Em 2026-08-21, o checkout mensal foi concluído em Live
+  por R$ 12,90, com aceite contratual vinculado, `invoice.paid`,
+  `customer.subscription.created` e `checkout.session.completed` processados
+  uma única vez e sem `error_code`. A RPC canônica devolveu acesso Stripe
+  ativo até 2026-09-21 e elegibilidade de arrependimento até 2026-08-28; o
+  Customer Portal exibiu a assinatura, cartão final 6007 e fatura paga. A
+  mensagem de erro vista durante a abertura do Portal desapareceu quando a
+  navegação para `billing.stripe.com` terminou e não correspondeu a falha
+  persistida no ledger.
+- [ ] Solicitar arrependimento/reembolso dessa compra Live dentro da janela e
+  confirmar cancelamento imediato, reembolso, webhook, banco, e-mail, UI e
+  revogação do acesso sem apagar dados de estudo.
 
 ## Critérios para liberar produção
 
