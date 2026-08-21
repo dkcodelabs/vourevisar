@@ -97,6 +97,10 @@ Para mensal e anual:
 - Mantém acesso até o fim do período pago.
 - Não gera reembolso automático.
 - Deve permanecer visualmente separado de “Desistir e pedir reembolso”.
+- Após a confirmação, o produto deve exibir explicitamente `Renovação
+  cancelada`, informar que não haverá nova cobrança, mostrar a data exata até
+  quando o acesso pago continua e evitar a mensagem ambígua `Assinatura
+  cancelada` sem explicar seus efeitos.
 
 ### 4. Casos que exigem política específica
 
@@ -290,10 +294,21 @@ completa. O resumo exibido e aceito precisa ser conservável por versão/hash.
 Durante a janela:
 
 - mostrar “Você pode desistir e pedir reembolso integral até …”;
+- mostrar quantos dias (ou horas, no último dia) restam da janela de
+  arrependimento, sem chamar esse prazo de teste gratuito;
 - CTA separado: `Desistir da assinatura e pedir reembolso`;
 - modal mostra efeitos: reembolso integral, cancelamento imediato, fim do acesso
   pago e prazo bancário sem promessa indevida;
 - confirmação explícita antes da solicitação.
+
+Se a renovação for cancelada pelo Customer Portal ainda dentro da janela:
+
+- mostrar `Renovação cancelada` e `Não haverá nova cobrança`;
+- manter visível a data final do período já pago;
+- manter o CTA de arrependimento até o prazo legal, com a contagem restante;
+- explicar que cancelar a renovação não solicitou reembolso;
+- informar que o teste gratuito anterior já terminou e não será reiniciado ou
+  prorrogado pelo cancelamento.
 
 Depois da solicitação:
 
@@ -301,9 +316,18 @@ Depois da solicitação:
 - `Reembolso em processamento`;
 - `Reembolso confirmado`;
 - `Precisamos concluir manualmente`, quando houver falha.
+- quando o reembolso tiver sido efetivamente emitido, informar que o crédito no
+  cartão costuma aparecer em aproximadamente 5 a 10 dias úteis, dependendo do
+  banco; se a Stripe representar a operação como reversão, explicar que a
+  cobrança original pode simplesmente desaparecer da fatura;
+- nunca mostrar prazo de estorno no cancelamento normal, pois nesse fluxo não
+  existe reembolso.
 
 Após a janela, esconder o CTA legal e manter `Gerenciar assinatura` para
-cancelar a renovação. O canal de suporte permanece sempre visível.
+cancelar a renovação. Se a renovação for cancelada, mostrar que não haverá nova
+cobrança, o acesso permanece somente até o fim do período pago e não existe
+novo período gratuito nem reembolso automático. O canal de suporte permanece
+sempre visível.
 
 ### Documentos públicos
 
