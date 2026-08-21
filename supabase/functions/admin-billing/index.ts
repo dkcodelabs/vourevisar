@@ -1,15 +1,26 @@
+import Stripe from "npm:stripe@22.4.0";
+import { sendWithdrawalResultEmail } from "../_shared/billingEmail.ts";
+import { isBillingWithdrawalAdminEnabled } from "../_shared/billingContract.ts";
+import { resolveBillingRefundReconciliationStatus } from "../_shared/billingRefundReconciliation.ts";
 import {
   BillingHttpError,
   createServiceClient,
+  createStripeClient,
   handleOptions,
   isUuid,
   jsonResponse,
   requireAuthenticatedUser,
   safeErrorCode,
+  safeStripeErrorFingerprint,
   getStripeLivemode,
 } from "../_shared/stripeBilling.ts";
 
-type AdminBillingAction = "list" | "grant_manual_access" | "revoke_manual_access";
+type AdminBillingAction =
+  | "list"
+  | "grant_manual_access"
+  | "revoke_manual_access"
+  | "list_refund_requests"
+  | "reconcile_refund_request";
 type PlanCode = "free_trial" | "monthly" | "annual";
 type BillingSubscriptionRow = {
   user_id: string;
@@ -156,6 +167,297 @@ const listBilling = async (supabase: ReturnType<typeof createServiceClient>) => 
   });
 };
 
+const listRefundRequests = async (
+  supabase: ReturnType<typeof createServiceClient>,
+  livemode: boolean,
+) => {
+  const { data: requests, error } = await supabase
+    .from("billing_refund_requests")
+    .select("id,user_id,status,subscription_cancel_status,requested_at,amount_cents,currency,error_code,processed_at,updated_at,processing_attempts,billing_contract_acceptances!inner(plan_code)")
+    .eq("livemode", livemode)
+    .order("requested_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+
+  const userIds = [...new Set((requests ?? []).map((row) => row.user_id))];
+  const { data: profiles, error: profilesError } = userIds.length
+    ? await supabase.from("profiles").select("id,email,name").in("id", userIds)
+    : { data: [], error: null };
+  if (profilesError) throw profilesError;
+  const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+
+  return (requests ?? []).map((row) => {
+    const profile = profileById.get(row.user_id);
+    const acceptanceRelation = row.billing_contract_acceptances as unknown;
+    const acceptance = Array.isArray(acceptanceRelation)
+      ? acceptanceRelation[0] as { plan_code: string } | undefined
+      : acceptanceRelation as { plan_code: string } | null;
+    return {
+      id: row.id,
+      user_id: row.user_id,
+      user_email: profile?.email ?? null,
+      user_name: profile?.name ?? null,
+      plan: acceptance?.plan_code ?? null,
+      status: row.status,
+      subscription_cancel_status: row.subscription_cancel_status,
+      requested_at: row.requested_at,
+      amount_cents: row.amount_cents,
+      currency: row.currency,
+      error_code: row.error_code,
+      processed_at: row.processed_at,
+      updated_at: row.updated_at,
+      processing_attempts: row.processing_attempts,
+    };
+  });
+};
+
+const cancelWithdrawalSubscription = async (
+  supabase: ReturnType<typeof createServiceClient>,
+  stripe: Stripe,
+  requestRecord: {
+    id: string;
+    user_id: string;
+    livemode: boolean;
+    billing_subscription_id: string;
+    billing_contract_acceptance_id: string;
+  },
+) => {
+  const { data: localSubscription, error } = await supabase
+    .from("billing_subscriptions")
+    .select("stripe_subscription_id")
+    .eq("id", requestRecord.billing_subscription_id)
+    .eq("user_id", requestRecord.user_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!localSubscription) throw new Error("admin_reconciliation_subscription_missing");
+
+  const subscription = await stripe.subscriptions.retrieve(localSubscription.stripe_subscription_id);
+  if (subscription.livemode !== requestRecord.livemode) {
+    throw new Error("admin_reconciliation_mode_mismatch");
+  }
+  const canceledSubscription = subscription.status === "canceled"
+    ? subscription
+    : await stripe.subscriptions.cancel(
+      subscription.id,
+      { invoice_now: false, prorate: false },
+      {
+        idempotencyKey: `billing-withdrawal-cancel:v1:${requestRecord.livemode ? "live" : "test"}:${requestRecord.billing_contract_acceptance_id}`,
+      },
+    );
+
+  const { error: syncError } = await supabase
+    .from("billing_subscriptions")
+    .update({
+      status: "canceled",
+      cancel_at_period_end: canceledSubscription.cancel_at_period_end,
+      cancel_at: canceledSubscription.cancel_at
+        ? new Date(canceledSubscription.cancel_at * 1000).toISOString()
+        : null,
+      canceled_at: canceledSubscription.canceled_at
+        ? new Date(canceledSubscription.canceled_at * 1000).toISOString()
+        : new Date().toISOString(),
+    })
+    .eq("id", requestRecord.billing_subscription_id)
+    .eq("user_id", requestRecord.user_id);
+  if (syncError) throw syncError;
+};
+
+const sendReconciliationResultEmail = async (
+  supabase: ReturnType<typeof createServiceClient>,
+  requestRecord: {
+    id: string;
+    user_id: string;
+    amount_cents: number;
+    currency: string;
+    requested_at: string;
+    eligibility_deadline: string;
+    result_email_status: string | null;
+  },
+  status: "succeeded" | "failed" | "manual_review",
+) => {
+  if (requestRecord.result_email_status === status) return;
+  const { data, error } = await supabase.auth.admin.getUserById(requestRecord.user_id);
+  if (error || !data.user?.email) throw error ?? new Error("refund_result_email_missing");
+
+  await sendWithdrawalResultEmail({
+    requestId: requestRecord.id,
+    email: data.user.email,
+    customerName: typeof data.user.user_metadata?.name === "string"
+      ? data.user.user_metadata.name
+      : null,
+    amountCents: requestRecord.amount_cents,
+    currency: requestRecord.currency,
+    requestedAt: new Date(requestRecord.requested_at),
+    deadline: new Date(requestRecord.eligibility_deadline),
+    status,
+  });
+  const { error: updateError } = await supabase
+    .from("billing_refund_requests")
+    .update({
+      result_email_sent_at: new Date().toISOString(),
+      result_email_status: status,
+    })
+    .eq("id", requestRecord.id);
+  if (updateError) throw updateError;
+};
+
+const reconcileRefundRequest = async (
+  supabase: ReturnType<typeof createServiceClient>,
+  actorId: string,
+  livemode: boolean,
+  refundRequestId: string,
+  actionRequestId: string,
+  reason: string,
+) => {
+  const { data: requestRecord, error: requestError } = await supabase
+    .from("billing_refund_requests")
+    .select("id,user_id,billing_subscription_id,billing_contract_acceptance_id,livemode,status,subscription_cancel_status,amount_cents,currency,stripe_payment_intent_id,stripe_refund_id,requested_at,eligibility_deadline,result_email_status,updated_at")
+    .eq("id", refundRequestId)
+    .eq("livemode", livemode)
+    .maybeSingle();
+  if (requestError) throw requestError;
+  if (!requestRecord) throw new BillingHttpError(404, "refund_request_not_found");
+  if (!["processing", "pending", "failed", "manual_review"].includes(requestRecord.status)) {
+    throw new BillingHttpError(409, "refund_request_not_reconcilable");
+  }
+  const recoveryThreshold = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  if (requestRecord.status === "processing" && requestRecord.updated_at >= recoveryThreshold) {
+    throw new BillingHttpError(409, "refund_reconciliation_too_early");
+  }
+
+  const { error: staleActionError } = await supabase
+    .from("billing_refund_admin_actions")
+    .update({
+      status: "failed",
+      error_code: "admin_reconciliation_lease_expired",
+      finished_at: new Date().toISOString(),
+    })
+    .eq("billing_refund_request_id", requestRecord.id)
+    .eq("status", "processing")
+    .lt("started_at", recoveryThreshold);
+  if (staleActionError) throw staleActionError;
+
+  const { data: actionRecord, error: actionError } = await supabase
+    .from("billing_refund_admin_actions")
+    .insert({
+      action_request_id: actionRequestId,
+      billing_refund_request_id: requestRecord.id,
+      actor_user_id: actorId,
+      livemode,
+      reason,
+      request_status_before: requestRecord.status,
+    })
+    .select("id")
+    .single();
+  if (actionError?.code === "23505") {
+    const { data: repeatedAction, error: repeatedActionError } = await supabase
+      .from("billing_refund_admin_actions")
+      .select("status")
+      .eq("action_request_id", actionRequestId)
+      .eq("actor_user_id", actorId)
+      .maybeSingle();
+    if (repeatedActionError) throw repeatedActionError;
+    if (repeatedAction) return;
+    throw new BillingHttpError(409, "refund_reconciliation_in_progress");
+  }
+  if (actionError) throw actionError;
+
+  let actionStatus: "succeeded" | "no_change" | "failed" = "failed";
+  let finalStatus = requestRecord.status;
+  let actionErrorCode: string | null = null;
+  try {
+    const stripe = createStripeClient();
+    let refund: Stripe.Refund | null = null;
+    if (requestRecord.stripe_refund_id) {
+      refund = await stripe.refunds.retrieve(requestRecord.stripe_refund_id);
+    } else if (requestRecord.stripe_payment_intent_id) {
+      const refunds = await stripe.refunds.list({
+        payment_intent: requestRecord.stripe_payment_intent_id,
+        limit: 100,
+      });
+      refund = refunds.data.find((candidate) =>
+        candidate.metadata?.billing_refund_request_id === requestRecord.id
+      ) ?? null;
+    }
+
+    let cancelStatus: "succeeded" | "failed" = "succeeded";
+    try {
+      await cancelWithdrawalSubscription(supabase, stripe, requestRecord);
+    } catch (error) {
+      cancelStatus = "failed";
+      actionErrorCode = safeStripeErrorFingerprint(error, "admin_subscription_cancel");
+    }
+
+    const refundMatches = Boolean(
+      refund &&
+      refund.amount === requestRecord.amount_cents &&
+      refund.currency === requestRecord.currency &&
+      (!requestRecord.stripe_refund_id || refund.id === requestRecord.stripe_refund_id),
+    );
+    finalStatus = resolveBillingRefundReconciliationStatus({
+      refundFound: Boolean(refund),
+      refundMatches,
+      cancellationSucceeded: cancelStatus === "succeeded",
+      providerStatus: refund?.status ?? null,
+    });
+    actionErrorCode = actionErrorCode ?? (
+      !refund
+        ? "admin_reconciliation_refund_not_found"
+        : !refundMatches
+        ? "admin_reconciliation_refund_mismatch"
+        : finalStatus === "failed"
+        ? `refund_failed:${refund.failure_reason ?? "unknown"}`
+        : null
+    );
+
+    const { error: updateError } = await supabase
+      .from("billing_refund_requests")
+      .update({
+        stripe_refund_id: refundMatches ? refund!.id : requestRecord.stripe_refund_id,
+        status: finalStatus,
+        subscription_cancel_status: cancelStatus,
+        error_code: actionErrorCode,
+        processed_at: finalStatus === "succeeded" || finalStatus === "failed"
+          ? new Date().toISOString()
+          : null,
+      })
+      .eq("id", requestRecord.id)
+      .eq("livemode", livemode);
+    if (updateError) throw updateError;
+
+    actionStatus = finalStatus === requestRecord.status && !refund
+      ? "no_change"
+      : "succeeded";
+    if (["succeeded", "failed", "manual_review"].includes(finalStatus)) {
+      try {
+        await sendReconciliationResultEmail(
+          supabase,
+          requestRecord,
+          finalStatus as "succeeded" | "failed" | "manual_review",
+        );
+      } catch (error) {
+        actionErrorCode = actionErrorCode ?? safeErrorCode(error);
+      }
+    }
+  } catch (error) {
+    actionErrorCode = safeStripeErrorFingerprint(error, "admin_refund_reconciliation");
+    throw error;
+  } finally {
+    const { error: finishError } = await supabase
+      .from("billing_refund_admin_actions")
+      .update({
+        status: actionStatus,
+        request_status_after: finalStatus,
+        error_code: actionErrorCode,
+        finished_at: new Date().toISOString(),
+      })
+      .eq("id", actionRecord.id);
+    if (finishError) console.error("[admin-billing] reconciliation_audit_update_failed", {
+      code: safeErrorCode(finishError),
+    });
+  }
+};
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return handleOptions(request);
   if (request.method !== "POST") return jsonResponse(request, { error: "method_not_allowed" }, 405);
@@ -169,10 +471,46 @@ Deno.serve(async (request) => {
       action?: AdminBillingAction;
       userId?: unknown;
       plan?: unknown;
+      refundRequestId?: unknown;
+      actionRequestId?: unknown;
+      reason?: unknown;
     };
     const action = body.action ?? "list";
 
     if (action === "list") return jsonResponse(request, { users: await listBilling(supabase) });
+
+    if (action === "list_refund_requests") {
+      if (!isBillingWithdrawalAdminEnabled()) {
+        throw new BillingHttpError(503, "withdrawal_admin_not_enabled");
+      }
+      return jsonResponse(request, {
+        refundRequests: await listRefundRequests(supabase, livemode),
+      });
+    }
+
+    if (action === "reconcile_refund_request") {
+      if (!isBillingWithdrawalAdminEnabled()) {
+        throw new BillingHttpError(503, "withdrawal_admin_not_enabled");
+      }
+      if (!isUuid(body.refundRequestId) || !isUuid(body.actionRequestId)) {
+        throw new BillingHttpError(400, "invalid_refund_reconciliation_request");
+      }
+      const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+      if (reason.length < 10 || reason.length > 500) {
+        throw new BillingHttpError(400, "invalid_refund_reconciliation_reason");
+      }
+      await reconcileRefundRequest(
+        supabase,
+        actor.id,
+        livemode,
+        body.refundRequestId,
+        body.actionRequestId,
+        reason,
+      );
+      return jsonResponse(request, {
+        refundRequests: await listRefundRequests(supabase, livemode),
+      });
+    }
 
     if (!isUuid(body.userId)) throw new BillingHttpError(400, "invalid_target_user");
     if (action === "grant_manual_access") {

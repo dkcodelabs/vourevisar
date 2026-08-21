@@ -8,6 +8,9 @@ export const isBillingContractAcceptanceEnabled = () =>
 export const isBillingWithdrawalEnabled = () =>
   import.meta.env.VITE_BILLING_WITHDRAWAL_ENABLED?.trim().toLowerCase() === 'true';
 
+export const isBillingWithdrawalAdminEnabled = () =>
+  import.meta.env.VITE_BILLING_WITHDRAWAL_ADMIN_ENABLED?.trim().toLowerCase() === 'true';
+
 export const billingContractVersions = {
   termsVersion: BILLING_TERMS_VERSION,
   privacyVersion: BILLING_PRIVACY_VERSION,

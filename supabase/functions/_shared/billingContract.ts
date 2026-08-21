@@ -44,3 +44,6 @@ export const isBillingContractAcceptanceEnabled = () =>
 
 export const isBillingWithdrawalEnabled = () =>
   Deno.env.get("BILLING_WITHDRAWAL_ENABLED")?.trim().toLowerCase() === "true";
+
+export const isBillingWithdrawalAdminEnabled = () =>
+  Deno.env.get("BILLING_WITHDRAWAL_ADMIN_ENABLED")?.trim().toLowerCase() === "true";

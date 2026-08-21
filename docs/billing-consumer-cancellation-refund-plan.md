@@ -364,7 +364,11 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   sucesso e revisão manual em `/conta/assinatura`, atrás de feature flag.
 - [x] Implementar e-mails idempotentes de recebimento e resultado, sem afirmar
   crédito concluído enquanto a Stripe ainda estiver processando.
-- [ ] Criar visão administrativa somente leitura/retry controlado, com auditoria.
+- [x] Criar visão administrativa e reconciliação controlada, com auditoria
+  privada. A operação consulta o Refund existente, procura o pedido pela
+  metadata e reaplica somente o cancelamento idempotente; não cria um segundo
+  reembolso automaticamente. A fila permanece protegida por feature flag e
+  ainda precisa de homologação com dados Stripe Test.
 
 ### Fase 3 — renovação e mudança de plano
 
@@ -388,7 +392,7 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [ ] Testar mensal e anual no Stripe Test.
 - [ ] Validar desktop, tablet e mobile.
 - [x] Executar build, lint, testes e `git diff --check`. Nesta etapa passaram
-  `deno check`, typecheck, lint, 171 arquivos/660 testes e build de produção;
+  `deno check`, typecheck, lint, 173 arquivos/671 testes e build de produção;
   repetir após aplicar migrations e antes de qualquer ativação.
 - [ ] Publicar Edge Functions e frontend em Test, sem alterar Live.
 - [ ] Fazer uma compra Live controlada e solicitar arrependimento/reembolso

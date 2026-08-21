@@ -52,6 +52,12 @@ const withdrawalOverviewMigrationSource = readProjectFile(
 const withdrawalPanelSource = readProjectFile(
   'src/features/billing/components/BillingWithdrawalPanel.tsx',
 );
+const refundAdminActionsMigrationSource = readProjectFile(
+  'supabase/migrations/20260821114843_create_billing_refund_admin_actions.sql',
+);
+const refundAdminQueueSource = readProjectFile(
+  'src/features/billing/components/AdminBillingRefundQueue.tsx',
+);
 const legacyGrantMigrationSource = readProjectFile(
   'supabase/migrations/20260731170341_backfill_legacy_paid_access_grants.sql',
 );
@@ -357,6 +363,31 @@ describe('Stripe billing security boundaries', () => {
     expect(adminBillingSource).toContain('from("billing_access_grants")');
     expect(adminBillingSource).not.toContain('user_subscriptions');
     expect(adminBillingSource).not.toMatch(/asaas_/i);
+  });
+
+  it('keeps administrative refund reconciliation private, audited and non-duplicating', () => {
+    expect(configSource).toContain('[functions.admin-billing]\nverify_jwt = true');
+    expect(adminBillingSource).toContain('requireAdmin(actor.id, supabase)');
+    expect(adminBillingSource).toContain('isBillingWithdrawalAdminEnabled()');
+    expect(adminBillingSource).toContain('billing_refund_admin_actions');
+    expect(adminBillingSource).toContain('stripe.refunds.retrieve');
+    expect(adminBillingSource).toContain('stripe.refunds.list');
+    expect(adminBillingSource).not.toContain('stripe.refunds.create');
+    expect(adminBillingSource).toContain('status: "canceled"');
+    expect(adminBillingSource).not.toMatch(/from\("billing_access_grants"\)\s*\.delete/);
+    expect(adminBillingSource).toContain('refund_reconciliation_too_early');
+    expect(adminBillingSource).toContain('admin_reconciliation_lease_expired');
+    expect(refundAdminActionsMigrationSource).toContain(
+      'ALTER TABLE public.billing_refund_admin_actions ENABLE ROW LEVEL SECURITY',
+    );
+    expect(refundAdminActionsMigrationSource).toContain(
+      'REVOKE ALL ON TABLE public.billing_refund_admin_actions',
+    );
+    expect(refundAdminActionsMigrationSource).toContain(
+      'billing_refund_admin_actions_active_request_key',
+    );
+    expect(refundAdminQueueSource).toContain('Nenhum novo reembolso será criado');
+    expect(refundAdminQueueSource).not.toMatch(/stripe_(refund|payment_intent|subscription)_id/i);
   });
 
   it('keeps account suspension separate from subscription and entitlement records', () => {

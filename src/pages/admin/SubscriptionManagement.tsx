@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import { Calendar, Crown, Loader2, RefreshCw, Search, Shield, User, UserCheck, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AdminBillingRefundQueue } from '@/features/billing/components/AdminBillingRefundQueue';
 import {
   useAdminBillingUsers,
   useGrantManualBillingAccess,
   useRevokeManualBillingAccess,
 } from '@/features/billing/hooks/useAdminBilling';
+import { isBillingWithdrawalAdminEnabled } from '@/features/billing/legal/billingLegalDocuments';
 import type { AdminBillingPlan, AdminBillingUser } from '@/features/billing/services/adminBillingService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { toast } from '@/lib/toast';
@@ -121,6 +123,8 @@ const SubscriptionManagement = () => {
         <strong className="text-foreground">Fonte única de acesso: </strong>
         este painel mostra somente a assinatura Stripe e concessões internas válidas. Registros antigos não participam das decisões de acesso.
       </div>
+
+      {isBillingWithdrawalAdminEnabled() && <AdminBillingRefundQueue />}
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {[
