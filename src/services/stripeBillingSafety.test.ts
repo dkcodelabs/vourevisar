@@ -149,7 +149,7 @@ describe('Stripe billing security boundaries', () => {
   });
 
   it('keeps legal document versions aligned across browser and server', () => {
-    const expectedVersion = '2026-08-21.1-draft';
+    const expectedVersion = '2026-08-21.1';
     expect(contractDocumentsServerSource).toContain(expectedVersion);
     expect(contractDocumentsClientSource).toContain(expectedVersion);
     expect(contractDocumentsServerSource).toContain('crypto.subtle.digest');

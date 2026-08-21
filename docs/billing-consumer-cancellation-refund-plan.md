@@ -325,7 +325,9 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 
 - [ ] Confirmar com advogado a data inicial exata da janela, renovação e troca
   de plano.
-- [ ] Definir identidade legal do fornecedor e canais oficiais de atendimento.
+- [x] Definir identidade legal do fornecedor e canais oficiais de atendimento;
+  os quatro dados públicos foram configurados no Vercel para Production e
+  Preview sem serem tratados como segredo.
 - [ ] Aprovar versões iniciais dos três documentos legais.
 - [ ] Configurar política de retenção dos aceites e pedidos financeiros.
 
@@ -406,8 +408,11 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   ativação explicitamente desligadas. O catálogo Live foi consultado sem criar
   Checkout; os endpoints novos recusaram uso enquanto desativados; o webhook
   recusou requisição sem assinatura. Nenhuma cobrança foi criada.
-- [ ] Configurar no Vercel os dados reais do fornecedor, concluir a revisão
-  jurídica e retirar o sufixo `draft` das versões antes de publicar o frontend.
+- [x] Configurar no Vercel os dados reais do fornecedor e retirar o sufixo
+  `draft` da versão candidata usada na homologação controlada.
+- [ ] Concluir revisão jurídica dos textos antes de abrir aquisição para
+  terceiros; a validação técnica e a compra Live do próprio titular não
+  substituem parecer jurídico.
 - [ ] Publicar o frontend e ativar as flags de frontend/backend de forma
   coordenada. Até isso acontecer, o domínio oficial permanece na experiência
   anterior, que foi validada em `/planos` e `/conta/assinatura` após o deploy

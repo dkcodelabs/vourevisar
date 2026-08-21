@@ -3,7 +3,7 @@ import { legalProvider } from '@/config/legalProvider';
 import { getSupportWhatsAppUrl } from '@/config/support';
 
 const Contact = () => (
-  <LegalDocumentLayout eyebrow="Atendimento" title="Contato" version="2026-08-21.1-draft">
+  <LegalDocumentLayout eyebrow="Atendimento" title="Contato" version="2026-08-21.1">
     <h2>Atendimento eletrônico</h2>
     <p>Use os canais abaixo para dúvidas, reclamações, suspensão, cancelamento, arrependimento ou solicitações relacionadas aos seus dados.</p>
     <p><a href={getSupportWhatsAppUrl('Olá, preciso de atendimento sobre minha conta no vouRevisar.')}>Falar pelo WhatsApp</a></p>
