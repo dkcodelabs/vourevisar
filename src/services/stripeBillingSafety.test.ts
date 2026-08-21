@@ -46,6 +46,12 @@ const refundRequestMigrationSource = readProjectFile(
 const withdrawalFunctionSource = readProjectFile(
   'supabase/functions/stripe-request-withdrawal/index.ts',
 );
+const withdrawalOverviewMigrationSource = readProjectFile(
+  'supabase/migrations/20260821031010_expose_billing_withdrawal_status.sql',
+);
+const withdrawalPanelSource = readProjectFile(
+  'src/features/billing/components/BillingWithdrawalPanel.tsx',
+);
 const legacyGrantMigrationSource = readProjectFile(
   'supabase/migrations/20260731170341_backfill_legacy_paid_access_grants.sql',
 );
@@ -204,6 +210,26 @@ describe('Stripe billing security boundaries', () => {
     expect(webhookSource).toContain('syncRefundRequest');
     expect(webhookSource).toContain('cancelSubscriptionIfNeeded');
     expect(webhookSource).toContain('last_stripe_event_created_at');
+  });
+
+  it('exposes only sanitized withdrawal state and keeps the UI behind a flag', () => {
+    expect(withdrawalOverviewMigrationSource).toContain("'withdrawal', jsonb_build_object");
+    expect(withdrawalOverviewMigrationSource).toContain("'eligible', withdrawal_eligible");
+    expect(withdrawalOverviewMigrationSource).toContain("'deadline', acceptance_record.withdrawal_deadline");
+    expect(withdrawalOverviewMigrationSource).not.toContain("'stripe_refund_id'");
+    expect(withdrawalPanelSource).toContain('Desistir da assinatura e pedir reembolso');
+    expect(withdrawalPanelSource).toContain('Confirmar pedido');
+    expect(withdrawalPanelSource).toContain('getSafeBillingErrorMessage');
+    expect(contractDocumentsClientSource).toContain('VITE_BILLING_WITHDRAWAL_ENABLED');
+  });
+
+  it('sends separate idempotent receipt and result emails without promising instant credit', () => {
+    expect(billingEmailSource).toContain('sendWithdrawalReceivedEmail');
+    expect(billingEmailSource).toContain('withdrawal-received:${requestId}');
+    expect(billingEmailSource).toContain('sendWithdrawalResultEmail');
+    expect(billingEmailSource).toContain('withdrawal-result:${requestId}:${status}');
+    expect(billingEmailSource).toContain('não a conclusão do crédito');
+    expect(webhookSource).toContain('result_email_status');
   });
 
   it('keeps provider internals out of user-facing billing messages', () => {

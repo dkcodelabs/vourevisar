@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import { AccountNavigation } from '@/components/account/AccountNavigation';
 import { BillingArtwork } from '@/features/billing/components/BillingArtwork';
 import { BillingInvoiceHistory } from '@/features/billing/components/BillingInvoiceHistory';
+import { BillingWithdrawalPanel } from '@/features/billing/components/BillingWithdrawalPanel';
 import {
   useStripeBillingOverview,
   useStripeCatalog,
@@ -29,6 +30,9 @@ import {
 import { buildStripePricingPlans } from '@/features/billing/utils/catalogPricing';
 import { getAccountSubscriptionState } from '@/features/billing/utils/accountSubscriptionState';
 import { useUserRole } from '@/hooks/useUserRole';
+import { isBillingWithdrawalEnabled } from '@/features/billing/legal/billingLegalDocuments';
+
+const withdrawalEnabled = isBillingWithdrawalEnabled();
 
 const formatDate = (value: string | null | undefined) =>
   value
@@ -223,6 +227,12 @@ const AccountSubscription = () => {
         </section>
 
         <aside className={`space-y-5 ${showsTrialOffer ? 'order-first' : ''}`}>
+          {withdrawalEnabled && isStripeSubscriber && data.withdrawal && (
+            <BillingWithdrawalPanel
+              withdrawal={data.withdrawal}
+              amountLabel={formatBillingPrice(subscription.amount_cents, subscription.currency)}
+            />
+          )}
           {showsTrialOffer ? (
             <TrialConversionOffer plans={pricingPlans} isLoading={catalog.isLoading} />
           ) : (

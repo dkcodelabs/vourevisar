@@ -48,6 +48,22 @@ export interface BillingSubscription {
   updated_at: string;
 }
 
+export interface BillingWithdrawal {
+    eligible: boolean;
+    deadline: string | null;
+    status:
+      | 'requested'
+      | 'processing'
+      | 'pending'
+      | 'succeeded'
+      | 'failed'
+      | 'manual_review'
+      | 'rejected'
+      | null;
+    requested_at: string | null;
+    result_at: string | null;
+}
+
 export interface BillingOverview {
   is_active: boolean;
   source: 'stripe' | 'trial' | 'manual' | 'goodwill' | 'none';
@@ -55,6 +71,14 @@ export interface BillingOverview {
   status: string;
   access_until: string | null;
   subscription: BillingSubscription | null;
+  /** Optional during the coordinated backend/frontend rollout. */
+  withdrawal?: BillingWithdrawal;
+}
+
+export interface BillingWithdrawalResult {
+  received: boolean;
+  reused: boolean;
+  status: 'processing' | 'succeeded' | 'manual_review';
 }
 
 /** Sanitized read-only history. It never exposes Stripe IDs or payment URLs. */

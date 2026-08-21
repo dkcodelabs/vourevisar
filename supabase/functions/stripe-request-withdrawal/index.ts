@@ -1,4 +1,5 @@
 import Stripe from "npm:stripe@22.4.0";
+import { sendWithdrawalReceivedEmail } from "../_shared/billingEmail.ts";
 import { isBillingWithdrawalEnabled } from "../_shared/billingContract.ts";
 import { isWithinWithdrawalWindow } from "../_shared/billingWithdrawal.ts";
 import {
@@ -187,16 +188,18 @@ Deno.serve(async (request) => {
       error_code: supportsAutomaticRefund ? null : "withdrawal_payment_requires_manual_review",
     };
 
+    let reusedRequest = false;
     let { data: refundRequest, error: refundRequestError } = await supabase
       .from("billing_refund_requests")
       .insert(requestRecord)
-      .select("id,status,subscription_cancel_status,stripe_refund_id")
+      .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,requested_at,amount_cents,currency,eligibility_deadline")
       .single();
 
     if (refundRequestError?.code === "23505") {
+      reusedRequest = true;
       const existingResult = await supabase
         .from("billing_refund_requests")
-        .select("id,status,subscription_cancel_status,stripe_refund_id")
+        .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,requested_at,amount_cents,currency,eligibility_deadline")
         .eq("billing_contract_acceptance_id", acceptance.id)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -206,6 +209,31 @@ Deno.serve(async (request) => {
     }
     if (refundRequestError) throw refundRequestError;
     if (!refundRequest) throw new BillingHttpError(500, "withdrawal_request_missing");
+
+    if (!refundRequest.received_email_sent_at && user.email) {
+      try {
+        await sendWithdrawalReceivedEmail({
+          requestId: refundRequest.id,
+          email: user.email,
+          customerName: typeof user.user_metadata?.name === "string"
+            ? user.user_metadata.name
+            : null,
+          amountCents: refundRequest.amount_cents,
+          currency: refundRequest.currency,
+          requestedAt: new Date(refundRequest.requested_at),
+          deadline: new Date(refundRequest.eligibility_deadline),
+        });
+        await supabase
+          .from("billing_refund_requests")
+          .update({ received_email_sent_at: new Date().toISOString() })
+          .eq("id", refundRequest.id)
+          .is("received_email_sent_at", null);
+      } catch (error) {
+        console.error("[stripe-request-withdrawal] receipt_email_failed", {
+          code: safeErrorCode(error),
+        });
+      }
+    }
 
     if (refundRequest.status === "manual_review") {
       let cancelStatus: "succeeded" | "failed" = "succeeded";
@@ -228,7 +256,7 @@ Deno.serve(async (request) => {
 
       return jsonResponse(request, {
         received: true,
-        reused: Boolean(refundRequest.stripe_refund_id),
+        reused: reusedRequest,
         status: "manual_review",
       });
     }
@@ -310,7 +338,7 @@ Deno.serve(async (request) => {
 
     return jsonResponse(request, {
       received: true,
-      reused: false,
+      reused: reusedRequest,
       status: toPublicStatus(finalStatus),
     });
   } catch (error) {

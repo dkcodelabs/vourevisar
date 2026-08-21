@@ -10,7 +10,10 @@ import {
   safeErrorCode,
   syncStripeCustomerDetails,
 } from "../_shared/stripeBilling.ts";
-import { sendSubscriptionConfirmation } from "../_shared/billingEmail.ts";
+import {
+  sendSubscriptionConfirmation,
+  sendWithdrawalResultEmail,
+} from "../_shared/billingEmail.ts";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
@@ -283,7 +286,7 @@ const syncRefundRequest = async (
 
   const { data: requestRecord, error: requestError } = await supabase
     .from("billing_refund_requests")
-    .select("id,user_id,billing_subscription_id,billing_contract_acceptance_id,livemode,amount_cents,currency,stripe_refund_id,last_stripe_event_created_at,subscription_cancel_status")
+    .select("id,user_id,billing_subscription_id,billing_contract_acceptance_id,livemode,amount_cents,currency,stripe_refund_id,last_stripe_event_created_at,subscription_cancel_status,requested_at,eligibility_deadline,result_email_status")
     .eq("id", refundRequestId)
     .eq("livemode", event.livemode)
     .maybeSingle();
@@ -298,22 +301,11 @@ const syncRefundRequest = async (
     return "ignored";
   }
 
-  if (
+  const eventMismatch = (
     refund.amount !== requestRecord.amount_cents ||
     refund.currency !== requestRecord.currency ||
     (requestRecord.stripe_refund_id && requestRecord.stripe_refund_id !== refund.id)
-  ) {
-    const { error: mismatchError } = await supabase
-      .from("billing_refund_requests")
-      .update({
-        status: "manual_review",
-        error_code: "refund_event_mismatch",
-        last_stripe_event_created_at: eventCreatedAt,
-      })
-      .eq("id", requestRecord.id);
-    if (mismatchError) throw mismatchError;
-    return "processed";
-  }
+  );
 
   const { data: localSubscription, error: localSubscriptionError } = await supabase
     .from("billing_subscriptions")
@@ -332,7 +324,9 @@ const syncRefundRequest = async (
   await syncSubscription(supabase, stripe, canceled, event.created, event.livemode);
   const cancelStatus = "succeeded";
 
-  const status = refund.status === "succeeded" && cancelStatus === "succeeded"
+  const status = eventMismatch
+    ? "manual_review"
+    : refund.status === "succeeded" && cancelStatus === "succeeded"
     ? "succeeded"
     : refund.status === "failed" || refund.status === "canceled"
     ? "failed"
@@ -344,15 +338,51 @@ const syncRefundRequest = async (
   const { error: updateError } = await supabase
     .from("billing_refund_requests")
     .update({
-      stripe_refund_id: refund.id,
+      stripe_refund_id: eventMismatch ? requestRecord.stripe_refund_id : refund.id,
       status,
       subscription_cancel_status: cancelStatus,
-      error_code: status === "failed" ? `refund_failed:${failureReason ?? "unknown"}` : null,
+      error_code: eventMismatch
+        ? "refund_event_mismatch"
+        : status === "failed"
+        ? `refund_failed:${failureReason ?? "unknown"}`
+        : null,
       last_stripe_event_created_at: eventCreatedAt,
       processed_at: status === "succeeded" || status === "failed" ? eventCreatedAt : null,
     })
     .eq("id", requestRecord.id);
   if (updateError) throw updateError;
+
+  if (
+    (status === "succeeded" || status === "failed" || status === "manual_review") &&
+    requestRecord.result_email_status !== status
+  ) {
+    const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
+      requestRecord.user_id,
+    );
+    if (authUserError || !authUser.user?.email) {
+      throw authUserError ?? new Error("refund_result_email_missing");
+    }
+    await sendWithdrawalResultEmail({
+      requestId: requestRecord.id,
+      email: authUser.user.email,
+      customerName: typeof authUser.user.user_metadata?.name === "string"
+        ? authUser.user.user_metadata.name
+        : null,
+      amountCents: requestRecord.amount_cents,
+      currency: requestRecord.currency,
+      requestedAt: new Date(requestRecord.requested_at),
+      deadline: new Date(requestRecord.eligibility_deadline),
+      status,
+    });
+    const { error: emailStatusError } = await supabase
+      .from("billing_refund_requests")
+      .update({
+        result_email_sent_at: new Date().toISOString(),
+        result_email_status: status,
+      })
+      .eq("id", requestRecord.id);
+    if (emailStatusError) throw emailStatusError;
+  }
   return "processed";
 };
 
@@ -572,6 +602,25 @@ Deno.serve(async (request) => {
             event.livemode,
           );
           processingStatus = result.startsWith("ignored") ? "ignored" : "processed";
+
+          if (acceptanceId && completedAttempt) {
+            const { data: localSubscription, error: localSubscriptionError } = await supabase
+              .from("billing_subscriptions")
+              .select("id")
+              .eq("stripe_subscription_id", subscriptionId)
+              .eq("user_id", completedAttempt.user_id)
+              .maybeSingle();
+            if (localSubscriptionError) throw localSubscriptionError;
+            if (!localSubscription) throw new Error("checkout_subscription_missing");
+
+            const { error: acceptanceSubscriptionError } = await supabase
+              .from("billing_contract_acceptances")
+              .update({ billing_subscription_id: localSubscription.id })
+              .eq("id", acceptanceId)
+              .eq("checkout_attempt_id", completedAttempt.id)
+              .eq("user_id", completedAttempt.user_id);
+            if (acceptanceSubscriptionError) throw acceptanceSubscriptionError;
+          }
         }
         break;
       }

@@ -5,6 +5,7 @@ import {
   getStripeBillingOverview,
   getStripeInvoiceHistory,
   getStripeCatalog,
+  requestStripeWithdrawal,
 } from '@/features/billing/services/stripeBillingService';
 
 export const stripeBillingKeys = {
@@ -60,3 +61,14 @@ export const useStripeContractAcceptance = () =>
   useMutation({
     mutationFn: acceptStripeContract,
   });
+
+export const useStripeWithdrawal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: requestStripeWithdrawal,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: stripeBillingKeys.overview() });
+    },
+  });
+};

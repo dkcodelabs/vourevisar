@@ -358,9 +358,12 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   permanece desativado por `BILLING_WITHDRAWAL_ENABLED`.
 - [x] Estender webhook para `refund.created`, `refund.updated` e
   `refund.failed`, tolerando ordem, retries e assinatura já cancelada.
-- [ ] Expor somente o estado sanitizado na RPC de overview.
-- [ ] Implementar CTA, modal e estados em `/conta/assinatura`.
-- [ ] Implementar e-mails de recebimento e resultado.
+- [x] Expor somente elegibilidade, prazo e estado sanitizado na RPC de
+  overview, sem IDs Stripe no navegador.
+- [x] Implementar CTA, modal de confirmação e estados de processamento,
+  sucesso e revisão manual em `/conta/assinatura`, atrás de feature flag.
+- [x] Implementar e-mails idempotentes de recebimento e resultado, sem afirmar
+  crédito concluído enquanto a Stripe ainda estiver processando.
 - [ ] Criar visão administrativa somente leitura/retry controlado, com auditoria.
 
 ### Fase 3 — renovação e mudança de plano
@@ -384,7 +387,9 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [ ] Confirmar e-mails e histórico auditável.
 - [ ] Testar mensal e anual no Stripe Test.
 - [ ] Validar desktop, tablet e mobile.
-- [ ] Executar build, lint, testes e `git diff --check`.
+- [x] Executar build, lint, testes e `git diff --check`. Nesta etapa passaram
+  `deno check`, typecheck, lint, 171 arquivos/660 testes e build de produção;
+  repetir após aplicar migrations e antes de qualquer ativação.
 - [ ] Publicar Edge Functions e frontend em Test, sem alterar Live.
 - [ ] Fazer uma compra Live controlada e solicitar arrependimento/reembolso
   dentro da janela; confirmar Stripe, webhook, banco, e-mail e UI.

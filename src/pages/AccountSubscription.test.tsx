@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   useStripeCatalog: vi.fn(),
   useStripeInvoiceHistory: vi.fn(),
   useStripePortal: vi.fn(),
+  useStripeWithdrawal: vi.fn(),
   useUserRole: vi.fn(),
 }));
 
@@ -16,7 +17,16 @@ vi.mock('@/features/billing/hooks/useStripeBilling', () => ({
   useStripeCatalog: mocks.useStripeCatalog,
   useStripeInvoiceHistory: mocks.useStripeInvoiceHistory,
   useStripePortal: mocks.useStripePortal,
+  useStripeWithdrawal: mocks.useStripeWithdrawal,
 }));
+
+vi.mock('@/features/billing/legal/billingLegalDocuments', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/features/billing/legal/billingLegalDocuments')>();
+  return {
+    ...original,
+    isBillingWithdrawalEnabled: () => true,
+  };
+});
 
 vi.mock('@/hooks/useUserRole', () => ({
   useUserRole: mocks.useUserRole,
@@ -74,6 +84,17 @@ const activeOverview: BillingOverview = {
   },
 };
 
+const withdrawalEligibleOverview: BillingOverview = {
+  ...activeOverview,
+  withdrawal: {
+    eligible: true,
+    deadline: '2026-09-09T12:00:00.000Z',
+    status: null,
+    requested_at: null,
+    result_at: null,
+  },
+};
+
 const pendingOverview: BillingOverview = {
   ...activeOverview,
   status: 'past_due',
@@ -118,6 +139,13 @@ describe('AccountSubscription', () => {
     mocks.useStripePortal.mockReturnValue({
       isPending: false,
       isError: false,
+      mutateAsync: vi.fn(),
+    });
+    mocks.useStripeWithdrawal.mockReturnValue({
+      data: undefined,
+      error: null,
+      isError: false,
+      isPending: false,
       mutateAsync: vi.fn(),
     });
     mocks.useStripeCatalog.mockReturnValue({
@@ -234,6 +262,25 @@ describe('AccountSubscription', () => {
 
     expect(screen.getByText('Carregando sua assinatura')).toBeInTheDocument();
     expect(screen.getByText('Organizando os dados do seu plano…')).toBeInTheDocument();
+  });
+
+  it('shows the self-service withdrawal action only when the sanitized overview allows it', () => {
+    mocks.useStripeBillingOverview.mockReturnValue({
+      data: withdrawalEligibleOverview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/conta/assinatura']}>
+        <AccountSubscription />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Direito de arrependimento')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /desistir da assinatura e pedir reembolso/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /gerenciar pagamento/i })).toBeInTheDocument();
   });
 
   it('keeps billing lookup failures recoverable without exposing provider internals', () => {
