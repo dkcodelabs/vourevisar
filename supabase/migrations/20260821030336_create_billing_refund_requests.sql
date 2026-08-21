@@ -88,10 +88,6 @@ AS $$
 DECLARE
   claimed_id uuid;
 BEGIN
-  IF auth.role() <> 'service_role' THEN
-    RAISE EXCEPTION 'not authorized' USING ERRCODE = '42501';
-  END IF;
-
   UPDATE public.billing_refund_requests
   SET
     status = 'processing',

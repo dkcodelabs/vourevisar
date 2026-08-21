@@ -199,7 +199,10 @@ describe('Stripe billing security boundaries', () => {
       'REVOKE ALL ON TABLE public.billing_refund_requests',
     );
     expect(refundRequestMigrationSource).toContain('claim_billing_refund_request');
-    expect(refundRequestMigrationSource).toContain("auth.role() <> 'service_role'");
+    expect(refundRequestMigrationSource).not.toContain('auth.role()');
+    expect(refundRequestMigrationSource).toContain(
+      'GRANT EXECUTE ON FUNCTION public.claim_billing_refund_request(uuid, uuid, boolean)',
+    );
     expect(withdrawalFunctionSource).toContain('requireAuthenticatedUser(request, supabase)');
     expect(withdrawalFunctionSource).toContain('subscription.metadata.supabase_user_id !== user.id');
     expect(withdrawalFunctionSource).toContain('acceptance.livemode !== livemode');
