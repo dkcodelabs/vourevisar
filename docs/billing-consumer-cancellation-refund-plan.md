@@ -439,7 +439,10 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   reembolso ao webhook, portanto o e-mail terminal não foi enviado pela versão
   anterior. A solicitação passou a enviar/auditar o resultado diretamente
   quando a Stripe já devolve estado terminal, mantendo o webhook como
-  reconciliação; falta confirmar esse e-mail em uma nova execução controlada.
+  reconciliação. A versão atual também expõe uma recuperação idempotente para
+  o cliente garantir o envio do comprovante sem repetir o reembolso; falta
+  executar essa ação uma vez na conta de homologação e confirmar a chegada no
+  Proton.
 - [ ] Testar mensal e anual no Stripe Test.
 - [ ] Validar desktop, tablet e mobile.
 - [x] Executar build, lint, testes e `git diff --check`. Nesta etapa passaram
@@ -507,6 +510,10 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   `Pagamento reembolsado`, data original da cobrança, data de atualização do
   reembolso e `Sem renovação ativa`; a inspeção mobile em 390 px não encontrou
   overflow horizontal nem erros no console.
+- [x] Publicar a recuperação do e-mail terminal no Supabase e no Vercel. A
+  Edge Function aceita `action=ensure_result_email`, restringe a busca ao
+  usuário autenticado e ao modo Live, e usa a idempotência do provedor de
+  e-mail; a interface só mostra a ação para estados `succeeded` ou de revisão.
 - [ ] Revisar em tarefa separada os avisos de segurança preexistentes do
   Supabase Advisor para funções `SECURITY DEFINER` fora deste fluxo e habilitar
   proteção contra senhas vazadas. O aviso da RPC
