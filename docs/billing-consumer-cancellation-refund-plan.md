@@ -498,11 +498,22 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   antigo (`subscription=active` + reembolso/cancelamento concluídos), obtendo
   `is_active=false`, `status=canceled` e sem renovação; a transação foi
   revertida.
-- [ ] Publicar e validar no domínio oficial o histórico financeiro que cruza a
+- [x] Publicar e validar no domínio oficial o histórico financeiro que cruza a
   fatura paga com `billing_refund_requests`, exibindo `Pagamento reembolsado`,
   `Reembolso em processamento` ou `Reembolso em análise` em vez de manter
-  apenas `Pagamento confirmado`. A Edge Function já foi publicada; falta o
-  bundle frontend e a inspeção visual autenticada.
+  apenas `Pagamento confirmado`. A Edge Function e o bundle frontend foram
+  publicados no deployment Production `dpl_ALUGAo12n4jJD3DDPwTMDLhWoEGv`.
+  Em sessão autenticada no domínio oficial, a conta encerrada exibiu
+  `Pagamento reembolsado`, data original da cobrança, data de atualização do
+  reembolso e `Sem renovação ativa`; a inspeção mobile em 390 px não encontrou
+  overflow horizontal nem erros no console.
+- [ ] Revisar em tarefa separada os avisos de segurança preexistentes do
+  Supabase Advisor para funções `SECURITY DEFINER` fora deste fluxo e habilitar
+  proteção contra senhas vazadas. O aviso da RPC
+  `get_stripe_billing_overview` é intencional: somente `authenticated` pode
+  executá-la e a própria função exige `auth.uid()` e restringe a consulta ao
+  usuário autenticado. As tabelas financeiras permanecem sem políticas de
+  navegador por desenho, com RLS e privilégios diretos revogados.
 
 ## Critérios para liberar produção
 
