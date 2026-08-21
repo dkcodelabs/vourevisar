@@ -116,6 +116,8 @@ describe('Stripe billing security boundaries', () => {
     expect(checkoutSource).toContain('stripe_checkout_session_id: null');
     expect(checkoutSource).toContain('.eq("billing_customer_id", currentBillingCustomer.id)');
     expect(checkoutSource).toContain('.gte("updated_at", currentBillingCustomer.updated_at)');
+    expect(checkoutSource).toContain('requestId: openAttempt.request_id');
+    expect(userFacingBillingSource).toContain('requestId={checkout.data.requestId}');
   });
 
   it('serves display prices from the allowlisted Stripe catalog without legacy tables', () => {

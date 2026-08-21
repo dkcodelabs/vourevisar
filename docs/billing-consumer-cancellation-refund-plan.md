@@ -395,6 +395,11 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [ ] Testar trial sem cartão e sem assinatura Stripe.
 - [ ] Testar assinatura durante o trial e após o trial.
 - [ ] Testar clique duplicado, retry, webhook duplicado e fora de ordem.
+- [ ] Validar em produção a retomada do mesmo Checkout em outra aba/dispositivo
+  depois da correção do `requestId` canônico. A causa observada foi a
+  reutilização de uma tentativa aberta com `request_id` antigo enquanto o
+  frontend enviava um ID novo ao aceite contratual, resultando em
+  `checkout_attempt_not_found` antes da confirmação do cartão.
 - [ ] Testar reembolso `succeeded`, `pending` e `failed`.
 - [ ] Confirmar cancelamento imediato, ausência de nova fatura e revogação do
   acesso pago sem apagar dados de estudo.

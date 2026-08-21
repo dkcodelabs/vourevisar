@@ -87,7 +87,7 @@ export const createStripeCheckout = async (
   plan: BillingPlanCode,
   requestId: string,
 ) =>
-  invokeBillingFunction<{ clientSecret: string; reused: boolean }>('stripe-create-checkout', {
+  invokeBillingFunction<{ clientSecret: string; requestId: string; reused: boolean }>('stripe-create-checkout', {
     plan,
     requestId,
   });

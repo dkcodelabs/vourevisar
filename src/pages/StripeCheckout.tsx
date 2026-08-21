@@ -125,7 +125,7 @@ const StripeCheckout = () => {
             priceLabel={priceLabel}
             intervalLabel={intervalLabel}
             plan={plan}
-            requestId={requestId!}
+            requestId={checkout.data.requestId}
             requireContractAcceptance={contractAcceptanceEnabled}
           />
         </CheckoutElementsProvider>

@@ -29,7 +29,9 @@ const isReusableCheckoutSession = (session: {
   status: string | null;
   client_secret: string | null;
   phone_number_collection?: { enabled?: boolean } | null;
-  billing_address_collection?: "auto" | "required" | null;
+  // Stripe keeps this enum forward-compatible through OtherString. We only
+  // need to reject the one value the custom form cannot complete.
+  billing_address_collection?: string | null;
 }) =>
   session.status === "open" &&
   Boolean(session.client_secret) &&
@@ -129,6 +131,7 @@ Deno.serve(async (request) => {
         if (isReusableCheckoutSession(existingSession)) {
           return jsonResponse(request, {
             clientSecret: existingSession.client_secret!,
+            requestId: openAttempt.request_id,
             reused: true,
           });
         }
@@ -173,6 +176,7 @@ Deno.serve(async (request) => {
           if (isReusableCheckoutSession(repeatedSession)) {
             return jsonResponse(request, {
               clientSecret: repeatedSession.client_secret!,
+              requestId,
               reused: true,
             });
           }
@@ -273,6 +277,7 @@ Deno.serve(async (request) => {
 
     return jsonResponse(request, {
       clientSecret: session.client_secret,
+      requestId,
       reused: false,
     });
   } catch (error) {
