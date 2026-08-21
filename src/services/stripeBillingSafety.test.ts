@@ -40,6 +40,12 @@ const legalAcceptanceFunctionSource = readProjectFile(
 const signupAcceptanceServiceSource = readProjectFile(
   'src/features/billing/legal/signupLegalAcceptanceService.ts',
 );
+const refundRequestMigrationSource = readProjectFile(
+  'supabase/migrations/20260821030336_create_billing_refund_requests.sql',
+);
+const withdrawalFunctionSource = readProjectFile(
+  'supabase/functions/stripe-request-withdrawal/index.ts',
+);
 const legacyGrantMigrationSource = readProjectFile(
   'supabase/migrations/20260731170341_backfill_legacy_paid_access_grants.sql',
 );
@@ -169,6 +175,35 @@ describe('Stripe billing security boundaries', () => {
     expect(legalAcceptanceFunctionSource).toContain('legal_document_acceptances');
     expect(signupAcceptanceServiceSource).toContain("sessionStorage.setItem");
     expect(signupAcceptanceServiceSource).toContain("'legal-accept-documents'");
+  });
+
+  it('keeps withdrawal requests private, atomic and idempotent', () => {
+    expect(configSource).toContain('[functions.stripe-request-withdrawal]\nverify_jwt = true');
+    expect(refundRequestMigrationSource).toContain('public.billing_refund_requests');
+    expect(refundRequestMigrationSource).toContain(
+      'ALTER TABLE public.billing_refund_requests ENABLE ROW LEVEL SECURITY',
+    );
+    expect(refundRequestMigrationSource).toContain(
+      'REVOKE ALL ON TABLE public.billing_refund_requests',
+    );
+    expect(refundRequestMigrationSource).toContain('claim_billing_refund_request');
+    expect(refundRequestMigrationSource).toContain("auth.role() <> 'service_role'");
+    expect(withdrawalFunctionSource).toContain('requireAuthenticatedUser(request, supabase)');
+    expect(withdrawalFunctionSource).toContain('subscription.metadata.supabase_user_id !== user.id');
+    expect(withdrawalFunctionSource).toContain('acceptance.livemode !== livemode');
+    expect(withdrawalFunctionSource).toContain('reason: "requested_by_customer"');
+    expect(withdrawalFunctionSource).toContain('billing-withdrawal:v1:');
+    expect(withdrawalFunctionSource).toContain('cancelSubscriptionImmediately');
+    expect(withdrawalFunctionSource).not.toMatch(/stripe_(subscription|invoice|payment_intent|refund)_id.*body/i);
+  });
+
+  it('reconciles Stripe Refund events and safely reuses cancellation', () => {
+    expect(webhookSource).toContain('case "refund.created"');
+    expect(webhookSource).toContain('case "refund.updated"');
+    expect(webhookSource).toContain('case "refund.failed"');
+    expect(webhookSource).toContain('syncRefundRequest');
+    expect(webhookSource).toContain('cancelSubscriptionIfNeeded');
+    expect(webhookSource).toContain('last_stripe_event_created_at');
   });
 
   it('keeps provider internals out of user-facing billing messages', () => {

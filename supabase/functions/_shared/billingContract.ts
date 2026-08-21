@@ -41,3 +41,6 @@ export const getBillingContractDocuments = async () => ({
 
 export const isBillingContractAcceptanceEnabled = () =>
   Deno.env.get("BILLING_CONTRACT_ACCEPTANCE_ENABLED")?.trim().toLowerCase() === "true";
+
+export const isBillingWithdrawalEnabled = () =>
+  Deno.env.get("BILLING_WITHDRAWAL_ENABLED")?.trim().toLowerCase() === "true";

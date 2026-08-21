@@ -22,6 +22,9 @@ verify_jwt = true
 [functions.legal-accept-documents]
 verify_jwt = true
 
+[functions.stripe-request-withdrawal]
+verify_jwt = true
+
 [functions.stripe-create-portal]
 verify_jwt = true
 

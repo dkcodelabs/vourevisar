@@ -351,9 +351,13 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 
 ### Fase 2 — arrependimento e reembolso
 
-- [ ] Criar `billing_refund_requests` e claim atômico.
-- [ ] Implementar `stripe-request-withdrawal`.
-- [ ] Estender webhook para eventos de Refund.
+- [x] Criar `billing_refund_requests` privado, isolado por `livemode`, com
+  claim atômico, lease de recuperação e idempotência por contrato/pagamento.
+- [x] Implementar `stripe-request-withdrawal` com JWT, resolução integral no
+  backend, reembolso do primeiro pagamento e cancelamento imediato. O código
+  permanece desativado por `BILLING_WITHDRAWAL_ENABLED`.
+- [x] Estender webhook para `refund.created`, `refund.updated` e
+  `refund.failed`, tolerando ordem, retries e assinatura já cancelada.
 - [ ] Expor somente o estado sanitizado na RPC de overview.
 - [ ] Implementar CTA, modal e estados em `/conta/assinatura`.
 - [ ] Implementar e-mails de recebimento e resultado.

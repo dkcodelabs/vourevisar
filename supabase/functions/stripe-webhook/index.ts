@@ -254,6 +254,108 @@ const syncSubscriptionById = async (
   return syncSubscription(supabase, stripe, subscription, eventCreated, livemode);
 };
 
+const cancelSubscriptionIfNeeded = async (
+  stripe: Stripe,
+  subscriptionId: string,
+  idempotencyKey?: string,
+) => {
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+    expand: ["default_payment_method", "latest_invoice"],
+  });
+  if (subscription.status === "canceled") return subscription;
+
+  return stripe.subscriptions.cancel(
+    subscriptionId,
+    { invoice_now: false, prorate: false },
+    idempotencyKey ? { idempotencyKey } : undefined,
+  );
+};
+
+const syncRefundRequest = async (
+  supabase: ServiceClient,
+  stripe: Stripe,
+  refund: Stripe.Refund,
+  event: Stripe.Event,
+  eventCreatedAt: string,
+): Promise<"processed" | "ignored"> => {
+  const refundRequestId = refund.metadata?.billing_refund_request_id;
+  if (!refundRequestId) return "ignored";
+
+  const { data: requestRecord, error: requestError } = await supabase
+    .from("billing_refund_requests")
+    .select("id,user_id,billing_subscription_id,billing_contract_acceptance_id,livemode,amount_cents,currency,stripe_refund_id,last_stripe_event_created_at,subscription_cancel_status")
+    .eq("id", refundRequestId)
+    .eq("livemode", event.livemode)
+    .maybeSingle();
+  if (requestError) throw requestError;
+  if (!requestRecord) return "ignored";
+
+  if (
+    requestRecord.last_stripe_event_created_at &&
+    new Date(requestRecord.last_stripe_event_created_at).getTime() >
+      new Date(eventCreatedAt).getTime()
+  ) {
+    return "ignored";
+  }
+
+  if (
+    refund.amount !== requestRecord.amount_cents ||
+    refund.currency !== requestRecord.currency ||
+    (requestRecord.stripe_refund_id && requestRecord.stripe_refund_id !== refund.id)
+  ) {
+    const { error: mismatchError } = await supabase
+      .from("billing_refund_requests")
+      .update({
+        status: "manual_review",
+        error_code: "refund_event_mismatch",
+        last_stripe_event_created_at: eventCreatedAt,
+      })
+      .eq("id", requestRecord.id);
+    if (mismatchError) throw mismatchError;
+    return "processed";
+  }
+
+  const { data: localSubscription, error: localSubscriptionError } = await supabase
+    .from("billing_subscriptions")
+    .select("stripe_subscription_id")
+    .eq("id", requestRecord.billing_subscription_id)
+    .eq("user_id", requestRecord.user_id)
+    .maybeSingle();
+  if (localSubscriptionError) throw localSubscriptionError;
+  if (!localSubscription) throw new Error("refund_subscription_missing");
+
+  const canceled = await cancelSubscriptionIfNeeded(
+    stripe,
+    localSubscription.stripe_subscription_id,
+    `billing-withdrawal-cancel:v1:${event.livemode ? "live" : "test"}:${requestRecord.billing_contract_acceptance_id}`,
+  );
+  await syncSubscription(supabase, stripe, canceled, event.created, event.livemode);
+  const cancelStatus = "succeeded";
+
+  const status = refund.status === "succeeded" && cancelStatus === "succeeded"
+    ? "succeeded"
+    : refund.status === "failed" || refund.status === "canceled"
+    ? "failed"
+    : "pending";
+  const failureReason = refund.failure_reason
+    ?.toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, "_")
+    .slice(0, 180);
+  const { error: updateError } = await supabase
+    .from("billing_refund_requests")
+    .update({
+      stripe_refund_id: refund.id,
+      status,
+      subscription_cancel_status: cancelStatus,
+      error_code: status === "failed" ? `refund_failed:${failureReason ?? "unknown"}` : null,
+      last_stripe_event_created_at: eventCreatedAt,
+      processed_at: status === "succeeded" || status === "failed" ? eventCreatedAt : null,
+    })
+    .eq("id", requestRecord.id);
+  if (updateError) throw updateError;
+  return "processed";
+};
+
 const getSubscriptionIdFromCharge = async (stripe: Stripe, charge: Stripe.Charge) => {
   const invoiceId = await resolveChargeInvoiceId(stripe, charge);
   if (!invoiceId) return null;
@@ -530,6 +632,19 @@ Deno.serve(async (request) => {
         break;
       }
 
+      case "refund.created":
+      case "refund.updated":
+      case "refund.failed": {
+        processingStatus = await syncRefundRequest(
+          supabase,
+          stripe,
+          event.data.object as Stripe.Refund,
+          event,
+          eventCreatedAt,
+        );
+        break;
+      }
+
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
         if (charge.amount_refunded >= charge.amount) {
@@ -538,7 +653,7 @@ Deno.serve(async (request) => {
             subscriptionId &&
             await chargeSustainsCurrentAccess(supabase, stripe, subscriptionId, charge)
           ) {
-            const canceled = await stripe.subscriptions.cancel(subscriptionId);
+            const canceled = await cancelSubscriptionIfNeeded(stripe, subscriptionId);
             await syncSubscription(supabase, stripe, canceled, event.created, event.livemode);
           } else {
             processingStatus = "ignored";
