@@ -338,9 +338,12 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   valor atual, renovação, próxima cobrança estimada, cancelamento e
   arrependimento. A ativação permanece protegida por feature flag.
 - [x] Criar `billing_contract_acceptances` com RLS/revogações. A migration foi
-  validada estaticamente e ainda precisa ser aplicada no projeto remoto.
+  aplicada no projeto Live com as flags do recurso explicitamente desligadas;
+  RLS e ausência de leitura por `anon`/`authenticated` foram confirmadas no
+  banco remoto.
 - [x] Implementar `stripe-accept-contract` e correlação no webhook. As Edge
-  Functions passaram no `deno check` e ainda não foram publicadas.
+  Functions passaram no `deno check` e foram publicadas no projeto Live com
+  `BILLING_CONTRACT_ACCEPTANCE_ENABLED=false`.
 - [x] Incluir confirmação contratual no e-mail da primeira cobrança quando o
   checkout possui aceite correlacionado. O envio real ainda depende da
   homologação da Edge Function em Test.
@@ -367,8 +370,8 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [x] Criar visão administrativa e reconciliação controlada, com auditoria
   privada. A operação consulta o Refund existente, procura o pedido pela
   metadata e reaplica somente o cancelamento idempotente; não cria um segundo
-  reembolso automaticamente. A fila permanece protegida por feature flag e
-  ainda precisa de homologação com dados Stripe Test.
+  reembolso automaticamente. A fila foi publicada protegida por feature flag
+  desligada e ainda precisa de homologação com uma cobrança controlada.
 
 ### Fase 3 — renovação e mudança de plano
 
@@ -379,7 +382,10 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 
 ### Fase 4 — homologação
 
-- [ ] Rodar migration local/remota, gerar tipos e executar Advisors de segurança.
+- [x] Aplicar as cinco migrations no projeto remoto, executar lint do banco e
+  Advisors de segurança, e confirmar RLS/revogações e privilégio exclusivo de
+  `service_role` na função privada de claim.
+- [ ] Regenerar os tipos do Supabase após estabilizar o schema desta entrega.
 - [ ] Testar lógica de prazo no instante inicial, dentro da janela, no limite e
   após o limite.
 - [ ] Testar trial sem cartão e sem assinatura Stripe.
@@ -394,7 +400,16 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [x] Executar build, lint, testes e `git diff --check`. Nesta etapa passaram
   `deno check`, typecheck, lint, 173 arquivos/671 testes e build de produção;
   repetir após aplicar migrations e antes de qualquer ativação.
-- [ ] Publicar Edge Functions e frontend em Test, sem alterar Live.
+- [x] Publicar as nove Edge Functions no projeto Live com as três flags de
+  ativação explicitamente desligadas. O catálogo Live foi consultado sem criar
+  Checkout; os endpoints novos recusaram uso enquanto desativados; o webhook
+  recusou requisição sem assinatura. Nenhuma cobrança foi criada.
+- [ ] Configurar no Vercel os dados reais do fornecedor, concluir a revisão
+  jurídica e retirar o sufixo `draft` das versões antes de publicar o frontend.
+- [ ] Publicar o frontend e ativar as flags de frontend/backend de forma
+  coordenada. Até isso acontecer, o domínio oficial permanece na experiência
+  anterior, que foi validada em `/planos` e `/conta/assinatura` após o deploy
+  seguro do backend.
 - [ ] Fazer uma compra Live controlada e solicitar arrependimento/reembolso
   dentro da janela; confirmar Stripe, webhook, banco, e-mail e UI.
 
