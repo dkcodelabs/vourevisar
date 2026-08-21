@@ -425,6 +425,15 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [x] Fazer smoke test não mutante dos endpoints ativados: payloads vazios
   retornaram validação de versão/contrato/pedido e sessão (`409/400/400/401`),
   em vez de `feature_not_enabled`, sem criar Checkout, aceite ou reembolso.
+- [x] Reproduzir no domínio oficial a preparação e o recarregamento do Checkout
+  mensal Live. As duas renderizações abriram o Payment Element e o resumo
+  contratual sem 500; a tentativa permaneceu `open`, `error_code=null` e com
+  prefixo `cs_live_`. Nenhum aceite contratual ou pedido de reembolso foi
+  criado porque o checkbox e o pagamento não foram confirmados.
+- [x] Sincronizar a entrega com `main` para impedir rollback no próximo deploy.
+  O commit `b1e22940` gerou o deployment Production
+  `dpl_89cYK7farTYLrS9CM1VYxyNMwYF5`, em estado `READY`, associado aos domínios
+  oficiais.
 - [ ] Fazer uma compra Live controlada e solicitar arrependimento/reembolso
   dentro da janela; confirmar Stripe, webhook, banco, e-mail e UI.
 
