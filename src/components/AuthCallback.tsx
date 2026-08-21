@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { isEmailConfirmationPending } from '@/utils/authConfirmation';
+import { completePendingSignupLegalAcceptance } from '@/features/billing/legal/signupLegalAcceptanceService';
 
 const getConfirmEmailRedirect = (
   status: 'expired' | 'error' | 'unconfirmed',
@@ -82,6 +83,7 @@ export function AuthCallback() {
             await supabase.auth.signOut();
             setRedirectPath('/login?confirmed=1');
           } else {
+            await completePendingSignupLegalAcceptance();
             setRedirectPath('/dashboard');
           }
           return;
@@ -142,6 +144,7 @@ export function AuthCallback() {
             await supabase.auth.signOut();
             setRedirectPath('/login?confirmed=1');
           } else {
+            await completePendingSignupLegalAcceptance();
             setRedirectPath('/dashboard');
           }
           return;
@@ -167,6 +170,7 @@ export function AuthCallback() {
         }
 
         if (existingSession) {
+          await completePendingSignupLegalAcceptance();
           setRedirectPath('/dashboard');
           return;
         }

@@ -10,6 +10,7 @@ import { retryProfileLookup } from '@/utils/retryProfileLookup';
 import { withTimeout } from '@/utils/withTimeout';
 import { AuthContext, AuthContextType } from './auth-context';
 import type { Database } from '@/integrations/supabase/types';
+import type { SignupLegalAcceptance } from '@/features/billing/legal/billingLegalDocuments';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -338,11 +339,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [fetchProfile, location.pathname, logEvent, navigate]);
 
-  const signUp = useCallback(async (email: string, password: string, name: string, phone?: string) => {
+  const signUp = useCallback(async (email: string, password: string, name: string, phone?: string, legalAcceptance?: SignupLegalAcceptance) => {
     try {
       setLoading(true);
 
-      const result = await authOps.signUp(email, password, name, phone);
+      const result = await authOps.signUp(email, password, name, phone, legalAcceptance);
       return { success: true, user: result?.user || undefined, confirmationPending: result?.confirmationPending };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';

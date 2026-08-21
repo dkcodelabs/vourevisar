@@ -11,6 +11,16 @@ export const billingContractVersions = {
   refundPolicyVersion: BILLING_REFUND_POLICY_VERSION,
 } as const;
 
+export type SignupLegalAcceptance = {
+  termsVersion: typeof BILLING_TERMS_VERSION;
+  privacyVersion: typeof BILLING_PRIVACY_VERSION;
+};
+
+export const signupLegalAcceptance: SignupLegalAcceptance = {
+  termsVersion: BILLING_TERMS_VERSION,
+  privacyVersion: BILLING_PRIVACY_VERSION,
+};
+
 export const billingLegalLinks = {
   terms: '/termos',
   privacy: '/privacidade',

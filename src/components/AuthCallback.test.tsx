@@ -10,12 +10,20 @@ const auth = vi.hoisted(() => ({
   signOut: vi.fn(),
 }));
 
+const legalAcceptance = vi.hoisted(() => ({
+  complete: vi.fn(),
+}));
+
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { auth },
 }));
 
 vi.mock('@/lib/errors/toastGate', () => ({
   toastGate: { notifyError: vi.fn() },
+}));
+
+vi.mock('@/features/billing/legal/signupLegalAcceptanceService', () => ({
+  completePendingSignupLegalAcceptance: legalAcceptance.complete,
 }));
 
 vi.mock('./ui/LoadingSpinner', () => ({
@@ -44,6 +52,7 @@ describe('AuthCallback', () => {
     auth.getSession.mockResolvedValue({ data: { session: null } });
     auth.setSession.mockResolvedValue({ data: { session: null }, error: null });
     auth.signOut.mockResolvedValue({ error: null });
+    legalAcceptance.complete.mockReset().mockResolvedValue(false);
   });
 
   it('não reaproveita sessão local quando callback vazio tem confirmação pendente', async () => {
@@ -93,5 +102,25 @@ describe('AuthCallback', () => {
       expect(localStorage.getItem('pendingConfirmationCooldownUntil')).toBeNull();
     });
     expect(localStorage.getItem('confirmedEmail')).toBe('aluno@example.com');
+  });
+
+  it('conclui o aceite pendente antes de liberar o retorno do Google', async () => {
+    window.history.pushState({}, '', '/auth/callback?code=google-code');
+    auth.exchangeCodeForSession.mockResolvedValue({
+      data: {
+        user: {
+          email: 'aluno@gmail.com',
+          email_confirmed_at: '2026-08-21T00:00:00Z',
+          confirmed_at: '2026-08-21T00:00:00Z',
+          app_metadata: { provider: 'google', providers: ['google'] },
+        },
+      },
+      error: null,
+    });
+
+    renderAuthCallback('/auth/callback?code=google-code');
+
+    expect(await screen.findByText('Dashboard')).toBeInTheDocument();
+    expect(legalAcceptance.complete).toHaveBeenCalledOnce();
   });
 });

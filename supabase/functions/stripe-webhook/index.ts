@@ -281,9 +281,11 @@ const chargeSustainsCurrentAccess = async (
 };
 
 const sendFirstPaymentConfirmation = async (
+  supabase: ServiceClient,
   stripe: Stripe,
   invoice: Stripe.Invoice,
   eventId: string,
+  livemode: boolean,
 ) => {
   if (invoice.billing_reason !== "subscription_create") return;
 
@@ -305,6 +307,44 @@ const sendFirstPaymentConfirmation = async (
   const planCode = getPlanFromPriceId(item.price.id);
   if (!planCode || item.price.unit_amount === null) return;
 
+  const requestId = subscription.metadata.request_id;
+  const userId = subscription.metadata.supabase_user_id;
+  let contract: {
+    termsVersion: string;
+    privacyVersion: string;
+    refundPolicyVersion: string;
+    acceptedAt: Date;
+  } | null = null;
+
+  if (requestId && userId) {
+    const { data: attempt, error: attemptError } = await supabase
+      .from("billing_checkout_attempts")
+      .select("id")
+      .eq("request_id", requestId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (attemptError) throw attemptError;
+
+    if (attempt) {
+      const { data: acceptance, error: acceptanceError } = await supabase
+        .from("billing_contract_acceptances")
+        .select("terms_version,privacy_version,refund_policy_version,accepted_at")
+        .eq("checkout_attempt_id", attempt.id)
+        .eq("user_id", userId)
+        .eq("livemode", livemode)
+        .maybeSingle();
+      if (acceptanceError) throw acceptanceError;
+      if (acceptance) {
+        contract = {
+          termsVersion: acceptance.terms_version,
+          privacyVersion: acceptance.privacy_version,
+          refundPolicyVersion: acceptance.refund_policy_version,
+          acceptedAt: new Date(acceptance.accepted_at),
+        };
+      }
+    }
+  }
+
   await sendSubscriptionConfirmation({
     eventId,
     email,
@@ -315,6 +355,7 @@ const sendFirstPaymentConfirmation = async (
     periodEnd: item.current_period_end
       ? new Date(item.current_period_end * 1000)
       : null,
+    contract,
   });
 };
 
@@ -472,7 +513,13 @@ Deno.serve(async (request) => {
         processingStatus = result.startsWith("ignored") ? "ignored" : "processed";
         if (event.type === "invoice.paid") {
           try {
-            await sendFirstPaymentConfirmation(stripe, invoice, event.id);
+            await sendFirstPaymentConfirmation(
+              supabase,
+              stripe,
+              invoice,
+              event.id,
+              event.livemode,
+            );
           } catch (error) {
             console.error("[stripe-webhook] billing_confirmation_email_failed", {
               code: safeErrorCode(error),

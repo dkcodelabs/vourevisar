@@ -23,6 +23,12 @@ export type SubscriptionConfirmation = {
   currency: string;
   planLabel: string;
   periodEnd: Date | null;
+  contract?: {
+    termsVersion: string;
+    privacyVersion: string;
+    refundPolicyVersion: string;
+    acceptedAt: Date;
+  } | null;
 };
 
 /**
@@ -37,6 +43,7 @@ export const sendSubscriptionConfirmation = async ({
   currency,
   planLabel,
   periodEnd,
+  contract,
 }: SubscriptionConfirmation) => {
   const appUrl = requireEnv("APP_URL").replace(/\/$/, "");
   const recipient = escapeHtml(email);
@@ -47,6 +54,19 @@ export const sendSubscriptionConfirmation = async ({
     ? escapeHtml(new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(periodEnd))
     : "não informado";
   const link = `${appUrl}/conta/assinatura`;
+  const contractSummary = contract
+    ? `
+      <div style="background:#f6f3ff;border-radius:12px;padding:16px;margin:20px 0">
+        <p style="margin:0 0 8px"><strong>Confirmação contratual</strong></p>
+        <p style="margin:0;font-size:14px">Aceite registrado em ${escapeHtml(new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeStyle: "short" }).format(contract.acceptedAt))}.</p>
+        <p style="margin:8px 0 0;font-size:13px;color:#555">
+          <a href="${appUrl}/termos">Termos de Uso ${escapeHtml(contract.termsVersion)}</a> ·
+          <a href="${appUrl}/privacidade">Privacidade ${escapeHtml(contract.privacyVersion)}</a> ·
+          <a href="${appUrl}/cancelamento-e-reembolso">Cancelamento e Reembolso ${escapeHtml(contract.refundPolicyVersion)}</a>
+        </p>
+      </div>
+    `
+    : "";
   const apiKey = requireEnv("RESEND_API_KEY");
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -64,7 +84,8 @@ export const sendSubscriptionConfirmation = async ({
         <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f2040;max-width:600px;margin:auto">
           <h1>Seu acesso está confirmado</h1>
           <p>${greeting}, recebemos seu pagamento e sua assinatura está ativa.</p>
-          <p><strong>${safePlan}</strong><br>Valor: <strong>${amount}</strong><br>Próximo período até: ${period}</p>
+          <p><strong>${safePlan}</strong><br>Valor: <strong>${amount}</strong><br>Próxima renovação prevista em: ${period}</p>
+          ${contractSummary}
           <p><a href="${link}" style="display:inline-block;background:#5b45f5;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">Ver minha assinatura</a></p>
           <p style="font-size:13px;color:#666">Você recebeu este e-mail em ${recipient} porque concluiu uma assinatura no vouRevisar.</p>
         </div>

@@ -10,6 +10,11 @@ import {
   isExpectedPasswordSignInError,
 } from '@/utils/authConfirmation';
 import { getAuthCallbackUrl } from '@/utils/authRedirect';
+import type { SignupLegalAcceptance } from '@/features/billing/legal/billingLegalDocuments';
+import {
+  clearPendingSignupLegalAcceptance,
+  markPendingSignupLegalAcceptance,
+} from '@/features/billing/legal/signupLegalAcceptanceService';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -46,7 +51,7 @@ export function useAuthOperations() {
     }
   };
 
-  const signUp = async (email: string, password: string, name: string, phone?: string) => {
+  const signUp = async (email: string, password: string, name: string, phone?: string, legalAcceptance?: SignupLegalAcceptance) => {
     setLoading(true);
     try {
       const normalizedEmail = email.trim().toLowerCase();
@@ -59,7 +64,12 @@ export function useAuthOperations() {
           data: {
             name,
             phone,
-            provider_type: 'Cadastro'
+            provider_type: 'Cadastro',
+            ...(legalAcceptance ? {
+              legal_documents_accepted: true,
+              terms_version: legalAcceptance.termsVersion,
+              privacy_version: legalAcceptance.privacyVersion,
+            } : {}),
           },
           emailRedirectTo: getAuthCallbackUrl(),
         }
@@ -103,6 +113,7 @@ export function useAuthOperations() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
+      markPendingSignupLegalAcceptance();
       // Usar o domínio atual para callback
       const currentOrigin = window.location.origin;
       const redirectUrl = `${currentOrigin}/auth/callback`;
@@ -122,6 +133,7 @@ export function useAuthOperations() {
 
       return data;
     } catch (error: unknown) {
+      clearPendingSignupLegalAcceptance();
       toastManager.error('Erro ao fazer login com Google. Verifique as configurações OAuth.');
       throw error;
     } finally {

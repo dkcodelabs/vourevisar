@@ -341,9 +341,13 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   validada estaticamente e ainda precisa ser aplicada no projeto remoto.
 - [x] Implementar `stripe-accept-contract` e correlação no webhook. As Edge
   Functions passaram no `deno check` e ainda não foram publicadas.
-- [ ] Incluir confirmação contratual no e-mail da primeira cobrança.
-- [ ] Registrar no cadastro o aceite versionado dos documentos aplicáveis ao
-  teste gratuito, sem representar esse aceite como contratação paga.
+- [x] Incluir confirmação contratual no e-mail da primeira cobrança quando o
+  checkout possui aceite correlacionado. O envio real ainda depende da
+  homologação da Edge Function em Test.
+- [x] Registrar no cadastro por e-mail/senha o aceite versionado dos documentos
+  aplicáveis ao teste gratuito, em ledger separado e sem criar contrato Stripe.
+- [x] Registrar o aceite no retorno autenticado do Google/OAuth, de forma
+  idempotente, após a divulgação dos documentos junto ao botão de continuação.
 
 ### Fase 2 — arrependimento e reembolso
 

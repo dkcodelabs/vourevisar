@@ -30,6 +30,16 @@ const billingModeMigrationSource = readProjectFile(
 const contractAcceptanceMigrationSource = readProjectFile(
   'supabase/migrations/20260821024158_create_billing_contract_acceptances.sql',
 );
+const signupAcceptanceMigrationSource = readProjectFile(
+  'supabase/migrations/20260821025536_create_signup_legal_acceptances.sql',
+);
+const authOperationsSource = readProjectFile('src/hooks/useAuthOperations.tsx');
+const legalAcceptanceFunctionSource = readProjectFile(
+  'supabase/functions/legal-accept-documents/index.ts',
+);
+const signupAcceptanceServiceSource = readProjectFile(
+  'src/features/billing/legal/signupLegalAcceptanceService.ts',
+);
 const legacyGrantMigrationSource = readProjectFile(
   'supabase/migrations/20260731170341_backfill_legacy_paid_access_grants.sql',
 );
@@ -140,6 +150,27 @@ describe('Stripe billing security boundaries', () => {
     expect(webhookSource).toContain('event.created * 1000 + 7 * 24 * 60 * 60 * 1000');
   });
 
+  it('records free-trial signup acceptance separately from the paid Stripe contract', () => {
+    expect(signupAcceptanceMigrationSource).toContain('public.legal_document_acceptances');
+    expect(signupAcceptanceMigrationSource).toContain("acceptance_context = 'signup_trial'");
+    expect(signupAcceptanceMigrationSource).toContain(
+      'ALTER TABLE public.legal_document_acceptances ENABLE ROW LEVEL SECURITY',
+    );
+    expect(signupAcceptanceMigrationSource).toContain(
+      'REVOKE ALL ON TABLE public.legal_document_acceptances',
+    );
+    expect(signupAcceptanceMigrationSource).toContain("source = 'trial'");
+    expect(signupAcceptanceMigrationSource).not.toMatch(/stripe_(customer|subscription|payment_intent)/i);
+    expect(authOperationsSource).toContain('legal_documents_accepted: true');
+    expect(authOperationsSource).toContain('terms_version: legalAcceptance.termsVersion');
+    expect(authOperationsSource).toContain('privacy_version: legalAcceptance.privacyVersion');
+    expect(configSource).toContain('[functions.legal-accept-documents]\nverify_jwt = true');
+    expect(legalAcceptanceFunctionSource).toContain('requireAuthenticatedUser(request, supabase)');
+    expect(legalAcceptanceFunctionSource).toContain('legal_document_acceptances');
+    expect(signupAcceptanceServiceSource).toContain("sessionStorage.setItem");
+    expect(signupAcceptanceServiceSource).toContain("'legal-accept-documents'");
+  });
+
   it('keeps provider internals out of user-facing billing messages', () => {
     expect(userFacingBillingSource).not.toMatch(/Liberado por webhook|Stripe em configuração|sessão segura/i);
     expect(userFacingBillingSource).not.toContain('checkout.error.message');
@@ -163,6 +194,9 @@ describe('Stripe billing security boundaries', () => {
     expect(checkoutSource).toContain('isReusableCheckoutSession');
     expect(webhookSource).toContain('billing_reason !== "subscription_create"');
     expect(webhookSource).toContain('sendSubscriptionConfirmation');
+    expect(webhookSource).toContain('billing_contract_acceptances');
+    expect(billingEmailSource).toContain('Confirmação contratual');
+    expect(billingEmailSource).toContain('/cancelamento-e-reembolso');
     expect(billingEmailSource).toContain('RESEND_API_KEY');
     expect(billingEmailSource).toContain('Idempotency-Key');
   });

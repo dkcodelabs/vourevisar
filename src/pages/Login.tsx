@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useUserLogger } from '@/hooks/useUserLogger';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +22,12 @@ import { TracerLogo } from '@/components/ui/TracerLogo';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getSupportWhatsAppUrl } from '@/config/support';
 import { getPostAuthRedirect } from '@/utils/authRedirect';
+import {
+  isBillingContractAcceptanceEnabled,
+  signupLegalAcceptance,
+} from '@/features/billing/legal/billingLegalDocuments';
+
+const legalAcceptanceEnabled = isBillingContractAcceptanceEnabled();
 
 const Login = () => {
   const navigate = useNavigate();
@@ -38,6 +44,7 @@ const Login = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [hasAcceptedLegalDocuments, setHasAcceptedLegalDocuments] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [shakePassword, setShakePassword] = useState(false);
   const passwordInputRef = React.useRef<HTMLInputElement>(null);
@@ -107,7 +114,19 @@ const Login = () => {
           return;
         }
 
-        const result = await signUp(email.trim(), password, name, phone);
+        if (legalAcceptanceEnabled && !hasAcceptedLegalDocuments) {
+          toastManager.error('Confirme os Termos de Uso e a Política de Privacidade para criar sua conta.');
+          setIsLoading(false);
+          return;
+        }
+
+        const result = await signUp(
+          email.trim(),
+          password,
+          name,
+          phone,
+          legalAcceptanceEnabled ? signupLegalAcceptance : undefined,
+        );
         if (result.success) {
           localStorage.setItem('pendingConfirmationEmail', email.trim());
           navigate('/confirm-email', { replace: true });
@@ -363,26 +382,41 @@ const Login = () => {
           )}
 
           {isRegistering && (
-            <div className="space-y-1.5 sm:space-y-2">
-              <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Confirmar Senha</label>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors sm:size-[18px]" size={16} />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
-                  placeholder="••••••••"
-                  required
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                >
-                  {showConfirmPassword ? <EyeOff className="sm:size-[18px]" size={16} /> : <Eye className="sm:size-[18px]" size={16} />}
-                </button>
+            <div className="space-y-3">
+              {legalAcceptanceEnabled && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/70 bg-secondary/30 p-3 text-xs font-semibold leading-5 text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={hasAcceptedLegalDocuments}
+                    onChange={(event) => setHasAcceptedLegalDocuments(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <span>
+                    Li e concordo com os <Link to="/termos" target="_blank" rel="noreferrer" className="font-bold text-primary underline">Termos de Uso</Link> e a <Link to="/privacidade" target="_blank" rel="noreferrer" className="font-bold text-primary underline">Política de Privacidade</Link>. Entendo que receberei 7 dias grátis, sem cartão e sem cobrança automática.
+                  </span>
+                </label>
+              )}
+              <div className="space-y-1.5 sm:space-y-2">
+                <label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Confirmar Senha</label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors sm:size-[18px]" size={16} />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full bg-[#0F1115] border border-transparent focus:border-primary/30 rounded-xl sm:rounded-2xl py-3 sm:py-4 pl-11 sm:pl-12 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/30 shadow-inner"
+                    placeholder="••••••••"
+                    required
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff className="sm:size-[18px]" size={16} /> : <Eye className="sm:size-[18px]" size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -390,7 +424,7 @@ const Login = () => {
           <button
             type={showForgotPassword ? "button" : "submit"}
             onClick={showForgotPassword ? handleForgotPassword : undefined}
-            disabled={isLoading}
+            disabled={isLoading || (isRegistering && legalAcceptanceEnabled && !hasAcceptedLegalDocuments)}
             className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
           >
             {isLoading ? (
@@ -449,6 +483,11 @@ const Login = () => {
                 </svg>
                 Continuar com Google
               </button>
+              {legalAcceptanceEnabled && (
+                <p className="mt-3 text-center text-[11px] font-medium leading-5 text-muted-foreground">
+                  Ao continuar com Google, você concorda com os <Link to="/termos" target="_blank" rel="noreferrer" className="font-bold text-primary underline">Termos de Uso</Link> e a <Link to="/privacidade" target="_blank" rel="noreferrer" className="font-bold text-primary underline">Política de Privacidade</Link>. Novas contas recebem 7 dias grátis, sem cartão e sem cobrança automática.
+                </p>
+              )}
             </>
           )}
 
@@ -460,6 +499,7 @@ const Login = () => {
                   type="button"
                   onClick={() => {
                     setIsRegistering(!isRegistering);
+                    setHasAcceptedLegalDocuments(false);
                   }}
                   className="text-primary font-bold hover:underline transition-colors"
                 >
