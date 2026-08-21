@@ -18,6 +18,7 @@ import { BillingArtwork } from '@/features/billing/components/BillingArtwork';
 import { BillingInvoiceHistory } from '@/features/billing/components/BillingInvoiceHistory';
 import {
   useStripeBillingOverview,
+  useStripeCatalog,
   useStripeInvoiceHistory,
   useStripePortal,
 } from '@/features/billing/hooks/useStripeBilling';
@@ -25,6 +26,7 @@ import {
   formatBillingPrice,
   getSafeBillingErrorMessage,
 } from '@/features/billing/services/stripeBillingService';
+import { buildStripePricingPlans } from '@/features/billing/utils/catalogPricing';
 import { getAccountSubscriptionState } from '@/features/billing/utils/accountSubscriptionState';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -47,6 +49,10 @@ const planNames = {
 const AccountSubscription = () => {
   const reduceMotion = useReducedMotion();
   const overview = useStripeBillingOverview();
+  const catalog = useStripeCatalog(Boolean(
+    overview.data?.is_active &&
+    (overview.data.plan === 'free_trial' || overview.data.source === 'trial'),
+  ));
   const portal = useStripePortal();
   const { isAdmin, isOwner, loading: roleLoading } = useUserRole();
   const data = overview.data;
@@ -56,27 +62,14 @@ const AccountSubscription = () => {
   );
 
   const handleOpenPortal = async () => {
-    // Open synchronously from the click gesture so browsers do not treat the
-    // Stripe portal as an unsolicited popup after the async request finishes.
-    const portalWindow = window.open('about:blank', '_blank');
-    if (portalWindow) {
-      portalWindow.opener = null;
-    }
-
     try {
       const response = await portal.mutateAsync();
-      if (portalWindow) {
-        portalWindow.location.assign(response.url);
-        return;
-      }
-
-      // A popup blocker must not make billing inaccessible. In that exception,
-      // retain the previous safe same-tab behavior.
+      // Keep the portal in this tab. Returning from Stripe then reuses the
+      // same-origin Supabase session instead of booting a second auth context
+      // in a new tab and flashing the login screen.
       window.location.assign(response.url);
     } catch {
-      portalWindow?.close();
-      // The mutation owns the visible error state below. Avoid an unhandled
-      // promise rejection while keeping the user on this safe page.
+      // The mutation owns the visible error state below.
     }
   };
 
@@ -95,7 +88,7 @@ const AccountSubscription = () => {
             <button
               type="button"
               onClick={() => void overview.refetch()}
-              className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#17122b] px-5 text-sm font-black text-white"
+              className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-black text-primary-foreground"
             >
               <RefreshCw className="h-4 w-4" />
               Tentar novamente
@@ -114,6 +107,8 @@ const AccountSubscription = () => {
   const subscriptionEnd = activeStripeSubscription?.cancel_at ?? activeStripeSubscription?.current_period_end;
   const pageState = getAccountSubscriptionState(data, hasInternalAccess);
   const isComplimentaryAccess = data.plan === 'free_trial' || data.source === 'trial';
+  const pricingPlans = buildStripePricingPlans(catalog.data);
+  const showsTrialOffer = pageState.kind === 'trial' && data.is_active && isComplimentaryAccess;
   const portalErrorMessage = portal.isError
     ? getSafeBillingErrorMessage(
         portal.error,
@@ -135,7 +130,7 @@ const AccountSubscription = () => {
 
   return (
     <SubscriptionFrame>
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+      <div className={`grid gap-6 ${showsTrialOffer ? 'xl:grid-cols-[0.75fr_1.25fr]' : 'xl:grid-cols-[1.25fr_0.75fr]'}`}>
         <section>
           <motion.div
             initial={reduceMotion ? undefined : { opacity: 0, y: 10 }}
@@ -184,7 +179,7 @@ const AccountSubscription = () => {
           </motion.div>
 
           {pageState.alertTitle && (
-            <div className="mt-5 rounded-3xl border border-[#ffd49d] bg-[#fff7e8] p-5 text-[#6d4410]">
+            <div className="mt-5 rounded-3xl border border-warning/30 bg-warning/10 p-5 text-foreground">
               <div className="flex items-start gap-3">
                 <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
                 <div>
@@ -227,62 +222,68 @@ const AccountSubscription = () => {
           )}
         </section>
 
-        <aside className="space-y-5">
-          <div className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_24px_70px_-42px_rgba(36,24,77,0.55)]">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eeeaff] text-[#6048ed]">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <h2 className="mt-5 text-xl font-black tracking-[-0.025em]">
-              {pageState.asideTitle}
-            </h2>
-            <p className="mt-2 text-sm font-medium leading-6 text-[#6d657d]">
-              {pageState.asideDescription}
-            </p>
+        <aside className={`space-y-5 ${showsTrialOffer ? 'order-first' : ''}`}>
+          {showsTrialOffer ? (
+            <TrialConversionOffer plans={pricingPlans} isLoading={catalog.isLoading} />
+          ) : (
+            <>
+              <div className="rounded-[2rem] border border-border bg-card p-6 text-card-foreground shadow-[0_24px_70px_-42px_rgba(15,23,42,0.16)] dark:shadow-[0_24px_70px_-42px_rgba(0,0,0,0.52)]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <h2 className="mt-5 text-xl font-black tracking-[-0.025em]">
+                  {pageState.asideTitle}
+                </h2>
+                <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
+                  {pageState.asideDescription}
+                </p>
 
-            {pageState.primaryAction === 'none' ? (
-              <div className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#eef9df] px-5 text-sm font-black text-[#315d18]">
-                <CheckCircle2 className="h-5 w-5" />
-                {pageState.primaryActionLabel}
+                {pageState.primaryAction === 'none' ? (
+                  <div className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-success/15 px-5 text-sm font-black text-success">
+                    <CheckCircle2 className="h-5 w-5" />
+                    {pageState.primaryActionLabel}
+                  </div>
+                ) : pageState.primaryAction === 'portal' ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleOpenPortal()}
+                    disabled={portal.isPending}
+                    className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground shadow-[0_16px_35px_-18px_hsl(var(--primary)/0.7)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {portal.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                    {pageState.primaryActionLabel}
+                  </button>
+                ) : (
+                  <Link
+                    to="/planos"
+                    className="group mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground shadow-[0_16px_35px_-18px_hsl(var(--primary)/0.7)] transition hover:-translate-y-0.5"
+                  >
+                    {pageState.primaryActionLabel}
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                )}
+                {pageState.secondaryAction === 'history' && pageState.secondaryActionLabel && (
+                  <button
+                    type="button"
+                    onClick={handleScrollToHistory}
+                    className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 text-sm font-black text-foreground transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <FileText className="h-4 w-4" />
+                    {pageState.secondaryActionLabel}
+                  </button>
+                )}
+                {portal.isError && (
+                  <p role="alert" className="mt-4 text-sm font-bold text-destructive">
+                    {portalErrorMessage}
+                  </p>
+                )}
               </div>
-            ) : pageState.primaryAction === 'portal' ? (
-              <button
-                type="button"
-                onClick={() => void handleOpenPortal()}
-                disabled={portal.isPending}
-                className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6b4df5] to-[#2478ff] px-5 text-sm font-black text-white shadow-[0_16px_35px_-18px_rgba(78,73,235,0.9)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {portal.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                {pageState.primaryActionLabel}
-              </button>
-            ) : (
-              <Link
-                to="/planos"
-                className="group mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6b4df5] to-[#2478ff] px-5 text-sm font-black text-white shadow-[0_16px_35px_-18px_rgba(78,73,235,0.9)] transition hover:-translate-y-0.5"
-              >
-                {pageState.primaryActionLabel}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            )}
-            {pageState.secondaryAction === 'history' && pageState.secondaryActionLabel && (
-              <button
-                type="button"
-                onClick={handleScrollToHistory}
-                className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#d8d1ed] bg-white px-5 text-sm font-black text-[#4e4562] transition hover:border-[#a89bea] hover:text-[#34266f] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <FileText className="h-4 w-4" />
-                {pageState.secondaryActionLabel}
-              </button>
-            )}
-            {portal.isError && (
-              <p role="alert" className="mt-4 text-sm font-bold text-[#a52d3b]">
-                {portalErrorMessage}
-              </p>
-            )}
-          </div>
 
-          <div className="hidden overflow-hidden rounded-[2rem] bg-[#e9e3ff] p-3 xl:block">
-            <BillingArtwork nextStep={pageState.artworkNextStep} />
-          </div>
+              <div className="hidden overflow-hidden rounded-[2rem] bg-muted p-3 xl:block">
+                <BillingArtwork nextStep={pageState.artworkNextStep} />
+              </div>
+            </>
+          )}
         </aside>
       </div>
     </SubscriptionFrame>
@@ -290,13 +291,12 @@ const AccountSubscription = () => {
 };
 
 const SubscriptionFrame = ({ children }: { children: React.ReactNode }) => (
-  <div className="w-full pb-10">
-    <AccountNavigation current="assinatura" />
-    <section aria-labelledby="account-subscription-title" className="-mx-3 min-h-full overflow-hidden bg-[#f8f6ff] px-4 py-7 text-[#17122b] sm:-mx-4 sm:px-7 lg:-mx-5 xl:-mx-6 xl:px-10">
-      <div className="pointer-events-none absolute right-[3%] top-[12%] h-72 w-72 rounded-full bg-[#bcd6ff]/25 blur-3xl" />
+  <div className="w-full">
+    <AccountNavigation current="assinatura" className="mb-4" />
+    <section aria-labelledby="account-subscription-title" className="relative py-5 text-foreground">
       <div className="relative mx-auto max-w-6xl">
-        <div className="mb-7">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#6652ee]">Conta e pagamento</p>
+        <div className="mb-5">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-primary">Conta e pagamento</p>
           <h1 id="account-subscription-title" className="mt-2 text-3xl font-black tracking-[-0.04em]">Minha assinatura</h1>
         </div>
         {children}
@@ -304,6 +304,63 @@ const SubscriptionFrame = ({ children }: { children: React.ReactNode }) => (
     </section>
   </div>
 );
+
+const TrialConversionOffer = ({
+  plans,
+  isLoading,
+}: {
+  plans: ReturnType<typeof buildStripePricingPlans>;
+  isLoading: boolean;
+}) => {
+  if (isLoading) {
+    return <div className="min-h-[360px] animate-pulse rounded-[2rem] border border-border bg-card p-6" />;
+  }
+
+  if (!plans) {
+    return (
+      <div className="rounded-[2rem] border border-border bg-card p-6 text-card-foreground shadow-[0_24px_70px_-42px_rgba(15,23,42,0.16)] dark:shadow-[0_24px_70px_-42px_rgba(0,0,0,0.52)]">
+        <h2 className="text-xl font-black tracking-[-0.025em]">Continue sem interromper seu ritmo</h2>
+        <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">Confira as opções disponíveis e escolha quando quiser continuar.</p>
+        <Link to="/planos" className="mt-6 flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground">
+          Ver planos
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    );
+  }
+
+  const annualEquivalent = plans.annual.value / 12;
+  const annualSavings = (plans.monthly.value * 12) - plans.annual.value;
+  const annualDiscount = Math.round((annualSavings / (plans.monthly.value * 12)) * 100);
+  const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
+
+  return (
+    <section aria-labelledby="trial-conversion-title" className="rounded-[2rem] border border-primary/30 bg-card p-5 text-card-foreground shadow-[0_24px_70px_-42px_rgba(15,23,42,0.16)] dark:shadow-[0_24px_70px_-42px_rgba(0,0,0,0.52)]">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Continue sua preparação</p>
+      <h2 id="trial-conversion-title" className="mt-2 text-xl font-black tracking-[-0.025em]">Escolha seu plano agora</h2>
+      <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">Mantenha seus editais, ciclo e revisões sem perder o progresso.</p>
+
+      <Link to="/checkout?plan=annual&from=subscription" className="mt-4 block rounded-2xl border-2 border-primary bg-primary/5 p-4 transition hover:-translate-y-0.5 hover:shadow-lg">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black text-primary">ANUAL · MELHOR ESCOLHA</p>
+            <p className="mt-1 text-lg font-black text-foreground">{formatCurrency(plans.annual.value)} <span className="text-sm text-muted-foreground">/ ano</span></p>
+          </div>
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-black text-primary">{annualDiscount}% menos</span>
+        </div>
+        <p className="mt-2 text-xs font-semibold text-muted-foreground">{formatCurrency(annualEquivalent)}/mês · economize {formatCurrency(annualSavings)} no ano</p>
+        <span className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-info px-4 text-sm font-black text-primary-foreground">Assinar anual <ArrowRight className="h-4 w-4" /></span>
+      </Link>
+
+      <Link to="/checkout?plan=monthly&from=subscription" className="mt-3 flex items-center justify-between rounded-2xl border border-border px-4 py-3 text-foreground transition hover:border-primary/50 hover:bg-muted/50">
+        <span><span className="block text-sm font-black">Mensal</span><span className="text-xs font-semibold text-muted-foreground">{formatCurrency(plans.monthly.value)} por mês</span></span>
+        <span className="text-xs font-black text-primary">Assinar</span>
+      </Link>
+      <p className="mt-4 text-center text-xs font-semibold text-muted-foreground">Cartão processado em ambiente seguro pela Stripe.</p>
+      <Link to="/dashboard" className="mt-4 block text-center text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Continuar no teste gratuito</Link>
+    </section>
+  );
+};
 
 const DetailCard = ({
   icon,
@@ -314,10 +371,10 @@ const DetailCard = ({
   label: string;
   value: string;
 }) => (
-  <div className="rounded-3xl border border-white/80 bg-white/90 p-5 shadow-[0_18px_55px_-40px_rgba(36,24,77,0.55)]">
-    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#eeeaff] text-[#6048ed]">{icon}</div>
-    <p className="mt-4 text-xs font-black uppercase tracking-[0.15em] text-[#7c748c]">{label}</p>
-    <p className="mt-1 text-base font-black text-[#211a35]">{value}</p>
+  <div className="rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-[0_18px_55px_-40px_rgba(15,23,42,0.16)] dark:shadow-[0_18px_55px_-40px_rgba(0,0,0,0.52)]">
+    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">{icon}</div>
+    <p className="mt-4 text-xs font-black uppercase tracking-[0.15em] text-muted-foreground">{label}</p>
+    <p className="mt-1 text-base font-black text-foreground">{value}</p>
   </div>
 );
 
@@ -332,10 +389,10 @@ const StatePanel = ({
   description: string;
   action?: React.ReactNode;
 }) => (
-  <div className="mx-auto max-w-xl rounded-[2rem] border border-white/80 bg-white/90 p-8 text-center shadow-[0_28px_80px_-42px_rgba(36,24,77,0.5)]">
-    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eeeaff] text-[#6048ed]">{icon}</div>
+  <div className="mx-auto max-w-xl rounded-[2rem] border border-border bg-card p-8 text-center text-card-foreground shadow-[0_28px_80px_-42px_rgba(15,23,42,0.16)] dark:shadow-[0_28px_80px_-42px_rgba(0,0,0,0.52)]">
+    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">{icon}</div>
     <h2 className="mt-5 text-xl font-black">{title}</h2>
-    <p className="mt-2 text-sm font-medium leading-6 text-[#6d657d]">{description}</p>
+    <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">{description}</p>
     {action}
   </div>
 );

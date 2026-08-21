@@ -1,11 +1,12 @@
 import {
-  BillingHttpError,
   createServiceClient,
   createStripeClient,
   getAppUrl,
+  getStripeLivemode,
   handleOptions,
   jsonResponse,
   requireAuthenticatedUser,
+  resolveBillingCustomer,
   safeErrorCode,
 } from "../_shared/stripeBilling.ts";
 
@@ -16,28 +17,32 @@ Deno.serve(async (request) => {
   try {
     const supabase = createServiceClient();
     const user = await requireAuthenticatedUser(request, supabase);
+    const livemode = getStripeLivemode();
     const { data: customer, error } = await supabase
       .from("billing_customers")
       .select("stripe_customer_id")
       .eq("user_id", user.id)
+      .eq("livemode", livemode)
       .maybeSingle();
 
     if (error) throw error;
-    if (!customer?.stripe_customer_id) {
-      throw new BillingHttpError(404, "stripe_customer_not_found");
-    }
-
     const stripe = createStripeClient();
+    const customerId = await resolveBillingCustomer(
+      supabase,
+      stripe,
+      user,
+      livemode,
+      customer?.stripe_customer_id,
+    );
     const portalSession = await stripe.billingPortal.sessions.create({
-      customer: customer.stripe_customer_id,
+      customer: customerId,
       return_url: `${getAppUrl()}/conta/assinatura`,
     });
 
     return jsonResponse(request, { url: portalSession.url });
   } catch (error) {
     const code = safeErrorCode(error);
-    const status = error instanceof BillingHttpError ? error.status : 500;
     console.error("[stripe-create-portal]", { code });
-    return jsonResponse(request, { error: code }, status);
+    return jsonResponse(request, { error: code }, 500);
   }
 });

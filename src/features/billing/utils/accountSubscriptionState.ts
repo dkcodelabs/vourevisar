@@ -148,7 +148,7 @@ export const getAccountSubscriptionState = (
     kind: 'trial',
     badge: overview.is_active ? 'Acesso ativo' : 'Acesso inativo',
     heroDescription: overview.is_active
-      ? 'Aproveite o período gratuito. Quando quiser, escolha um plano sem perder seus dados.'
+      ? 'Seu período gratuito está ativo. Assine quando quiser para manter sua preparação sem interromper o ritmo.'
       : 'Seu período gratuito terminou. Escolha um plano para retomar seus estudos sem perder seus dados.',
     summaryLabel: 'Fim do período',
     summaryValue: null,

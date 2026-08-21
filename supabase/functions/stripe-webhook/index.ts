@@ -4,10 +4,13 @@ import {
   createStripeClient,
   fromUnixSeconds,
   getPlanFromPriceId,
+  getStripeLivemode,
   jsonResponse,
   requireEnv,
   safeErrorCode,
+  syncStripeCustomerDetails,
 } from "../_shared/stripeBilling.ts";
+import { sendSubscriptionConfirmation } from "../_shared/billingEmail.ts";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
@@ -68,12 +71,14 @@ const resolveBillingCustomer = async (
   supabase: ServiceClient,
   stripe: Stripe,
   stripeCustomerId: string,
+  livemode: boolean,
   metadataUserId?: string | null,
 ) => {
   const { data: existing, error: existingError } = await supabase
     .from("billing_customers")
     .select("id,user_id")
     .eq("stripe_customer_id", stripeCustomerId)
+    .eq("livemode", livemode)
     .maybeSingle();
 
   if (existingError) throw existingError;
@@ -82,6 +87,9 @@ const resolveBillingCustomer = async (
   const customer = await stripe.customers.retrieve(stripeCustomerId);
   if ("deleted" in customer && customer.deleted) {
     throw new Error("stripe_customer_deleted");
+  }
+  if (customer.livemode !== livemode) {
+    throw new Error("stripe_customer_mode_mismatch");
   }
 
   const userId = metadataUserId || customer.metadata.supabase_user_id;
@@ -93,9 +101,9 @@ const resolveBillingCustomer = async (
       {
         user_id: userId,
         stripe_customer_id: stripeCustomerId,
-        livemode: customer.livemode,
+        livemode,
       },
-      { onConflict: "user_id" },
+      { onConflict: "user_id,livemode" },
     )
     .select("id,user_id")
     .single();
@@ -109,6 +117,7 @@ const syncSubscription = async (
   stripe: Stripe,
   subscription: Stripe.Subscription,
   eventCreated: number,
+  livemode: boolean,
 ) => {
   const item = subscription.items.data[0];
   if (!item) throw new Error("stripe_subscription_item_missing");
@@ -139,6 +148,7 @@ const syncSubscription = async (
     supabase,
     stripe,
     stripeCustomerId,
+    livemode,
     subscription.metadata.supabase_user_id,
   );
 
@@ -152,6 +162,30 @@ const syncSubscription = async (
       cardBrand = paymentMethod.card.brand;
       cardLast4 = paymentMethod.card.last4;
     }
+  }
+
+  // Keep the Stripe Customer aligned with the real account data. This is
+  // deliberately non-blocking: a profile sync must never turn a valid
+  // financial webhook into a failed payment event.
+  try {
+    const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
+      customer.user_id,
+    );
+    if (authUserError || !authUser.user) {
+      throw authUserError ?? new Error("billing_user_missing");
+    }
+    await syncStripeCustomerDetails(
+      supabase,
+      stripe,
+      authUser.user,
+      stripeCustomerId,
+      paymentMethodId,
+    );
+  } catch (error) {
+    console.error("[stripe-webhook] customer_details_sync_failed", {
+      code: safeErrorCode(error),
+      stripe_customer_id: stripeCustomerId,
+    });
   }
 
   const scheduleId = getExpandableId(subscription.schedule);
@@ -211,12 +245,13 @@ const syncSubscriptionById = async (
   stripe: Stripe,
   subscriptionId: string | null,
   eventCreated: number,
+  livemode: boolean,
 ) => {
   if (!subscriptionId) return "ignored";
   const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ["default_payment_method", "latest_invoice"],
   });
-  return syncSubscription(supabase, stripe, subscription, eventCreated);
+  return syncSubscription(supabase, stripe, subscription, eventCreated, livemode);
 };
 
 const getSubscriptionIdFromCharge = async (stripe: Stripe, charge: Stripe.Charge) => {
@@ -245,12 +280,51 @@ const chargeSustainsCurrentAccess = async (
   return data?.latest_invoice_id === invoiceId;
 };
 
+const sendFirstPaymentConfirmation = async (
+  stripe: Stripe,
+  invoice: Stripe.Invoice,
+  eventId: string,
+) => {
+  if (invoice.billing_reason !== "subscription_create") return;
+
+  const subscriptionId = getInvoiceSubscriptionId(invoice);
+  const customerId = getExpandableId(invoice.customer);
+  const email = invoice.customer_email?.trim();
+  if (!subscriptionId || !customerId || !email) return;
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+    expand: ["items.data.price", "customer"],
+  });
+  const item = subscription.items.data[0];
+  if (!item) return;
+
+  const customer = await stripe.customers.retrieve(customerId);
+  const customerName = !("deleted" in customer && customer.deleted)
+    ? customer.name
+    : null;
+  const planCode = getPlanFromPriceId(item.price.id);
+  if (!planCode || item.price.unit_amount === null) return;
+
+  await sendSubscriptionConfirmation({
+    eventId,
+    email,
+    customerName,
+    amountCents: invoice.amount_paid,
+    currency: invoice.currency,
+    planLabel: planCode === "annual" ? "Plano anual" : "Plano mensal",
+    periodEnd: item.current_period_end
+      ? new Date(item.current_period_end * 1000)
+      : null,
+  });
+};
+
 Deno.serve(async (request) => {
   if (request.method !== "POST") {
     return new Response(null, { status: 405, headers: { "Allow": "POST" } });
   }
 
   const stripe = createStripeClient();
+  const configuredLivemode = getStripeLivemode();
   const signature = request.headers.get("stripe-signature");
   if (!signature) return new Response("missing_signature", { status: 400 });
 
@@ -271,6 +345,9 @@ Deno.serve(async (request) => {
   const supabase = createServiceClient();
   const eventCreatedAt = fromUnixSeconds(event.created);
   if (!eventCreatedAt) return new Response("invalid_event_time", { status: 400 });
+  if (event.livemode !== configuredLivemode) {
+    return new Response("stripe_mode_mismatch", { status: 400 });
+  }
 
   const object = event.data.object as { id?: string };
   const { error: eventInsertError } = await supabase
@@ -329,6 +406,7 @@ Deno.serve(async (request) => {
             stripe,
             subscriptionId,
             event.created,
+            event.livemode,
           );
           processingStatus = result.startsWith("ignored") ? "ignored" : "processed";
         }
@@ -354,6 +432,7 @@ Deno.serve(async (request) => {
           stripe,
           event.data.object as Stripe.Subscription,
           event.created,
+          event.livemode,
         );
         processingStatus = result.startsWith("ignored") ? "ignored" : "processed";
         break;
@@ -368,8 +447,19 @@ Deno.serve(async (request) => {
           stripe,
           getInvoiceSubscriptionId(invoice),
           event.created,
+          event.livemode,
         );
         processingStatus = result.startsWith("ignored") ? "ignored" : "processed";
+        if (event.type === "invoice.paid") {
+          try {
+            await sendFirstPaymentConfirmation(stripe, invoice, event.id);
+          } catch (error) {
+            console.error("[stripe-webhook] billing_confirmation_email_failed", {
+              code: safeErrorCode(error),
+              event_id: event.id,
+            });
+          }
+        }
         break;
       }
 
@@ -382,7 +472,7 @@ Deno.serve(async (request) => {
             await chargeSustainsCurrentAccess(supabase, stripe, subscriptionId, charge)
           ) {
             const canceled = await stripe.subscriptions.cancel(subscriptionId);
-            await syncSubscription(supabase, stripe, canceled, event.created);
+            await syncSubscription(supabase, stripe, canceled, event.created, event.livemode);
           } else {
             processingStatus = "ignored";
           }
@@ -447,7 +537,7 @@ Deno.serve(async (request) => {
             .eq("stripe_subscription_id", subscriptionId);
         } else if (dispute.status === "lost") {
           const canceled = await stripe.subscriptions.cancel(subscriptionId);
-          await syncSubscription(supabase, stripe, canceled, event.created);
+          await syncSubscription(supabase, stripe, canceled, event.created, event.livemode);
         } else {
           processingStatus = "ignored";
         }

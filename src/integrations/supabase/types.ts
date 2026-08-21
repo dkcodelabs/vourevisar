@@ -3199,7 +3199,7 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_stripe_billing_overview: { Args: never; Returns: Json }
+      get_stripe_billing_overview: { Args: { p_livemode?: boolean }; Returns: Json }
       get_subscription_info: { Args: { check_user_id?: string }; Returns: Json }
       get_unified_subject_name: {
         Args: { subject_id: string; user_id: string }

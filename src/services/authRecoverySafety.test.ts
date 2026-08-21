@@ -6,6 +6,8 @@ const readProjectFile = (path: string) =>
   readFileSync(resolve(process.cwd(), path), 'utf8');
 
 const authContextSource = readProjectFile('src/contexts/AuthContext.tsx');
+const loginSource = readProjectFile('src/pages/Login.tsx');
+const authRedirectSource = readProjectFile('src/utils/authRedirect.ts');
 const resetPasswordSource = readProjectFile('src/pages/ResetPassword.tsx');
 const sendAuthEmailSource = readProjectFile('supabase/functions/send-auth-email/index.ts');
 const adminRpcSource = readProjectFile('supabase/functions/admin-rpc/index.ts');
@@ -19,6 +21,12 @@ describe('password recovery safety boundaries', () => {
     expect(authContextSource).toContain("location.pathname === '/reset-password'");
     expect(authContextSource.match(/authTransitionRef\.current !== authTransition/g)?.length).toBeGreaterThanOrEqual(3);
     expect(authContextSource).toContain('authTransitionRef.current === authTransition');
+  });
+
+  it('preserves checkout query parameters through the login redirect', () => {
+    expect(loginSource).toContain('getPostAuthRedirect');
+    expect(authRedirectSource).toContain('location.search');
+    expect(authRedirectSource).toContain("redirectParam === 'planos'");
   });
 
   it('does not let recovery create a password for a Google-only account', () => {

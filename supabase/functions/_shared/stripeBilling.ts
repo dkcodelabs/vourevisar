@@ -49,10 +49,186 @@ export const requireEnv = (name: string) => {
   return value;
 };
 
-export const createStripeClient = () =>
-  new Stripe(requireEnv("STRIPE_SECRET_KEY"), {
+export const getStripeLivemode = () => {
+  const value = requireEnv("STRIPE_LIVEMODE").toLowerCase();
+  if (value !== "true" && value !== "false") {
+    throw new Error("invalid_environment:STRIPE_LIVEMODE");
+  }
+  return value === "true";
+};
+
+const getStripeKeyLivemode = (key: string) => {
+  if (key.startsWith("sk_live_") || key.startsWith("rk_live_")) return true;
+  if (key.startsWith("sk_test_") || key.startsWith("rk_test_")) return false;
+  return null;
+};
+
+export const createStripeClient = () => {
+  const key = requireEnv("STRIPE_SECRET_KEY");
+  const configuredLivemode = getStripeLivemode();
+  const keyLivemode = getStripeKeyLivemode(key);
+  if (keyLivemode !== null && keyLivemode !== configuredLivemode) {
+    throw new Error("stripe_key_mode_mismatch");
+  }
+
+  return new Stripe(key, {
     httpClient: Stripe.createFetchHttpClient(),
   });
+};
+
+type BillingProfile = {
+  email: string | null;
+  name: string | null;
+  phone: string | null;
+};
+
+const firstNonEmpty = (...values: unknown[]) => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+};
+
+const getBillingProfile = async (
+  supabase: SupabaseClient,
+  user: User,
+): Promise<BillingProfile> => {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("name,email,phone")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return {
+    email: firstNonEmpty(data?.email, user.email),
+    name: firstNonEmpty(
+      data?.name,
+      user.user_metadata?.name,
+      user.user_metadata?.full_name,
+    ),
+    // Some older accounts kept the phone in auth metadata instead of profiles.
+    phone: firstNonEmpty(data?.phone, user.user_metadata?.phone),
+  };
+};
+
+/**
+ * Reconciles non-empty billing details from the Supabase account with the
+ * current Stripe Customer. Empty local fields never erase a Stripe value.
+ * A country is only copied when Stripe itself supplied it from a payment
+ * method billing address; the application must not guess a country.
+ */
+export const syncStripeCustomerDetails = async (
+  supabase: SupabaseClient,
+  stripe: Stripe,
+  user: User,
+  customerId: string,
+  paymentMethodId?: string | null,
+) => {
+  const customer = await stripe.customers.retrieve(customerId);
+  if ("deleted" in customer && customer.deleted) {
+    throw new Error("stripe_customer_deleted");
+  }
+
+  const profile = await getBillingProfile(supabase, user);
+  let paymentMethod: Stripe.PaymentMethod | null = null;
+  if (paymentMethodId) {
+    paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+  }
+
+  const paymentDetails = paymentMethod?.billing_details;
+  const updates: Stripe.CustomerUpdateParams = {
+    metadata: { supabase_user_id: user.id },
+  };
+  const email = profile.email ?? firstNonEmpty(customer.email);
+  const name = profile.name ?? firstNonEmpty(customer.name);
+  const phone = profile.phone ?? firstNonEmpty(paymentDetails?.phone, customer.phone);
+
+  if (email && email !== customer.email) updates.email = email;
+  if (name && name !== customer.name) updates.name = name;
+  if (phone && phone !== customer.phone) updates.phone = phone;
+
+  const country = firstNonEmpty(paymentDetails?.address?.country);
+  if (country && country !== customer.address?.country) {
+    updates.address = { ...(customer.address ?? {}), country };
+  }
+
+  const hasMetadataUpdate = customer.metadata.supabase_user_id !== user.id;
+  if (
+    updates.email === undefined &&
+    updates.name === undefined &&
+    updates.phone === undefined &&
+    updates.address === undefined &&
+    !hasMetadataUpdate
+  ) {
+    return customer;
+  }
+
+  return stripe.customers.update(customerId, updates);
+};
+
+/**
+ * Returns a customer that belongs to the currently configured Stripe account.
+ *
+ * Customer IDs are account-scoped. After changing Stripe accounts, a locally
+ * stored ID can be valid in the old account but missing in the new one. In
+ * that case create a fresh customer and atomically replace the local mapping.
+ */
+export const resolveBillingCustomer = async (
+  supabase: SupabaseClient,
+  stripe: Stripe,
+  user: User,
+  livemode: boolean,
+  stripeCustomerId?: string | null,
+) => {
+  if (stripeCustomerId) {
+    try {
+      const existing = await stripe.customers.retrieve(stripeCustomerId);
+      if (!existing.deleted) {
+        if (existing.livemode !== livemode) {
+          throw new Error("stripe_customer_mode_mismatch");
+        }
+        await syncStripeCustomerDetails(supabase, stripe, user, existing.id);
+        return existing.id;
+      }
+    } catch (error) {
+      if (safeStripeErrorDetails(error)?.code !== "resource_missing") throw error;
+    }
+  }
+
+  const profile = await getBillingProfile(supabase, user);
+  const customer = await stripe.customers.create(
+    {
+      email: profile.email ?? undefined,
+      name: profile.name ?? undefined,
+      phone: profile.phone ?? undefined,
+      metadata: { supabase_user_id: user.id },
+    },
+    {
+      idempotencyKey:
+        `billing-customer:${livemode ? "live" : "test"}:${user.id}:${stripeCustomerId ?? "initial"}`,
+    },
+  );
+
+  if (customer.livemode !== livemode) {
+    throw new Error("stripe_customer_mode_mismatch");
+  }
+
+  const { error } = await supabase
+    .from("billing_customers")
+    .upsert(
+      {
+        user_id: user.id,
+        stripe_customer_id: customer.id,
+        livemode,
+      },
+      { onConflict: "user_id,livemode" },
+    );
+  if (error) throw error;
+
+  return customer.id;
+};
 
 export const createServiceClient = (): SupabaseClient =>
   createClient(

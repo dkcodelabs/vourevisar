@@ -82,15 +82,29 @@ export const getStripeInvoiceHistory = async (): Promise<BillingInvoiceHistoryIt
   return response.invoices;
 };
 
+export const getConfiguredStripeLivemode = () => {
+  const explicit = import.meta.env.VITE_STRIPE_LIVEMODE?.trim().toLowerCase();
+  if (explicit === 'true' || explicit === 'false') return explicit === 'true';
+
+  const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY?.trim();
+  if (publishableKey?.startsWith('pk_live_')) return true;
+  if (publishableKey?.startsWith('pk_test_')) return false;
+
+  throw new Error('billing_mode_not_configured');
+};
+
 export const getStripeBillingOverview = async (): Promise<BillingOverview> => {
-  // The RPC is introduced by the Stripe migration. Keep the generated database
-  // types untouched until the migration is applied and types are regenerated.
+  // Keep the client mode explicit so a Live frontend can never read Test
+  // billing rows (and vice versa) after the deployment switch.
   const billingClient = supabase as unknown as {
     rpc: (
       name: 'get_stripe_billing_overview',
+      args: { p_livemode: boolean },
     ) => Promise<{ data: BillingOverview | null; error: { message: string } | null }>;
   };
-  const { data, error } = await billingClient.rpc('get_stripe_billing_overview');
+  const { data, error } = await billingClient.rpc('get_stripe_billing_overview', {
+    p_livemode: getConfiguredStripeLivemode(),
+  });
 
   if (error) throw new Error('Não foi possível carregar os dados da assinatura.');
   if (!data) throw new Error('Nenhuma informação de assinatura foi encontrada.');

@@ -41,3 +41,4 @@ src/backups/
 .codex/
 supabase/.temp/
 .vercel
+.env*

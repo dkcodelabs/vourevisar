@@ -11,8 +11,12 @@ const invoiceHistorySource = readProjectFile('supabase/functions/stripe-invoice-
 const adminBillingSource = readProjectFile('supabase/functions/admin-billing/index.ts');
 const webhookSource = readProjectFile('supabase/functions/stripe-webhook/index.ts');
 const sharedSource = readProjectFile('supabase/functions/_shared/stripeBilling.ts');
+const billingEmailSource = readProjectFile('supabase/functions/_shared/billingEmail.ts');
 const migrationSource = readProjectFile(
   'supabase/migrations/20260730221919_create_stripe_billing_core.sql',
+);
+const billingModeMigrationSource = readProjectFile(
+  'supabase/migrations/20260820172644_isolate_stripe_billing_by_mode.sql',
 );
 const legacyGrantMigrationSource = readProjectFile(
   'supabase/migrations/20260731170341_backfill_legacy_paid_access_grants.sql',
@@ -61,15 +65,17 @@ describe('Stripe billing security boundaries', () => {
     expect(checkoutSource).toContain('getPlanPriceId(plan)');
     expect(sharedSource).toContain('STRIPE_MONTHLY_PRICE_ID');
     expect(sharedSource).toContain('STRIPE_ANNUAL_PRICE_ID');
-    expect(checkoutSource).toContain('CHECKOUT_IDEMPOTENCY_VERSION = "elements-v1"');
+    expect(checkoutSource).toContain('CHECKOUT_IDEMPOTENCY_VERSION = "elements-v4"');
     expect(checkoutSource).toContain(
-      '`billing-checkout:${CHECKOUT_IDEMPOTENCY_VERSION}:${user.id}:${requestId}`',
+      '`billing-checkout:${CHECKOUT_IDEMPOTENCY_VERSION}:${user.id}:${customerId}:${requestId}`',
     );
     expect(checkoutSource).not.toContain('user_subscriptions');
     expect(checkoutSource).toContain('status: "failed", error_code: diagnosticCode');
     expect(checkoutSource).toContain('safeStripeErrorFingerprint(error, stage)');
     expect(sharedSource).toContain('stripe.param ?? "none"');
     expect(checkoutSource).toContain('stripe_checkout_session_id: null');
+    expect(checkoutSource).toContain('.eq("billing_customer_id", currentBillingCustomer.id)');
+    expect(checkoutSource).toContain('.gte("updated_at", currentBillingCustomer.updated_at)');
   });
 
   it('serves display prices from the allowlisted Stripe catalog without legacy tables', () => {
@@ -79,9 +85,9 @@ describe('Stripe billing security boundaries', () => {
     expect(catalogSource).not.toContain('user_subscriptions');
   });
 
-  it('uses Stripe Elements Checkout instead of collecting raw card fields', () => {
+  it('uses Stripe Elements Checkout without hard-coding payment methods', () => {
     expect(checkoutSource).toContain('ui_mode: "elements"');
-    expect(checkoutSource).toContain('payment_method_types: ["card"]');
+    expect(checkoutSource).not.toContain('payment_method_types');
     expect(paymentFormSource).toContain('<PaymentElement');
     expect(paymentFormSource).toContain('checkout.confirm()');
     expect(paymentFormSource).not.toContain('returnUrl:');
@@ -101,6 +107,19 @@ describe('Stripe billing security boundaries', () => {
     expect(webhookSource).toContain('constructEventAsync');
     expect(webhookSource).toContain('STRIPE_WEBHOOK_SECRET');
     expect(configSource).toContain('[functions.stripe-webhook]\nverify_jwt = false');
+  });
+
+  it('syncs real billing details and sends one first-payment confirmation', () => {
+    expect(sharedSource).toContain('syncStripeCustomerDetails');
+    expect(sharedSource).toContain('user.user_metadata?.phone');
+    expect(checkoutSource).toContain('billing_address_collection: "auto"');
+    const sessionCreateBlock = checkoutSource.split('stripe.checkout.sessions.create')[1]?.split(');')[0] ?? '';
+    expect(sessionCreateBlock).not.toContain('phone_number_collection');
+    expect(checkoutSource).toContain('isReusableCheckoutSession');
+    expect(webhookSource).toContain('billing_reason !== "subscription_create"');
+    expect(webhookSource).toContain('sendSubscriptionConfirmation');
+    expect(billingEmailSource).toContain('RESEND_API_KEY');
+    expect(billingEmailSource).toContain('Idempotency-Key');
   });
 
   it('keeps terminated-account invoice history authenticated, read-only and free of payment links', () => {
@@ -163,6 +182,23 @@ describe('Stripe billing security boundaries', () => {
     expect(migrationSource).toContain(
       'REVOKE ALL ON FUNCTION public.get_stripe_billing_overview() FROM PUBLIC, anon',
     );
+  });
+
+  it('keeps Stripe customer mappings and the billing overview isolated by mode', () => {
+    expect(billingModeMigrationSource).toContain(
+      'CREATE UNIQUE INDEX billing_customers_user_mode_key',
+    );
+    expect(billingModeMigrationSource).toContain(
+      'CREATE UNIQUE INDEX billing_customers_stripe_customer_mode_key',
+    );
+    expect(billingModeMigrationSource).toContain('p_livemode boolean DEFAULT false');
+    expect(billingModeMigrationSource).toContain('AND livemode = p_livemode');
+    expect(sharedSource).toContain('STRIPE_LIVEMODE');
+    expect(sharedSource).toContain('stripe_key_mode_mismatch');
+    expect(sharedSource).toContain('onConflict: "user_id,livemode"');
+    expect(checkoutSource).toContain('.eq("livemode", livemode)');
+    expect(webhookSource).toContain('event.livemode !== configuredLivemode');
+    expect(invoiceHistorySource).toContain('.eq("livemode", livemode)');
   });
 
   it('keeps historical migration safe and revokes its active bridge', () => {

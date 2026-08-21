@@ -13,6 +13,7 @@ export const StripePaymentForm = ({ priceLabel, intervalLabel }: StripePaymentFo
   const checkoutState = useCheckoutElements();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [elementLoadError, setElementLoadError] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -56,6 +57,17 @@ export const StripePaymentForm = ({ priceLabel, intervalLabel }: StripePaymentFo
       <div className="min-h-[210px]">
         <PaymentElement
           options={{ layout: 'tabs' }}
+          onReady={() => {
+            setElementLoadError(false);
+            setMessage(null);
+          }}
+          onLoadError={({ error }) => {
+            setElementLoadError(true);
+            setMessage(getPaymentErrorMessage(error));
+            console.error(
+              `[StripePaymentForm] Payment Element loaderror code=${error.code ?? 'unknown'} type=${error.type ?? 'unknown'} message=${error.message ?? 'unknown'}`,
+            );
+          }}
           onChange={() => message && setMessage(null)}
         />
       </div>
@@ -76,7 +88,7 @@ export const StripePaymentForm = ({ priceLabel, intervalLabel }: StripePaymentFo
 
       <button
         type="submit"
-        disabled={isSubmitting || checkoutState.type === 'loading'}
+        disabled={isSubmitting || checkoutState.type === 'loading' || elementLoadError}
         className="group mt-6 flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-[#6b4df5] to-[#2478ff] px-6 text-base font-black text-white shadow-[0_16px_35px_-16px_rgba(78,73,235,0.9)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_42px_-16px_rgba(78,73,235,0.95)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8b7bff]/30 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0"
       >
         {isSubmitting ? (

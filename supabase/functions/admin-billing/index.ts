@@ -6,12 +6,14 @@ import {
   jsonResponse,
   requireAuthenticatedUser,
   safeErrorCode,
+  getStripeLivemode,
 } from "../_shared/stripeBilling.ts";
 
 type AdminBillingAction = "list" | "grant_manual_access" | "revoke_manual_access";
 type PlanCode = "free_trial" | "monthly" | "annual";
 type BillingSubscriptionRow = {
   user_id: string;
+  billing_customer_id: string;
   plan_code: PlanCode;
   status: string;
   current_period_end: string | null;
@@ -60,12 +62,14 @@ const manualAccessEnd = (plan: PlanCode, now: Date) => {
 const listBilling = async (supabase: ReturnType<typeof createServiceClient>) => {
   const now = new Date();
   const nowIso = now.toISOString();
-  const [profilesResult, rolesResult, subscriptionsResult, grantsResult] = await Promise.all([
+  const livemode = getStripeLivemode();
+  const [profilesResult, rolesResult, customersResult, subscriptionsResult, grantsResult] = await Promise.all([
     supabase.from("profiles").select("id, email, name, avatar_url").order("email"),
     supabase.from("user_roles").select("user_id, role"),
+    supabase.from("billing_customers").select("id, user_id, updated_at").eq("livemode", livemode),
     supabase
       .from("billing_subscriptions")
-      .select("user_id, plan_code, status, current_period_end, cancel_at, cancel_at_period_end, access_suspended_at, updated_at")
+      .select("user_id, billing_customer_id, plan_code, status, current_period_end, cancel_at, cancel_at_period_end, access_suspended_at, updated_at")
       .order("updated_at", { ascending: false }),
     supabase
       .from("billing_access_grants")
@@ -75,14 +79,26 @@ const listBilling = async (supabase: ReturnType<typeof createServiceClient>) => 
       .gt("ends_at", nowIso),
   ]);
 
-  for (const result of [profilesResult, rolesResult, subscriptionsResult, grantsResult]) {
+  for (const result of [profilesResult, rolesResult, customersResult, subscriptionsResult, grantsResult]) {
     if (result.error) throw result.error;
   }
 
   const roles = new Map((rolesResult.data ?? []).map((row) => [row.user_id, row.role]));
+  const currentCustomerByUser = new Map(
+    (customersResult.data ?? []).map((row) => [row.user_id, row]),
+  );
   const latestSubscription = new Map<string, BillingSubscriptionRow>();
 
   for (const subscription of subscriptionsResult.data ?? []) {
+    const currentCustomer = currentCustomerByUser.get(subscription.user_id);
+    // A customer mapping is replaced when the Stripe account changes. Older
+    // subscriptions can still point to the same local customer row, so only
+    // accept records written after the current mapping was established.
+    if (
+      !currentCustomer
+      || subscription.billing_customer_id !== currentCustomer.id
+      || new Date(subscription.updated_at).getTime() < new Date(currentCustomer.updated_at).getTime()
+    ) continue;
     if (!latestSubscription.has(subscription.user_id)) {
       latestSubscription.set(subscription.user_id, subscription as BillingSubscriptionRow);
     }
@@ -148,6 +164,7 @@ Deno.serve(async (request) => {
     const supabase = createServiceClient();
     const actor = await requireAuthenticatedUser(request, supabase);
     await requireAdmin(actor.id, supabase);
+    const livemode = getStripeLivemode();
     const body = await request.json().catch(() => ({})) as {
       action?: AdminBillingAction;
       userId?: unknown;
@@ -161,10 +178,19 @@ Deno.serve(async (request) => {
     if (action === "grant_manual_access") {
       if (!isPlanCode(body.plan)) throw new BillingHttpError(400, "invalid_manual_access_plan");
 
+      const { data: currentCustomer, error: customerError } = await supabase
+        .from("billing_customers")
+        .select("id, updated_at")
+        .eq("user_id", body.userId)
+        .eq("livemode", livemode)
+        .maybeSingle();
+      if (customerError) throw customerError;
+
       const { data: activeSubscription, error: subscriptionError } = await supabase
         .from("billing_subscriptions")
         .select("id, status, current_period_end, cancel_at, access_suspended_at")
         .eq("user_id", body.userId)
+        .eq("billing_customer_id", currentCustomer?.id ?? "00000000-0000-0000-0000-000000000000")
         .in("status", ["active", "trialing", "past_due"])
         .order("updated_at", { ascending: false })
         .limit(1)

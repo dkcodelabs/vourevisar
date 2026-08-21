@@ -21,6 +21,7 @@ import {
 import { TracerLogo } from '@/components/ui/TracerLogo';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getSupportWhatsAppUrl } from '@/config/support';
+import { getPostAuthRedirect } from '@/utils/authRedirect';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -70,10 +71,10 @@ const Login = () => {
         }
 
         // If we are here, user is active
-        let from = location.state?.from?.pathname || '/dashboard';
-        if (from === '/') {
-          from = '/dashboard';
-        }
+        const from = getPostAuthRedirect(
+          location.state?.from,
+          new URLSearchParams(location.search).get('redirect'),
+        );
 
         navigate(from, { replace: true });
       }
@@ -172,10 +173,10 @@ const Login = () => {
       const result = await signInWithGoogle();
       if (result.success) {
         await logEvent('LOGIN', { method: 'google' });
-        let from = location.state?.from?.pathname || '/dashboard';
-        if (from === '/') {
-          from = '/dashboard';
-        }
+        const from = getPostAuthRedirect(
+          location.state?.from,
+          new URLSearchParams(location.search).get('redirect'),
+        );
         navigate(from, { replace: true });
       }
     } catch (error) {

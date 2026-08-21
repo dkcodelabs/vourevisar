@@ -18,7 +18,14 @@ const LandingPage = () => {
     if (user) {
       navigate(`/checkout?plan=${plan}`);
     } else {
-      navigate('/login?redirect=planos');
+      navigate('/login', {
+        state: {
+          from: {
+            pathname: '/checkout',
+            search: `?plan=${plan}`,
+          },
+        },
+      });
     }
   };
 

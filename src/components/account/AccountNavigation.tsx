@@ -9,10 +9,16 @@ const sections = [
   { value: 'configuracoes', label: 'Configurações', icon: Settings, to: '/conta?tab=configuracoes' },
 ] as const;
 
-export const AccountNavigation = ({ current }: { current: AccountSection }) => (
+export const AccountNavigation = ({
+  current,
+  className = 'mb-6',
+}: {
+  current: AccountSection;
+  className?: string;
+}) => (
   <nav
     aria-label="Seções da conta"
-    className="mb-6 grid h-auto w-full grid-cols-3 rounded-xl border border-border/60 bg-black/5 p-1 dark:bg-white/5 sm:w-fit"
+    className={`${className} grid h-auto w-full grid-cols-3 rounded-xl border border-border/60 bg-black/5 p-1 dark:bg-white/5 sm:w-fit`}
   >
     {sections.map(({ value, label, icon: Icon, to }) => {
       const active = current === value;

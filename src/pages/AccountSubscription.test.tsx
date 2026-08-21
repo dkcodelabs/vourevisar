@@ -5,6 +5,7 @@ import type { BillingOverview } from '@/features/billing/types';
 
 const mocks = vi.hoisted(() => ({
   useStripeBillingOverview: vi.fn(),
+  useStripeCatalog: vi.fn(),
   useStripeInvoiceHistory: vi.fn(),
   useStripePortal: vi.fn(),
   useUserRole: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/features/billing/hooks/useStripeBilling', () => ({
   useStripeBillingOverview: mocks.useStripeBillingOverview,
+  useStripeCatalog: mocks.useStripeCatalog,
   useStripeInvoiceHistory: mocks.useStripeInvoiceHistory,
   useStripePortal: mocks.useStripePortal,
 }));
@@ -118,6 +120,13 @@ describe('AccountSubscription', () => {
       isError: false,
       mutateAsync: vi.fn(),
     });
+    mocks.useStripeCatalog.mockReturnValue({
+      data: [
+        { code: 'monthly', name: 'Mensal', amountCents: 1290, currency: 'brl', interval: 'month', metadata: {} },
+        { code: 'annual', name: 'Anual', amountCents: 9990, currency: 'brl', interval: 'year', metadata: {} },
+      ],
+      isLoading: false,
+    });
     mocks.useStripeInvoiceHistory.mockReturnValue({
       data: [{ status: 'closed', amount_cents: 1600, currency: 'brl', occurred_at: '2026-09-02T00:00:00.000Z' }],
       isLoading: false,
@@ -185,6 +194,28 @@ describe('AccountSubscription', () => {
     expect(screen.queryByText(/VISA •••• 0341/i)).not.toBeInTheDocument();
     expect(screen.queryByText('R$ 16,00')).not.toBeInTheDocument();
     expect(screen.queryByText('por mês')).not.toBeInTheDocument();
+  });
+
+  it('turns an active trial into a direct, price-backed checkout choice', () => {
+    mocks.useStripeBillingOverview.mockReturnValue({
+      data: manualTrialWithHistoricalStripeSubscription,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/conta/assinatura']}>
+        <AccountSubscription />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: /escolha seu plano agora/i })).toBeInTheDocument();
+    expect(screen.getByText(/economize R\$ 54,90 no ano/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /assinar anual/i })).toHaveAttribute('href', '/checkout?plan=annual&from=subscription');
+    expect(screen.getByRole('link', { name: /mensal.*assinar/i })).toHaveAttribute('href', '/checkout?plan=monthly&from=subscription');
+    expect(screen.getByRole('link', { name: /continuar no teste gratuito/i })).toHaveAttribute('href', '/dashboard');
+    expect(screen.queryByRole('link', { name: /^ver planos/i })).not.toBeInTheDocument();
   });
 
   it('renders an intentional loading state while the billing overview is still resolving', () => {

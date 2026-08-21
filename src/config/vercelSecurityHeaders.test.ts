@@ -36,6 +36,7 @@ describe('vercel security headers', () => {
     expect(policy).toContain('wss://*.supabase.co');
     expect(policy).toContain('https://js.stripe.com');
     expect(policy).toContain('https://*.js.stripe.com');
+    expect(policy).toContain('https://checkout.stripe.com');
     expect(policy).toContain('https://hooks.stripe.com');
     expect(policy).toContain('https://*.stripe.com');
   });

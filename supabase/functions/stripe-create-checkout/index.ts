@@ -3,77 +3,53 @@ import {
   createServiceClient,
   createStripeClient,
   getAppUrl,
+  getStripeLivemode,
   getPlanPriceId,
   handleOptions,
   isBillingPlanCode,
   isUuid,
   jsonResponse,
   requireAuthenticatedUser,
+  resolveBillingCustomer,
   safeErrorCode,
   safeStripeErrorDetails,
   safeStripeErrorFingerprint,
 } from "../_shared/stripeBilling.ts";
 
-const CHECKOUT_IDEMPOTENCY_VERSION = "elements-v1";
+// A Stripe idempotency key is valid only for an identical request payload.
+// Keep this version tied to the Checkout contract and include the resolved
+// customer below: customer IDs are Stripe-account scoped, so Test and Live
+// must never reuse the same key after an account/mode switch.
+const CHECKOUT_IDEMPOTENCY_VERSION = "elements-v4";
 
-const createOrRefreshBillingCustomer = async (
+const isMissingStripeSession = (error: unknown) =>
+  safeStripeErrorDetails(error)?.code === "resource_missing";
+
+const isReusableCheckoutSession = (session: {
+  status: string | null;
+  client_secret: string | null;
+  phone_number_collection?: { enabled?: boolean } | null;
+  billing_address_collection?: "auto" | "required" | null;
+}) =>
+  session.status === "open" &&
+  Boolean(session.client_secret) &&
+  session.phone_number_collection?.enabled !== true &&
+  // The current custom Payment Element has no Address Element. A session that
+  // requires billing address confirmation cannot be completed by this UI.
+  session.billing_address_collection !== "required";
+
+const closeStaleAttempt = async (
   supabase: ReturnType<typeof createServiceClient>,
-  stripe: ReturnType<typeof createStripeClient>,
-  user: Awaited<ReturnType<typeof requireAuthenticatedUser>>,
-  replacedCustomerId?: string,
+  userId: string,
+  requestId: string,
+  errorCode = "checkout_session_unavailable",
 ) => {
-  const customer = await stripe.customers.create(
-    {
-      email: user.email,
-      name: typeof user.user_metadata?.name === "string"
-        ? user.user_metadata.name
-        : typeof user.user_metadata?.full_name === "string"
-          ? user.user_metadata.full_name
-          : undefined,
-      metadata: { supabase_user_id: user.id },
-    },
-    {
-      // A deleted Stripe customer cannot be reused. Include its ID only for a
-      // recovery so Stripe does not replay an old idempotent creation result.
-      idempotencyKey: `billing-customer:${user.id}:${replacedCustomerId ?? "initial"}`,
-    },
-  );
-
-  const { error: customerUpsertError } = await supabase
-    .from("billing_customers")
-    .upsert(
-      {
-        user_id: user.id,
-        stripe_customer_id: customer.id,
-        livemode: customer.livemode,
-      },
-      { onConflict: "user_id" },
-    );
-  if (customerUpsertError) throw customerUpsertError;
-
-  return customer.id;
-};
-
-const resolveBillingCustomer = async (
-  supabase: ReturnType<typeof createServiceClient>,
-  stripe: ReturnType<typeof createStripeClient>,
-  user: Awaited<ReturnType<typeof requireAuthenticatedUser>>,
-  stripeCustomerId: string | null | undefined,
-) => {
-  if (!stripeCustomerId) {
-    return createOrRefreshBillingCustomer(supabase, stripe, user);
-  }
-
-  try {
-    const existingCustomer = await stripe.customers.retrieve(stripeCustomerId);
-    if (!existingCustomer.deleted) return existingCustomer.id;
-  } catch (error) {
-    if (safeStripeErrorDetails(error)?.code !== "resource_missing") {
-      throw error;
-    }
-  }
-
-  return createOrRefreshBillingCustomer(supabase, stripe, user, stripeCustomerId);
+  const { error } = await supabase
+    .from("billing_checkout_attempts")
+    .update({ status: "failed", error_code: errorCode })
+    .eq("user_id", userId)
+    .eq("request_id", requestId);
+  if (error) throw error;
 };
 
 Deno.serve(async (request) => {
@@ -95,14 +71,35 @@ Deno.serve(async (request) => {
       throw new BillingHttpError(400, "invalid_checkout_request");
     }
 
+    const livemode = getStripeLivemode();
+
     stage = "subscription_guard";
-    const { data: paidSubscriptions, error: paidSubscriptionError } = await supabase
+    // A user can have subscriptions from a previous Stripe account/customer
+    // generation. They remain immutable history, but must not block a new
+    // checkout after the current billing customer has changed.
+    const { data: currentBillingCustomer, error: currentCustomerError } = await supabase
+      .from("billing_customers")
+      .select("id,updated_at")
+      .eq("user_id", user.id)
+      .eq("livemode", livemode)
+      .maybeSingle();
+
+    if (currentCustomerError) throw currentCustomerError;
+
+    const subscriptionGuardQuery = supabase
       .from("billing_subscriptions")
       .select("id")
       .eq("user_id", user.id)
       .in("status", ["active", "trialing", "past_due"])
       .gt("current_period_end", new Date().toISOString())
       .limit(1);
+
+    const { data: paidSubscriptions, error: paidSubscriptionError } =
+      currentBillingCustomer
+        ? await subscriptionGuardQuery
+            .eq("billing_customer_id", currentBillingCustomer.id)
+            .gte("updated_at", currentBillingCustomer.updated_at)
+        : { data: [], error: null };
 
     if (paidSubscriptionError) throw paidSubscriptionError;
     if (paidSubscriptions?.length) {
@@ -115,7 +112,7 @@ Deno.serve(async (request) => {
     stage = "attempt_lookup";
     const { data: openAttempt } = await supabase
       .from("billing_checkout_attempts")
-      .select("stripe_checkout_session_id")
+      .select("request_id,stripe_checkout_session_id")
       .eq("user_id", user.id)
       .eq("plan_code", plan)
       .in("status", ["creating", "open"])
@@ -125,14 +122,28 @@ Deno.serve(async (request) => {
       .maybeSingle();
 
     if (openAttempt?.stripe_checkout_session_id) {
-      const existingSession = await stripe.checkout.sessions.retrieve(
-        openAttempt.stripe_checkout_session_id,
-      );
-      if (existingSession.status === "open" && existingSession.client_secret) {
-        return jsonResponse(request, {
-          clientSecret: existingSession.client_secret,
-          reused: true,
-        });
+      try {
+        const existingSession = await stripe.checkout.sessions.retrieve(
+          openAttempt.stripe_checkout_session_id,
+        );
+        if (isReusableCheckoutSession(existingSession)) {
+          return jsonResponse(request, {
+            clientSecret: existingSession.client_secret!,
+            reused: true,
+          });
+        }
+        await closeStaleAttempt(
+          supabase,
+          user.id,
+          openAttempt.request_id,
+          "checkout_session_schema_outdated",
+        );
+      } catch (error) {
+        // Attempts created with another Stripe account/mode are immutable
+        // history, but cannot be retrieved with the current key. Do not let
+        // one stale row block a fresh checkout.
+        if (!isMissingStripeSession(error)) throw error;
+        await closeStaleAttempt(supabase, user.id, openAttempt.request_id);
       }
     }
 
@@ -155,16 +166,18 @@ Deno.serve(async (request) => {
         .maybeSingle();
 
       if (repeatedAttempt?.stripe_checkout_session_id) {
-        const repeatedSession = await stripe.checkout.sessions.retrieve(
-          repeatedAttempt.stripe_checkout_session_id,
-        );
-        if (repeatedSession.client_secret) {
-          if (repeatedSession.status === "open") {
+        try {
+          const repeatedSession = await stripe.checkout.sessions.retrieve(
+            repeatedAttempt.stripe_checkout_session_id,
+          );
+          if (isReusableCheckoutSession(repeatedSession)) {
             return jsonResponse(request, {
-              clientSecret: repeatedSession.client_secret,
+              clientSecret: repeatedSession.client_secret!,
               reused: true,
             });
           }
+        } catch (error) {
+          if (!isMissingStripeSession(error)) throw error;
         }
       }
 
@@ -195,6 +208,7 @@ Deno.serve(async (request) => {
       .from("billing_customers")
       .select("stripe_customer_id")
       .eq("user_id", user.id)
+      .eq("livemode", livemode)
       .maybeSingle();
 
     if (customerLookupError) throw customerLookupError;
@@ -204,6 +218,7 @@ Deno.serve(async (request) => {
       supabase,
       stripe,
       user,
+      livemode,
       customerRecord?.stripe_customer_id,
     );
 
@@ -215,7 +230,7 @@ Deno.serve(async (request) => {
         ui_mode: "elements",
         customer: customerId,
         client_reference_id: user.id,
-        payment_method_types: ["card"],
+        // Stripe selects eligible methods from the Dashboard configuration.
         line_items: [{ price: priceId, quantity: 1 }],
         billing_address_collection: "auto",
         return_url: `${appUrl}/checkout/retorno?session_id={CHECKOUT_SESSION_ID}`,
@@ -234,7 +249,7 @@ Deno.serve(async (request) => {
       },
       {
         idempotencyKey:
-          `billing-checkout:${CHECKOUT_IDEMPOTENCY_VERSION}:${user.id}:${requestId}`,
+          `billing-checkout:${CHECKOUT_IDEMPOTENCY_VERSION}:${user.id}:${customerId}:${requestId}`,
       },
     );
 

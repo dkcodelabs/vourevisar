@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearCheckoutRequestIds, getCheckoutRequestId } from './checkoutRequest';
+import {
+  clearCheckoutRequestIds,
+  getCheckoutBackNavigation,
+  getCheckoutRequestId,
+} from './checkoutRequest';
 
 describe('checkout request id', () => {
   beforeEach(() => {
@@ -22,5 +26,16 @@ describe('checkout request id', () => {
 
     expect(sessionStorage.getItem('stripe-checkout-request:monthly')).toBeNull();
     expect(sessionStorage.getItem('stripe-checkout-request:annual')).toBeNull();
+  });
+
+  it('returns a trial conversion to the subscription instead of reopening plan selection', () => {
+    expect(getCheckoutBackNavigation('subscription')).toEqual({
+      to: '/conta/assinatura',
+      label: 'Voltar à assinatura',
+    });
+    expect(getCheckoutBackNavigation('anything-else')).toEqual({
+      to: '/planos',
+      label: 'Voltar aos planos',
+    });
   });
 });

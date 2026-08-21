@@ -1,5 +1,10 @@
 import type { BillingPlanCode } from '@/features/billing/types';
 
+export const getCheckoutBackNavigation = (source: string | null) =>
+  source === 'subscription'
+    ? { to: '/conta/assinatura', label: 'Voltar à assinatura' }
+    : { to: '/planos', label: 'Voltar aos planos' };
+
 const storageKey = (plan: BillingPlanCode) => `stripe-checkout-request:${plan}`;
 
 export const getCheckoutRequestId = (plan: BillingPlanCode) => {

@@ -13,10 +13,11 @@ export const stripeBillingKeys = {
   invoiceHistory: () => [...stripeBillingKeys.all, 'invoice-history'] as const,
 };
 
-export const useStripeCatalog = () =>
+export const useStripeCatalog = (enabled = true) =>
   useQuery({
     queryKey: stripeBillingKeys.catalog(),
     queryFn: getStripeCatalog,
+    enabled,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });

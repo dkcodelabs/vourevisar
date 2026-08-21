@@ -1,6 +1,7 @@
 import {
   BillingHttpError,
   createStripeClient,
+  getStripeLivemode,
   getPlanPriceId,
   handleOptions,
   jsonResponse,
@@ -14,11 +15,16 @@ Deno.serve(async (request) => {
 
   try {
     const stripe = createStripeClient();
+    const livemode = getStripeLivemode();
 
     const planCodes: BillingPlanCode[] = ["monthly", "annual"];
     const plans = await Promise.all(
       planCodes.map(async (code) => {
         const price = await stripe.prices.retrieve(getPlanPriceId(code));
+
+        if (price.livemode !== livemode) {
+          throw new BillingHttpError(503, `stripe_price_mode_mismatch:${code}`);
+        }
 
         if (!price.active || !price.recurring || price.unit_amount === null) {
           throw new BillingHttpError(503, `stripe_price_unavailable:${code}`);

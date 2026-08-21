@@ -12,7 +12,10 @@ import {
   getSafeBillingErrorMessage,
 } from '@/features/billing/services/stripeBillingService';
 import { useStripeCatalog } from '@/features/billing/hooks/useStripeBilling';
-import { getCheckoutRequestId } from '@/features/billing/utils/checkoutRequest';
+import {
+  getCheckoutBackNavigation,
+  getCheckoutRequestId,
+} from '@/features/billing/utils/checkoutRequest';
 import type { BillingPlanCode } from '@/features/billing/types';
 
 const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY?.trim();
@@ -23,6 +26,7 @@ const StripeCheckout = () => {
   const requestedPlan = searchParams.get('plan');
   const plan: BillingPlanCode | null =
     requestedPlan === 'monthly' || requestedPlan === 'annual' ? requestedPlan : null;
+  const backNavigation = getCheckoutBackNavigation(searchParams.get('from'));
   const catalog = useStripeCatalog();
   const selectedPlan = catalog.data?.find((item) => item.code === plan);
   const requestId = useMemo(() => (plan ? getCheckoutRequestId(plan) : null), [plan]);
@@ -54,6 +58,8 @@ const StripeCheckout = () => {
     <BillingShell
       title="Seu próximo ciclo começa aqui."
       description="Finalize em um ambiente protegido. Seus dados de cartão são protegidos e processados diretamente pela Stripe."
+      backTo={backNavigation.to}
+      backLabel={backNavigation.label}
     >
       {!publishableKey ? (
         <CheckoutState
