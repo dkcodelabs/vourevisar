@@ -1,0 +1,45 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { BillingInvoiceHistory } from './BillingInvoiceHistory';
+
+describe('BillingInvoiceHistory', () => {
+  it('distinguishes a refunded payment from a merely paid invoice', () => {
+    render(
+      <BillingInvoiceHistory
+        invoices={[{
+          status: 'refunded',
+          amount_cents: 1290,
+          currency: 'brl',
+          occurred_at: '2026-08-21T18:47:51.000Z',
+          status_at: '2026-08-21T19:03:42.000Z',
+        }]}
+        isLoading={false}
+        isError={false}
+      />,
+    );
+
+    expect(screen.getByText('Pagamento reembolsado')).toBeVisible();
+    expect(screen.queryByText('Pagamento confirmado')).not.toBeInTheDocument();
+    expect(screen.getByText(/cobrado em 21 de ago\. de 2026/i)).toBeVisible();
+    expect(screen.getByText(/reembolso atualizado em 21 de ago\. de 2026/i)).toBeVisible();
+  });
+
+  it('keeps an in-flight refund visible without claiming completion', () => {
+    render(
+      <BillingInvoiceHistory
+        invoices={[{
+          status: 'refund_pending',
+          amount_cents: 1290,
+          currency: 'brl',
+          occurred_at: '2026-08-21T18:47:51.000Z',
+          status_at: '2026-08-21T19:03:42.000Z',
+        }]}
+        isLoading={false}
+        isError={false}
+      />,
+    );
+
+    expect(screen.getByText('Reembolso em processamento')).toBeVisible();
+    expect(screen.queryByText('Pagamento reembolsado')).not.toBeInTheDocument();
+  });
+});

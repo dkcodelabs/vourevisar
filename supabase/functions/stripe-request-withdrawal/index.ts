@@ -1,5 +1,8 @@
 import Stripe from "npm:stripe@22.4.0";
-import { sendWithdrawalReceivedEmail } from "../_shared/billingEmail.ts";
+import {
+  sendWithdrawalReceivedEmail,
+  sendWithdrawalResultEmail,
+} from "../_shared/billingEmail.ts";
 import { isBillingWithdrawalEnabled } from "../_shared/billingContract.ts";
 import { isWithinWithdrawalWindow } from "../_shared/billingWithdrawal.ts";
 import {
@@ -192,14 +195,14 @@ Deno.serve(async (request) => {
     let { data: refundRequest, error: refundRequestError } = await supabase
       .from("billing_refund_requests")
       .insert(requestRecord)
-      .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,requested_at,amount_cents,currency,eligibility_deadline")
+      .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,result_email_status,requested_at,amount_cents,currency,eligibility_deadline")
       .single();
 
     if (refundRequestError?.code === "23505") {
       reusedRequest = true;
       const existingResult = await supabase
         .from("billing_refund_requests")
-        .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,requested_at,amount_cents,currency,eligibility_deadline")
+        .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,result_email_status,requested_at,amount_cents,currency,eligibility_deadline")
         .eq("billing_contract_acceptance_id", acceptance.id)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -209,6 +212,40 @@ Deno.serve(async (request) => {
     }
     if (refundRequestError) throw refundRequestError;
     if (!refundRequest) throw new BillingHttpError(500, "withdrawal_request_missing");
+
+    const sendResultEmailIfNeeded = async (
+      status: "succeeded" | "failed" | "manual_review",
+    ) => {
+      if (refundRequest.result_email_status === status || !user.email) return;
+      try {
+        await sendWithdrawalResultEmail({
+          requestId: refundRequest.id,
+          email: user.email,
+          customerName: typeof user.user_metadata?.name === "string"
+            ? user.user_metadata.name
+            : null,
+          amountCents: refundRequest.amount_cents,
+          currency: refundRequest.currency,
+          requestedAt: new Date(refundRequest.requested_at),
+          deadline: new Date(refundRequest.eligibility_deadline),
+          status,
+        });
+        const { error: emailStatusError } = await supabase
+          .from("billing_refund_requests")
+          .update({
+            result_email_sent_at: new Date().toISOString(),
+            result_email_status: status,
+          })
+          .eq("id", refundRequest.id);
+        if (emailStatusError) throw emailStatusError;
+        refundRequest.result_email_status = status;
+      } catch (error) {
+        console.error("[stripe-request-withdrawal] result_email_failed", {
+          code: safeErrorCode(error),
+          status,
+        });
+      }
+    };
 
     if (!refundRequest.received_email_sent_at && user.email) {
       try {
@@ -254,6 +291,8 @@ Deno.serve(async (request) => {
         .eq("user_id", user.id);
       if (manualReviewUpdateError) throw manualReviewUpdateError;
 
+      await sendResultEmailIfNeeded("manual_review");
+
       return jsonResponse(request, {
         received: true,
         reused: reusedRequest,
@@ -262,6 +301,11 @@ Deno.serve(async (request) => {
     }
 
     if (refundRequest.status !== "requested" && refundRequest.status !== "processing") {
+      if (["succeeded", "failed", "manual_review"].includes(refundRequest.status)) {
+        await sendResultEmailIfNeeded(
+          refundRequest.status as "succeeded" | "failed" | "manual_review",
+        );
+      }
       return jsonResponse(request, {
         received: true,
         reused: true,
@@ -335,6 +379,12 @@ Deno.serve(async (request) => {
       .eq("id", refundRequest.id)
       .eq("user_id", user.id);
     if (resultError) throw resultError;
+
+    if (["succeeded", "failed", "manual_review"].includes(finalStatus)) {
+      await sendResultEmailIfNeeded(
+        finalStatus as "succeeded" | "failed" | "manual_review",
+      );
+    }
 
     return jsonResponse(request, {
       received: true,

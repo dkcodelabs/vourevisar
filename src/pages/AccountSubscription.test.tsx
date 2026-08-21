@@ -156,7 +156,13 @@ describe('AccountSubscription', () => {
       isLoading: false,
     });
     mocks.useStripeInvoiceHistory.mockReturnValue({
-      data: [{ status: 'closed', amount_cents: 1600, currency: 'brl', occurred_at: '2026-09-02T00:00:00.000Z' }],
+      data: [{
+        status: 'refunded',
+        amount_cents: 1600,
+        currency: 'brl',
+        occurred_at: '2026-09-02T00:00:00.000Z',
+        status_at: '2026-09-17T00:00:00.000Z',
+      }],
       isLoading: false,
       isError: false,
     });
@@ -178,7 +184,8 @@ describe('AccountSubscription', () => {
     expect(screen.getByText('Sem renovação ativa')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /escolher novo plano/i })).toHaveAttribute('href', '/planos');
     expect(screen.getByRole('button', { name: /ver histórico financeiro/i })).toBeInTheDocument();
-    expect(screen.getByText('Cobrança encerrada')).toBeInTheDocument();
+    expect(screen.getByText('Pagamento reembolsado')).toBeInTheDocument();
+    expect(screen.getByText(/reembolso atualizado em 17 de set\. de 2026/i)).toBeInTheDocument();
     expect(screen.getByText('Retomar assinatura')).toBeInTheDocument();
     expect(screen.queryByText('Próxima renovação')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /gerenciar pagamento/i })).not.toBeInTheDocument();

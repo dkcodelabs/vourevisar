@@ -427,10 +427,19 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   reutilização de uma tentativa aberta com `request_id` antigo enquanto o
   frontend enviava um ID novo ao aceite contratual, resultando em
   `checkout_attempt_not_found` antes da confirmação do cartão.
-- [ ] Testar reembolso `succeeded`, `pending` e `failed`.
+- [ ] Testar reembolso `succeeded`, `pending` e `failed`. O caso Live
+  `succeeded` foi confirmado em 2026-08-21 por R$ 12,90; `pending` e `failed`
+  continuam pendentes em ambiente controlado.
 - [ ] Confirmar cancelamento imediato, ausência de nova fatura e revogação do
-  acesso pago sem apagar dados de estudo.
-- [ ] Confirmar e-mails e histórico auditável.
+  acesso pago sem apagar dados de estudo. O cancelamento imediato e a
+  revogação foram confirmados no banco/UI; a ausência de nova fatura ainda
+  depende de verificação posterior.
+- [ ] Confirmar e-mails e histórico auditável. O e-mail de recebimento chegou e
+  ficou auditado. O primeiro pedido Live concluiu antes de chegar um evento de
+  reembolso ao webhook, portanto o e-mail terminal não foi enviado pela versão
+  anterior. A solicitação passou a enviar/auditar o resultado diretamente
+  quando a Stripe já devolve estado terminal, mantendo o webhook como
+  reconciliação; falta confirmar esse e-mail em uma nova execução controlada.
 - [ ] Testar mensal e anual no Stripe Test.
 - [ ] Validar desktop, tablet e mobile.
 - [x] Executar build, lint, testes e `git diff --check`. Nesta etapa passaram
@@ -479,6 +488,21 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [ ] Solicitar arrependimento/reembolso dessa compra Live dentro da janela e
   confirmar cancelamento imediato, reembolso, webhook, banco, e-mail, UI e
   revogação do acesso sem apagar dados de estudo.
+- [x] Corrigir a consistência imediata da conta após arrependimento. O caso Live
+  revelou uma janela curta em que o pedido já estava `succeeded`, mas a RPC
+  ainda devolvia a assinatura local como ativa até o webhook
+  `customer.subscription.deleted`. A RPC agora encerra acesso e renovação assim
+  que `subscription_cancel_status=succeeded`, não reativa o trial anterior, e
+  o frontend aguarda a releitura canônica antes de fechar a confirmação. A
+  migration foi aplicada e um teste transacional forçou exatamente o estado
+  antigo (`subscription=active` + reembolso/cancelamento concluídos), obtendo
+  `is_active=false`, `status=canceled` e sem renovação; a transação foi
+  revertida.
+- [ ] Publicar e validar no domínio oficial o histórico financeiro que cruza a
+  fatura paga com `billing_refund_requests`, exibindo `Pagamento reembolsado`,
+  `Reembolso em processamento` ou `Reembolso em análise` em vez de manter
+  apenas `Pagamento confirmado`. A Edge Function já foi publicada; falta o
+  bundle frontend e a inspeção visual autenticada.
 
 ## Critérios para liberar produção
 

@@ -49,6 +49,9 @@ const withdrawalFunctionSource = readProjectFile(
 const withdrawalOverviewMigrationSource = readProjectFile(
   'supabase/migrations/20260821031010_expose_billing_withdrawal_status.sql',
 );
+const immediateRefundStateMigrationSource = readProjectFile(
+  'supabase/migrations/20260821191410_make_refund_terminal_state_immediate.sql',
+);
 const withdrawalPanelSource = readProjectFile(
   'src/features/billing/components/BillingWithdrawalPanel.tsx',
 );
@@ -273,12 +276,34 @@ describe('Stripe billing security boundaries', () => {
     expect(billingEmailSource).toContain('Idempotency-Key');
   });
 
+  it('does not depend on a refund webhook to send the terminal withdrawal email', () => {
+    expect(withdrawalFunctionSource).toContain('sendWithdrawalResultEmail');
+    expect(withdrawalFunctionSource).toContain('sendResultEmailIfNeeded');
+    expect(withdrawalFunctionSource).toContain('result_email_sent_at');
+    expect(withdrawalFunctionSource).toContain('result_email_status');
+  });
+
   it('keeps terminated-account invoice history authenticated, read-only and free of payment links', () => {
     expect(configSource).toContain('[functions.stripe-invoice-history]\nverify_jwt = true');
     expect(invoiceHistorySource).toContain('requireAuthenticatedUser(request, supabase)');
     expect(invoiceHistorySource).toContain('.eq("user_id", user.id)');
     expect(invoiceHistorySource).toContain('stripe.invoices.list');
+    expect(invoiceHistorySource).toContain('billing_refund_requests');
+    expect(invoiceHistorySource).toContain('refund_pending');
+    expect(invoiceHistorySource).toContain('refunded');
     expect(invoiceHistorySource).not.toMatch(/hosted_invoice_url|invoice_pdf|payment_url/i);
+  });
+
+  it('revokes paid access as soon as the withdrawal cancellation is recorded', () => {
+    expect(immediateRefundStateMigrationSource).toContain(
+      "refund_record.subscription_cancel_status = 'succeeded'",
+    );
+    expect(immediateRefundStateMigrationSource).toContain('AND NOT withdrawal_canceled');
+    expect(immediateRefundStateMigrationSource).toContain("access_grant.source = 'trial'");
+    expect(immediateRefundStateMigrationSource).toContain("WHEN withdrawal_canceled THEN 'canceled'");
+    expect(immediateRefundStateMigrationSource).toContain(
+      'REVOKE ALL ON FUNCTION public.get_stripe_billing_overview(boolean) FROM PUBLIC, anon',
+    );
   });
 
   it('does not let an old refund or dispute revoke a newer paid period', () => {

@@ -83,8 +83,9 @@ export interface BillingWithdrawalResult {
 
 /** Sanitized read-only history. It never exposes Stripe IDs or payment URLs. */
 export interface BillingInvoiceHistoryItem {
-  status: 'paid' | 'pending' | 'closed';
+  status: 'paid' | 'pending' | 'closed' | 'refund_pending' | 'refunded' | 'refund_attention';
   amount_cents: number;
   currency: string;
   occurred_at: string | null;
+  status_at: string | null;
 }

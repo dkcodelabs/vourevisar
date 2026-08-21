@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock3, FileText, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, FileText, RotateCcw, TriangleAlert, XCircle } from 'lucide-react';
 import type { BillingInvoiceHistoryItem } from '@/features/billing/types';
 import { formatBillingPrice } from '@/features/billing/services/stripeBillingService';
 
@@ -15,6 +15,9 @@ const invoiceState = {
   paid: { label: 'Pagamento confirmado', Icon: CheckCircle2, className: 'bg-[#eef9df] text-[#315d18]' },
   pending: { label: 'Cobrança em aberto', Icon: Clock3, className: 'bg-[#fff7e8] text-[#8a5615]' },
   closed: { label: 'Cobrança encerrada', Icon: XCircle, className: 'bg-[#f1eef8] text-[#625a71]' },
+  refund_pending: { label: 'Reembolso em processamento', Icon: Clock3, className: 'bg-[#fff7e8] text-[#8a5615]' },
+  refunded: { label: 'Pagamento reembolsado', Icon: RotateCcw, className: 'bg-[#eeeaff] text-[#5138c9]' },
+  refund_attention: { label: 'Reembolso em análise', Icon: TriangleAlert, className: 'bg-[#fff0ef] text-[#9f3028]' },
 } as const;
 
 interface BillingInvoiceHistoryProps {
@@ -56,7 +59,14 @@ export const BillingInvoiceHistory = ({ invoices, isLoading, isError }: BillingI
             <li key={`${invoice.occurred_at ?? 'invoice'}-${index}`} className="flex flex-wrap items-center justify-between gap-3 py-4">
               <div>
                 <p className="text-sm font-black text-[#211a35]">{formatBillingPrice(invoice.amount_cents, invoice.currency)}</p>
-                <p className="mt-1 text-xs font-semibold text-[#766d86]">{formatDate(invoice.occurred_at)}</p>
+                <p className="mt-1 text-xs font-semibold text-[#766d86]">
+                  Cobrado em {formatDate(invoice.occurred_at)}
+                </p>
+                {invoice.status_at && invoice.status.startsWith('refund') && (
+                  <p className="mt-1 text-xs font-semibold text-[#766d86]">
+                    Reembolso atualizado em {formatDate(invoice.status_at)}
+                  </p>
+                )}
               </div>
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black ${state.className}`}>
                 <Icon className="h-3.5 w-3.5" />
