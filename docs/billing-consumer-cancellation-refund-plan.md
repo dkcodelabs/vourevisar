@@ -413,10 +413,18 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [ ] Concluir revisão jurídica dos textos antes de abrir aquisição para
   terceiros; a validação técnica e a compra Live do próprio titular não
   substituem parecer jurídico.
-- [ ] Publicar o frontend e ativar as flags de frontend/backend de forma
-  coordenada. Até isso acontecer, o domínio oficial permanece na experiência
-  anterior, que foi validada em `/planos` e `/conta/assinatura` após o deploy
-  seguro do backend.
+- [x] Publicar o frontend e ativar as flags de frontend/backend de forma
+  coordenada. O rollout foi feito em duas passagens: primeiro com as flags
+  explicitamente desligadas e depois backend antes do frontend. No domínio
+  oficial, os quatro documentos carregaram com a versão final e fornecedor
+  configurado, o catálogo Live exibiu R$ 12,90/R$ 99,90, o cadastro passou a
+  exigir aceite explícito e `/conta/assinatura` continuou estável.
+- [x] Manter Preview sem chave/modo Live. A tentativa de carregar o catálogo no
+  Preview falhou por isolamento de modo, como esperado; nenhuma chave Live foi
+  copiada e toda validação financeira permanece restrita ao domínio oficial.
+- [x] Fazer smoke test não mutante dos endpoints ativados: payloads vazios
+  retornaram validação de versão/contrato/pedido e sessão (`409/400/400/401`),
+  em vez de `feature_not_enabled`, sem criar Checkout, aceite ou reembolso.
 - [ ] Fazer uma compra Live controlada e solicitar arrependimento/reembolso
   dentro da janela; confirmar Stripe, webhook, banco, e-mail e UI.
 
