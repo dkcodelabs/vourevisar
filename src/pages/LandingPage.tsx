@@ -356,10 +356,10 @@ const LandingPage = () => {
           </div>
 
           <div className="flex gap-6 text-slate-500 text-sm font-medium">
-            <a href="#" className="hover:text-brand-blue">Sobre</a>
-            <a href="#" className="hover:text-brand-blue">Privacidade</a>
-            <a href="#" className="hover:text-brand-blue">Termos</a>
-            <a href="#" className="hover:text-brand-blue">Contacto</a>
+            <Link to="/privacidade" className="hover:text-brand-blue">Privacidade</Link>
+            <Link to="/termos" className="hover:text-brand-blue">Termos</Link>
+            <Link to="/cancelamento-e-reembolso" className="hover:text-brand-blue">Cancelamento</Link>
+            <Link to="/contato" className="hover:text-brand-blue">Contato</Link>
           </div>
 
           <p className="text-slate-400 text-sm">© 2023 vouRevisar. Todos os direitos reservados.</p>

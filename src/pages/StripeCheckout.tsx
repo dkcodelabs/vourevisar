@@ -6,6 +6,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { BillingShell } from '@/features/billing/components/BillingShell';
 import { StripePaymentForm } from '@/features/billing/components/StripePaymentForm';
+import { isBillingContractAcceptanceEnabled } from '@/features/billing/legal/billingLegalDocuments';
 import {
   createStripeCheckout,
   formatBillingPrice,
@@ -20,6 +21,7 @@ import type { BillingPlanCode } from '@/features/billing/types';
 
 const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY?.trim();
 const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
+const contractAcceptanceEnabled = isBillingContractAcceptanceEnabled();
 
 const StripeCheckout = () => {
   const [searchParams] = useSearchParams();
@@ -119,7 +121,13 @@ const StripeCheckout = () => {
             },
           }}
         >
-          <StripePaymentForm priceLabel={priceLabel} intervalLabel={intervalLabel} />
+          <StripePaymentForm
+            priceLabel={priceLabel}
+            intervalLabel={intervalLabel}
+            plan={plan}
+            requestId={requestId!}
+            requireContractAcceptance={contractAcceptanceEnabled}
+          />
         </CheckoutElementsProvider>
       )}
     </BillingShell>

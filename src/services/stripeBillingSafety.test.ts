@@ -12,11 +12,23 @@ const adminBillingSource = readProjectFile('supabase/functions/admin-billing/ind
 const webhookSource = readProjectFile('supabase/functions/stripe-webhook/index.ts');
 const sharedSource = readProjectFile('supabase/functions/_shared/stripeBilling.ts');
 const billingEmailSource = readProjectFile('supabase/functions/_shared/billingEmail.ts');
+const contractAcceptanceSource = readProjectFile(
+  'supabase/functions/stripe-accept-contract/index.ts',
+);
+const contractDocumentsServerSource = readProjectFile(
+  'supabase/functions/_shared/billingContract.ts',
+);
+const contractDocumentsClientSource = readProjectFile(
+  'src/features/billing/legal/billingLegalDocuments.ts',
+);
 const migrationSource = readProjectFile(
   'supabase/migrations/20260730221919_create_stripe_billing_core.sql',
 );
 const billingModeMigrationSource = readProjectFile(
   'supabase/migrations/20260820172644_isolate_stripe_billing_by_mode.sql',
+);
+const contractAcceptanceMigrationSource = readProjectFile(
+  'supabase/migrations/20260821024158_create_billing_contract_acceptances.sql',
 );
 const legacyGrantMigrationSource = readProjectFile(
   'supabase/migrations/20260731170341_backfill_legacy_paid_access_grants.sql',
@@ -93,6 +105,39 @@ describe('Stripe billing security boundaries', () => {
     expect(paymentFormSource).not.toContain('returnUrl:');
     expect(paymentFormSource).toContain('finally {');
     expect(paymentFormSource).not.toMatch(/cardNumber|card_number|cvc/i);
+  });
+
+  it('records a server-validated contract before confirming an enabled checkout', () => {
+    expect(configSource).toContain('[functions.stripe-accept-contract]\nverify_jwt = true');
+    expect(contractAcceptanceSource).toContain('requireAuthenticatedUser(request, supabase)');
+    expect(contractAcceptanceSource).toContain('.eq("user_id", user.id)');
+    expect(contractAcceptanceSource).toContain('session.livemode !== livemode');
+    expect(contractAcceptanceSource).toContain('priceId !== expectedPriceId');
+    expect(contractAcceptanceSource).toContain('billing_contract_acceptances');
+    expect(contractAcceptanceSource).not.toMatch(/stripe_(customer|subscription|payment_intent)_id.*body/i);
+    expect(paymentFormSource.indexOf('contractAcceptance.mutateAsync(requestId)')).toBeLessThan(
+      paymentFormSource.indexOf('checkoutState.checkout.confirm()'),
+    );
+  });
+
+  it('keeps legal document versions aligned across browser and server', () => {
+    const expectedVersion = '2026-08-21.1-draft';
+    expect(contractDocumentsServerSource).toContain(expectedVersion);
+    expect(contractDocumentsClientSource).toContain(expectedVersion);
+    expect(contractDocumentsServerSource).toContain('crypto.subtle.digest');
+  });
+
+  it('keeps contract evidence private and binds the legal window to Stripe completion', () => {
+    expect(contractAcceptanceMigrationSource).toContain(
+      'ALTER TABLE public.billing_contract_acceptances ENABLE ROW LEVEL SECURITY',
+    );
+    expect(contractAcceptanceMigrationSource).toContain(
+      'REVOKE ALL ON TABLE public.billing_contract_acceptances',
+    );
+    expect(contractAcceptanceMigrationSource).toContain('FROM PUBLIC, anon, authenticated');
+    expect(webhookSource).toContain('contract_acceptance_id');
+    expect(webhookSource).toContain('withdrawal_deadline: withdrawalDeadline');
+    expect(webhookSource).toContain('event.created * 1000 + 7 * 24 * 60 * 60 * 1000');
   });
 
   it('keeps provider internals out of user-facing billing messages', () => {

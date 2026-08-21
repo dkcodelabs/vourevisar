@@ -300,7 +300,7 @@ const sendFirstPaymentConfirmation = async (
 
   const customer = await stripe.customers.retrieve(customerId);
   const customerName = !("deleted" in customer && customer.deleted)
-    ? customer.name
+    ? customer.name ?? null
     : null;
   const planCode = getPlanFromPriceId(item.price.id);
   if (!planCode || item.price.unit_amount === null) return;
@@ -391,13 +391,33 @@ Deno.serve(async (request) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        await supabase
+        const { data: completedAttempt, error: completedAttemptError } = await supabase
           .from("billing_checkout_attempts")
           .update({
             status: "complete",
-            completed_at: new Date().toISOString(),
+            completed_at: eventCreatedAt,
           })
-          .eq("stripe_checkout_session_id", session.id);
+          .eq("stripe_checkout_session_id", session.id)
+          .select("id,user_id")
+          .maybeSingle();
+        if (completedAttemptError) throw completedAttemptError;
+
+        const acceptanceId = session.metadata?.contract_acceptance_id;
+        if (completedAttempt && acceptanceId) {
+          const withdrawalDeadline = new Date(
+            event.created * 1000 + 7 * 24 * 60 * 60 * 1000,
+          ).toISOString();
+          const { error: acceptanceError } = await supabase
+            .from("billing_contract_acceptances")
+            .update({
+              contracted_at: eventCreatedAt,
+              withdrawal_deadline: withdrawalDeadline,
+            })
+            .eq("id", acceptanceId)
+            .eq("checkout_attempt_id", completedAttempt.id)
+            .eq("user_id", completedAttempt.user_id);
+          if (acceptanceError) throw acceptanceError;
+        }
 
         const subscriptionId = getExpandableId(session.subscription);
         if (subscriptionId) {

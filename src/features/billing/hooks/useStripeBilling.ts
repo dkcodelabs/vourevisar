@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  acceptStripeContract,
   createStripePortal,
   getStripeBillingOverview,
   getStripeInvoiceHistory,
@@ -54,3 +55,8 @@ export const useStripePortal = () => {
     },
   });
 };
+
+export const useStripeContractAcceptance = () =>
+  useMutation({
+    mutationFn: acceptStripeContract,
+  });

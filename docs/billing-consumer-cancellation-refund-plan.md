@@ -331,11 +331,19 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 
 ### Fase 1 — contrato e transparência
 
-- [ ] Criar rotas/documentos públicos versionados e corrigir o rodapé.
-- [ ] Adicionar resumo contratual e aceite explícito ao checkout.
-- [ ] Criar `billing_contract_acceptances` com RLS/revogações.
-- [ ] Implementar `stripe-accept-contract` e correlação no webhook.
+- [x] Criar rotas/documentos públicos versionados e corrigir o rodapé. O código
+  está validado localmente; a publicação permanece bloqueada pelos dados reais
+  do fornecedor e pela revisão jurídica dos textos em rascunho.
+- [x] Adicionar resumo contratual e aceite explícito ao checkout, incluindo
+  valor atual, renovação, próxima cobrança estimada, cancelamento e
+  arrependimento. A ativação permanece protegida por feature flag.
+- [x] Criar `billing_contract_acceptances` com RLS/revogações. A migration foi
+  validada estaticamente e ainda precisa ser aplicada no projeto remoto.
+- [x] Implementar `stripe-accept-contract` e correlação no webhook. As Edge
+  Functions passaram no `deno check` e ainda não foram publicadas.
 - [ ] Incluir confirmação contratual no e-mail da primeira cobrança.
+- [ ] Registrar no cadastro o aceite versionado dos documentos aplicáveis ao
+  teste gratuito, sem representar esse aceite como contratação paga.
 
 ### Fase 2 — arrependimento e reembolso
 

@@ -6,6 +6,7 @@ import type {
   BillingOverview,
   BillingPlanCode,
 } from '@/features/billing/types';
+import { billingContractVersions } from '@/features/billing/legal/billingLegalDocuments';
 
 interface FunctionErrorBody {
   error?: string;
@@ -20,6 +21,15 @@ const errorMessages: Record<string, string> = {
   checkout_request_in_progress: 'Seu pagamento já está sendo preparado. Aguarde alguns segundos.',
   stripe_client_secret_missing: 'Não conseguimos preparar o pagamento agora. Nenhuma cobrança foi iniciada. Tente novamente.',
   billing_customer_not_found: 'Ainda não há uma assinatura ativa para gerenciar.',
+  contract_acceptance_not_enabled: 'A contratação está temporariamente indisponível enquanto atualizamos os documentos do serviço.',
+  invalid_contract_acceptance: 'Não conseguimos registrar sua confirmação. Revise os documentos e tente novamente.',
+  checkout_attempt_not_found: 'Esta sessão de pagamento não está mais disponível. Volte e inicie novamente.',
+  checkout_not_open: 'Esta sessão de pagamento não está mais aberta. Volte e inicie novamente.',
+  checkout_expired: 'Esta sessão de pagamento expirou. Volte e inicie novamente.',
+  checkout_contract_mismatch: 'Os dados desta contratação mudaram. Volte e inicie novamente para sua segurança.',
+  checkout_price_mismatch: 'O plano ou valor desta sessão mudou. Nenhuma cobrança foi feita.',
+  contract_version_outdated: 'Os documentos desta contratação foram atualizados. Recarregue a página antes de continuar.',
+  contract_version_conflict: 'Esta sessão usa uma versão anterior dos documentos. Volte e inicie novamente.',
 };
 
 const fallbackBillingMessage =
@@ -74,6 +84,12 @@ export const createStripeCheckout = async (
 
 export const createStripePortal = async () =>
   invokeBillingFunction<{ url: string }>('stripe-create-portal');
+
+export const acceptStripeContract = async (requestId: string) =>
+  invokeBillingFunction<{ accepted: boolean; reused: boolean }>('stripe-accept-contract', {
+    requestId,
+    ...billingContractVersions,
+  });
 
 export const getStripeInvoiceHistory = async (): Promise<BillingInvoiceHistoryItem[]> => {
   const response = await invokeBillingFunction<{ invoices: BillingInvoiceHistoryItem[] }>(

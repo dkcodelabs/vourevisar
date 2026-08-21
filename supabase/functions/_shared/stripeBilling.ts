@@ -151,7 +151,14 @@ export const syncStripeCustomerDetails = async (
 
   const country = firstNonEmpty(paymentDetails?.address?.country);
   if (country && country !== customer.address?.country) {
-    updates.address = { ...(customer.address ?? {}), country };
+    updates.address = {
+      city: customer.address?.city ?? undefined,
+      country,
+      line1: customer.address?.line1 ?? undefined,
+      line2: customer.address?.line2 ?? undefined,
+      postal_code: customer.address?.postal_code ?? undefined,
+      state: customer.address?.state ?? undefined,
+    };
   }
 
   const hasMetadataUpdate = customer.metadata.supabase_user_id !== user.id;

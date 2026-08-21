@@ -36,6 +36,10 @@ const Planos = lazy(() => import("@/pages/Planos"));
 const StripeCheckout = lazy(() => import("@/pages/StripeCheckout"));
 const StripeCheckoutReturn = lazy(() => import("@/pages/StripeCheckoutReturn"));
 const AccountSubscription = lazy(() => import("@/pages/AccountSubscription"));
+const TermsOfUse = lazy(() => import("@/pages/TermsOfUse"));
+const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const CancellationRefundPolicy = lazy(() => import("@/pages/CancellationRefundPolicy"));
+const Contact = lazy(() => import("@/pages/Contact"));
 const UserManagement = lazy(() => import("@/pages/admin/UserManagement"));
 const SubscriptionManagement = lazy(() => import("@/pages/admin/SubscriptionManagement"));
 const SystemErrors = lazy(() => import("@/pages/admin/system/SystemErrors"));
@@ -91,6 +95,10 @@ const App = () => {
                         <Route path="/reset-password" element={<ResetPassword />} />
                         <Route path="/confirm-email" element={<ConfirmEmail />} />
                         <Route path="/auth/callback" element={<AuthCallback />} />
+                        <Route path="/termos" element={<TermsOfUse />} />
+                        <Route path="/privacidade" element={<PrivacyPolicy />} />
+                        <Route path="/cancelamento-e-reembolso" element={<CancellationRefundPolicy />} />
+                        <Route path="/contato" element={<Contact />} />
                         <Route path="/*" element={<ProtectedRoute />}>
                           <Route path="checkout" element={<StripeCheckout />} />
                           <Route path="checkout/retorno" element={<StripeCheckoutReturn />} />
