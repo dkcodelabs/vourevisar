@@ -385,7 +385,9 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [x] Aplicar as cinco migrations no projeto remoto, executar lint do banco e
   Advisors de segurança, e confirmar RLS/revogações e privilégio exclusivo de
   `service_role` na função privada de claim.
-- [ ] Regenerar os tipos do Supabase após estabilizar o schema desta entrega.
+- [x] Regenerar os tipos TypeScript diretamente do schema remoto após aplicar
+  as migrations; typecheck, lint, 173 arquivos/671 testes e build passaram com
+  o arquivo atualizado.
 - [ ] Testar lógica de prazo no instante inicial, dentro da janela, no limite e
   após o limite.
 - [ ] Testar trial sem cartão e sem assinatura Stripe.

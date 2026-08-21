@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       active_study_timers: {
@@ -514,6 +539,87 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_contract_acceptances: {
+        Row: {
+          accepted_at: string
+          amount_cents: number
+          billing_interval: string
+          billing_subscription_id: string | null
+          checkout_attempt_id: string
+          contracted_at: string | null
+          created_at: string
+          currency: string
+          id: string
+          livemode: boolean
+          plan_code: string
+          privacy_version: string
+          refund_policy_sha256: string
+          refund_policy_version: string
+          terms_sha256: string
+          terms_version: string
+          updated_at: string
+          user_id: string
+          withdrawal_deadline: string | null
+        }
+        Insert: {
+          accepted_at?: string
+          amount_cents: number
+          billing_interval: string
+          billing_subscription_id?: string | null
+          checkout_attempt_id: string
+          contracted_at?: string | null
+          created_at?: string
+          currency: string
+          id?: string
+          livemode: boolean
+          plan_code: string
+          privacy_version: string
+          refund_policy_sha256: string
+          refund_policy_version: string
+          terms_sha256: string
+          terms_version: string
+          updated_at?: string
+          user_id: string
+          withdrawal_deadline?: string | null
+        }
+        Update: {
+          accepted_at?: string
+          amount_cents?: number
+          billing_interval?: string
+          billing_subscription_id?: string | null
+          checkout_attempt_id?: string
+          contracted_at?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          livemode?: boolean
+          plan_code?: string
+          privacy_version?: string
+          refund_policy_sha256?: string
+          refund_policy_version?: string
+          terms_sha256?: string
+          terms_version?: string
+          updated_at?: string
+          user_id?: string
+          withdrawal_deadline?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_contract_acceptances_billing_subscription_id_fkey"
+            columns: ["billing_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "billing_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_contract_acceptances_checkout_attempt_id_fkey"
+            columns: ["checkout_attempt_id"]
+            isOneToOne: true
+            referencedRelation: "billing_checkout_attempts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_customers: {
         Row: {
           created_at: string
@@ -543,6 +649,170 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      billing_refund_admin_actions: {
+        Row: {
+          action: string
+          action_request_id: string
+          actor_user_id: string
+          billing_refund_request_id: string
+          created_at: string
+          error_code: string | null
+          finished_at: string | null
+          id: string
+          livemode: boolean
+          reason: string
+          request_status_after: string | null
+          request_status_before: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          action?: string
+          action_request_id: string
+          actor_user_id: string
+          billing_refund_request_id: string
+          created_at?: string
+          error_code?: string | null
+          finished_at?: string | null
+          id?: string
+          livemode: boolean
+          reason: string
+          request_status_after?: string | null
+          request_status_before: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          action?: string
+          action_request_id?: string
+          actor_user_id?: string
+          billing_refund_request_id?: string
+          created_at?: string
+          error_code?: string | null
+          finished_at?: string | null
+          id?: string
+          livemode?: boolean
+          reason?: string
+          request_status_after?: string | null
+          request_status_before?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_refund_admin_actions_billing_refund_request_id_fkey"
+            columns: ["billing_refund_request_id"]
+            isOneToOne: false
+            referencedRelation: "billing_refund_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_refund_requests: {
+        Row: {
+          amount_cents: number
+          billing_contract_acceptance_id: string
+          billing_subscription_id: string
+          created_at: string
+          currency: string
+          eligibility_deadline: string
+          eligibility_started_at: string
+          error_code: string | null
+          id: string
+          last_stripe_event_created_at: string | null
+          livemode: boolean
+          processed_at: string | null
+          processing_attempts: number
+          processing_started_at: string | null
+          received_email_sent_at: string | null
+          request_id: string
+          request_reason: string
+          requested_at: string
+          result_email_sent_at: string | null
+          result_email_status: string | null
+          status: string
+          stripe_invoice_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_refund_id: string | null
+          subscription_cancel_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          billing_contract_acceptance_id: string
+          billing_subscription_id: string
+          created_at?: string
+          currency: string
+          eligibility_deadline: string
+          eligibility_started_at: string
+          error_code?: string | null
+          id?: string
+          last_stripe_event_created_at?: string | null
+          livemode: boolean
+          processed_at?: string | null
+          processing_attempts?: number
+          processing_started_at?: string | null
+          received_email_sent_at?: string | null
+          request_id: string
+          request_reason?: string
+          requested_at?: string
+          result_email_sent_at?: string | null
+          result_email_status?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          subscription_cancel_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          billing_contract_acceptance_id?: string
+          billing_subscription_id?: string
+          created_at?: string
+          currency?: string
+          eligibility_deadline?: string
+          eligibility_started_at?: string
+          error_code?: string | null
+          id?: string
+          last_stripe_event_created_at?: string | null
+          livemode?: boolean
+          processed_at?: string | null
+          processing_attempts?: number
+          processing_started_at?: string | null
+          received_email_sent_at?: string | null
+          request_id?: string
+          request_reason?: string
+          requested_at?: string
+          result_email_sent_at?: string | null
+          result_email_status?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          subscription_cancel_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_refund_requests_billing_contract_acceptance_id_fkey"
+            columns: ["billing_contract_acceptance_id"]
+            isOneToOne: true
+            referencedRelation: "billing_contract_acceptances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_refund_requests_billing_subscription_id_fkey"
+            columns: ["billing_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "billing_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       billing_subscriptions: {
         Row: {
@@ -1274,6 +1544,36 @@ export type Database = {
           new_value?: string | null
           note?: string | null
           old_value?: string | null
+        }
+        Relationships: []
+      }
+      legal_document_acceptances: {
+        Row: {
+          acceptance_context: string
+          accepted_at: string
+          created_at: string
+          id: string
+          privacy_version: string
+          terms_version: string
+          user_id: string
+        }
+        Insert: {
+          acceptance_context: string
+          accepted_at?: string
+          created_at?: string
+          id?: string
+          privacy_version: string
+          terms_version: string
+          user_id: string
+        }
+        Update: {
+          acceptance_context?: string
+          accepted_at?: string
+          created_at?: string
+          id?: string
+          privacy_version?: string
+          terms_version?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -3100,6 +3400,14 @@ export type Database = {
         Args: { p_endpoint: string; p_max_per_hour: number; p_user_id: string }
         Returns: boolean
       }
+      claim_billing_refund_request: {
+        Args: {
+          p_livemode: boolean
+          p_refund_request_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       cleanup_error_logs: {
         Args: { p_days_retention?: number }
         Returns: string
@@ -3107,10 +3415,6 @@ export type Database = {
       cleanup_old_audit_logs: {
         Args: { _days_to_keep?: number }
         Returns: number
-      }
-      deactivate_subscription: {
-        Args: { target_user_id: string }
-        Returns: Json
       }
       get_all_topics_admin: {
         Args: { page_number: number; page_size: number }
@@ -3199,7 +3503,10 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_stripe_billing_overview: { Args: { p_livemode?: boolean }; Returns: Json }
+      get_stripe_billing_overview: {
+        Args: { p_livemode?: boolean }
+        Returns: Json
+      }
       get_subscription_info: { Args: { check_user_id?: string }; Returns: Json }
       get_unified_subject_name: {
         Args: { subject_id: string; user_id: string }
@@ -3293,13 +3600,6 @@ export type Database = {
             }
             Returns: boolean
           }
-      is_admin: { Args: never; Returns: boolean }
-      is_organization_member: {
-        Args: { _org_id: string; _user_id?: string }
-        Returns: boolean
-      }
-      is_owner: { Args: { _user_id: string }; Returns: boolean }
-      is_user_active: { Args: never; Returns: boolean }
       internal_get_auth_methods: {
         Args: { p_user_id?: string }
         Returns: {
@@ -3308,6 +3608,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      is_admin: { Args: never; Returns: boolean }
+      is_organization_member: {
+        Args: { _org_id: string; _user_id?: string }
+        Returns: boolean
+      }
+      is_owner: { Args: { _user_id: string }; Returns: boolean }
+      is_user_active: { Args: never; Returns: boolean }
       list_users_with_roles: {
         Args: never
         Returns: {
@@ -3434,10 +3741,7 @@ export type Database = {
         Returns: boolean
       }
       use_coupon: {
-        Args: {
-          target_coupon_code: string
-          target_user_id: string
-        }
+        Args: { target_coupon_code: string; target_user_id: string }
         Returns: Json
       }
       user_rpc_dispatch: {
@@ -3580,6 +3884,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["owner", "admin", "moderator", "user"],
