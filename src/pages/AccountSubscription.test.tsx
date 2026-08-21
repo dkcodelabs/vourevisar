@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   useStripeInvoiceHistory: vi.fn(),
   useStripePortal: vi.fn(),
   useStripeWithdrawal: vi.fn(),
+  useStripeWithdrawalResultEmail: vi.fn(),
   useUserRole: vi.fn(),
 }));
 
@@ -18,6 +19,7 @@ vi.mock('@/features/billing/hooks/useStripeBilling', () => ({
   useStripeInvoiceHistory: mocks.useStripeInvoiceHistory,
   useStripePortal: mocks.useStripePortal,
   useStripeWithdrawal: mocks.useStripeWithdrawal,
+  useStripeWithdrawalResultEmail: mocks.useStripeWithdrawalResultEmail,
 }));
 
 vi.mock('@/features/billing/legal/billingLegalDocuments', async (importOriginal) => {
@@ -147,6 +149,14 @@ describe('AccountSubscription', () => {
       isError: false,
       isPending: false,
       mutateAsync: vi.fn(),
+    });
+    mocks.useStripeWithdrawalResultEmail.mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
+      data: undefined,
     });
     mocks.useStripeCatalog.mockReturnValue({
       data: [

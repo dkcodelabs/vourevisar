@@ -12,8 +12,18 @@ const mutation = vi.hoisted(() => ({
   data: undefined as { status: 'processing' | 'succeeded' | 'manual_review' } | undefined,
 }));
 
+const emailMutation = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  isPending: false,
+  isSuccess: false,
+  isError: false,
+  error: null as Error | null,
+  data: undefined as { sent: boolean; alreadySent: boolean } | undefined,
+}));
+
 vi.mock('@/features/billing/hooks/useStripeBilling', () => ({
   useStripeWithdrawal: () => mutation,
+  useStripeWithdrawalResultEmail: () => emailMutation,
 }));
 
 const eligibleWithdrawal: BillingWithdrawal = {
@@ -41,6 +51,12 @@ describe('BillingWithdrawalPanel', () => {
     mutation.isError = false;
     mutation.error = null;
     mutation.data = undefined;
+    emailMutation.mutate.mockReset();
+    emailMutation.isPending = false;
+    emailMutation.isSuccess = false;
+    emailMutation.isError = false;
+    emailMutation.error = null;
+    emailMutation.data = undefined;
   });
 
   it('shows the effects and requires a final explicit confirmation', async () => {
@@ -69,6 +85,20 @@ describe('BillingWithdrawalPanel', () => {
     expect(screen.getByRole('heading', { name: 'Solicitação recebida' })).toBeVisible();
     expect(screen.getByText(/reembolso está em processamento/i)).toBeVisible();
     expect(screen.queryByText('Reembolso confirmado')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /garantir envio do comprovante/i })).not.toBeInTheDocument();
+  });
+
+  it('lets a customer repair a missing terminal email without repeating the refund', () => {
+    renderPanel({
+      ...eligibleWithdrawal,
+      eligible: false,
+      status: 'succeeded',
+      requested_at: '2026-08-21T12:00:00.000Z',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /garantir envio do comprovante/i }));
+
+    expect(emailMutation.mutate).toHaveBeenCalledOnce();
   });
 
   it('keeps a failed refund visible and routes the user to support', () => {

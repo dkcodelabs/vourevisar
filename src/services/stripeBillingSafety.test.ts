@@ -281,6 +281,10 @@ describe('Stripe billing security boundaries', () => {
     expect(withdrawalFunctionSource).toContain('sendResultEmailIfNeeded');
     expect(withdrawalFunctionSource).toContain('result_email_sent_at');
     expect(withdrawalFunctionSource).toContain('result_email_status');
+    expect(withdrawalFunctionSource).toContain('action?: unknown');
+    expect(withdrawalFunctionSource).toContain('ensure_result_email');
+    expect(withdrawalFunctionSource).toContain('.eq("user_id", user.id)');
+    expect(withdrawalFunctionSource).toContain('.eq("livemode", livemode)');
   });
 
   it('keeps terminated-account invoice history authenticated, read-only and free of payment links', () => {

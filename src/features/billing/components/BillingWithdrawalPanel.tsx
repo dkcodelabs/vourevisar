@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { CircleAlert, Clock3, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
+import { CircleAlert, Clock3, Loader2, MailCheck, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   AlertDialog,
@@ -11,7 +11,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useStripeWithdrawal } from '@/features/billing/hooks/useStripeBilling';
+import {
+  useStripeWithdrawal,
+  useStripeWithdrawalResultEmail,
+} from '@/features/billing/hooks/useStripeBilling';
 import { getSafeBillingErrorMessage } from '@/features/billing/services/stripeBillingService';
 import type { BillingWithdrawal } from '@/features/billing/types';
 
@@ -34,6 +37,7 @@ export const BillingWithdrawalPanel = ({
   const [open, setOpen] = useState(false);
   const requestId = useRef(crypto.randomUUID());
   const request = useStripeWithdrawal();
+  const resultEmail = useStripeWithdrawalResultEmail();
   const currentStatus = request.data?.status ?? withdrawal.status;
 
   const handleConfirm = async () => {
@@ -69,6 +73,30 @@ export const BillingWithdrawalPanel = ({
           <p className="mt-3 text-xs font-bold text-muted-foreground">
             Pedido registrado em {formatDeadline(withdrawal.requested_at)}.
           </p>
+        )}
+        {(succeeded || needsReview) && (
+          <>
+            <button
+              type="button"
+              onClick={() => resultEmail.mutate()}
+              disabled={resultEmail.isPending || resultEmail.isSuccess}
+              className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-black text-primary disabled:opacity-70"
+            >
+              {resultEmail.isPending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <MailCheck className="h-4 w-4" />}
+              {resultEmail.isSuccess
+                ? resultEmail.data.sent
+                  ? 'Comprovante enviado'
+                  : 'Envio já confirmado'
+                : 'Garantir envio do comprovante'}
+            </button>
+            {resultEmail.isError && (
+              <p role="alert" className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm font-bold text-destructive">
+                {getSafeBillingErrorMessage(resultEmail.error)}
+              </p>
+            )}
+          </>
         )}
         {needsReview && (
           <Link to="/contato" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-black text-primary">

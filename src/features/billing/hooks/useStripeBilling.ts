@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   acceptStripeContract,
   createStripePortal,
+  ensureStripeWithdrawalResultEmail,
   getStripeBillingOverview,
   getStripeInvoiceHistory,
   getStripeCatalog,
@@ -78,3 +79,8 @@ export const useStripeWithdrawal = () => {
     },
   });
 };
+
+export const useStripeWithdrawalResultEmail = () =>
+  useMutation({
+    mutationFn: ensureStripeWithdrawalResultEmail,
+  });
