@@ -97,6 +97,10 @@ Para mensal e anual:
 - Mantém acesso até o fim do período pago.
 - Não gera reembolso automático.
 - Deve permanecer visualmente separado de “Desistir e pedir reembolso”.
+- Após a confirmação, o produto deve exibir explicitamente `Renovação
+  cancelada`, informar que não haverá nova cobrança, mostrar a data exata até
+  quando o acesso pago continua e evitar a mensagem ambígua `Assinatura
+  cancelada` sem explicar seus efeitos.
 
 ### 4. Casos que exigem política específica
 
@@ -290,10 +294,21 @@ completa. O resumo exibido e aceito precisa ser conservável por versão/hash.
 Durante a janela:
 
 - mostrar “Você pode desistir e pedir reembolso integral até …”;
+- mostrar quantos dias (ou horas, no último dia) restam da janela de
+  arrependimento, sem chamar esse prazo de teste gratuito;
 - CTA separado: `Desistir da assinatura e pedir reembolso`;
 - modal mostra efeitos: reembolso integral, cancelamento imediato, fim do acesso
   pago e prazo bancário sem promessa indevida;
 - confirmação explícita antes da solicitação.
+
+Se a renovação for cancelada pelo Customer Portal ainda dentro da janela:
+
+- mostrar `Renovação cancelada` e `Não haverá nova cobrança`;
+- manter visível a data final do período já pago;
+- manter o CTA de arrependimento até o prazo legal, com a contagem restante;
+- explicar que cancelar a renovação não solicitou reembolso;
+- informar que o teste gratuito anterior já terminou e não será reiniciado ou
+  prorrogado pelo cancelamento.
 
 Depois da solicitação:
 
@@ -301,9 +316,18 @@ Depois da solicitação:
 - `Reembolso em processamento`;
 - `Reembolso confirmado`;
 - `Precisamos concluir manualmente`, quando houver falha.
+- quando o reembolso tiver sido efetivamente emitido, informar que o crédito no
+  cartão costuma aparecer em aproximadamente 5 a 10 dias úteis, dependendo do
+  banco; se a Stripe representar a operação como reversão, explicar que a
+  cobrança original pode simplesmente desaparecer da fatura;
+- nunca mostrar prazo de estorno no cancelamento normal, pois nesse fluxo não
+  existe reembolso.
 
 Após a janela, esconder o CTA legal e manter `Gerenciar assinatura` para
-cancelar a renovação. O canal de suporte permanece sempre visível.
+cancelar a renovação. Se a renovação for cancelada, mostrar que não haverá nova
+cobrança, o acesso permanece somente até o fim do período pago e não existe
+novo período gratuito nem reembolso automático. O canal de suporte permanece
+sempre visível.
 
 ### Documentos públicos
 
@@ -382,6 +406,42 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [ ] Definir e implementar contrato/arrependimento de mensal para anual.
 - [ ] Tratar pedidos relacionados a renovação automática sem decisão silenciosa.
 
+### Backlog descoberto na validação Live
+
+- [x] Corrigir a regra após arrependimento para que um teste gratuito ainda
+  vigente volte a valer somente até sua data original. Não criar, reiniciar ou
+  estender dias gratuitos. A validação Live de 2026-08-22 confirmou que a
+  concessão `trial` permanece no banco, mas a RPC a oculta quando existe
+  qualquer assinatura Stripe, inclusive uma já cancelada/reembolsada. A
+  migration `20260822120906` foi aplicada e a RPC foi verificada em transação
+  como o usuário afetado: devolveu `source=trial`, a data original de fim e a
+  assinatura histórica como cancelada.
+- [ ] Evoluir a área existente de administração de assinaturas para uma linha
+  do tempo operacional somente para owner/admin: compra, renovação cancelada,
+  pedido de arrependimento, reembolso, falha e reconciliação, com horário,
+  aluno, valor, estado e erro sanitizado. A área do aluno continua exibindo
+  somente a própria assinatura e seu histórico, sem IDs Stripe, e-mails de
+  entrega ou ações internas.
+- [ ] Depois da linha do tempo, criar notificação operacional interna como
+  alerta complementar para compra confirmada, pedido de arrependimento,
+  reembolso concluído e falha/revisão. O endereço deve ser secret de backend e
+  nunca BCC implícito do e-mail do consumidor; o painel continua sendo a fonte
+  de verdade para conferência.
+- [x] Revisar a inscrição e a seleção de eventos do endpoint Live da Stripe
+  para `refund.created`, `refund.updated` e `refund.failed`. Nas duas
+  validações Live de reembolso o registro direto e `customer.subscription.deleted`
+  chegaram sem erro, mas nenhum evento `refund.*` foi persistido no ledger;
+  isso reduz a capacidade de reconciliação posterior. Em 2026-08-22 o endpoint
+  Live foi atualizado sem remover eventos existentes e passou a receber também
+  `refund.*` e `charge.refunded`; a validação de entrega desses novos eventos
+  permanece na próxima operação controlada.
+- [x] Renomear a recuperação de e-mail terminal para uma ação explícita de
+  verificação do comprovante, informando que ela apenas confere o registro de
+  envio para o e-mail cadastrado, não altera assinatura/reembolso e não dispara
+  um segundo e-mail quando o envio já está registrado.
+- [x] Remover o botão secundário de histórico financeiro que apenas rolava para
+  o card já visível na mesma página.
+
 ### Fase 4 — homologação
 
 - [x] Aplicar as cinco migrations no projeto remoto, executar lint do banco e
@@ -403,10 +463,22 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   reutilização de uma tentativa aberta com `request_id` antigo enquanto o
   frontend enviava um ID novo ao aceite contratual, resultando em
   `checkout_attempt_not_found` antes da confirmação do cartão.
-- [ ] Testar reembolso `succeeded`, `pending` e `failed`.
+- [ ] Testar reembolso `succeeded`, `pending` e `failed`. O caso Live
+  `succeeded` foi confirmado em 2026-08-21 por R$ 12,90; `pending` e `failed`
+  continuam pendentes em ambiente controlado.
 - [ ] Confirmar cancelamento imediato, ausência de nova fatura e revogação do
-  acesso pago sem apagar dados de estudo.
-- [ ] Confirmar e-mails e histórico auditável.
+  acesso pago sem apagar dados de estudo. O cancelamento imediato e a
+  revogação foram confirmados no banco/UI; a ausência de nova fatura ainda
+  depende de verificação posterior.
+- [ ] Confirmar e-mails e histórico auditável. O e-mail de recebimento chegou e
+  ficou auditado. O primeiro pedido Live concluiu antes de chegar um evento de
+  reembolso ao webhook, portanto o e-mail terminal não foi enviado pela versão
+  anterior. A solicitação passou a enviar/auditar o resultado diretamente
+  quando a Stripe já devolve estado terminal, mantendo o webhook como
+  reconciliação. A versão atual também expõe uma recuperação idempotente para
+  o cliente garantir o envio do comprovante sem repetir o reembolso; falta
+  executar essa ação uma vez na conta de homologação e confirmar a chegada no
+  Proton.
 - [ ] Testar mensal e anual no Stripe Test.
 - [ ] Validar desktop, tablet e mobile.
 - [x] Executar build, lint, testes e `git diff --check`. Nesta etapa passaram
@@ -442,8 +514,49 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   O commit `b1e22940` gerou o deployment Production
   `dpl_89cYK7farTYLrS9CM1VYxyNMwYF5`, em estado `READY`, associado aos domínios
   oficiais.
-- [ ] Fazer uma compra Live controlada e solicitar arrependimento/reembolso
-  dentro da janela; confirmar Stripe, webhook, banco, e-mail e UI.
+- [x] Fazer uma compra Live controlada e confirmar a etapa paga no Stripe,
+  webhook, banco e UI. Em 2026-08-21, o checkout mensal foi concluído em Live
+  por R$ 12,90, com aceite contratual vinculado, `invoice.paid`,
+  `customer.subscription.created` e `checkout.session.completed` processados
+  uma única vez e sem `error_code`. A RPC canônica devolveu acesso Stripe
+  ativo até 2026-09-21 e elegibilidade de arrependimento até 2026-08-28; o
+  Customer Portal exibiu a assinatura, cartão final 6007 e fatura paga. A
+  mensagem de erro vista durante a abertura do Portal desapareceu quando a
+  navegação para `billing.stripe.com` terminou e não correspondeu a falha
+  persistida no ledger.
+- [ ] Solicitar arrependimento/reembolso dessa compra Live dentro da janela e
+  confirmar cancelamento imediato, reembolso, webhook, banco, e-mail, UI e
+  revogação do acesso sem apagar dados de estudo.
+- [x] Corrigir a consistência imediata da conta após arrependimento. O caso Live
+  revelou uma janela curta em que o pedido já estava `succeeded`, mas a RPC
+  ainda devolvia a assinatura local como ativa até o webhook
+  `customer.subscription.deleted`. A RPC agora encerra acesso e renovação assim
+  que `subscription_cancel_status=succeeded`, não reativa o trial anterior, e
+  o frontend aguarda a releitura canônica antes de fechar a confirmação. A
+  migration foi aplicada e um teste transacional forçou exatamente o estado
+  antigo (`subscription=active` + reembolso/cancelamento concluídos), obtendo
+  `is_active=false`, `status=canceled` e sem renovação; a transação foi
+  revertida.
+- [x] Publicar e validar no domínio oficial o histórico financeiro que cruza a
+  fatura paga com `billing_refund_requests`, exibindo `Pagamento reembolsado`,
+  `Reembolso em processamento` ou `Reembolso em análise` em vez de manter
+  apenas `Pagamento confirmado`. A Edge Function e o bundle frontend foram
+  publicados no deployment Production `dpl_ALUGAo12n4jJD3DDPwTMDLhWoEGv`.
+  Em sessão autenticada no domínio oficial, a conta encerrada exibiu
+  `Pagamento reembolsado`, data original da cobrança, data de atualização do
+  reembolso e `Sem renovação ativa`; a inspeção mobile em 390 px não encontrou
+  overflow horizontal nem erros no console.
+- [x] Publicar a recuperação do e-mail terminal no Supabase e no Vercel. A
+  Edge Function aceita `action=ensure_result_email`, restringe a busca ao
+  usuário autenticado e ao modo Live, e usa a idempotência do provedor de
+  e-mail; a interface só mostra a ação para estados `succeeded` ou de revisão.
+- [ ] Revisar em tarefa separada os avisos de segurança preexistentes do
+  Supabase Advisor para funções `SECURITY DEFINER` fora deste fluxo e habilitar
+  proteção contra senhas vazadas. O aviso da RPC
+  `get_stripe_billing_overview` é intencional: somente `authenticated` pode
+  executá-la e a própria função exige `auth.uid()` e restringe a consulta ao
+  usuário autenticado. As tabelas financeiras permanecem sem políticas de
+  navegador por desenho, com RLS e privilégios diretos revogados.
 
 ## Critérios para liberar produção
 

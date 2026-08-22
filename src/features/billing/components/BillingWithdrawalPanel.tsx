@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { CircleAlert, Clock3, Loader2, RotateCcw, ShieldCheck } from 'lucide-react';
+import { CircleAlert, Clock3, Loader2, MailCheck, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   AlertDialog,
@@ -11,7 +11,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useStripeWithdrawal } from '@/features/billing/hooks/useStripeBilling';
+import {
+  useStripeWithdrawal,
+  useStripeWithdrawalResultEmail,
+} from '@/features/billing/hooks/useStripeBilling';
 import { getSafeBillingErrorMessage } from '@/features/billing/services/stripeBillingService';
 import type { BillingWithdrawal } from '@/features/billing/types';
 
@@ -34,6 +37,7 @@ export const BillingWithdrawalPanel = ({
   const [open, setOpen] = useState(false);
   const requestId = useRef(crypto.randomUUID());
   const request = useStripeWithdrawal();
+  const resultEmail = useStripeWithdrawalResultEmail();
   const currentStatus = request.data?.status ?? withdrawal.status;
 
   const handleConfirm = async () => {
@@ -56,11 +60,11 @@ export const BillingWithdrawalPanel = ({
           {succeeded ? <ShieldCheck className="h-6 w-6" /> : needsReview ? <CircleAlert className="h-6 w-6" /> : <Clock3 className="h-6 w-6" />}
         </div>
         <h2 className="mt-5 text-xl font-black">
-          {succeeded ? 'Reembolso confirmado' : needsReview ? 'Precisamos concluir seu pedido' : 'Solicitação recebida'}
+          {succeeded ? 'Reembolso confirmado pela Stripe' : needsReview ? 'Precisamos concluir seu pedido' : 'Solicitação recebida'}
         </h2>
         <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
           {succeeded
-            ? 'A Stripe confirmou o reembolso. O crédito pode aparecer depois, conforme a bandeira e o banco emissor.'
+            ? 'A Stripe confirmou o reembolso. O banco pode exibir um crédito ou remover o lançamento original da fatura.'
             : needsReview
               ? 'Seu pedido está registrado e não deve ser enviado novamente. A equipe precisa acompanhar a conclusão do reembolso.'
               : 'O cancelamento foi solicitado e o reembolso está em processamento. Você receberá a confirmação por e-mail.'}
@@ -69,6 +73,35 @@ export const BillingWithdrawalPanel = ({
           <p className="mt-3 text-xs font-bold text-muted-foreground">
             Pedido registrado em {formatDeadline(withdrawal.requested_at)}.
           </p>
+        )}
+        {(succeeded || needsReview) && (
+          <>
+            <button
+              type="button"
+              onClick={() => resultEmail.mutate()}
+              disabled={resultEmail.isPending || resultEmail.isSuccess}
+              className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-black text-primary disabled:opacity-70"
+            >
+              {resultEmail.isPending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <MailCheck className="h-4 w-4" />}
+              {resultEmail.isSuccess
+                ? resultEmail.data.sent
+                  ? 'Comprovante enviado ao e-mail cadastrado'
+                  : 'Envio já confirmado no sistema'
+                : 'Verificar envio do comprovante'}
+            </button>
+            {!resultEmail.isSuccess && (
+              <p className="mt-2 text-xs font-semibold leading-5 text-muted-foreground">
+                Verifica se o sistema registrou o envio para o e-mail cadastrado. Isso não altera sua assinatura nem o reembolso e não envia outro e-mail se o envio já estiver registrado.
+              </p>
+            )}
+            {resultEmail.isError && (
+              <p role="alert" className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm font-bold text-destructive">
+                {getSafeBillingErrorMessage(resultEmail.error)}
+              </p>
+            )}
+          </>
         )}
         {needsReview && (
           <Link to="/contato" className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-black text-primary">

@@ -6,6 +6,7 @@ import type {
   BillingOverview,
   BillingPlanCode,
   BillingWithdrawalResult,
+  BillingWithdrawalEmailResult,
 } from '@/features/billing/types';
 import { billingContractVersions } from '@/features/billing/legal/billingLegalDocuments';
 
@@ -40,6 +41,9 @@ const errorMessages: Record<string, string> = {
   withdrawal_contract_not_ready: 'Sua contratação ainda está sendo confirmada. Aguarde alguns instantes e tente novamente.',
   withdrawal_window_expired: 'A janela de arrependimento desta contratação terminou. Você ainda pode cancelar futuras renovações.',
   withdrawal_payment_not_found: 'O pagamento inicial não foi localizado. Fale com o suporte para análise.',
+  withdrawal_result_not_found: 'Não encontramos um resultado de cancelamento para enviar.',
+  withdrawal_email_missing: 'Sua conta não possui um e-mail válido para receber este comprovante.',
+  withdrawal_email_send_failed: 'Não conseguimos enviar o comprovante agora. Tente novamente em alguns instantes.',
 };
 
 const fallbackBillingMessage =
@@ -103,6 +107,11 @@ export const acceptStripeContract = async (requestId: string) =>
 
 export const requestStripeWithdrawal = async (requestId: string) =>
   invokeBillingFunction<BillingWithdrawalResult>('stripe-request-withdrawal', { requestId });
+
+export const ensureStripeWithdrawalResultEmail = async () =>
+  invokeBillingFunction<BillingWithdrawalEmailResult>('stripe-request-withdrawal', {
+    action: 'ensure_result_email',
+  });
 
 export const getStripeInvoiceHistory = async (): Promise<BillingInvoiceHistoryItem[]> => {
   const response = await invokeBillingFunction<{ invoices: BillingInvoiceHistoryItem[] }>(

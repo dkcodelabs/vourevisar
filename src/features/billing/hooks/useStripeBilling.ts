@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   acceptStripeContract,
   createStripePortal,
+  ensureStripeWithdrawalResultEmail,
   getStripeBillingOverview,
   getStripeInvoiceHistory,
   getStripeCatalog,
@@ -67,8 +68,19 @@ export const useStripeWithdrawal = () => {
 
   return useMutation({
     mutationFn: requestStripeWithdrawal,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: stripeBillingKeys.overview() });
+    onSuccess: async () => {
+      // The mutation only resolves after the canonical account state has been
+      // reread. This prevents a confirmed refund from sharing the screen with
+      // a cached future-renewal date while Stripe webhooks are still arriving.
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: stripeBillingKeys.overview(), type: 'active' }),
+        queryClient.invalidateQueries({ queryKey: stripeBillingKeys.invoiceHistory() }),
+      ]);
     },
   });
 };
+
+export const useStripeWithdrawalResultEmail = () =>
+  useMutation({
+    mutationFn: ensureStripeWithdrawalResultEmail,
+  });

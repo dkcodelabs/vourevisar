@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   CreditCard,
   ExternalLink,
-  FileText,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -61,9 +60,7 @@ const AccountSubscription = () => {
   const { isAdmin, isOwner, loading: roleLoading } = useUserRole();
   const data = overview.data;
   const subscription = data?.subscription;
-  const invoiceHistory = useStripeInvoiceHistory(
-    Boolean(data?.source === 'stripe' && subscription?.status === 'canceled'),
-  );
+  const invoiceHistory = useStripeInvoiceHistory(Boolean(subscription?.status === 'canceled'));
 
   const handleOpenPortal = async () => {
     try {
@@ -104,6 +101,7 @@ const AccountSubscription = () => {
   }
 
   const isStripeSubscriber = data.source === 'stripe' && Boolean(subscription);
+  const hasHistoricalCanceledStripeSubscription = subscription?.status === 'canceled';
   const hasInternalAccess = isAdmin && !isStripeSubscriber;
   // A prior Stripe subscription can coexist with an active internal trial or
   // manual grant. It is history in that case, not the current billing source.
@@ -125,13 +123,6 @@ const AccountSubscription = () => {
   const summaryValue = pageState.summaryValue ?? formatDate(
     isStripeSubscriber ? subscriptionEnd : data.access_until,
   );
-  const handleScrollToHistory = () => {
-    document.getElementById('historico-financeiro')?.scrollIntoView({
-      behavior: reduceMotion ? 'auto' : 'smooth',
-      block: 'start',
-    });
-  };
-
   return (
     <SubscriptionFrame>
       <div className={`grid gap-6 ${showsTrialOffer ? 'xl:grid-cols-[0.75fr_1.25fr]' : 'xl:grid-cols-[1.25fr_0.75fr]'}`}>
@@ -217,7 +208,7 @@ const AccountSubscription = () => {
             />
           </div>
 
-          {pageState.kind === 'ended' && (
+          {hasHistoricalCanceledStripeSubscription && (
             <BillingInvoiceHistory
               invoices={invoiceHistory.data ?? []}
               isLoading={invoiceHistory.isLoading}
@@ -227,7 +218,7 @@ const AccountSubscription = () => {
         </section>
 
         <aside className={`space-y-5 ${showsTrialOffer ? 'order-first' : ''}`}>
-          {withdrawalEnabled && isStripeSubscriber && data.withdrawal && (
+          {withdrawalEnabled && subscription && data.withdrawal && (
             <BillingWithdrawalPanel
               withdrawal={data.withdrawal}
               amountLabel={formatBillingPrice(subscription.amount_cents, subscription.currency)}
@@ -271,16 +262,6 @@ const AccountSubscription = () => {
                     {pageState.primaryActionLabel}
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
-                )}
-                {pageState.secondaryAction === 'history' && pageState.secondaryActionLabel && (
-                  <button
-                    type="button"
-                    onClick={handleScrollToHistory}
-                    className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 text-sm font-black text-foreground transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <FileText className="h-4 w-4" />
-                    {pageState.secondaryActionLabel}
-                  </button>
                 )}
                 {portal.isError && (
                   <p role="alert" className="mt-4 text-sm font-bold text-destructive">

@@ -1,5 +1,8 @@
 import Stripe from "npm:stripe@22.4.0";
-import { sendWithdrawalReceivedEmail } from "../_shared/billingEmail.ts";
+import {
+  sendWithdrawalReceivedEmail,
+  sendWithdrawalResultEmail,
+} from "../_shared/billingEmail.ts";
 import { isBillingWithdrawalEnabled } from "../_shared/billingContract.ts";
 import { isWithinWithdrawalWindow } from "../_shared/billingWithdrawal.ts";
 import {
@@ -29,6 +32,16 @@ const toPublicStatus = (status: string) => {
   return "processing";
 };
 
+interface RefundEmailRecord {
+  id: string;
+  status: string;
+  result_email_status: string | null;
+  requested_at: string;
+  amount_cents: number;
+  currency: string;
+  eligibility_deadline: string;
+}
+
 const cancelSubscriptionImmediately = async (
   stripe: Stripe,
   subscription: Stripe.Subscription,
@@ -56,14 +69,89 @@ Deno.serve(async (request) => {
       throw new BillingHttpError(503, "withdrawal_not_enabled");
     }
 
-    const body = await request.json().catch(() => null) as { requestId?: unknown } | null;
-    if (!body || !isUuid(body.requestId)) {
+    const body = await request.json().catch(() => null) as {
+      action?: unknown;
+      requestId?: unknown;
+    } | null;
+    const isResultEmailRecovery = body?.action === "ensure_result_email";
+    if (!body || (!isResultEmailRecovery && !isUuid(body.requestId))) {
       throw new BillingHttpError(400, "invalid_withdrawal_request");
     }
 
     const supabase = createServiceClient();
     const user = await requireAuthenticatedUser(request, supabase);
     const livemode = getStripeLivemode();
+
+    const sendResultEmailIfNeeded = async (
+      refundRequest: RefundEmailRecord,
+      status: "succeeded" | "failed" | "manual_review",
+      required = false,
+    ) => {
+      if (refundRequest.result_email_status === status) return false;
+      if (!user.email) {
+        if (required) throw new BillingHttpError(409, "withdrawal_email_missing");
+        return false;
+      }
+      try {
+        await sendWithdrawalResultEmail({
+          requestId: refundRequest.id,
+          email: user.email,
+          customerName: typeof user.user_metadata?.name === "string"
+            ? user.user_metadata.name
+            : null,
+          amountCents: refundRequest.amount_cents,
+          currency: refundRequest.currency,
+          requestedAt: new Date(refundRequest.requested_at),
+          deadline: new Date(refundRequest.eligibility_deadline),
+          status,
+        });
+        const { error: emailStatusError } = await supabase
+          .from("billing_refund_requests")
+          .update({
+            result_email_sent_at: new Date().toISOString(),
+            result_email_status: status,
+          })
+          .eq("id", refundRequest.id)
+          .eq("user_id", user.id);
+        if (emailStatusError) throw emailStatusError;
+        refundRequest.result_email_status = status;
+        return true;
+      } catch (error) {
+        console.error("[stripe-request-withdrawal] result_email_failed", {
+          code: safeErrorCode(error),
+          status,
+        });
+        if (required) {
+          throw new BillingHttpError(502, "withdrawal_email_send_failed");
+        }
+        return false;
+      }
+    };
+
+    if (isResultEmailRecovery) {
+      const { data: terminalRequest, error: terminalRequestError } = await supabase
+        .from("billing_refund_requests")
+        .select("id,status,result_email_status,requested_at,amount_cents,currency,eligibility_deadline")
+        .eq("user_id", user.id)
+        .eq("livemode", livemode)
+        .in("status", ["succeeded", "failed", "manual_review"])
+        .order("requested_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (terminalRequestError) throw terminalRequestError;
+      if (!terminalRequest) {
+        throw new BillingHttpError(404, "withdrawal_result_not_found");
+      }
+
+      const terminalStatus = terminalRequest.status as "succeeded" | "failed" | "manual_review";
+      const sent = await sendResultEmailIfNeeded(terminalRequest, terminalStatus, true);
+      return jsonResponse(request, {
+        sent,
+        alreadySent: !sent,
+        status: toPublicStatus(terminalStatus),
+      });
+    }
+
     const { data: localSubscription, error: subscriptionError } = await supabase
       .from("billing_subscriptions")
       .select("id,stripe_subscription_id,status,billing_customer_id,billing_customers!inner(stripe_customer_id,livemode)")
@@ -192,14 +280,14 @@ Deno.serve(async (request) => {
     let { data: refundRequest, error: refundRequestError } = await supabase
       .from("billing_refund_requests")
       .insert(requestRecord)
-      .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,requested_at,amount_cents,currency,eligibility_deadline")
+      .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,result_email_status,requested_at,amount_cents,currency,eligibility_deadline")
       .single();
 
     if (refundRequestError?.code === "23505") {
       reusedRequest = true;
       const existingResult = await supabase
         .from("billing_refund_requests")
-        .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,requested_at,amount_cents,currency,eligibility_deadline")
+        .select("id,status,subscription_cancel_status,stripe_refund_id,received_email_sent_at,result_email_status,requested_at,amount_cents,currency,eligibility_deadline")
         .eq("billing_contract_acceptance_id", acceptance.id)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -254,6 +342,8 @@ Deno.serve(async (request) => {
         .eq("user_id", user.id);
       if (manualReviewUpdateError) throw manualReviewUpdateError;
 
+      await sendResultEmailIfNeeded(refundRequest, "manual_review");
+
       return jsonResponse(request, {
         received: true,
         reused: reusedRequest,
@@ -262,6 +352,12 @@ Deno.serve(async (request) => {
     }
 
     if (refundRequest.status !== "requested" && refundRequest.status !== "processing") {
+      if (["succeeded", "failed", "manual_review"].includes(refundRequest.status)) {
+        await sendResultEmailIfNeeded(
+          refundRequest,
+          refundRequest.status as "succeeded" | "failed" | "manual_review",
+        );
+      }
       return jsonResponse(request, {
         received: true,
         reused: true,
@@ -335,6 +431,13 @@ Deno.serve(async (request) => {
       .eq("id", refundRequest.id)
       .eq("user_id", user.id);
     if (resultError) throw resultError;
+
+    if (["succeeded", "failed", "manual_review"].includes(finalStatus)) {
+      await sendResultEmailIfNeeded(
+        refundRequest,
+        finalStatus as "succeeded" | "failed" | "manual_review",
+      );
+    }
 
     return jsonResponse(request, {
       received: true,
