@@ -503,11 +503,15 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   arrependimento legal: dentro da janela, o botão de gestão deve abrir somente
   o deep link oficial de atualização de cartão da Stripe, sem navegação para o
   cancelamento do Portal; fora da janela, o Portal completo continua sendo o
-  único caminho de cancelamento normal ao fim do período pago.
+  único caminho de cancelamento normal ao fim do período pago. Implementado e
+  publicado no commit `c65cde4c`; falta a validação manual autenticada do deep
+  link Live e do retorno ao sistema.
 - [ ] Corrigir o bootstrap de Auth ao retornar da Stripe: somente o evento
   `INITIAL_SESSION` pode liberar uma rota protegida na primeira renderização;
   eventos transitórios não podem encaminhar um usuário com sessão persistida
-  para `/login` antes da restauração.
+  para `/login` antes da restauração. Implementado e publicado no commit
+  `c65cde4c`; falta repetir o retorno autenticado pelo Portal no Safari para
+  confirmar que não há mais tela intermediária de login.
 - [ ] Homologar falha de renovação em Stripe Test com cartão de recusa após
   confirmar que o webhook recebe `invoice.payment_failed`, o aluno recebe
   orientação para atualizar o cartão, a operação recebe alerta e o acesso
