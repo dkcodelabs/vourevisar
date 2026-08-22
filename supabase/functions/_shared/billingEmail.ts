@@ -47,6 +47,40 @@ const sendBillingEmail = async ({
   }
 };
 
+/**
+ * Internal operational notices are deliberately separate from customer email.
+ * A missing or failed operations recipient must never affect payment,
+ * cancellation, refund, or webhook processing.
+ */
+export const sendBillingOperationsAlert = async ({
+  eventKey,
+  title,
+  details,
+}: {
+  eventKey: string;
+  title: string;
+  details: Array<{ label: string; value: string }>;
+}) => {
+  const recipient = Deno.env.get("BILLING_OPERATIONS_EMAIL")?.trim();
+  if (!recipient) return false;
+
+  await sendBillingEmail({
+    email: recipient,
+    subject: `${title} — operação vouRevisar`,
+    idempotencyKey: `billing-operations:${eventKey}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f2040;max-width:600px;margin:auto">
+        <h1>${escapeHtml(title)}</h1>
+        <p>Registro operacional automático. Confira os detalhes na área administrativa antes de tomar qualquer ação manual.</p>
+        <table style="border-collapse:collapse;width:100%;margin:16px 0">
+          ${details.map(({ label, value }) => `<tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#667085">${escapeHtml(label)}</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:600">${escapeHtml(value)}</td></tr>`).join("")}
+        </table>
+      </div>
+    `,
+  });
+  return true;
+};
+
 export type SubscriptionConfirmation = {
   eventId: string;
   email: string;

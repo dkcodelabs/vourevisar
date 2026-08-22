@@ -1,5 +1,6 @@
 import Stripe from "npm:stripe@22.4.0";
 import {
+  sendBillingOperationsAlert,
   sendWithdrawalReceivedEmail,
   sendWithdrawalResultEmail,
 } from "../_shared/billingEmail.ts";
@@ -125,6 +126,28 @@ Deno.serve(async (request) => {
           throw new BillingHttpError(502, "withdrawal_email_send_failed");
         }
         return false;
+      }
+    };
+
+    const notifyOperations = async (
+      eventKey: string,
+      title: string,
+      amountCents: number,
+      currency: string,
+      status: string,
+    ) => {
+      try {
+        await sendBillingOperationsAlert({
+          eventKey,
+          title,
+          details: [
+            { label: "Status", value: status },
+            { label: "Valor", value: new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency.toUpperCase() }).format(amountCents / 100) },
+            { label: "Cliente", value: user.email ?? user.id },
+          ],
+        });
+      } catch (error) {
+        console.error("[stripe-request-withdrawal] operations_alert_failed", { code: safeErrorCode(error) });
       }
     };
 
@@ -298,6 +321,16 @@ Deno.serve(async (request) => {
     if (refundRequestError) throw refundRequestError;
     if (!refundRequest) throw new BillingHttpError(500, "withdrawal_request_missing");
 
+    if (!reusedRequest) {
+      await notifyOperations(
+        `withdrawal-request:${refundRequest.id}`,
+        "Pedido de arrependimento recebido",
+        refundRequest.amount_cents,
+        refundRequest.currency,
+        refundRequest.status,
+      );
+    }
+
     if (!refundRequest.received_email_sent_at && user.email) {
       try {
         await sendWithdrawalReceivedEmail({
@@ -436,6 +469,13 @@ Deno.serve(async (request) => {
       await sendResultEmailIfNeeded(
         refundRequest,
         finalStatus as "succeeded" | "failed" | "manual_review",
+      );
+      await notifyOperations(
+        `refund:${refundRequest.id}:${finalStatus}`,
+        finalStatus === "succeeded" ? "Reembolso confirmado" : "Reembolso exige atenção",
+        refundRequest.amount_cents,
+        refundRequest.currency,
+        finalStatus,
       );
     }
 

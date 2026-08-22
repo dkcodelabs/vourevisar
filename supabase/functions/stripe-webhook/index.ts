@@ -11,6 +11,7 @@ import {
   syncStripeCustomerDetails,
 } from "../_shared/stripeBilling.ts";
 import {
+  sendBillingOperationsAlert,
   sendSubscriptionConfirmation,
   sendWithdrawalResultEmail,
 } from "../_shared/billingEmail.ts";
@@ -383,6 +384,21 @@ const syncRefundRequest = async (
       .eq("id", requestRecord.id);
     if (emailStatusError) throw emailStatusError;
   }
+  if (status === "succeeded" || status === "failed" || status === "manual_review") {
+    try {
+      await sendBillingOperationsAlert({
+        eventKey: `refund:${requestRecord.id}:${status}`,
+        title: status === "succeeded" ? "Reembolso confirmado" : "Reembolso exige atenção",
+        details: [
+          { label: "Status", value: status },
+          { label: "Valor", value: new Intl.NumberFormat("pt-BR", { style: "currency", currency: requestRecord.currency.toUpperCase() }).format(requestRecord.amount_cents / 100) },
+          { label: "Cliente", value: requestRecord.user_id },
+        ],
+      });
+    } catch (error) {
+      console.error("[stripe-webhook] operations_alert_failed", { code: safeErrorCode(error) });
+    }
+  }
   return "processed";
 };
 
@@ -489,6 +505,19 @@ const sendFirstPaymentConfirmation = async (
       : null,
     contract,
   });
+  try {
+    await sendBillingOperationsAlert({
+      eventKey: `payment:${eventId}`,
+      title: "Nova assinatura confirmada",
+      details: [
+        { label: "Plano", value: planCode === "annual" ? "Anual" : "Mensal" },
+        { label: "Valor", value: new Intl.NumberFormat("pt-BR", { style: "currency", currency: invoice.currency.toUpperCase() }).format(invoice.amount_paid / 100) },
+        { label: "Cliente", value: email },
+      ],
+    });
+  } catch (error) {
+    console.error("[stripe-webhook] operations_alert_failed", { code: safeErrorCode(error), event_id: eventId });
+  }
 };
 
 Deno.serve(async (request) => {
@@ -639,14 +668,26 @@ Deno.serve(async (request) => {
       case "customer.subscription.deleted":
       case "customer.subscription.paused":
       case "customer.subscription.resumed": {
+        const stripeSubscription = event.data.object as Stripe.Subscription;
         const result = await syncSubscription(
           supabase,
           stripe,
-          event.data.object as Stripe.Subscription,
+          stripeSubscription,
           event.created,
           event.livemode,
         );
         processingStatus = result.startsWith("ignored") ? "ignored" : "processed";
+        if (event.type === "customer.subscription.updated" && stripeSubscription.cancel_at_period_end) {
+          try {
+            await sendBillingOperationsAlert({
+              eventKey: `renewal-canceled:${event.id}`,
+              title: "Renovação cancelada pelo cliente",
+              details: [{ label: "Status", value: "Acesso permanece até o fim do período pago" }],
+            });
+          } catch (error) {
+            console.error("[stripe-webhook] operations_alert_failed", { code: safeErrorCode(error), event_id: event.id });
+          }
+        }
         break;
       }
 

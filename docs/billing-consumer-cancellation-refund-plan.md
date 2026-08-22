@@ -454,7 +454,10 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   alerta complementar para compra confirmada, pedido de arrependimento,
   reembolso concluído e falha/revisão. O endereço deve ser secret de backend e
   nunca BCC implícito do e-mail do consumidor; o painel continua sendo a fonte
-  de verdade para conferência.
+  de verdade para conferência. A implementação usa `BILLING_OPERATIONS_EMAIL`,
+  com chave de idempotência por evento e falha isolada para não interromper o
+  fluxo financeiro; falta configurar o secret Live e homologar o primeiro
+  alerta sem gerar nova cobrança.
 - [x] Revisar a inscrição e a seleção de eventos do endpoint Live da Stripe
   para `refund.created`, `refund.updated` e `refund.failed`. Nas duas
   validações Live de reembolso o registro direto e `customer.subscription.deleted`
