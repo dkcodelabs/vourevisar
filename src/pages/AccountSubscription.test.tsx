@@ -356,4 +356,23 @@ describe('AccountSubscription', () => {
     expect(screen.getAllByText(badge).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: new RegExp(action, 'i') })).toBeInTheDocument();
   });
+
+  it('explains that a scheduled cancellation neither renews nor requests a refund', () => {
+    mocks.useStripeBillingOverview.mockReturnValue({
+      data: endingOverview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/conta/assinatura']}>
+        <AccountSubscription />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/não haverá nova cobrança/i)).toBeInTheDocument();
+    expect(screen.getByText(/não solicitou reembolso/i)).toBeInTheDocument();
+    expect(screen.getByText(/você mantém acesso até 02 de outubro de 2026/i)).toBeInTheDocument();
+  });
 });

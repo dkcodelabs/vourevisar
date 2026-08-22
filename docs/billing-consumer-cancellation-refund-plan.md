@@ -401,7 +401,10 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 
 ### Fase 3 — renovação e mudança de plano
 
-- [ ] Documentar cancelamento normal sem reembolso após a janela.
+- [x] Documentar cancelamento normal sem reembolso após a janela. A conta
+  agora distingue explicitamente a renovação cancelada do arrependimento:
+  informa que não haverá nova cobrança, que nenhum reembolso foi solicitado e
+  apresenta a data até a qual o acesso pago continua.
 - [ ] Revisar configuração do Customer Portal para não conflitar com o fluxo.
 - [ ] Definir e implementar contrato/arrependimento de mensal para anual.
 - [ ] Tratar pedidos relacionados a renovação automática sem decisão silenciosa.

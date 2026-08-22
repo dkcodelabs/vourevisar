@@ -110,7 +110,7 @@ export const getAccountSubscriptionState = (
       primaryActionLabel: 'Gerenciar assinatura',
       artworkNextStep: 'Voltar aos estudos',
       alertTitle: 'Renovação cancelada',
-      alertDescription: null,
+      alertDescription: 'Não haverá nova cobrança. Este cancelamento não solicitou reembolso.',
     };
   }
 

@@ -73,6 +73,9 @@ describe('getAccountSubscriptionState', () => {
     expect(state.badge).toBe('Renovação cancelada');
     expect(state.summaryLabel).toBe('Acesso até');
     expect(state.primaryAction).toBe('portal');
+    expect(state.alertDescription).toBe(
+      'Não haverá nova cobrança. Este cancelamento não solicitou reembolso.',
+    );
   });
 
   it('keeps an unpaid subscription recoverable through the existing invoice', () => {

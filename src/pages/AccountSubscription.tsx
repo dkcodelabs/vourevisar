@@ -180,7 +180,9 @@ const AccountSubscription = () => {
                 <div>
                   <p className="text-sm font-black">{pageState.alertTitle}</p>
                   <p className="mt-1 text-sm font-medium leading-6 opacity-80">
-                    {pageState.alertDescription ?? `Você mantém acesso até ${formatDate(subscriptionEnd)}.`}
+                    {pageState.alertDescription
+                      ? `${pageState.alertDescription} Você mantém acesso até ${formatDate(subscriptionEnd)}.`
+                      : `Você mantém acesso até ${formatDate(subscriptionEnd)}.`}
                   </p>
                 </div>
               </div>
