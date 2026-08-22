@@ -408,6 +408,15 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 
 ### Backlog descoberto na validação Live
 
+- [x] Corrigir a navegação interna dos documentos legais: links apresentados em
+  cadastro e Checkout agora permanecem na mesma aba, e o botão `Voltar` retorna
+  ao fluxo de origem pela rota anterior, em vez de forçar a landing page. A logo
+  continua sendo o único atalho explícito para a página inicial.
+- [ ] Validar juridicamente a identificação do fornecedor antes de qualquer
+  mudança visual: em oferta/contratação online, nome, CPF/CNPJ e endereços físico
+  e eletrônico são informações exigidas ao consumidor. Não ocultar ou mascarar
+  os dados no documento; para reduzir exposição pessoal, formalizar a operação
+  e usar endereço comercial legítimo, com revisão de contador/advogado.
 - [x] Corrigir a regra após arrependimento para que um teste gratuito ainda
   vigente volte a valer somente até sua data original. Não criar, reiniciar ou
   estender dias gratuitos. A validação Live de 2026-08-22 confirmou que a
@@ -422,6 +431,15 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   aluno, valor, estado e erro sanitizado. A área do aluno continua exibindo
   somente a própria assinatura e seu histórico, sem IDs Stripe, e-mails de
   entrega ou ações internas.
+  - [ ] Expor uma projeção somente-leitura pela Edge Function `admin-billing`,
+    com autorização de owner/admin, dados mínimos de aluno e sem payloads ou IDs
+    da Stripe no navegador.
+  - [ ] Criar componente próprio na área administrativa, separado da fila de
+    reconciliação, com filtro por ambiente e estado; não transformar
+    `SubscriptionManagement.tsx` em página-monólito.
+  - [ ] Homologar com compra, cancelamento normal, arrependimento/reembolso,
+    falha e ação administrativa reais/controladas antes de considerar a linha
+    do tempo fonte operacional confiável.
 - [ ] Depois da linha do tempo, criar notificação operacional interna como
   alerta complementar para compra confirmada, pedido de arrependimento,
   reembolso concluído e falha/revisão. O endereço deve ser secret de backend e

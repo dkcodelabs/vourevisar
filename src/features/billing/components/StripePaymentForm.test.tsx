@@ -44,6 +44,9 @@ describe('StripePaymentForm contract acceptance', () => {
 
     expect(screen.getByRole('button', { name: /assinar e começar/i })).toBeDisabled();
     expect(screen.getByRole('link', { name: 'Termos de Uso' })).toHaveAttribute('href', '/termos');
+    expect(screen.getByRole('link', { name: 'Termos de Uso' })).not.toHaveAttribute('target');
+    expect(screen.getByRole('link', { name: 'Política de Privacidade' })).not.toHaveAttribute('target');
+    expect(screen.getByRole('link', { name: 'Política de Cancelamento e Reembolso' })).not.toHaveAttribute('target');
     expect(screen.getByText(/próxima cobrança estimada em/i)).toBeVisible();
   });
 

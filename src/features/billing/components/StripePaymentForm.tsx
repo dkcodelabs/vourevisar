@@ -133,9 +133,9 @@ export const StripePaymentForm = ({
             />
             <span className="text-xs leading-5">
               Li e concordo com os{' '}
-              <Link className="text-[#5b47eb] underline" to={billingLegalLinks.terms} target="_blank" rel="noreferrer">Termos de Uso</Link>, a{' '}
-              <Link className="text-[#5b47eb] underline" to={billingLegalLinks.privacy} target="_blank" rel="noreferrer">Política de Privacidade</Link> e a{' '}
-              <Link className="text-[#5b47eb] underline" to={billingLegalLinks.refunds} target="_blank" rel="noreferrer">Política de Cancelamento e Reembolso</Link>.
+              <Link className="text-[#5b47eb] underline" to={billingLegalLinks.terms}>Termos de Uso</Link>, a{' '}
+              <Link className="text-[#5b47eb] underline" to={billingLegalLinks.privacy}>Política de Privacidade</Link> e a{' '}
+              <Link className="text-[#5b47eb] underline" to={billingLegalLinks.refunds}>Política de Cancelamento e Reembolso</Link>.
             </span>
           </label>
         </div>

@@ -392,7 +392,7 @@ const Login = () => {
                     className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
                   />
                   <span>
-                    Li e concordo com os <Link to="/termos" target="_blank" rel="noreferrer" className="font-bold text-primary underline">Termos de Uso</Link> e a <Link to="/privacidade" target="_blank" rel="noreferrer" className="font-bold text-primary underline">Política de Privacidade</Link>. Entendo que receberei 7 dias grátis, sem cartão e sem cobrança automática.
+                    Li e concordo com os <Link to="/termos" className="font-bold text-primary underline">Termos de Uso</Link> e a <Link to="/privacidade" className="font-bold text-primary underline">Política de Privacidade</Link>. Entendo que receberei 7 dias grátis, sem cartão e sem cobrança automática.
                   </span>
                 </label>
               )}
@@ -485,7 +485,7 @@ const Login = () => {
               </button>
               {legalAcceptanceEnabled && (
                 <p className="mt-3 text-center text-[11px] font-medium leading-5 text-muted-foreground">
-                  Ao continuar com Google, você concorda com os <Link to="/termos" target="_blank" rel="noreferrer" className="font-bold text-primary underline">Termos de Uso</Link> e a <Link to="/privacidade" target="_blank" rel="noreferrer" className="font-bold text-primary underline">Política de Privacidade</Link>. Novas contas recebem 7 dias grátis, sem cartão e sem cobrança automática.
+                  Ao continuar com Google, você concorda com os <Link to="/termos" className="font-bold text-primary underline">Termos de Uso</Link> e a <Link to="/privacidade" className="font-bold text-primary underline">Política de Privacidade</Link>. Novas contas recebem 7 dias grátis, sem cartão e sem cobrança automática.
                 </p>
               )}
             </>

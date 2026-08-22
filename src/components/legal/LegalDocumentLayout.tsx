@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { legalProvider, isLegalProviderConfigured } from '@/config/legalProvider';
 import { TracerLogo } from '@/components/ui/TracerLogo';
 
@@ -16,24 +16,28 @@ export const LegalDocumentLayout = ({
   title,
   version,
   children,
-}: LegalDocumentLayoutProps) => (
-  <main className="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6 sm:py-12">
-    <div className="mx-auto max-w-3xl">
-      <div className="flex items-center justify-between gap-4">
-        <Link to="/" aria-label="Ir para a página inicial" className="inline-flex items-center gap-3">
-          <TracerLogo className="h-9 w-9" />
-          <span className="text-sm font-black">vouRevisar</span>
-        </Link>
-        <Link
-          to="/"
-          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border px-3 text-xs font-black text-muted-foreground transition hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar
-        </Link>
-      </div>
+}: LegalDocumentLayoutProps) => {
+  const navigate = useNavigate();
 
-      <article className="mt-8 rounded-[2rem] border border-border bg-card p-5 shadow-sm sm:p-8">
+  return (
+    <main className="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-3xl">
+        <div className="flex items-center justify-between gap-4">
+          <Link to="/" aria-label="Ir para a página inicial" className="inline-flex items-center gap-3">
+            <TracerLogo className="h-9 w-9" />
+            <span className="text-sm font-black">vouRevisar</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border px-3 text-xs font-black text-muted-foreground transition hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </button>
+        </div>
+
+        <article className="mt-8 rounded-[2rem] border border-border bg-card p-5 shadow-sm sm:p-8">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <ShieldCheck className="h-6 w-6" />
         </div>
@@ -57,7 +61,8 @@ export const LegalDocumentLayout = ({
         <div className="prose prose-slate mt-8 max-w-none text-sm leading-7 dark:prose-invert prose-headings:font-black prose-a:text-primary">
           {children}
         </div>
-      </article>
-    </div>
-  </main>
-);
+        </article>
+      </div>
+    </main>
+  );
+};
