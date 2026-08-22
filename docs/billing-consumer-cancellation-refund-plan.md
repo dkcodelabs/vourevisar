@@ -456,8 +456,9 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   nunca BCC implícito do e-mail do consumidor; o painel continua sendo a fonte
   de verdade para conferência. A implementação usa `BILLING_OPERATIONS_EMAIL`,
   com chave de idempotência por evento e falha isolada para não interromper o
-  fluxo financeiro; falta configurar o secret Live e homologar o primeiro
-  alerta sem gerar nova cobrança.
+  fluxo financeiro. O secret Live foi configurado e as funções foram
+  publicadas; falta homologar o primeiro alerta na próxima operação controlada,
+  sem criar uma nova cobrança exclusivamente para isso.
 - [x] Revisar a inscrição e a seleção de eventos do endpoint Live da Stripe
   para `refund.created`, `refund.updated` e `refund.failed`. Nas duas
   validações Live de reembolso o registro direto e `customer.subscription.deleted`
