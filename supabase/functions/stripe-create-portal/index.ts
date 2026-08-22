@@ -8,6 +8,7 @@ import {
   requireAuthenticatedUser,
   resolveBillingCustomer,
   safeErrorCode,
+  safeStripeErrorDetails,
 } from "../_shared/stripeBilling.ts";
 
 Deno.serve(async (request) => {
@@ -37,9 +38,9 @@ Deno.serve(async (request) => {
 
     // During the statutory withdrawal window, cancellation and refund must
     // happen through the first-party flow so they stay coupled, idempotent and
-    // auditable. A Portal deep link still lets the customer update a card, but
-    // intentionally hides the broader Portal navigation (including Stripe's
-    // separate "cancel at period end" action).
+    // auditable. The application normally keeps card management out of this
+    // state, but a payment-recovery screen can still use this official Stripe
+    // deep link without exposing the broader Portal cancellation action.
     const { data: currentSubscription, error: currentSubscriptionError } = await supabase
       .from("billing_subscriptions")
       .select("id,status")
@@ -74,10 +75,6 @@ Deno.serve(async (request) => {
         ? {
           flow_data: {
             type: "payment_method_update" as const,
-            after_completion: {
-              type: "redirect" as const,
-              redirect: { return_url: returnUrl },
-            },
           },
         }
         : {}),
@@ -86,7 +83,10 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { url: portalSession.url });
   } catch (error) {
     const code = safeErrorCode(error);
-    console.error("[stripe-create-portal]", { code });
+    console.error("[stripe-create-portal]", {
+      code,
+      stripe: safeStripeErrorDetails(error),
+    });
     return jsonResponse(request, { error: code }, 500);
   }
 });

@@ -506,6 +506,15 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   único caminho de cancelamento normal ao fim do período pago. Implementado e
   publicado no commit `c65cde4c`; falta a validação manual autenticada do deep
   link Live e do retorno ao sistema.
+- [ ] Simplificar a prioridade visual durante a janela de arrependimento:
+  exibir somente a decisão "Cancelar compra e pedir reembolso", esconder
+  gestão de cartão, troca anual e arte promocional até o fim do prazo e manter
+  a gestão de cartão somente para recuperação de pagamento ou após a janela.
+  A implementação local foi testada em 2026-08-22; falta validar a renderização
+  autenticada no domínio oficial após a publicação. A criação do deep link
+  oficial de atualização de cartão também foi corrigida para não enviar um
+  `after_completion` incompatível e passou a registrar diagnóstico Stripe
+  sanitizado em caso de nova falha.
 - [ ] Corrigir o bootstrap de Auth ao retornar da Stripe: somente o evento
   `INITIAL_SESSION` pode liberar uma rota protegida na primeira renderização;
   eventos transitórios não podem encaminhar um usuário com sessão persistida

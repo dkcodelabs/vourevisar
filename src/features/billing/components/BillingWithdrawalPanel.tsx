@@ -119,23 +119,27 @@ export const BillingWithdrawalPanel = ({
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-warning/15">
         <RotateCcw className="h-6 w-6" />
       </div>
-      <h2 className="mt-5 text-xl font-black">Direito de arrependimento</h2>
+      <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-foreground/70">Compra recente</p>
+      <h2 className="mt-2 text-xl font-black">Mudou de ideia?</h2>
       <p className="mt-2 text-sm font-medium leading-6 opacity-80">
-        Você pode desistir desta contratação e pedir reembolso integral até {formatDeadline(withdrawal.deadline)}.
+        Cancele esta compra e peça o reembolso integral até {formatDeadline(withdrawal.deadline)}.
+      </p>
+      <p className="mt-3 text-xs font-semibold leading-5 opacity-70">
+        O acesso pago é encerrado, mas seus editais, ciclo e revisões continuam salvos.
       </p>
 
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogTrigger asChild>
           <button type="button" className="mt-5 flex min-h-12 w-full items-center justify-center rounded-2xl border border-destructive/35 bg-card px-4 text-sm font-black text-destructive transition hover:bg-destructive/5">
-            Desistir da assinatura e pedir reembolso
+            Cancelar compra e pedir reembolso
           </button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar cancelamento e reembolso?</AlertDialogTitle>
+            <AlertDialogTitle>Cancelar compra e pedir reembolso?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 leading-6">
-                <p>Ao confirmar:</p>
+                <p>Ao confirmar, vamos:</p>
                 <ul className="list-disc space-y-1 pl-5">
                   <li>solicitaremos o reembolso integral de {amountLabel};</li>
                   <li>a assinatura será cancelada imediatamente;</li>

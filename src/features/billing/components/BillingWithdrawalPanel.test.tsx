@@ -62,7 +62,7 @@ describe('BillingWithdrawalPanel', () => {
   it('shows the effects and requires a final explicit confirmation', async () => {
     renderPanel();
 
-    fireEvent.click(screen.getByRole('button', { name: /desistir da assinatura/i }));
+    fireEvent.click(screen.getByRole('button', { name: /cancelar compra e pedir reembolso/i }));
     expect(screen.getByText(/reembolso integral de R\$ 99,90/i)).toBeVisible();
     expect(screen.getByText(/acesso pago será encerrado/i)).toBeVisible();
 

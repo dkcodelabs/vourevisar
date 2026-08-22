@@ -249,7 +249,7 @@ describe('Stripe billing security boundaries', () => {
     expect(withdrawalOverviewMigrationSource).toContain("'eligible', withdrawal_eligible");
     expect(withdrawalOverviewMigrationSource).toContain("'deadline', acceptance_record.withdrawal_deadline");
     expect(withdrawalOverviewMigrationSource).not.toContain("'stripe_refund_id'");
-    expect(withdrawalPanelSource).toContain('Desistir da assinatura e pedir reembolso');
+    expect(withdrawalPanelSource).toContain('Cancelar compra e pedir reembolso');
     expect(withdrawalPanelSource).toContain('Confirmar pedido');
     expect(withdrawalPanelSource).toContain('getSafeBillingErrorMessage');
     expect(contractDocumentsClientSource).toContain('VITE_BILLING_WITHDRAWAL_ENABLED');

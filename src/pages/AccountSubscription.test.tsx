@@ -327,11 +327,10 @@ describe('AccountSubscription', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Direito de arrependimento')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /desistir da assinatura e pedir reembolso/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /atualizar cartão/i })).toBeInTheDocument();
-    expect(screen.getByText(/único caminho para encerrar a assinatura é o pedido de desistência acima/i)).toBeInTheDocument();
-    expect(screen.getByText(/plano anual disponível após o prazo de arrependimento/i)).toBeInTheDocument();
+    expect(screen.getByText('Mudou de ideia?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancelar compra e pedir reembolso/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /atualizar cartão/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/plano anual disponível após o prazo de arrependimento/i)).not.toBeInTheDocument();
   });
 
   it('keeps billing lookup failures recoverable without exposing provider internals', () => {

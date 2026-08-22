@@ -129,11 +129,10 @@ const AccountSubscription = () => {
     !activeStripeSubscription.cancel_at_period_end &&
     !activeStripeSubscription.cancel_at &&
     Boolean(activeStripeSubscription.current_period_end);
-  const portalTitle = withdrawalEligible ? 'Atualize seu cartão' : pageState.asideTitle;
-  const portalDescription = withdrawalEligible
-    ? 'Durante o prazo de arrependimento, o único caminho para encerrar a assinatura é o pedido de desistência acima. Este botão abre somente a atualização de cartão na Stripe.'
-    : pageState.asideDescription;
-  const portalActionLabel = withdrawalEligible ? 'Atualizar cartão' : pageState.primaryActionLabel;
+  // A recent purchase has one meaningful next step: keep it or use the
+  // statutory withdrawal flow. Showing card management and an annual upgrade
+  // beside that decision only creates competing, confusing actions.
+  const showManagementCard = !withdrawalEligible || pageState.kind === 'payment_attention';
   const portalErrorMessage = portal.isError
     ? getSafeBillingErrorMessage(
         portal.error,
@@ -148,8 +147,8 @@ const AccountSubscription = () => {
   );
   return (
     <SubscriptionFrame>
-      <div className={`grid gap-6 ${showsTrialOffer ? 'xl:grid-cols-[0.75fr_1.25fr]' : 'xl:grid-cols-[1.25fr_0.75fr]'}`}>
-        <section>
+      <div className={`grid gap-6 ${showsTrialOffer ? 'xl:grid-cols-[0.75fr_1.25fr]' : 'xl:grid-cols-[minmax(0,1fr)_22rem]'}`}>
+        <section className="min-w-0">
           <motion.div
             initial={reduceMotion ? undefined : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -242,14 +241,14 @@ const AccountSubscription = () => {
           )}
         </section>
 
-        <aside className={`space-y-5 ${showsTrialOffer ? 'order-first' : ''}`}>
+        <aside className={`min-w-0 space-y-5 ${showsTrialOffer ? 'order-first' : ''}`}>
           {withdrawalEnabled && subscription && data.withdrawal && (
             <BillingWithdrawalPanel
               withdrawal={data.withdrawal}
               amountLabel={formatBillingPrice(subscription.amount_cents, subscription.currency)}
             />
           )}
-          {isMonthlyPlanChangeCandidate && activeStripeSubscription?.current_period_end && (
+          {!withdrawalEligible && isMonthlyPlanChangeCandidate && activeStripeSubscription?.current_period_end && (
               <ScheduledAnnualPlanChange
                 currentPeriodEnd={activeStripeSubscription.current_period_end}
                 scheduled={activeStripeSubscription.scheduled_plan === 'annual'}
@@ -259,23 +258,23 @@ const AccountSubscription = () => {
             )}
           {showsTrialOffer ? (
             <TrialConversionOffer plans={pricingPlans} isLoading={catalog.isLoading} />
-          ) : (
+          ) : showManagementCard ? (
             <>
               <div className="rounded-[2rem] border border-border bg-card p-6 text-card-foreground shadow-[0_24px_70px_-42px_rgba(15,23,42,0.16)] dark:shadow-[0_24px_70px_-42px_rgba(0,0,0,0.52)]">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <ShieldCheck className="h-6 w-6" />
                 </div>
                 <h2 className="mt-5 text-xl font-black tracking-[-0.025em]">
-                  {portalTitle}
+                  {pageState.asideTitle}
                 </h2>
                 <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
-                  {portalDescription}
+                  {pageState.asideDescription}
                 </p>
 
                 {pageState.primaryAction === 'none' ? (
                   <div className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-success/15 px-5 text-sm font-black text-success">
                     <CheckCircle2 className="h-5 w-5" />
-                    {portalActionLabel}
+                    {pageState.primaryActionLabel}
                   </div>
                 ) : pageState.primaryAction === 'portal' ? (
                   <button
@@ -285,7 +284,7 @@ const AccountSubscription = () => {
                     className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground shadow-[0_16px_35px_-18px_hsl(var(--primary)/0.7)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {portal.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                    {portalActionLabel}
+                    {pageState.primaryActionLabel}
                   </button>
                 ) : (
                   <Link
@@ -307,7 +306,7 @@ const AccountSubscription = () => {
                 <BillingArtwork nextStep={pageState.artworkNextStep} />
               </div>
             </>
-          )}
+          ) : null}
         </aside>
       </div>
     </SubscriptionFrame>
