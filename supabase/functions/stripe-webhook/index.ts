@@ -529,8 +529,7 @@ const sendFirstPaymentConfirmation = async (
 
   const subscriptionId = getInvoiceSubscriptionId(invoice);
   const customerId = getExpandableId(invoice.customer);
-  const email = invoice.customer_email?.trim();
-  if (!subscriptionId || !customerId || !email) return;
+  if (!subscriptionId || !customerId) return;
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ["items.data.price", "customer"],
@@ -539,9 +538,10 @@ const sendFirstPaymentConfirmation = async (
   if (!item) return;
 
   const customer = await stripe.customers.retrieve(customerId);
-  const customerName = !("deleted" in customer && customer.deleted)
-    ? customer.name ?? null
-    : null;
+  if ("deleted" in customer && customer.deleted) return;
+  const email = invoice.customer_email?.trim() || customer.email?.trim();
+  if (!email) return;
+  const customerName = customer.name ?? null;
   const planCode = getPlanFromPriceId(item.price.id);
   if (!planCode || item.price.unit_amount === null) return;
 
@@ -621,8 +621,7 @@ const sendScheduledPlanChangeConfirmation = async (
 
   const subscriptionId = getInvoiceSubscriptionId(invoice);
   const customerId = getExpandableId(invoice.customer);
-  const email = invoice.customer_email?.trim();
-  if (!subscriptionId || !customerId || !email) return;
+  if (!subscriptionId || !customerId) return;
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ["items.data.price"],
@@ -651,9 +650,10 @@ const sendScheduledPlanChangeConfirmation = async (
   if (!change) return;
 
   const customer = await stripe.customers.retrieve(customerId);
-  const customerName = !("deleted" in customer && customer.deleted)
-    ? customer.name ?? null
-    : null;
+  if ("deleted" in customer && customer.deleted) return;
+  const email = invoice.customer_email?.trim() || customer.email?.trim();
+  if (!email) return;
+  const customerName = customer.name ?? null;
   await sendPlanChangeConfirmation({
     eventId,
     email,
