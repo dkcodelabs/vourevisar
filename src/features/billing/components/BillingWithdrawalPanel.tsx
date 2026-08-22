@@ -60,11 +60,11 @@ export const BillingWithdrawalPanel = ({
           {succeeded ? <ShieldCheck className="h-6 w-6" /> : needsReview ? <CircleAlert className="h-6 w-6" /> : <Clock3 className="h-6 w-6" />}
         </div>
         <h2 className="mt-5 text-xl font-black">
-          {succeeded ? 'Reembolso confirmado' : needsReview ? 'Precisamos concluir seu pedido' : 'Solicitação recebida'}
+          {succeeded ? 'Reembolso confirmado pela Stripe' : needsReview ? 'Precisamos concluir seu pedido' : 'Solicitação recebida'}
         </h2>
         <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
           {succeeded
-            ? 'A Stripe confirmou o reembolso. O crédito pode aparecer depois, conforme a bandeira e o banco emissor.'
+            ? 'A Stripe confirmou o reembolso. O banco pode exibir um crédito ou remover o lançamento original da fatura.'
             : needsReview
               ? 'Seu pedido está registrado e não deve ser enviado novamente. A equipe precisa acompanhar a conclusão do reembolso.'
               : 'O cancelamento foi solicitado e o reembolso está em processamento. Você receberá a confirmação por e-mail.'}
@@ -87,10 +87,15 @@ export const BillingWithdrawalPanel = ({
                 : <MailCheck className="h-4 w-4" />}
               {resultEmail.isSuccess
                 ? resultEmail.data.sent
-                  ? 'Comprovante enviado'
-                  : 'Envio já confirmado'
-                : 'Garantir envio do comprovante'}
+                  ? 'Comprovante enviado ao e-mail cadastrado'
+                  : 'Envio já confirmado no sistema'
+                : 'Verificar envio do comprovante'}
             </button>
+            {!resultEmail.isSuccess && (
+              <p className="mt-2 text-xs font-semibold leading-5 text-muted-foreground">
+                Verifica se o sistema registrou o envio para o e-mail cadastrado. Isso não altera sua assinatura nem o reembolso e não envia outro e-mail se o envio já estiver registrado.
+              </p>
+            )}
             {resultEmail.isError && (
               <p role="alert" className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm font-bold text-destructive">
                 {getSafeBillingErrorMessage(resultEmail.error)}

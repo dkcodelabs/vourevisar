@@ -408,25 +408,39 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 
 ### Backlog descoberto na validação Live
 
-- [ ] Corrigir a regra após arrependimento para que um teste gratuito ainda
+- [x] Corrigir a regra após arrependimento para que um teste gratuito ainda
   vigente volte a valer somente até sua data original. Não criar, reiniciar ou
   estender dias gratuitos. A validação Live de 2026-08-22 confirmou que a
   concessão `trial` permanece no banco, mas a RPC a oculta quando existe
-  qualquer assinatura Stripe, inclusive uma já cancelada/reembolsada.
-- [ ] Criar notificação operacional interna, separada dos e-mails do aluno,
-  para compra confirmada, pedido de arrependimento, reembolso concluído e
-  falha/revisão. O endereço deve ser secret de backend e nunca BCC implícito
-  do e-mail do consumidor.
-- [ ] Revisar a inscrição e a seleção de eventos do endpoint Live da Stripe
+  qualquer assinatura Stripe, inclusive uma já cancelada/reembolsada. A
+  migration `20260822120906` foi aplicada e a RPC foi verificada em transação
+  como o usuário afetado: devolveu `source=trial`, a data original de fim e a
+  assinatura histórica como cancelada.
+- [ ] Evoluir a área existente de administração de assinaturas para uma linha
+  do tempo operacional somente para owner/admin: compra, renovação cancelada,
+  pedido de arrependimento, reembolso, falha e reconciliação, com horário,
+  aluno, valor, estado e erro sanitizado. A área do aluno continua exibindo
+  somente a própria assinatura e seu histórico, sem IDs Stripe, e-mails de
+  entrega ou ações internas.
+- [ ] Depois da linha do tempo, criar notificação operacional interna como
+  alerta complementar para compra confirmada, pedido de arrependimento,
+  reembolso concluído e falha/revisão. O endereço deve ser secret de backend e
+  nunca BCC implícito do e-mail do consumidor; o painel continua sendo a fonte
+  de verdade para conferência.
+- [x] Revisar a inscrição e a seleção de eventos do endpoint Live da Stripe
   para `refund.created`, `refund.updated` e `refund.failed`. Nas duas
   validações Live de reembolso o registro direto e `customer.subscription.deleted`
   chegaram sem erro, mas nenhum evento `refund.*` foi persistido no ledger;
-  isso reduz a capacidade de reconciliação posterior.
-- [ ] Renomear a recuperação de e-mail terminal para uma ação explícita de
-  reenvio, informando que ela apenas envia a confirmação ao e-mail cadastrado
-  e não altera assinatura nem reembolso.
-- [ ] Remover ou substituir o botão secundário de histórico financeiro quando
-  ele apenas rola para o card já visível na mesma página.
+  isso reduz a capacidade de reconciliação posterior. Em 2026-08-22 o endpoint
+  Live foi atualizado sem remover eventos existentes e passou a receber também
+  `refund.*` e `charge.refunded`; a validação de entrega desses novos eventos
+  permanece na próxima operação controlada.
+- [x] Renomear a recuperação de e-mail terminal para uma ação explícita de
+  verificação do comprovante, informando que ela apenas confere o registro de
+  envio para o e-mail cadastrado, não altera assinatura/reembolso e não dispara
+  um segundo e-mail quando o envio já está registrado.
+- [x] Remover o botão secundário de histórico financeiro que apenas rolava para
+  o card já visível na mesma página.
 
 ### Fase 4 — homologação
 

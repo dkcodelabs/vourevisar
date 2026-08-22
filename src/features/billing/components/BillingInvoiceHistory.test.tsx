@@ -18,7 +18,8 @@ describe('BillingInvoiceHistory', () => {
       />,
     );
 
-    expect(screen.getByText('Pagamento reembolsado')).toBeVisible();
+    expect(screen.getByText('Reembolso confirmado pela Stripe')).toBeVisible();
+    expect(screen.getByText(/o banco pode exibir um crédito ou remover o lançamento original/i)).toBeVisible();
     expect(screen.queryByText('Pagamento confirmado')).not.toBeInTheDocument();
     expect(screen.getByText(/cobrado em 21 de ago\. de 2026/i)).toBeVisible();
     expect(screen.getByText(/reembolso atualizado em 21 de ago\. de 2026/i)).toBeVisible();
@@ -40,6 +41,6 @@ describe('BillingInvoiceHistory', () => {
     );
 
     expect(screen.getByText('Reembolso em processamento')).toBeVisible();
-    expect(screen.queryByText('Pagamento reembolsado')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reembolso confirmado pela Stripe')).not.toBeInTheDocument();
   });
 });

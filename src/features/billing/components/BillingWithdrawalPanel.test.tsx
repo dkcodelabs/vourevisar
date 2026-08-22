@@ -84,8 +84,8 @@ describe('BillingWithdrawalPanel', () => {
 
     expect(screen.getByRole('heading', { name: 'Solicitação recebida' })).toBeVisible();
     expect(screen.getByText(/reembolso está em processamento/i)).toBeVisible();
-    expect(screen.queryByText('Reembolso confirmado')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /garantir envio do comprovante/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Reembolso confirmado pela Stripe')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /verificar envio do comprovante/i })).not.toBeInTheDocument();
   });
 
   it('lets a customer repair a missing terminal email without repeating the refund', () => {
@@ -96,7 +96,8 @@ describe('BillingWithdrawalPanel', () => {
       requested_at: '2026-08-21T12:00:00.000Z',
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /garantir envio do comprovante/i }));
+    expect(screen.getByText(/não envia outro e-mail se o envio já estiver registrado/i)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /verificar envio do comprovante/i }));
 
     expect(emailMutation.mutate).toHaveBeenCalledOnce();
   });

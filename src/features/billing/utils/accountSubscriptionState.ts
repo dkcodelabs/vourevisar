@@ -1,7 +1,6 @@
 import type { BillingOverview } from '@/features/billing/types';
 
 export type AccountSubscriptionAction = 'none' | 'plans' | 'portal';
-export type AccountSubscriptionSecondaryAction = 'none' | 'history';
 
 export interface AccountSubscriptionState {
   kind: 'internal' | 'trial' | 'active' | 'ending' | 'payment_attention' | 'ended';
@@ -13,8 +12,6 @@ export interface AccountSubscriptionState {
   asideDescription: string;
   primaryAction: AccountSubscriptionAction;
   primaryActionLabel: string;
-  secondaryAction: AccountSubscriptionSecondaryAction;
-  secondaryActionLabel: string | null;
   artworkNextStep: string;
   alertTitle: string | null;
   alertDescription: string | null;
@@ -40,8 +37,6 @@ export const getAccountSubscriptionState = (
       asideDescription: 'Contas administrativas não possuem cartão, faturas ou renovação vinculados à Stripe.',
       primaryAction: 'none',
       primaryActionLabel: 'Acesso confirmado',
-      secondaryAction: 'none',
-      secondaryActionLabel: null,
       artworkNextStep: 'Voltar aos estudos',
       alertTitle: null,
       alertDescription: null,
@@ -69,8 +64,6 @@ export const getAccountSubscriptionState = (
       asideDescription: 'Atualize o cartão em um ambiente protegido e regularize a fatura pendente.',
       primaryAction: 'portal',
       primaryActionLabel: accessSuspended ? 'Regularizar pagamento' : 'Atualizar pagamento',
-      secondaryAction: 'none',
-      secondaryActionLabel: null,
       artworkNextStep: 'Regularizar pagamento',
       alertTitle: accessSuspended ? 'Acesso suspenso' : 'Pagamento pendente',
       alertDescription: accessSuspended
@@ -94,8 +87,6 @@ export const getAccountSubscriptionState = (
       asideDescription: 'Escolha um novo plano para recuperar o acesso. Suas cobranças anteriores ficam disponíveis apenas para consulta.',
       primaryAction: 'plans',
       primaryActionLabel: 'Escolher novo plano',
-      secondaryAction: 'history',
-      secondaryActionLabel: 'Ver histórico financeiro',
       artworkNextStep: 'Retomar assinatura',
       alertTitle: null,
       alertDescription: null,
@@ -117,8 +108,6 @@ export const getAccountSubscriptionState = (
       asideDescription: 'Consulte faturas, atualize o cartão ou reative a renovação em um ambiente protegido.',
       primaryAction: 'portal',
       primaryActionLabel: 'Gerenciar assinatura',
-      secondaryAction: 'none',
-      secondaryActionLabel: null,
       artworkNextStep: 'Voltar aos estudos',
       alertTitle: 'Renovação cancelada',
       alertDescription: null,
@@ -136,8 +125,6 @@ export const getAccountSubscriptionState = (
       asideDescription: 'Atualize seu cartão, consulte faturas e controle a renovação em um ambiente protegido.',
       primaryAction: 'portal',
       primaryActionLabel: 'Gerenciar pagamento',
-      secondaryAction: 'none',
-      secondaryActionLabel: null,
       artworkNextStep: 'Voltar aos estudos',
       alertTitle: null,
       alertDescription: null,
@@ -156,8 +143,6 @@ export const getAccountSubscriptionState = (
     asideDescription: 'Escolha mensal ou anual e conclua com cartão no nosso checkout seguro.',
     primaryAction: 'plans',
     primaryActionLabel: 'Ver planos',
-    secondaryAction: 'none',
-    secondaryActionLabel: null,
     artworkNextStep: overview.is_active ? 'Voltar aos estudos' : 'Escolher um plano',
     alertTitle: null,
     alertDescription: null,

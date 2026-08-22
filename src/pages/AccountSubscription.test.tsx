@@ -193,27 +193,12 @@ describe('AccountSubscription', () => {
     expect(screen.getByText('Assinatura encerrada')).toBeInTheDocument();
     expect(screen.getByText('Sem renovação ativa')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /escolher novo plano/i })).toHaveAttribute('href', '/planos');
-    expect(screen.getByRole('button', { name: /ver histórico financeiro/i })).toBeInTheDocument();
-    expect(screen.getByText('Pagamento reembolsado')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ver histórico financeiro/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Reembolso confirmado pela Stripe')).toBeInTheDocument();
     expect(screen.getByText(/reembolso atualizado em 17 de set\. de 2026/i)).toBeInTheDocument();
     expect(screen.getByText('Retomar assinatura')).toBeInTheDocument();
     expect(screen.queryByText('Próxima renovação')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /gerenciar pagamento/i })).not.toBeInTheDocument();
-  });
-
-  it('keeps terminated-account history inside the product without opening the payment portal', () => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    render(
-      <MemoryRouter initialEntries={['/conta/assinatura']}>
-        <AccountSubscription />
-      </MemoryRouter>,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /ver histórico financeiro/i }));
-
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
-    expect(mocks.useStripePortal().mutateAsync).not.toHaveBeenCalled();
   });
 
   it('does not present a historical Stripe plan or card as current during a manual trial', () => {
@@ -237,7 +222,8 @@ describe('AccountSubscription', () => {
     expect(screen.getByText('10 de agosto de 2026')).toBeInTheDocument();
     expect(screen.getByText('Nenhum cartão necessário')).toBeInTheDocument();
     expect(screen.queryByText(/VISA •••• 0341/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('R$ 16,00')).not.toBeInTheDocument();
+    expect(screen.getByText('R$ 16,00')).toBeInTheDocument();
+    expect(screen.getByText('Reembolso confirmado pela Stripe')).toBeInTheDocument();
     expect(screen.queryByText('por mês')).not.toBeInTheDocument();
   });
 
@@ -261,6 +247,35 @@ describe('AccountSubscription', () => {
     expect(screen.getByRole('link', { name: /mensal.*assinar/i })).toHaveAttribute('href', '/checkout?plan=monthly&from=subscription');
     expect(screen.getByRole('link', { name: /continuar no teste gratuito/i })).toHaveAttribute('href', '/dashboard');
     expect(screen.queryByRole('link', { name: /^ver planos/i })).not.toBeInTheDocument();
+  });
+
+  it('restores only the original trial while preserving the refunded payment history', () => {
+    mocks.useStripeBillingOverview.mockReturnValue({
+      data: {
+        ...manualTrialWithHistoricalStripeSubscription,
+        source: 'trial',
+        withdrawal: {
+          eligible: false,
+          deadline: '2026-08-28T12:00:00.000Z',
+          status: 'succeeded',
+          requested_at: '2026-08-21T12:00:00.000Z',
+          result_at: '2026-08-21T12:00:02.000Z',
+        },
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/conta/assinatura']}>
+        <AccountSubscription />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Teste gratuito')).toBeInTheDocument();
+    expect(screen.getAllByText('Reembolso confirmado pela Stripe').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/VISA •••• 0341/i)).not.toBeInTheDocument();
   });
 
   it('renders an intentional loading state while the billing overview is still resolving', () => {

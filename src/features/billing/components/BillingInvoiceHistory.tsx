@@ -16,7 +16,7 @@ const invoiceState = {
   pending: { label: 'Cobrança em aberto', Icon: Clock3, className: 'bg-[#fff7e8] text-[#8a5615]' },
   closed: { label: 'Cobrança encerrada', Icon: XCircle, className: 'bg-[#f1eef8] text-[#625a71]' },
   refund_pending: { label: 'Reembolso em processamento', Icon: Clock3, className: 'bg-[#fff7e8] text-[#8a5615]' },
-  refunded: { label: 'Pagamento reembolsado', Icon: RotateCcw, className: 'bg-[#eeeaff] text-[#5138c9]' },
+  refunded: { label: 'Reembolso confirmado pela Stripe', Icon: RotateCcw, className: 'bg-[#eeeaff] text-[#5138c9]' },
   refund_attention: { label: 'Reembolso em análise', Icon: TriangleAlert, className: 'bg-[#fff0ef] text-[#9f3028]' },
 } as const;
 
@@ -65,6 +65,11 @@ export const BillingInvoiceHistory = ({ invoices, isLoading, isError }: BillingI
                 {invoice.status_at && invoice.status.startsWith('refund') && (
                   <p className="mt-1 text-xs font-semibold text-[#766d86]">
                     Reembolso atualizado em {formatDate(invoice.status_at)}
+                  </p>
+                )}
+                {invoice.status === 'refunded' && (
+                  <p className="mt-1 max-w-sm text-xs font-semibold leading-5 text-[#766d86]">
+                    A Stripe confirmou o reembolso; o banco pode exibir um crédito ou remover o lançamento original da fatura.
                   </p>
                 )}
               </div>

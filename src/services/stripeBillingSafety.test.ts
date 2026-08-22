@@ -52,6 +52,9 @@ const withdrawalOverviewMigrationSource = readProjectFile(
 const immediateRefundStateMigrationSource = readProjectFile(
   'supabase/migrations/20260821191410_make_refund_terminal_state_immediate.sql',
 );
+const restoredTrialAfterWithdrawalMigrationSource = readProjectFile(
+  'supabase/migrations/20260822120906_resume_original_trial_after_withdrawal.sql',
+);
 const withdrawalPanelSource = readProjectFile(
   'src/features/billing/components/BillingWithdrawalPanel.tsx',
 );
@@ -224,6 +227,21 @@ describe('Stripe billing security boundaries', () => {
     expect(webhookSource).toContain('syncRefundRequest');
     expect(webhookSource).toContain('cancelSubscriptionIfNeeded');
     expect(webhookSource).toContain('last_stripe_event_created_at');
+  });
+
+  it('restores only an unexpired original trial after a completed withdrawal', () => {
+    expect(restoredTrialAfterWithdrawalMigrationSource).toContain(
+      "access_grant.source = 'trial'",
+    );
+    expect(restoredTrialAfterWithdrawalMigrationSource).toContain(
+      'AND NOT withdrawal_canceled',
+    );
+    expect(restoredTrialAfterWithdrawalMigrationSource).toContain(
+      "WHEN subscription_record.id IS NULL THEN NULL",
+    );
+    expect(restoredTrialAfterWithdrawalMigrationSource).toContain(
+      "'source', effective_source",
+    );
   });
 
   it('exposes only sanitized withdrawal state and keeps the UI behind a flag', () => {
