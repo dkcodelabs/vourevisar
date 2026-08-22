@@ -76,4 +76,21 @@ describe('ScheduledAnnualPlanChange', () => {
 
     await waitFor(() => expect(cancelMutation.mutateAsync).toHaveBeenCalledOnce());
   });
+
+  it('explains why plan change is temporarily unavailable during the legal withdrawal window', () => {
+    render(
+      <MemoryRouter>
+        <ScheduledAnnualPlanChange
+          currentPeriodEnd="2026-09-21T00:00:00.000Z"
+          scheduled={false}
+          annualPriceLabel="R$ 99,90"
+          withdrawalDeadline="2026-08-29T12:00:00.000Z"
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/plano anual disponível após o prazo de arrependimento/i)).toBeVisible();
+    expect(screen.getByText(/a partir de 29 de agosto de 2026/i)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /agendar plano anual/i })).not.toBeInTheDocument();
+  });
 });

@@ -5,11 +5,14 @@ import { LoadingSpinner } from './ui/LoadingSpinner';
 import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 
 export const ProtectedRoute = () => {
-  const { user, loading } = useAuth();
+  const { user, authInitialized } = useAuth();
   const location = useLocation();
 
-  // Show loading logo ONLY if we are actually waiting for the initial auth state without a user object
-  if (loading && !user) {
+  // Never send a browser with a persisted session to Login before Supabase has
+  // resolved INITIAL_SESSION. This matters after returning from Stripe and on
+  // direct checkout navigation, where the page can mount before auth storage
+  // has finished hydrating.
+  if (!authInitialized) {
     return <LoadingSpinner size="large" showText fullPage />;
   }
 

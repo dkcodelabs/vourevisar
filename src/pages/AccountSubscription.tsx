@@ -123,6 +123,17 @@ const AccountSubscription = () => {
     ? formatBillingPrice(annualCatalogPlan.amountCents, annualCatalogPlan.currency)
     : null;
   const showsTrialOffer = pageState.kind === 'trial' && data.is_active && isComplimentaryAccess;
+  const withdrawalEligible = withdrawalEnabled && data.withdrawal?.eligible === true;
+  const isMonthlyPlanChangeCandidate = planChangeEnabled &&
+    activeStripeSubscription?.plan === 'monthly' &&
+    !activeStripeSubscription.cancel_at_period_end &&
+    !activeStripeSubscription.cancel_at &&
+    Boolean(activeStripeSubscription.current_period_end);
+  const portalTitle = withdrawalEligible ? 'Cartão e faturas' : pageState.asideTitle;
+  const portalDescription = withdrawalEligible
+    ? 'Para desistir desta contratação e pedir reembolso, use o cartão acima. Aqui você consulta faturas e atualiza o cartão. O cancelamento no portal Stripe interrompe apenas a próxima renovação e não gera reembolso.'
+    : pageState.asideDescription;
+  const portalActionLabel = withdrawalEligible ? 'Gerenciar cartão e faturas' : pageState.primaryActionLabel;
   const portalErrorMessage = portal.isError
     ? getSafeBillingErrorMessage(
         portal.error,
@@ -238,16 +249,12 @@ const AccountSubscription = () => {
               amountLabel={formatBillingPrice(subscription.amount_cents, subscription.currency)}
             />
           )}
-          {planChangeEnabled &&
-            activeStripeSubscription?.plan === 'monthly' &&
-            !activeStripeSubscription.cancel_at_period_end &&
-            !activeStripeSubscription.cancel_at &&
-            !data.withdrawal?.eligible &&
-            activeStripeSubscription.current_period_end && (
+          {isMonthlyPlanChangeCandidate && activeStripeSubscription?.current_period_end && (
               <ScheduledAnnualPlanChange
                 currentPeriodEnd={activeStripeSubscription.current_period_end}
                 scheduled={activeStripeSubscription.scheduled_plan === 'annual'}
                 annualPriceLabel={annualPriceLabel}
+                withdrawalDeadline={withdrawalEligible ? data.withdrawal?.deadline : null}
               />
             )}
           {showsTrialOffer ? (
@@ -259,16 +266,16 @@ const AccountSubscription = () => {
                   <ShieldCheck className="h-6 w-6" />
                 </div>
                 <h2 className="mt-5 text-xl font-black tracking-[-0.025em]">
-                  {pageState.asideTitle}
+                  {portalTitle}
                 </h2>
                 <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
-                  {pageState.asideDescription}
+                  {portalDescription}
                 </p>
 
                 {pageState.primaryAction === 'none' ? (
                   <div className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-success/15 px-5 text-sm font-black text-success">
                     <CheckCircle2 className="h-5 w-5" />
-                    {pageState.primaryActionLabel}
+                    {portalActionLabel}
                   </div>
                 ) : pageState.primaryAction === 'portal' ? (
                   <button
@@ -278,7 +285,7 @@ const AccountSubscription = () => {
                     className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground shadow-[0_16px_35px_-18px_hsl(var(--primary)/0.7)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {portal.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                    {pageState.primaryActionLabel}
+                    {portalActionLabel}
                   </button>
                 ) : (
                   <Link

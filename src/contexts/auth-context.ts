@@ -9,6 +9,8 @@ export interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  /** True only after Supabase resolves the initial browser session. */
+  authInitialized: boolean;
   signUp: (email: string, password: string, name: string, phone?: string, legalAcceptance?: SignupLegalAcceptance) => Promise<{ success: boolean; user?: User; error?: string; confirmationPending?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;

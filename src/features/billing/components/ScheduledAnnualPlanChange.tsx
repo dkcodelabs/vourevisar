@@ -30,12 +30,14 @@ type ScheduledAnnualPlanChangeProps = {
   currentPeriodEnd: string;
   scheduled: boolean;
   annualPriceLabel: string | null;
+  withdrawalDeadline?: string | null;
 };
 
 export const ScheduledAnnualPlanChange = ({
   currentPeriodEnd,
   scheduled,
   annualPriceLabel,
+  withdrawalDeadline,
 }: ScheduledAnnualPlanChangeProps) => {
   const scheduleChange = useScheduleStripeAnnualPlanChange();
   const cancelChange = useCancelStripeScheduledPlanChange();
@@ -43,6 +45,7 @@ export const ScheduledAnnualPlanChange = ({
   const [accepted, setAccepted] = useState(false);
   const [requestId, setRequestId] = useState<string | null>(null);
   const effectiveDate = formatDate(currentPeriodEnd);
+  const availableAt = withdrawalDeadline ? formatDate(withdrawalDeadline) : null;
 
   const closeScheduleDialog = () => {
     if (scheduleChange.isPending) return;
@@ -96,6 +99,21 @@ export const ScheduledAnnualPlanChange = ({
             {getSafeBillingErrorMessage(cancelChange.error)}
           </p>
         )}
+      </section>
+    );
+  }
+
+  if (availableAt) {
+    return (
+      <section className="rounded-[2rem] border border-border bg-card p-6 text-card-foreground shadow-[0_24px_70px_-42px_rgba(15,23,42,0.16)] dark:shadow-[0_24px_70px_-42px_rgba(0,0,0,0.52)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <CalendarClock className="h-6 w-6" />
+        </div>
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-primary">Mudança de plano</p>
+        <h2 className="mt-2 text-xl font-black tracking-[-0.025em]">Plano anual disponível após o prazo de arrependimento</h2>
+        <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
+          Você poderá agendar a troca para anual a partir de {availableAt}. Até lá, mantenha uma única contratação ativa para não confundir a desistência com reembolso.
+        </p>
       </section>
     );
   }

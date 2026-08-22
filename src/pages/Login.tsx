@@ -60,11 +60,6 @@ const Login = () => {
     }
   }, [emailConfirmed]);
 
-  useEffect(() => {
-    console.log('[DEBUG] Login.tsx: Montagem/Renderização. isLoading=', isLoading, ' user=', !!user);
-    return () => console.log('[DEBUG] Login.tsx: Desmontando componente.');
-  }, [isLoading, user]);
-
   // Redirect if already authenticated
   useEffect(() => {
     const checkUserAndRedirect = async () => {
@@ -148,7 +143,6 @@ const Login = () => {
         // response to create a session and record an access unexpectedly.
         const result = await signIn(email.trim(), password);
 
-        console.log('[DEBUG] Login.tsx: Resultado do signIn:', result);
         if (!result.success) {
           if (result.error?.includes('Invalid login credentials')) {
             toastManager.error('Email ou senha incorretos.');

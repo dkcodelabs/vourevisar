@@ -49,6 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -70,6 +71,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Every auth event invalidates profile work started by an older identity.
   // This prevents a late RLS-empty response for user A from signing out user B.
   const authTransitionRef = useRef(0);
+  const isCredentialCallback = location.pathname === '/auth/callback'
+    || location.pathname === '/reset-password';
 
   const fetchProfile = useCallback(async (userId: string, authTransition: number) => {
     if (isFetchingProfileRef.current) return;
@@ -115,8 +118,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
-    const isCredentialCallback = location.pathname === '/auth/callback'
-      || location.pathname === '/reset-password';
 
     // AuthCallback and ResetPassword own their credential-establishment flows.
     // Bootstrapping Auth here at the same time makes Supabase's browser lock
@@ -165,7 +166,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const validateServerSession = async () => {
-      if (location.pathname === '/auth/callback') return;
+      if (isCredentialCallback) return;
       // Do not validate a session while Supabase is still finishing the same
       // SIGNED_IN transition. Safari can dispatch focus/visibility immediately
       // after login; treating that short window as an invalid session causes a
@@ -243,7 +244,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setUser(null);
               setProfile(null);
               lastLoginSignature.current = null;
-              if (isMounted) setLoading(false);
                 return;
               }
 
@@ -315,7 +315,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               id: 'auth-bootstrap-failed',
             });
           } finally {
-            if (isMounted) setLoading(false);
+            if (isMounted) {
+              setLoading(false);
+              setAuthInitialized(true);
+            }
           }
         }, 0);
 
@@ -337,7 +340,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       window.removeEventListener('focus', validateServerSession);
       document.removeEventListener('visibilitychange', validateServerSession);
     };
-  }, [fetchProfile, location.pathname, logEvent, navigate]);
+  // The listener must not be recreated for every normal route transition.
+  // Recreating it leaves a moment with no resolved user while a protected
+  // route mounts, which used to redirect a valid Stripe/checkout session to
+  // Login before the new INITIAL_SESSION event arrived.
+  }, [fetchProfile, isCredentialCallback, logEvent, navigate]);
 
   const signUp = useCallback(async (email: string, password: string, name: string, phone?: string, legalAcceptance?: SignupLegalAcceptance) => {
     try {
@@ -473,6 +480,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     profile,
     loading,
+    authInitialized,
     signUp,
     signIn,
     signInWithGoogle,
@@ -480,7 +488,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     updateProfile,
     updatePassword,
     resetPassword,
-  }), [user, profile, loading, signUp, signIn, signInWithGoogle, signOut, updateProfile, updatePassword, resetPassword]);
+  }), [user, profile, loading, authInitialized, signUp, signIn, signInWithGoogle, signOut, updateProfile, updatePassword, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

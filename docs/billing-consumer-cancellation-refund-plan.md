@@ -426,6 +426,21 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 
 ### Backlog descoberto na validação Live
 
+- [x] Corrigir o desvio transitório para Login nas navegações protegidas de
+  Checkout e no retorno do Customer Portal. O `AuthProvider` não recria mais a
+  inscrição de sessão em toda troca de rota normal, e `ProtectedRoute` espera
+  a resolução explícita da primeira sessão antes de decidir redirecionar. A
+  correção possui teste de rota protegida para sessão pendente, ausente e
+  autenticada; ainda requer nova conferência no navegador autenticado do aluno.
+- [x] Explicar o propósito do Customer Portal durante a janela de
+  arrependimento. A conta continua permitindo cartão e faturas, mas o CTA passa
+  a se chamar `Gerenciar cartão e faturas` e declara que `Cancelar assinatura`
+  na Stripe só interrompe a próxima renovação, sem reembolso. A desistência
+  com reembolso permanece no CTA próprio do sistema.
+- [x] Exibir a mudança mensal para anual como indisponível de forma explicada
+  durante a janela de arrependimento. A troca só pode ser agendada depois do
+  prazo informado, evitando duas alterações contratuais simultâneas; após o
+  prazo, o agendamento via Stripe Subscription Schedule volta a aparecer.
 - [x] Corrigir a navegação interna dos documentos legais: links apresentados em
   cadastro e Checkout agora permanecem na mesma aba, e o botão `Voltar` retorna
   ao fluxo de origem pela rota anterior, em vez de forçar a landing page. A logo

@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   useStripePortal: vi.fn(),
   useStripeWithdrawal: vi.fn(),
   useStripeWithdrawalResultEmail: vi.fn(),
+  useScheduleStripeAnnualPlanChange: vi.fn(),
+  useCancelStripeScheduledPlanChange: vi.fn(),
   useUserRole: vi.fn(),
 }));
 
@@ -20,6 +22,8 @@ vi.mock('@/features/billing/hooks/useStripeBilling', () => ({
   useStripePortal: mocks.useStripePortal,
   useStripeWithdrawal: mocks.useStripeWithdrawal,
   useStripeWithdrawalResultEmail: mocks.useStripeWithdrawalResultEmail,
+  useScheduleStripeAnnualPlanChange: mocks.useScheduleStripeAnnualPlanChange,
+  useCancelStripeScheduledPlanChange: mocks.useCancelStripeScheduledPlanChange,
 }));
 
 vi.mock('@/features/billing/legal/billingLegalDocuments', async (importOriginal) => {
@@ -27,6 +31,7 @@ vi.mock('@/features/billing/legal/billingLegalDocuments', async (importOriginal)
   return {
     ...original,
     isBillingWithdrawalEnabled: () => true,
+    isBillingPlanChangeEnabled: () => true,
   };
 });
 
@@ -157,6 +162,18 @@ describe('AccountSubscription', () => {
       isError: false,
       error: null,
       data: undefined,
+    });
+    mocks.useScheduleStripeAnnualPlanChange.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
+    });
+    mocks.useCancelStripeScheduledPlanChange.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+      error: null,
     });
     mocks.useStripeCatalog.mockReturnValue({
       data: [
@@ -312,7 +329,9 @@ describe('AccountSubscription', () => {
 
     expect(screen.getByText('Direito de arrependimento')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /desistir da assinatura e pedir reembolso/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /gerenciar pagamento/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /gerenciar cartão e faturas/i })).toBeInTheDocument();
+    expect(screen.getByText(/o cancelamento no portal Stripe interrompe apenas a próxima renovação/i)).toBeInTheDocument();
+    expect(screen.getByText(/plano anual disponível após o prazo de arrependimento/i)).toBeInTheDocument();
   });
 
   it('keeps billing lookup failures recoverable without exposing provider internals', () => {
