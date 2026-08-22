@@ -76,12 +76,27 @@ export interface AdminBillingOperation {
   error_code: string | null;
 }
 
+export interface AdminCustomerPortalPolicy {
+  livemode: boolean;
+  configured: boolean;
+  cancellation: {
+    enabled: boolean;
+    mode: 'at_period_end' | 'immediately';
+    proration_behavior: 'none' | 'create_prorations' | 'always_invoice';
+  } | null;
+  invoice_history_enabled: boolean;
+  payment_method_update_enabled: boolean;
+  subscription_update_enabled: boolean;
+  subscription_update_allowed: string[];
+}
+
 type AdminBillingAction =
   | 'list'
   | 'grant_manual_access'
   | 'revoke_manual_access'
   | 'list_refund_requests'
   | 'list_operation_timeline'
+  | 'get_customer_portal_policy'
   | 'reconcile_refund_request';
 
 const messages: Record<string, string> = {
@@ -127,6 +142,9 @@ export const listAdminRefundRequests = async () =>
 
 export const listAdminBillingOperations = async () =>
   await invoke<{ livemode: boolean; events: AdminBillingOperation[] }>('list_operation_timeline');
+
+export const getAdminCustomerPortalPolicy = async () =>
+  await invoke<AdminCustomerPortalPolicy>('get_customer_portal_policy');
 
 export const reconcileAdminRefundRequest = async ({
   refundRequestId,

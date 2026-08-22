@@ -406,6 +406,10 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   informa que não haverá nova cobrança, que nenhum reembolso foi solicitado e
   apresenta a data até a qual o acesso pago continua.
 - [ ] Revisar configuração do Customer Portal para não conflitar com o fluxo.
+  A área administrativa passou a expor uma leitura sanitizada da configuração
+  padrão efetivamente usada no ambiente atual: cancelamento, faturas/cartão e
+  troca de plano. Falta conferir o resultado Live e corrigir a configuração da
+  Stripe somente se houver divergência.
 - [ ] Definir e implementar contrato/arrependimento de mensal para anual.
 - [ ] Tratar pedidos relacionados a renovação automática sem decisão silenciosa.
 

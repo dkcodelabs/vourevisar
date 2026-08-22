@@ -3,6 +3,7 @@ import { Calendar, Crown, Loader2, RefreshCw, Search, Shield, User, UserCheck, X
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AdminBillingRefundQueue } from '@/features/billing/components/AdminBillingRefundQueue';
+import { AdminCustomerPortalPolicy } from '@/features/billing/components/AdminCustomerPortalPolicy';
 import { AdminBillingOperationTimeline } from '@/features/billing/components/AdminBillingOperationTimeline';
 import {
   useAdminBillingUsers,
@@ -127,6 +128,7 @@ const SubscriptionManagement = () => {
 
       {isBillingWithdrawalAdminEnabled() && <AdminBillingRefundQueue />}
 
+      <AdminCustomerPortalPolicy />
       <AdminBillingOperationTimeline />
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">

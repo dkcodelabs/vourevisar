@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   grantManualBillingAccess,
+  getAdminCustomerPortalPolicy,
   listAdminBillingOperations,
   listAdminRefundRequests,
   listAdminBillingUsers,
@@ -12,6 +13,7 @@ import {
 const adminBillingKey = ['admin-billing-users'] as const;
 const adminRefundRequestsKey = ['admin-billing-refund-requests'] as const;
 const adminBillingOperationsKey = ['admin-billing-operations'] as const;
+const adminCustomerPortalPolicyKey = ['admin-customer-portal-policy'] as const;
 
 export const useAdminBillingUsers = () =>
   useQuery({ queryKey: adminBillingKey, queryFn: listAdminBillingUsers, staleTime: 30_000 });
@@ -45,6 +47,14 @@ export const useAdminBillingOperations = () =>
   useQuery({
     queryKey: adminBillingOperationsKey,
     queryFn: listAdminBillingOperations,
+    staleTime: 15_000,
+    retry: false,
+  });
+
+export const useAdminCustomerPortalPolicy = () =>
+  useQuery({
+    queryKey: adminCustomerPortalPolicyKey,
+    queryFn: getAdminCustomerPortalPolicy,
     staleTime: 15_000,
     retry: false,
   });

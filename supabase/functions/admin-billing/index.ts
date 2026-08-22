@@ -21,6 +21,7 @@ type AdminBillingAction =
   | "revoke_manual_access"
   | "list_refund_requests"
   | "list_operation_timeline"
+  | "get_customer_portal_policy"
   | "reconcile_refund_request";
 type PlanCode = "free_trial" | "monthly" | "annual";
 type BillingSubscriptionRow = {
@@ -400,6 +401,47 @@ const listOperationTimeline = async (
     .slice(0, 200);
 };
 
+const getCustomerPortalPolicy = async (livemode: boolean) => {
+  const stripe = createStripeClient();
+  const configurations = await stripe.billingPortal.configurations.list({
+    active: true,
+    limit: 100,
+  });
+  // stripe-create-portal does not pin a configuration ID. Stripe therefore
+  // uses the active default configuration for this exact account/mode.
+  const configuration = configurations.data.find((candidate) =>
+    candidate.is_default && candidate.livemode === livemode
+  );
+
+  if (!configuration) {
+    return {
+      livemode,
+      configured: false,
+      cancellation: null,
+      invoice_history_enabled: false,
+      payment_method_update_enabled: false,
+      subscription_update_enabled: false,
+      subscription_update_allowed: [] as string[],
+    };
+  }
+
+  const cancellation = configuration.features.subscription_cancel;
+  const subscriptionUpdate = configuration.features.subscription_update;
+  return {
+    livemode,
+    configured: true,
+    cancellation: {
+      enabled: cancellation.enabled,
+      mode: cancellation.mode,
+      proration_behavior: cancellation.proration_behavior,
+    },
+    invoice_history_enabled: configuration.features.invoice_history.enabled,
+    payment_method_update_enabled: configuration.features.payment_method_update.enabled,
+    subscription_update_enabled: subscriptionUpdate.enabled,
+    subscription_update_allowed: subscriptionUpdate.default_allowed_updates,
+  };
+};
+
 const cancelWithdrawalSubscription = async (
   supabase: ReturnType<typeof createServiceClient>,
   stripe: Stripe,
@@ -682,6 +724,10 @@ Deno.serve(async (request) => {
         livemode,
         events: await listOperationTimeline(supabase, livemode),
       });
+    }
+
+    if (action === "get_customer_portal_policy") {
+      return jsonResponse(request, await getCustomerPortalPolicy(livemode));
     }
 
     if (action === "reconcile_refund_request") {
