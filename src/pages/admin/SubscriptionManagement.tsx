@@ -160,7 +160,13 @@ const SubscriptionManagement = () => {
         <div className="divide-y divide-black/5 px-4 pb-2 dark:divide-white/5">
           {filteredUsers.map((user) => {
             const processing = isMutatingUser === user.id;
-            const accessDateLabel = user.cancel_at_period_end ? 'Acesso até' : user.source === 'stripe' ? 'Próxima renovação' : 'Acesso até';
+            const accessDateLabel = !user.is_active && user.source === 'stripe'
+              ? 'Assinatura encerrada em'
+              : user.cancel_at_period_end
+                ? 'Acesso até'
+                : user.source === 'stripe'
+                  ? 'Próxima renovação'
+                  : 'Acesso até';
             return (
               <div key={user.id} className="my-1 flex flex-col gap-4 rounded-2xl p-4 transition-colors hover:bg-black/5 dark:hover:bg-white/5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-4">

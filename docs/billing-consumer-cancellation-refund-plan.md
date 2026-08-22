@@ -431,12 +431,15 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   aluno, valor, estado e erro sanitizado. A área do aluno continua exibindo
   somente a própria assinatura e seu histórico, sem IDs Stripe, e-mails de
   entrega ou ações internas.
-  - [ ] Expor uma projeção somente-leitura pela Edge Function `admin-billing`,
+  - [x] Expor uma projeção somente-leitura pela Edge Function `admin-billing`,
     com autorização de owner/admin, dados mínimos de aluno e sem payloads ou IDs
-    da Stripe no navegador.
-  - [ ] Criar componente próprio na área administrativa, separado da fila de
-    reconciliação, com filtro por ambiente e estado; não transformar
-    `SubscriptionManagement.tsx` em página-monólito.
+    da Stripe no navegador. Publicado como `list_operation_timeline`, isolado
+    pelo `livemode` atual do backend.
+  - [x] Criar componente próprio na área administrativa, separado da fila de
+    reconciliação, com identificação do ambiente atual e filtro de atenção; não transformar
+    `SubscriptionManagement.tsx` em página-monólito. A leitura Live por uma
+    sessão owner confirmou a sequência pagamento, arrependimento, cancelamento
+    imediato e reembolso para as validações controladas.
   - [ ] Homologar com compra, cancelamento normal, arrependimento/reembolso,
     falha e ação administrativa reais/controladas antes de considerar a linha
     do tempo fonte operacional confiável.
