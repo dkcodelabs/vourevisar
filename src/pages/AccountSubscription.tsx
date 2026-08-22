@@ -16,6 +16,7 @@ import { AccountNavigation } from '@/components/account/AccountNavigation';
 import { BillingArtwork } from '@/features/billing/components/BillingArtwork';
 import { BillingInvoiceHistory } from '@/features/billing/components/BillingInvoiceHistory';
 import { BillingWithdrawalPanel } from '@/features/billing/components/BillingWithdrawalPanel';
+import { ScheduledAnnualPlanChange } from '@/features/billing/components/ScheduledAnnualPlanChange';
 import {
   useStripeBillingOverview,
   useStripeCatalog,
@@ -29,9 +30,13 @@ import {
 import { buildStripePricingPlans } from '@/features/billing/utils/catalogPricing';
 import { getAccountSubscriptionState } from '@/features/billing/utils/accountSubscriptionState';
 import { useUserRole } from '@/hooks/useUserRole';
-import { isBillingWithdrawalEnabled } from '@/features/billing/legal/billingLegalDocuments';
+import {
+  isBillingPlanChangeEnabled,
+  isBillingWithdrawalEnabled,
+} from '@/features/billing/legal/billingLegalDocuments';
 
 const withdrawalEnabled = isBillingWithdrawalEnabled();
+const planChangeEnabled = isBillingPlanChangeEnabled();
 
 const formatDate = (value: string | null | undefined) =>
   value
@@ -52,14 +57,17 @@ const planNames = {
 const AccountSubscription = () => {
   const reduceMotion = useReducedMotion();
   const overview = useStripeBillingOverview();
+  const data = overview.data;
+  const subscription = data?.subscription;
   const catalog = useStripeCatalog(Boolean(
-    overview.data?.is_active &&
-    (overview.data.plan === 'free_trial' || overview.data.source === 'trial'),
+    data?.is_active && (
+      data.plan === 'free_trial' ||
+      data.source === 'trial' ||
+      (planChangeEnabled && data.source === 'stripe' && subscription?.plan === 'monthly')
+    ),
   ));
   const portal = useStripePortal();
   const { isAdmin, isOwner, loading: roleLoading } = useUserRole();
-  const data = overview.data;
-  const subscription = data?.subscription;
   const invoiceHistory = useStripeInvoiceHistory(Boolean(subscription?.status === 'canceled'));
 
   const handleOpenPortal = async () => {
@@ -110,6 +118,10 @@ const AccountSubscription = () => {
   const pageState = getAccountSubscriptionState(data, hasInternalAccess);
   const isComplimentaryAccess = data.plan === 'free_trial' || data.source === 'trial';
   const pricingPlans = buildStripePricingPlans(catalog.data);
+  const annualCatalogPlan = catalog.data?.find((plan) => plan.code === 'annual');
+  const annualPriceLabel = annualCatalogPlan
+    ? formatBillingPrice(annualCatalogPlan.amountCents, annualCatalogPlan.currency)
+    : null;
   const showsTrialOffer = pageState.kind === 'trial' && data.is_active && isComplimentaryAccess;
   const portalErrorMessage = portal.isError
     ? getSafeBillingErrorMessage(
@@ -226,6 +238,18 @@ const AccountSubscription = () => {
               amountLabel={formatBillingPrice(subscription.amount_cents, subscription.currency)}
             />
           )}
+          {planChangeEnabled &&
+            activeStripeSubscription?.plan === 'monthly' &&
+            !activeStripeSubscription.cancel_at_period_end &&
+            !activeStripeSubscription.cancel_at &&
+            !data.withdrawal?.eligible &&
+            activeStripeSubscription.current_period_end && (
+              <ScheduledAnnualPlanChange
+                currentPeriodEnd={activeStripeSubscription.current_period_end}
+                scheduled={activeStripeSubscription.scheduled_plan === 'annual'}
+                annualPriceLabel={annualPriceLabel}
+              />
+            )}
           {showsTrialOffer ? (
             <TrialConversionOffer plans={pricingPlans} isLoading={catalog.isLoading} />
           ) : (

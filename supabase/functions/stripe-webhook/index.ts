@@ -12,6 +12,7 @@ import {
 } from "../_shared/stripeBilling.ts";
 import {
   sendBillingOperationsAlert,
+  sendPlanChangeConfirmation,
   sendSubscriptionConfirmation,
   sendWithdrawalResultEmail,
 } from "../_shared/billingEmail.ts";
@@ -210,7 +211,7 @@ const syncSubscription = async (
   ]);
   if (!acceptedStatuses.has(status)) throw new Error("stripe_subscription_status_unknown");
 
-  const { error } = await supabase
+  const { data: localSubscription, error } = await supabase
     .from("billing_subscriptions")
     .upsert(
       {
@@ -237,11 +238,100 @@ const syncSubscription = async (
         provider_created_at: fromUnixSeconds(subscription.created),
         last_event_created_at: eventCreatedAt,
       },
-      { onConflict: "stripe_subscription_id" },
-    );
+    { onConflict: "stripe_subscription_id" },
+  )
+    .select("id")
+    .single();
 
   if (error) throw error;
+
+  // A Subscription Schedule remains attached during the first annual period.
+  // The price transition, not a client redirect, is the authority that an
+  // existing monthly-to-annual request became effective.
+  if (planCode === "annual" && localSubscription?.id) {
+    const { data: appliedChange, error: appliedChangeError } = await supabase
+      .from("billing_plan_change_requests")
+      .update({ status: "applied", applied_at: new Date().toISOString(), error_code: null })
+      .eq("billing_subscription_id", localSubscription.id)
+      .eq("livemode", livemode)
+      .eq("from_plan_code", "monthly")
+      .eq("to_plan_code", "annual")
+      .eq("status", "scheduled")
+      .select("id")
+      .maybeSingle();
+    if (appliedChangeError) throw appliedChangeError;
+
+    if (appliedChange) {
+      const { error: clearScheduledPlanError } = await supabase
+        .from("billing_subscriptions")
+        .update({ scheduled_plan_code: null })
+        .eq("id", localSubscription.id);
+      if (clearScheduledPlanError) throw clearScheduledPlanError;
+    }
+  }
   return "processed";
+};
+
+const releaseScheduledPlanChangeForCancellation = async (
+  supabase: ServiceClient,
+  stripe: Stripe,
+  subscription: Stripe.Subscription,
+  livemode: boolean,
+  eventId: string,
+) => {
+  if (!subscription.cancel_at_period_end && !subscription.cancel_at) return;
+
+  const { data: localSubscription, error: localSubscriptionError } = await supabase
+    .from("billing_subscriptions")
+    .select("id")
+    .eq("stripe_subscription_id", subscription.id)
+    .maybeSingle();
+  if (localSubscriptionError) throw localSubscriptionError;
+  if (!localSubscription) return;
+
+  const { data: planChange, error: planChangeError } = await supabase
+    .from("billing_plan_change_requests")
+    .select("id,stripe_schedule_id")
+    .eq("billing_subscription_id", localSubscription.id)
+    .eq("livemode", livemode)
+    .eq("status", "scheduled")
+    .maybeSingle();
+  if (planChangeError) throw planChangeError;
+  if (!planChange?.stripe_schedule_id) return;
+
+  const schedule = await stripe.subscriptionSchedules.retrieve(planChange.stripe_schedule_id);
+  if (schedule.livemode !== livemode) throw new Error("plan_change_schedule_mode_mismatch");
+  if (schedule.status === "active" || schedule.status === "not_started") {
+    await stripe.subscriptionSchedules.release(
+      schedule.id,
+      { preserve_cancel_date: true },
+      { idempotencyKey: `billing-plan-change:webhook-release:v1:${livemode ? "live" : "test"}:${eventId}` },
+    );
+  }
+
+  const now = new Date().toISOString();
+  const { error: requestUpdateError } = await supabase
+    .from("billing_plan_change_requests")
+    .update({ status: "canceled", canceled_at: now, error_code: null })
+    .eq("id", planChange.id)
+    .eq("status", "scheduled");
+  if (requestUpdateError) throw requestUpdateError;
+
+  const { error: subscriptionUpdateError } = await supabase
+    .from("billing_subscriptions")
+    .update({ scheduled_plan_code: null, stripe_schedule_id: null })
+    .eq("id", localSubscription.id);
+  if (subscriptionUpdateError) throw subscriptionUpdateError;
+
+  try {
+    await sendBillingOperationsAlert({
+      eventKey: `plan-change-canceled-by-subscription:${planChange.id}`,
+      title: "Troca para plano anual desfeita por cancelamento da renovação",
+      details: [{ label: "Status", value: "Mensal encerra no fim do período pago" }],
+    });
+  } catch (error) {
+    console.error("[stripe-webhook] operations_alert_failed", { code: safeErrorCode(error), event_id: eventId });
+  }
 };
 
 const syncSubscriptionById = async (
@@ -520,6 +610,83 @@ const sendFirstPaymentConfirmation = async (
   }
 };
 
+const sendScheduledPlanChangeConfirmation = async (
+  supabase: ServiceClient,
+  stripe: Stripe,
+  invoice: Stripe.Invoice,
+  eventId: string,
+  livemode: boolean,
+) => {
+  if (invoice.billing_reason === "subscription_create") return;
+
+  const subscriptionId = getInvoiceSubscriptionId(invoice);
+  const customerId = getExpandableId(invoice.customer);
+  const email = invoice.customer_email?.trim();
+  if (!subscriptionId || !customerId || !email) return;
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+    expand: ["items.data.price"],
+  });
+  const item = subscription.items.data[0];
+  if (!item || getPlanFromPriceId(item.price.id) !== "annual") return;
+
+  const { data: localSubscription, error: localSubscriptionError } = await supabase
+    .from("billing_subscriptions")
+    .select("id,user_id")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+  if (localSubscriptionError) throw localSubscriptionError;
+  if (!localSubscription) return;
+
+  const { data: change, error: changeError } = await supabase
+    .from("billing_plan_change_requests")
+    .select("id,terms_version,privacy_version,refund_policy_version,accepted_at,confirmation_email_sent_at")
+    .eq("billing_subscription_id", localSubscription.id)
+    .eq("user_id", localSubscription.user_id)
+    .eq("livemode", livemode)
+    .eq("status", "applied")
+    .is("confirmation_email_sent_at", null)
+    .maybeSingle();
+  if (changeError) throw changeError;
+  if (!change) return;
+
+  const customer = await stripe.customers.retrieve(customerId);
+  const customerName = !("deleted" in customer && customer.deleted)
+    ? customer.name ?? null
+    : null;
+  await sendPlanChangeConfirmation({
+    eventId,
+    email,
+    customerName,
+    amountCents: invoice.amount_paid,
+    currency: invoice.currency,
+    periodEnd: item.current_period_end ? new Date(item.current_period_end * 1000) : null,
+    contract: {
+      termsVersion: change.terms_version,
+      privacyVersion: change.privacy_version,
+      refundPolicyVersion: change.refund_policy_version,
+      acceptedAt: new Date(change.accepted_at),
+    },
+  });
+
+  const { error: emailUpdateError } = await supabase
+    .from("billing_plan_change_requests")
+    .update({ confirmation_email_sent_at: new Date().toISOString() })
+    .eq("id", change.id)
+    .is("confirmation_email_sent_at", null);
+  if (emailUpdateError) throw emailUpdateError;
+
+  try {
+    await sendBillingOperationsAlert({
+      eventKey: `plan-change-paid:${change.id}`,
+      title: "Plano anual confirmado",
+      details: [{ label: "Valor", value: new Intl.NumberFormat("pt-BR", { style: "currency", currency: invoice.currency.toUpperCase() }).format(invoice.amount_paid / 100) }],
+    });
+  } catch (error) {
+    console.error("[stripe-webhook] operations_alert_failed", { code: safeErrorCode(error), event_id: eventId });
+  }
+};
+
 Deno.serve(async (request) => {
   if (request.method !== "POST") {
     return new Response(null, { status: 405, headers: { "Allow": "POST" } });
@@ -677,6 +844,15 @@ Deno.serve(async (request) => {
           event.livemode,
         );
         processingStatus = result.startsWith("ignored") ? "ignored" : "processed";
+        if (event.type === "customer.subscription.updated") {
+          await releaseScheduledPlanChangeForCancellation(
+            supabase,
+            stripe,
+            stripeSubscription,
+            event.livemode,
+            event.id,
+          );
+        }
         if (event.type === "customer.subscription.updated" && stripeSubscription.cancel_at_period_end) {
           try {
             await sendBillingOperationsAlert({
@@ -706,6 +882,13 @@ Deno.serve(async (request) => {
         if (event.type === "invoice.paid") {
           try {
             await sendFirstPaymentConfirmation(
+              supabase,
+              stripe,
+              invoice,
+              event.id,
+              event.livemode,
+            );
+            await sendScheduledPlanChangeConfirmation(
               supabase,
               stripe,
               invoice,

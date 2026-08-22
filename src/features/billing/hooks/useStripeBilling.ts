@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   acceptStripeContract,
+  cancelStripeScheduledPlanChange,
   createStripePortal,
   ensureStripeWithdrawalResultEmail,
   getStripeBillingOverview,
   getStripeInvoiceHistory,
   getStripeCatalog,
   requestStripeWithdrawal,
+  scheduleStripeAnnualPlanChange,
 } from '@/features/billing/services/stripeBillingService';
 
 export const stripeBillingKeys = {
@@ -84,3 +86,25 @@ export const useStripeWithdrawalResultEmail = () =>
   useMutation({
     mutationFn: ensureStripeWithdrawalResultEmail,
   });
+
+export const useScheduleStripeAnnualPlanChange = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: scheduleStripeAnnualPlanChange,
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: stripeBillingKeys.overview(), type: 'active' });
+    },
+  });
+};
+
+export const useCancelStripeScheduledPlanChange = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: cancelStripeScheduledPlanChange,
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: stripeBillingKeys.overview(), type: 'active' });
+    },
+  });
+};

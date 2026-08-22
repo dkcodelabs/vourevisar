@@ -44,6 +44,22 @@ const errorMessages: Record<string, string> = {
   withdrawal_result_not_found: 'Não encontramos um resultado de cancelamento para enviar.',
   withdrawal_email_missing: 'Sua conta não possui um e-mail válido para receber este comprovante.',
   withdrawal_email_send_failed: 'Não conseguimos enviar o comprovante agora. Tente novamente em alguns instantes.',
+  plan_change_not_enabled: 'A troca de plano está temporariamente indisponível enquanto finalizamos uma atualização de segurança.',
+  invalid_plan_change_request: 'Não conseguimos identificar esta troca de plano. Recarregue a página e tente novamente.',
+  plan_change_contract_version_outdated: 'Os documentos desta contratação foram atualizados. Recarregue a página antes de continuar.',
+  plan_change_subscription_not_found: 'Não encontramos uma assinatura ativa para esta troca.',
+  plan_change_monthly_subscription_required: 'A troca para anual está disponível somente para uma assinatura mensal ativa.',
+  plan_change_renewal_already_canceled: 'Sua renovação já foi cancelada. O plano anual poderá ser escolhido ao fim do período atual.',
+  plan_change_request_in_progress: 'Uma troca de plano já está sendo preparada. Aguarde alguns segundos.',
+  plan_change_request_not_open: 'Esta solicitação de troca não está mais disponível. Recarregue a página e tente novamente.',
+  plan_change_subscription_mismatch: 'Não conseguimos confirmar a assinatura atual. Nenhuma alteração foi feita.',
+  plan_change_subscription_unsupported: 'Esta assinatura não pode ser alterada automaticamente. Fale com o suporte para análise.',
+  plan_change_period_unavailable: 'O período atual está sendo atualizado. Aguarde alguns instantes e tente novamente.',
+  plan_change_conflict: 'Já existe uma alteração agendada para esta assinatura. Recarregue a página para ver os detalhes.',
+  plan_change_schedule_mismatch: 'Não conseguimos preparar a troca com segurança. Nenhuma cobrança foi criada.',
+  plan_change_mode_mismatch: 'Os dados desta assinatura não correspondem a este ambiente. Nenhuma alteração foi feita.',
+  plan_change_not_scheduled: 'Não há uma troca de plano agendada para desfazer.',
+  plan_change_not_reversible: 'Esta troca já está em andamento ou foi concluída. Recarregue a página para ver o plano atual.',
 };
 
 const fallbackBillingMessage =
@@ -111,6 +127,24 @@ export const requestStripeWithdrawal = async (requestId: string) =>
 export const ensureStripeWithdrawalResultEmail = async () =>
   invokeBillingFunction<BillingWithdrawalEmailResult>('stripe-request-withdrawal', {
     action: 'ensure_result_email',
+  });
+
+export type BillingPlanChangeResult = {
+  scheduled: boolean;
+  reused?: boolean;
+  effectiveAt: string;
+};
+
+export const scheduleStripeAnnualPlanChange = (requestId: string) =>
+  invokeBillingFunction<BillingPlanChangeResult>('stripe-schedule-plan-change', {
+    action: 'schedule_annual',
+    requestId,
+    ...billingContractVersions,
+  });
+
+export const cancelStripeScheduledPlanChange = () =>
+  invokeBillingFunction<BillingPlanChangeResult>('stripe-schedule-plan-change', {
+    action: 'cancel_scheduled_change',
   });
 
 export const getStripeInvoiceHistory = async (): Promise<BillingInvoiceHistoryItem[]> => {

@@ -182,6 +182,7 @@ const Planos = () => {
           loading={catalog.isLoading || billing.isLoading}
           currentPlan={currentPlan}
           annualUpgradeBlocked={annualUpgradeBlocked}
+          annualUpgradeScheduled={subscription?.scheduled_plan === 'annual'}
           renewalCanceled={renewalCanceled}
         />
         )}

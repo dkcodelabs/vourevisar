@@ -150,6 +150,58 @@ export const sendSubscriptionConfirmation = async ({
   });
 };
 
+/**
+ * The annual schedule has its own acceptance record. Send this once when the
+ * first annual invoice is paid; it is not a generic renewal receipt.
+ */
+export const sendPlanChangeConfirmation = async ({
+  eventId,
+  email,
+  customerName,
+  amountCents,
+  currency,
+  periodEnd,
+  contract,
+}: Omit<SubscriptionConfirmation, "planLabel">) => {
+  const appUrl = requireEnv("APP_URL").replace(/\/$/, "");
+  const recipient = escapeHtml(email);
+  const greeting = escapeHtml(customerName?.trim() || "Olá");
+  const amount = escapeHtml(formatAmount(amountCents, currency));
+  const period = periodEnd
+    ? escapeHtml(new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(periodEnd))
+    : "não informado";
+  const contractSummary = contract
+    ? `
+      <div style="background:#f6f3ff;border-radius:12px;padding:16px;margin:20px 0">
+        <p style="margin:0 0 8px"><strong>Confirmação da alteração</strong></p>
+        <p style="margin:0;font-size:14px">Aceite registrado em ${escapeHtml(new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeStyle: "short" }).format(contract.acceptedAt))}.</p>
+        <p style="margin:8px 0 0;font-size:13px;color:#555">
+          <a href="${appUrl}/termos">Termos de Uso ${escapeHtml(contract.termsVersion)}</a> ·
+          <a href="${appUrl}/privacidade">Privacidade ${escapeHtml(contract.privacyVersion)}</a> ·
+          <a href="${appUrl}/cancelamento-e-reembolso">Cancelamento e Reembolso ${escapeHtml(contract.refundPolicyVersion)}</a>
+        </p>
+      </div>
+    `
+    : "";
+
+  await sendBillingEmail({
+    email,
+    subject: "Plano anual confirmado — vouRevisar",
+    idempotencyKey: `stripe-plan-change:${eventId}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f2040;max-width:600px;margin:auto">
+        <h1>Seu plano anual está confirmado</h1>
+        <p>${greeting}, a Stripe confirmou o pagamento da mudança para o plano anual.</p>
+        <p><strong>Plano anual</strong><br>Valor: <strong>${amount}</strong><br>Próxima renovação prevista em: ${period}</p>
+        <p>Não houve segunda assinatura: sua assinatura mensal foi substituída no fim do período já pago.</p>
+        ${contractSummary}
+        <p><a href="${appUrl}/conta/assinatura" style="display:inline-block;background:#5b45f5;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">Ver minha assinatura</a></p>
+        <p style="font-size:13px;color:#666">Você recebeu este e-mail em ${recipient} porque confirmou uma alteração de plano no vouRevisar.</p>
+      </div>
+    `,
+  });
+};
+
 type WithdrawalEmail = {
   requestId: string;
   email: string;

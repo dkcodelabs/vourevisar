@@ -410,7 +410,14 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   configuração padrão da Stripe: cancelamento ativo ao fim do período pago,
   faturas e atualização de cartão habilitadas e troca de plano bloqueada. Não
   houve alteração na Stripe durante a auditoria.
-- [ ] Definir e implementar contrato/arrependimento de mensal para anual.
+- [ ] Homologar a troca mensal para anual com uma assinatura controlada antes
+  de ativar a feature flag. A implementação usa Stripe Subscription Schedules:
+  mantém o mensal até o fim do período pago, inicia o anual sem cobrança hoje,
+  registra um aceite versionado privado e permite desfazer a agenda. O webhook
+  também libera a agenda preservando a data de cancelamento se o aluno
+  cancelar a renovação depois no Customer Portal. Ainda falta decisão jurídica
+  sobre uma eventual nova janela de arrependimento da alteração contratual;
+  por isso a implementação não cria reembolso automático para a troca.
 - [ ] Tratar pedidos relacionados a renovação automática sem decisão silenciosa.
 
 ### Backlog descoberto na validação Live

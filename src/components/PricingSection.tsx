@@ -7,6 +7,7 @@ interface PricingSectionProps {
   loading?: boolean;
   currentPlan?: 'monthly' | 'annual' | null;
   annualUpgradeBlocked?: boolean;
+  annualUpgradeScheduled?: boolean;
   renewalCanceled?: boolean;
 }
 
@@ -28,6 +29,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
   loading,
   currentPlan = null,
   annualUpgradeBlocked = false,
+  annualUpgradeScheduled = false,
   renewalCanceled = false,
 }) => {
   
@@ -61,6 +63,8 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
       : `Assinar ${monthly.name}`;
   const annualButtonLabel = isAnnualCurrent
     ? 'Plano atual'
+    : annualUpgradeScheduled
+      ? 'Troca já agendada'
     : isAnnualDisabled
       ? 'Disponível após o plano atual'
       : `Assinar ${annual.name}`;
