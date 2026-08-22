@@ -499,6 +499,19 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   um segundo e-mail quando o envio já está registrado.
 - [x] Remover o botão secundário de histórico financeiro que apenas rolava para
   o card já visível na mesma página.
+- [ ] Eliminar a ambiguidade entre o cancelamento comum do Customer Portal e o
+  arrependimento legal: dentro da janela, o botão de gestão deve abrir somente
+  o deep link oficial de atualização de cartão da Stripe, sem navegação para o
+  cancelamento do Portal; fora da janela, o Portal completo continua sendo o
+  único caminho de cancelamento normal ao fim do período pago.
+- [ ] Corrigir o bootstrap de Auth ao retornar da Stripe: somente o evento
+  `INITIAL_SESSION` pode liberar uma rota protegida na primeira renderização;
+  eventos transitórios não podem encaminhar um usuário com sessão persistida
+  para `/login` antes da restauração.
+- [ ] Homologar falha de renovação em Stripe Test com cartão de recusa após
+  confirmar que o webhook recebe `invoice.payment_failed`, o aluno recebe
+  orientação para atualizar o cartão, a operação recebe alerta e o acesso
+  permanece/suspende conforme a política de retries configurada na Stripe.
 
 ### Fase 4 — homologação
 

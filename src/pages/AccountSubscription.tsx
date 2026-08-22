@@ -129,11 +129,11 @@ const AccountSubscription = () => {
     !activeStripeSubscription.cancel_at_period_end &&
     !activeStripeSubscription.cancel_at &&
     Boolean(activeStripeSubscription.current_period_end);
-  const portalTitle = withdrawalEligible ? 'Cartão e faturas' : pageState.asideTitle;
+  const portalTitle = withdrawalEligible ? 'Atualize seu cartão' : pageState.asideTitle;
   const portalDescription = withdrawalEligible
-    ? 'Para desistir desta contratação e pedir reembolso, use o cartão acima. Aqui você consulta faturas e atualiza o cartão. O cancelamento no portal Stripe interrompe apenas a próxima renovação e não gera reembolso.'
+    ? 'Durante o prazo de arrependimento, o único caminho para encerrar a assinatura é o pedido de desistência acima. Este botão abre somente a atualização de cartão na Stripe.'
     : pageState.asideDescription;
-  const portalActionLabel = withdrawalEligible ? 'Gerenciar cartão e faturas' : pageState.primaryActionLabel;
+  const portalActionLabel = withdrawalEligible ? 'Atualizar cartão' : pageState.primaryActionLabel;
   const portalErrorMessage = portal.isError
     ? getSafeBillingErrorMessage(
         portal.error,

@@ -329,8 +329,8 @@ describe('AccountSubscription', () => {
 
     expect(screen.getByText('Direito de arrependimento')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /desistir da assinatura e pedir reembolso/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /gerenciar cartão e faturas/i })).toBeInTheDocument();
-    expect(screen.getByText(/o cancelamento no portal Stripe interrompe apenas a próxima renovação/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /atualizar cartão/i })).toBeInTheDocument();
+    expect(screen.getByText(/único caminho para encerrar a assinatura é o pedido de desistência acima/i)).toBeInTheDocument();
     expect(screen.getByText(/plano anual disponível após o prazo de arrependimento/i)).toBeInTheDocument();
   });
 

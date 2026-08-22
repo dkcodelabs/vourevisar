@@ -13,6 +13,7 @@ import {
 import {
   sendBillingOperationsAlert,
   sendPlanChangeConfirmation,
+  sendSubscriptionPaymentFailedEmail,
   sendSubscriptionConfirmation,
   sendWithdrawalResultEmail,
 } from "../_shared/billingEmail.ts";
@@ -210,6 +211,23 @@ const syncSubscription = async (
     "paused",
   ]);
   if (!acceptedStatuses.has(status)) throw new Error("stripe_subscription_status_unknown");
+
+  // Checkout saves the first payment method on the Subscription. Mirror that
+  // verified active method to the Customer as well, so the Portal has one
+  // unambiguous default for future management. Subscription-level priority is
+  // still preserved for the actual renewal charge.
+  if (status === "active" && paymentMethodId) {
+    try {
+      await stripe.customers.update(stripeCustomerId, {
+        invoice_settings: { default_payment_method: paymentMethodId },
+      });
+    } catch (error) {
+      console.error("[stripe-webhook] customer_default_payment_method_sync_failed", {
+        code: safeErrorCode(error),
+        stripe_customer_id: stripeCustomerId,
+      });
+    }
+  }
 
   const { data: localSubscription, error } = await supabase
     .from("billing_subscriptions")
@@ -687,6 +705,54 @@ const sendScheduledPlanChangeConfirmation = async (
   }
 };
 
+const notifySubscriptionPaymentFailure = async (
+  stripe: Stripe,
+  invoice: Stripe.Invoice,
+  eventId: string,
+) => {
+  const customerId = getExpandableId(invoice.customer);
+  const amountCents = invoice.amount_due;
+  if (!customerId || amountCents <= 0) return;
+
+  const customer = await stripe.customers.retrieve(customerId);
+  if ("deleted" in customer && customer.deleted) return;
+  const email = invoice.customer_email?.trim() || customer.email?.trim();
+  const attemptCount = invoice.attempt_count ?? 1;
+
+  try {
+    await sendBillingOperationsAlert({
+      eventKey: `payment-failed:${eventId}`,
+      title: "Falha na cobrança recorrente",
+      details: [
+        { label: "Tentativa", value: String(attemptCount) },
+        { label: "Valor", value: new Intl.NumberFormat("pt-BR", { style: "currency", currency: invoice.currency.toUpperCase() }).format(amountCents / 100) },
+        { label: "Cliente", value: email ?? customerId },
+      ],
+    });
+  } catch (error) {
+    console.error("[stripe-webhook] operations_alert_failed", { code: safeErrorCode(error), event_id: eventId });
+  }
+
+  // Stripe Elements already gives immediate feedback while the initial
+  // checkout payment is on-screen. Renewal failures are off-session and need
+  // an explicit customer notification. Only the first failure of an invoice
+  // sends our email; later retry attempts stay visible operationally without
+  // spamming the student.
+  if (invoice.billing_reason === "subscription_create" || attemptCount > 1 || !email) return;
+
+  try {
+    await sendSubscriptionPaymentFailedEmail({
+      eventId,
+      email,
+      customerName: customer.name ?? null,
+      amountCents,
+      currency: invoice.currency,
+    });
+  } catch (error) {
+    console.error("[stripe-webhook] payment_failed_email_failed", { code: safeErrorCode(error), event_id: eventId });
+  }
+};
+
 Deno.serve(async (request) => {
   if (request.method !== "POST") {
     return new Response(null, { status: 405, headers: { "Allow": "POST" } });
@@ -901,6 +967,9 @@ Deno.serve(async (request) => {
               event_id: event.id,
             });
           }
+        }
+        if (event.type === "invoice.payment_failed") {
+          await notifySubscriptionPaymentFailure(stripe, invoice, event.id);
         }
         break;
       }

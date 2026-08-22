@@ -317,7 +317,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           } finally {
             if (isMounted) {
               setLoading(false);
-              setAuthInitialized(true);
+              // Only INITIAL_SESSION resolves the initial protected-route
+              // decision. Safari can emit a transient auth event while the
+              // persisted session is still being restored after returning
+              // from Stripe. Treating that event as boot completion sends a
+              // valid user to /login for one render before INITIAL_SESSION
+              // exposes the session.
+              if (event === 'INITIAL_SESSION') {
+                setAuthInitialized(true);
+              }
             }
           }
         }, 0);

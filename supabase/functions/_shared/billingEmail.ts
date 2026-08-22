@@ -202,6 +202,39 @@ export const sendPlanChangeConfirmation = async ({
   });
 };
 
+export const sendSubscriptionPaymentFailedEmail = async ({
+  eventId,
+  email,
+  customerName,
+  amountCents,
+  currency,
+}: {
+  eventId: string;
+  email: string;
+  customerName: string | null;
+  amountCents: number;
+  currency: string;
+}) => {
+  const appUrl = requireEnv("APP_URL").replace(/\/$/, "");
+  const greeting = escapeHtml(customerName?.trim() || "Olá");
+  const amount = escapeHtml(formatAmount(amountCents, currency));
+
+  await sendBillingEmail({
+    email,
+    subject: "Atualize seu cartão para manter o acesso — vouRevisar",
+    idempotencyKey: `subscription-payment-failed:${eventId}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1f2040;max-width:600px;margin:auto">
+        <h1>Não conseguimos processar sua renovação</h1>
+        <p>${greeting}, a cobrança de <strong>${amount}</strong> não foi aprovada.</p>
+        <p>Isso pode acontecer por cartão bloqueado, vencido, cartão virtual alterado ou uma nova autenticação solicitada pelo banco. Atualize a forma de pagamento para que a Stripe possa tentar novamente.</p>
+        <p><a href="${appUrl}/conta/assinatura" style="display:inline-block;background:#5b45f5;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">Atualizar pagamento</a></p>
+        <p style="font-size:13px;color:#666">Seus dados de estudo continuam salvos. Não crie uma nova assinatura para regularizar esta cobrança.</p>
+      </div>
+    `,
+  });
+};
+
 type WithdrawalEmail = {
   requestId: string;
   email: string;
