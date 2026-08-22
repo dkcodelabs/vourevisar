@@ -20,6 +20,7 @@ type AdminBillingAction =
   | "grant_manual_access"
   | "revoke_manual_access"
   | "list_refund_requests"
+  | "list_operation_timeline"
   | "reconcile_refund_request";
 type PlanCode = "free_trial" | "monthly" | "annual";
 type BillingSubscriptionRow = {
@@ -209,6 +210,194 @@ const listRefundRequests = async (
       processing_attempts: row.processing_attempts,
     };
   });
+};
+
+type TimelineEventType =
+  | "payment_confirmed"
+  | "renewal_cancel_scheduled"
+  | "subscription_canceled"
+  | "withdrawal_requested"
+  | "refund_succeeded"
+  | "refund_pending"
+  | "refund_failed"
+  | "refund_manual_review"
+  | "reconciliation_succeeded"
+  | "reconciliation_no_change"
+  | "reconciliation_failed";
+
+type TimelineEvent = {
+  id: string;
+  type: TimelineEventType;
+  occurred_at: string;
+  user_id: string;
+  user_email: string | null;
+  user_name: string | null;
+  plan: "monthly" | "annual" | null;
+  amount_cents: number | null;
+  currency: string | null;
+  status: string;
+  error_code: string | null;
+};
+
+const listOperationTimeline = async (
+  supabase: ReturnType<typeof createServiceClient>,
+  livemode: boolean,
+) => {
+  const [customersResult, contractsResult, refundsResult, actionsResult] = await Promise.all([
+    supabase.from("billing_customers").select("id").eq("livemode", livemode),
+    supabase
+      .from("billing_contract_acceptances")
+      .select("id,user_id,plan_code,amount_cents,currency,contracted_at")
+      .eq("livemode", livemode)
+      .not("contracted_at", "is", null)
+      .order("contracted_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("billing_refund_requests")
+      .select("id,user_id,billing_subscription_id,billing_contract_acceptance_id,status,requested_at,amount_cents,currency,error_code,processed_at,updated_at")
+      .eq("livemode", livemode)
+      .order("requested_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("billing_refund_admin_actions")
+      .select("id,billing_refund_request_id,status,request_status_before,request_status_after,error_code,created_at,finished_at")
+      .eq("livemode", livemode)
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
+  for (const result of [customersResult, contractsResult, refundsResult, actionsResult]) {
+    if (result.error) throw result.error;
+  }
+
+  const customerIds = (customersResult.data ?? []).map((row) => row.id);
+  const { data: subscriptions, error: subscriptionsError } = customerIds.length
+    ? await supabase
+      .from("billing_subscriptions")
+      .select("id,user_id,billing_customer_id,plan_code,status,amount_cents,currency,cancel_at,cancel_at_period_end,canceled_at,updated_at")
+      .in("billing_customer_id", customerIds)
+      .order("updated_at", { ascending: false })
+      .limit(100)
+    : { data: [], error: null };
+  if (subscriptionsError) throw subscriptionsError;
+
+  const contractsById = new Map((contractsResult.data ?? []).map((contract) => [contract.id, contract]));
+  const refundsById = new Map((refundsResult.data ?? []).map((refund) => [refund.id, refund]));
+  const userIds = new Set<string>();
+  for (const contract of contractsResult.data ?? []) userIds.add(contract.user_id);
+  for (const refund of refundsResult.data ?? []) userIds.add(refund.user_id);
+  for (const subscription of subscriptions ?? []) userIds.add(subscription.user_id);
+  const { data: profiles, error: profilesError } = userIds.size
+    ? await supabase.from("profiles").select("id,email,name").in("id", [...userIds])
+    : { data: [], error: null };
+  if (profilesError) throw profilesError;
+  const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+
+  const eventFor = (
+    type: TimelineEventType,
+    data: Omit<TimelineEvent, "type" | "user_email" | "user_name">,
+  ): TimelineEvent => {
+    const profile = profileById.get(data.user_id);
+    return { ...data, type, user_email: profile?.email ?? null, user_name: profile?.name ?? null };
+  };
+  const events: TimelineEvent[] = [];
+
+  for (const contract of contractsResult.data ?? []) {
+    if (!contract.contracted_at) continue;
+    events.push(eventFor("payment_confirmed", {
+      id: `contract:${contract.id}`,
+      occurred_at: contract.contracted_at,
+      user_id: contract.user_id,
+      plan: contract.plan_code,
+      amount_cents: contract.amount_cents,
+      currency: contract.currency,
+      status: "confirmed",
+      error_code: null,
+    }));
+  }
+
+  for (const subscription of subscriptions ?? []) {
+    if (subscription.status === "canceled") {
+      events.push(eventFor("subscription_canceled", {
+        id: `subscription-canceled:${subscription.id}`,
+        occurred_at: subscription.canceled_at ?? subscription.updated_at,
+        user_id: subscription.user_id,
+        plan: subscription.plan_code === "annual" ? "annual" : "monthly",
+        amount_cents: subscription.amount_cents,
+        currency: subscription.currency,
+        status: "canceled",
+        error_code: null,
+      }));
+    } else if (subscription.cancel_at_period_end || subscription.cancel_at) {
+      events.push(eventFor("renewal_cancel_scheduled", {
+        id: `subscription-scheduled-cancel:${subscription.id}`,
+        occurred_at: subscription.updated_at,
+        user_id: subscription.user_id,
+        plan: subscription.plan_code === "annual" ? "annual" : "monthly",
+        amount_cents: subscription.amount_cents,
+        currency: subscription.currency,
+        status: "scheduled",
+        error_code: null,
+      }));
+    }
+  }
+
+  for (const refund of refundsResult.data ?? []) {
+    const contract = contractsById.get(refund.billing_contract_acceptance_id);
+    const plan = contract?.plan_code === "annual" ? "annual" : contract?.plan_code === "monthly" ? "monthly" : null;
+    events.push(eventFor("withdrawal_requested", {
+      id: `withdrawal:${refund.id}`,
+      occurred_at: refund.requested_at,
+      user_id: refund.user_id,
+      plan,
+      amount_cents: refund.amount_cents,
+      currency: refund.currency,
+      status: refund.status,
+      error_code: null,
+    }));
+    const terminalType: Record<string, TimelineEventType | undefined> = {
+      succeeded: "refund_succeeded",
+      pending: "refund_pending",
+      failed: "refund_failed",
+      manual_review: "refund_manual_review",
+    };
+    const outcomeType = terminalType[refund.status];
+    if (outcomeType) {
+      events.push(eventFor(outcomeType, {
+        id: `refund:${refund.id}:${refund.status}`,
+        occurred_at: refund.processed_at ?? refund.updated_at,
+        user_id: refund.user_id,
+        plan,
+        amount_cents: refund.amount_cents,
+        currency: refund.currency,
+        status: refund.status,
+        error_code: refund.error_code,
+      }));
+    }
+  }
+
+  for (const action of actionsResult.data ?? []) {
+    const refund = refundsById.get(action.billing_refund_request_id);
+    if (!refund || !action.finished_at) continue;
+    const actionType: Record<string, TimelineEventType> = {
+      succeeded: "reconciliation_succeeded",
+      no_change: "reconciliation_no_change",
+      failed: "reconciliation_failed",
+    };
+    events.push(eventFor(actionType[action.status] ?? "reconciliation_failed", {
+      id: `reconciliation:${action.id}`,
+      occurred_at: action.finished_at,
+      user_id: refund.user_id,
+      plan: contractsById.get(refund.billing_contract_acceptance_id)?.plan_code ?? null,
+      amount_cents: refund.amount_cents,
+      currency: refund.currency,
+      status: action.request_status_after ?? action.request_status_before,
+      error_code: action.error_code,
+    }));
+  }
+
+  return events
+    .sort((left, right) => new Date(right.occurred_at).getTime() - new Date(left.occurred_at).getTime())
+    .slice(0, 200);
 };
 
 const cancelWithdrawalSubscription = async (
@@ -485,6 +674,13 @@ Deno.serve(async (request) => {
       }
       return jsonResponse(request, {
         refundRequests: await listRefundRequests(supabase, livemode),
+      });
+    }
+
+    if (action === "list_operation_timeline") {
+      return jsonResponse(request, {
+        livemode,
+        events: await listOperationTimeline(supabase, livemode),
       });
     }
 

@@ -49,11 +49,39 @@ export interface AdminRefundRequest {
   processing_attempts: number;
 }
 
+export type AdminBillingOperationType =
+  | 'payment_confirmed'
+  | 'renewal_cancel_scheduled'
+  | 'subscription_canceled'
+  | 'withdrawal_requested'
+  | 'refund_succeeded'
+  | 'refund_pending'
+  | 'refund_failed'
+  | 'refund_manual_review'
+  | 'reconciliation_succeeded'
+  | 'reconciliation_no_change'
+  | 'reconciliation_failed';
+
+export interface AdminBillingOperation {
+  id: string;
+  type: AdminBillingOperationType;
+  occurred_at: string;
+  user_id: string;
+  user_email: string | null;
+  user_name: string | null;
+  plan: 'monthly' | 'annual' | null;
+  amount_cents: number | null;
+  currency: string | null;
+  status: string;
+  error_code: string | null;
+}
+
 type AdminBillingAction =
   | 'list'
   | 'grant_manual_access'
   | 'revoke_manual_access'
   | 'list_refund_requests'
+  | 'list_operation_timeline'
   | 'reconcile_refund_request';
 
 const messages: Record<string, string> = {
@@ -96,6 +124,9 @@ export const revokeManualBillingAccess = async (userId: string) =>
 
 export const listAdminRefundRequests = async () =>
   (await invoke<{ refundRequests: AdminRefundRequest[] }>('list_refund_requests')).refundRequests;
+
+export const listAdminBillingOperations = async () =>
+  await invoke<{ livemode: boolean; events: AdminBillingOperation[] }>('list_operation_timeline');
 
 export const reconcileAdminRefundRequest = async ({
   refundRequestId,
