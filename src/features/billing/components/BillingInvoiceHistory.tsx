@@ -35,7 +35,7 @@ export const BillingInvoiceHistory = ({ invoices, isLoading, isError }: BillingI
       <div>
         <h2 className="text-lg font-black tracking-[-0.025em] text-[#211a35]">Histórico financeiro</h2>
         <p className="mt-1 text-sm font-medium leading-6 text-[#6d657d]">
-          Cobranças anteriores para consulta. Para retomar o acesso, escolha um novo plano.
+          Consulte as cobranças e os reembolsos registrados nesta conta.
         </p>
       </div>
     </div>

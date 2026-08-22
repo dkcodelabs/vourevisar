@@ -68,7 +68,9 @@ const AccountSubscription = () => {
   ));
   const portal = useStripePortal();
   const { isAdmin, isOwner, loading: roleLoading } = useUserRole();
-  const invoiceHistory = useStripeInvoiceHistory(Boolean(subscription?.status === 'canceled'));
+  const invoiceHistory = useStripeInvoiceHistory(Boolean(
+    data?.source === 'stripe' && data.subscription,
+  ));
 
   const handleOpenPortal = async () => {
     try {
@@ -114,6 +116,7 @@ const AccountSubscription = () => {
   // A prior Stripe subscription can coexist with an active internal trial or
   // manual grant. It is history in that case, not the current billing source.
   const activeStripeSubscription = isStripeSubscriber ? subscription : null;
+  const shouldShowInvoiceHistory = isStripeSubscriber || hasHistoricalCanceledStripeSubscription;
   const subscriptionEnd = activeStripeSubscription?.cancel_at ?? activeStripeSubscription?.current_period_end;
   const pageState = getAccountSubscriptionState(data, hasInternalAccess);
   const isComplimentaryAccess = data.plan === 'free_trial' || data.source === 'trial';
@@ -232,7 +235,7 @@ const AccountSubscription = () => {
             />
           </div>
 
-          {hasHistoricalCanceledStripeSubscription && (
+          {shouldShowInvoiceHistory && (
             <BillingInvoiceHistory
               invoices={invoiceHistory.data ?? []}
               isLoading={invoiceHistory.isLoading}

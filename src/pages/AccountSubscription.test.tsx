@@ -218,6 +218,25 @@ describe('AccountSubscription', () => {
     expect(screen.queryByRole('button', { name: /gerenciar pagamento/i })).not.toBeInTheDocument();
   });
 
+  it('keeps the financial history available while a Stripe subscription is active', () => {
+    mocks.useStripeBillingOverview.mockReturnValue({
+      data: activeOverview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/conta/assinatura']}>
+        <AccountSubscription />
+      </MemoryRouter>,
+    );
+
+    expect(mocks.useStripeInvoiceHistory).toHaveBeenLastCalledWith(true);
+    expect(screen.getByRole('heading', { name: 'Histórico financeiro' })).toBeInTheDocument();
+    expect(screen.getByText('Reembolso confirmado pela Stripe')).toBeInTheDocument();
+  });
+
   it('does not present a historical Stripe plan or card as current during a manual trial', () => {
     mocks.useStripeBillingOverview.mockReturnValue({
       data: manualTrialWithHistoricalStripeSubscription,

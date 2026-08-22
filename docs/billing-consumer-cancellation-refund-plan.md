@@ -499,6 +499,10 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   um segundo e-mail quando o envio já está registrado.
 - [x] Remover o botão secundário de histórico financeiro que apenas rolava para
   o card já visível na mesma página.
+- [ ] Manter o card de histórico financeiro disponível também para assinaturas
+  Stripe ativas, sem depender do Customer Portal e sem reintroduzir um botão
+  que apenas role a própria página. A correção local foi implementada em
+  2026-08-22; falta validar a renderização autenticada no domínio oficial.
 - [ ] Eliminar a ambiguidade entre o cancelamento comum do Customer Portal e o
   arrependimento legal: dentro da janela, o botão de gestão deve abrir somente
   o deep link oficial de atualização de cartão da Stripe, sem navegação para o
