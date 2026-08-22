@@ -77,7 +77,7 @@ export const ScheduledAnnualPlanChange = ({
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <CalendarClock className="h-6 w-6" />
         </div>
-        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-primary">Troca agendada</p>
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-primary">Troca anual agendada</p>
         <h2 className="mt-2 text-xl font-black tracking-[-0.025em]">Seu plano anual começa em {effectiveDate}</h2>
         <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
           Seu mensal permanece ativo até essa data. Não há cobrança hoje; a próxima cobrança será anual{annualPriceLabel ? `, no valor de ${annualPriceLabel}` : ''}.
@@ -89,7 +89,7 @@ export const ScheduledAnnualPlanChange = ({
           className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 text-sm font-black text-foreground transition hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {cancelChange.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-          Manter plano mensal
+          Cancelar troca agendada
         </button>
         {cancelChange.isError && (
           <p role="alert" className="mt-3 text-sm font-bold text-destructive">

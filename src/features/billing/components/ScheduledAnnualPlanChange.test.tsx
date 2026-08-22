@@ -68,11 +68,11 @@ describe('ScheduledAnnualPlanChange', () => {
     );
   });
 
-  it('lets the customer undo a scheduled change without canceling the monthly subscription', async () => {
+  it('lets the customer cancel a scheduled change without canceling the monthly subscription', async () => {
     renderPanel(true);
 
     expect(screen.getByText(/seu mensal permanece ativo/i)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: /manter plano mensal/i }));
+    fireEvent.click(screen.getByRole('button', { name: /cancelar troca agendada/i }));
 
     await waitFor(() => expect(cancelMutation.mutateAsync).toHaveBeenCalledOnce());
   });
