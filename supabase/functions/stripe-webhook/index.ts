@@ -989,18 +989,37 @@ Deno.serve(async (request) => {
 
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
-        if (charge.amount_refunded >= charge.amount) {
-          const subscriptionId = await getSubscriptionIdFromCharge(stripe, charge);
-          if (
-            subscriptionId &&
-            await chargeSustainsCurrentAccess(supabase, stripe, subscriptionId, charge)
-          ) {
-            const canceled = await cancelSubscriptionIfNeeded(stripe, subscriptionId);
-            await syncSubscription(supabase, stripe, canceled, event.created, event.livemode);
+        try {
+          if (charge.amount_refunded >= charge.amount) {
+            const subscriptionId = await getSubscriptionIdFromCharge(stripe, charge);
+            if (
+              subscriptionId &&
+              await chargeSustainsCurrentAccess(supabase, stripe, subscriptionId, charge)
+            ) {
+              const canceled = await cancelSubscriptionIfNeeded(stripe, subscriptionId);
+              await syncSubscription(supabase, stripe, canceled, event.created, event.livemode);
+            } else {
+              processingStatus = "ignored";
+            }
           } else {
             processingStatus = "ignored";
           }
-        } else {
+        } catch (error) {
+          // A refund flow already synchronizes the subscription from
+          // refund.created/refund.updated. Stripe can emit charge.refunded
+          // after that flow, with an invoice/payment-intent reference that is
+          // no longer retrievable. Treat that terminal provider response as
+          // an ignored duplicate instead of returning 500 and retrying forever.
+          if (safeErrorCode(error) === "stripe_StripeInvalidRequestError") {
+            console.warn("[stripe-webhook] charge_refunded_reference_unavailable", {
+              event_id: event.id,
+            });
+            processingStatus = "ignored";
+          } else {
+            throw error;
+          }
+        }
+        if (processingStatus !== "ignored" && processingStatus !== "processed") {
           processingStatus = "ignored";
         }
         break;
