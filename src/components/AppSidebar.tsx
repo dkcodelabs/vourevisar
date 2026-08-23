@@ -100,7 +100,7 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
     { to: "/admin/editais", label: "Gerenciar Editais", icon: Library },
     { to: "/admin/importancia-prova", label: "Importância em Prova", icon: TrendingUp },
     { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
-    ...(isOwner ? [{ to: "/admin/pricing", label: "Preços e Cupons", icon: Target }] : []),
+    ...(isOwner ? [{ to: "/admin/referrals", label: "Divulgação e Repasses", icon: Target }] : []),
     { to: "/admin/audit", label: "Auditoria", icon: ClipboardList },
     { to: "/admin/system/errors", label: "Erros do Sistema", icon: AlertTriangle },
     { to: "/admin/ai-settings", label: "Gestão de IA", icon: Bot },

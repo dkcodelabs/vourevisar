@@ -127,6 +127,10 @@ const AccountSubscription = () => {
     : null;
   const showsTrialOffer = pageState.kind === 'trial' && data.is_active && isComplimentaryAccess;
   const withdrawalEligible = withdrawalEnabled && data.withdrawal?.eligible === true;
+  const withdrawalInvoice = (invoiceHistory.data ?? []).find((invoice) => invoice.status === 'paid');
+  const withdrawalAmountLabel = withdrawalInvoice
+    ? formatBillingPrice(withdrawalInvoice.amount_cents, withdrawalInvoice.currency)
+    : null;
   const isMonthlyPlanChangeCandidate = planChangeEnabled &&
     activeStripeSubscription?.plan === 'monthly' &&
     !activeStripeSubscription.cancel_at_period_end &&
@@ -248,7 +252,7 @@ const AccountSubscription = () => {
           {withdrawalEnabled && subscription && data.withdrawal && (
             <BillingWithdrawalPanel
               withdrawal={data.withdrawal}
-              amountLabel={formatBillingPrice(subscription.amount_cents, subscription.currency)}
+              amountLabel={withdrawalAmountLabel}
             />
           )}
           {!withdrawalEligible && isMonthlyPlanChangeCandidate && activeStripeSubscription?.current_period_end && (

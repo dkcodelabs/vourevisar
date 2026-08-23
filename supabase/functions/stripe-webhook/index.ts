@@ -383,6 +383,35 @@ const cancelSubscriptionIfNeeded = async (
   );
 };
 
+async function updateAffiliateConversionFinancialStatus(
+  supabase: ServiceClient,
+  stripeInvoiceId: string | null,
+  status: "pending" | "refunded" | "disputed" | "paid",
+  providerUpdatedAt: string,
+) {
+  if (!stripeInvoiceId) return;
+
+  const update: Record<string, unknown> = {
+    status,
+    provider_updated_at: providerUpdatedAt,
+  };
+  if (status === "pending") {
+    const { data: current, error: currentError } = await supabase
+      .from("billing_affiliate_conversions")
+      .select("payout_id")
+      .eq("stripe_invoice_id", stripeInvoiceId)
+      .maybeSingle();
+    if (currentError) throw currentError;
+    if (current?.payout_id) update.status = "paid";
+  }
+
+  const { error } = await supabase
+    .from("billing_affiliate_conversions")
+    .update(update)
+    .eq("stripe_invoice_id", stripeInvoiceId);
+  if (error) throw error;
+}
+
 const syncRefundRequest = async (
   supabase: ServiceClient,
   stripe: Stripe,
@@ -395,7 +424,7 @@ const syncRefundRequest = async (
 
   const { data: requestRecord, error: requestError } = await supabase
     .from("billing_refund_requests")
-    .select("id,user_id,billing_subscription_id,billing_contract_acceptance_id,livemode,amount_cents,currency,stripe_refund_id,last_stripe_event_created_at,subscription_cancel_status,requested_at,eligibility_deadline,result_email_status")
+    .select("id,user_id,billing_subscription_id,billing_contract_acceptance_id,livemode,amount_cents,currency,stripe_invoice_id,stripe_refund_id,last_stripe_event_created_at,subscription_cancel_status,requested_at,eligibility_deadline,result_email_status")
     .eq("id", refundRequestId)
     .eq("livemode", event.livemode)
     .maybeSingle();
@@ -461,36 +490,56 @@ const syncRefundRequest = async (
     .eq("id", requestRecord.id);
   if (updateError) throw updateError;
 
+  if (status === "succeeded") {
+    await updateAffiliateConversionFinancialStatus(
+      supabase,
+      requestRecord.stripe_invoice_id,
+      "refunded",
+      eventCreatedAt,
+    );
+  }
+
   if (
     (status === "succeeded" || status === "failed" || status === "manual_review") &&
     requestRecord.result_email_status !== status
   ) {
-    const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
-      requestRecord.user_id,
-    );
-    if (authUserError || !authUser.user?.email) {
-      throw authUserError ?? new Error("refund_result_email_missing");
+    try {
+      const { data: authUser, error: authUserError } = await supabase.auth.admin.getUserById(
+        requestRecord.user_id,
+      );
+      if (authUserError || !authUser.user?.email) {
+        throw authUserError ?? new Error("refund_result_email_missing");
+      }
+      await sendWithdrawalResultEmail({
+        requestId: requestRecord.id,
+        email: authUser.user.email,
+        customerName: typeof authUser.user.user_metadata?.name === "string"
+          ? authUser.user.user_metadata.name
+          : null,
+        amountCents: requestRecord.amount_cents,
+        currency: requestRecord.currency,
+        requestedAt: new Date(requestRecord.requested_at),
+        deadline: new Date(requestRecord.eligibility_deadline),
+        status,
+      });
+      const { error: emailStatusError } = await supabase
+        .from("billing_refund_requests")
+        .update({
+          result_email_sent_at: new Date().toISOString(),
+          result_email_status: status,
+        })
+        .eq("id", requestRecord.id);
+      if (emailStatusError) throw emailStatusError;
+    } catch (error) {
+      // Financial reconciliation is authoritative and must not be rolled back
+      // or retried by Stripe because an optional notification provider is
+      // temporarily unavailable. The unsent status remains visible for the
+      // existing manual resend/verification flow.
+      console.error("[stripe-webhook] refund_result_email_failed", {
+        code: safeErrorCode(error),
+        request_id: requestRecord.id,
+      });
     }
-    await sendWithdrawalResultEmail({
-      requestId: requestRecord.id,
-      email: authUser.user.email,
-      customerName: typeof authUser.user.user_metadata?.name === "string"
-        ? authUser.user.user_metadata.name
-        : null,
-      amountCents: requestRecord.amount_cents,
-      currency: requestRecord.currency,
-      requestedAt: new Date(requestRecord.requested_at),
-      deadline: new Date(requestRecord.eligibility_deadline),
-      status,
-    });
-    const { error: emailStatusError } = await supabase
-      .from("billing_refund_requests")
-      .update({
-        result_email_sent_at: new Date().toISOString(),
-        result_email_status: status,
-      })
-      .eq("id", requestRecord.id);
-    if (emailStatusError) throw emailStatusError;
   }
   if (status === "succeeded" || status === "failed" || status === "manual_review") {
     try {
@@ -534,6 +583,115 @@ const chargeSustainsCurrentAccess = async (
 
   if (error) throw error;
   return data?.latest_invoice_id === invoiceId;
+};
+
+const getInvoicePromotionCodeId = (invoice: Stripe.Invoice) => {
+  const candidate = invoice as Stripe.Invoice & {
+    discounts?: Array<string | (Stripe.Discount & {
+      promotion_code?: string | Stripe.PromotionCode | null;
+    })> | null;
+  };
+
+  for (const discount of candidate.discounts ?? []) {
+    if (typeof discount === "string") continue;
+    const promotionCodeId = getExpandableId(discount.promotion_code);
+    if (promotionCodeId) return promotionCodeId;
+  }
+  return null;
+};
+
+const recordAffiliateConversion = async (
+  supabase: ServiceClient,
+  stripe: Stripe,
+  invoiceEvent: Stripe.Invoice,
+  eventCreatedAt: string,
+  livemode: boolean,
+) => {
+  if (invoiceEvent.billing_reason !== "subscription_create" || invoiceEvent.amount_paid <= 0) {
+    return;
+  }
+
+  const invoice = await stripe.invoices.retrieve(invoiceEvent.id, {
+    expand: ["discounts"],
+  });
+  const promotionCodeId = getInvoicePromotionCodeId(invoice);
+  if (!promotionCodeId) return;
+
+  const { data: affiliate, error: affiliateError } = await supabase
+    .from("billing_affiliates")
+    .select("id,commission_percent")
+    .eq("stripe_promotion_code_id", promotionCodeId)
+    .eq("livemode", livemode)
+    .maybeSingle();
+  if (affiliateError) throw affiliateError;
+  // Codes not provisioned by vouRevisar can still be valid Stripe discounts,
+  // but they are not affiliate commissions and must not enter this ledger.
+  if (!affiliate) return;
+
+  const subscriptionId = getInvoiceSubscriptionId(invoice);
+  if (!subscriptionId) return;
+
+  const { data: subscription, error: subscriptionError } = await supabase
+    .from("billing_subscriptions")
+    .select("id,user_id,plan_code")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+  if (subscriptionError) throw subscriptionError;
+  if (!subscription) throw new Error("affiliate_subscription_missing");
+
+  const { data: priorConversion, error: priorConversionError } = await supabase
+    .from("billing_affiliate_conversions")
+    .select("id")
+    .eq("user_id", subscription.user_id)
+    .maybeSingle();
+  if (priorConversionError) throw priorConversionError;
+  if (priorConversion) return;
+
+  const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const requestId = stripeSubscription.metadata.request_id;
+  const { data: checkoutAttempt, error: checkoutAttemptError } = requestId
+    ? await supabase
+      .from("billing_checkout_attempts")
+      .select("stripe_checkout_session_id")
+      .eq("request_id", requestId)
+      .eq("user_id", subscription.user_id)
+      .maybeSingle()
+    : { data: null, error: null };
+  if (checkoutAttemptError) throw checkoutAttemptError;
+
+  const totalDiscountCents = ((invoice as Stripe.Invoice & {
+    total_discount_amounts?: Array<{ amount: number }> | null;
+  }).total_discount_amounts ?? []).reduce((total, discount) => total + discount.amount, 0);
+  const commissionAmountCents = Math.round(
+    invoice.amount_paid * affiliate.commission_percent / 100,
+  );
+  const paidAt = fromUnixSeconds(invoice.status_transitions.paid_at) ?? eventCreatedAt;
+  const eligibleAt = new Date(new Date(paidAt).getTime() + 8 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { error: insertError } = await supabase
+    .from("billing_affiliate_conversions")
+    .upsert(
+      {
+        affiliate_id: affiliate.id,
+        user_id: subscription.user_id,
+        billing_subscription_id: subscription.id,
+        stripe_invoice_id: invoice.id,
+        stripe_checkout_session_id: checkoutAttempt?.stripe_checkout_session_id ?? null,
+        plan_code: subscription.plan_code,
+        gross_amount_cents: Math.max(invoice.subtotal, invoice.amount_paid + totalDiscountCents),
+        discount_amount_cents: totalDiscountCents,
+        paid_amount_cents: invoice.amount_paid,
+        commission_percent: affiliate.commission_percent,
+        commission_amount_cents: commissionAmountCents,
+        currency: invoice.currency,
+        status: "pending",
+        paid_at: paidAt,
+        eligible_at: eligibleAt,
+        provider_updated_at: eventCreatedAt,
+      },
+      { onConflict: "stripe_invoice_id", ignoreDuplicates: true },
+    );
+  if (insertError) throw insertError;
 };
 
 const sendFirstPaymentConfirmation = async (
@@ -946,6 +1104,13 @@ Deno.serve(async (request) => {
         );
         processingStatus = result.startsWith("ignored") ? "ignored" : "processed";
         if (event.type === "invoice.paid") {
+          await recordAffiliateConversion(
+            supabase,
+            stripe,
+            invoice,
+            eventCreatedAt,
+            event.livemode,
+          );
           try {
             await sendFirstPaymentConfirmation(
               supabase,
@@ -976,7 +1141,10 @@ Deno.serve(async (request) => {
 
       case "refund.created":
       case "refund.updated":
-      case "refund.failed": {
+      case "refund.failed":
+      case "charge.refund.created":
+      case "charge.refund.updated":
+      case "charge.refund.failed": {
         processingStatus = await syncRefundRequest(
           supabase,
           stripe,
@@ -990,6 +1158,13 @@ Deno.serve(async (request) => {
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
         try {
+          const refundedInvoiceId = await resolveChargeInvoiceId(stripe, charge);
+          await updateAffiliateConversionFinancialStatus(
+            supabase,
+            refundedInvoiceId,
+            "refunded",
+            eventCreatedAt,
+          );
           if (charge.amount_refunded >= charge.amount) {
             const subscriptionId = await getSubscriptionIdFromCharge(stripe, charge);
             if (
@@ -1033,6 +1208,13 @@ Deno.serve(async (request) => {
           break;
         }
         const charge = await stripe.charges.retrieve(chargeId);
+        const disputedInvoiceId = await resolveChargeInvoiceId(stripe, charge);
+        await updateAffiliateConversionFinancialStatus(
+          supabase,
+          disputedInvoiceId,
+          "disputed",
+          eventCreatedAt,
+        );
         const subscriptionId = await getSubscriptionIdFromCharge(stripe, charge);
         if (
           !subscriptionId ||
@@ -1060,6 +1242,22 @@ Deno.serve(async (request) => {
           break;
         }
         const charge = await stripe.charges.retrieve(chargeId);
+        const disputedInvoiceId = await resolveChargeInvoiceId(stripe, charge);
+        if (dispute.status === "won") {
+          await updateAffiliateConversionFinancialStatus(
+            supabase,
+            disputedInvoiceId,
+            "pending",
+            eventCreatedAt,
+          );
+        } else if (dispute.status === "lost") {
+          await updateAffiliateConversionFinancialStatus(
+            supabase,
+            disputedInvoiceId,
+            "disputed",
+            eventCreatedAt,
+          );
+        }
         const subscriptionId = await getSubscriptionIdFromCharge(stripe, charge);
         if (
           !subscriptionId ||

@@ -20,7 +20,7 @@ import {
 // Keep this version tied to the Checkout contract and include the resolved
 // customer below: customer IDs are Stripe-account scoped, so Test and Live
 // must never reuse the same key after an account/mode switch.
-const CHECKOUT_IDEMPOTENCY_VERSION = "elements-v4";
+const CHECKOUT_IDEMPOTENCY_VERSION = "elements-v5-promotion-codes";
 
 const isMissingStripeSession = (error: unknown) =>
   safeStripeErrorDetails(error)?.code === "resource_missing";
@@ -29,12 +29,14 @@ const isReusableCheckoutSession = (session: {
   status: string | null;
   client_secret: string | null;
   phone_number_collection?: { enabled?: boolean } | null;
+  allow_promotion_codes?: boolean | null;
   // Stripe keeps this enum forward-compatible through OtherString. We only
   // need to reject the one value the custom form cannot complete.
   billing_address_collection?: string | null;
 }) =>
   session.status === "open" &&
   Boolean(session.client_secret) &&
+  session.allow_promotion_codes === true &&
   session.phone_number_collection?.enabled !== true &&
   // The current custom Payment Element has no Address Element. A session that
   // requires billing address confirmation cannot be completed by this UI.
@@ -236,6 +238,9 @@ Deno.serve(async (request) => {
         client_reference_id: user.id,
         // Stripe selects eligible methods from the Dashboard configuration.
         line_items: [{ price: priceId, quantity: 1 }],
+        // Promotion Codes are provisioned owner-side and redeemed by Stripe.
+        // The browser never calculates or applies a discount locally.
+        allow_promotion_codes: true,
         billing_address_collection: "auto",
         return_url: `${appUrl}/checkout/retorno?session_id={CHECKOUT_SESSION_ID}`,
         metadata: {

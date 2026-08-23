@@ -20,7 +20,7 @@ import type { BillingWithdrawal } from '@/features/billing/types';
 
 interface BillingWithdrawalPanelProps {
   withdrawal: BillingWithdrawal;
-  amountLabel: string;
+  amountLabel: string | null;
 }
 
 const formatDeadline = (value: string | null) => value
@@ -141,7 +141,10 @@ export const BillingWithdrawalPanel = ({
               <div className="space-y-3 leading-6">
                 <p>Ao confirmar, vamos:</p>
                 <ul className="list-disc space-y-1 pl-5">
-                  <li>solicitaremos o reembolso integral de {amountLabel};</li>
+                  <li>
+                    solicitaremos o reembolso integral
+                    {amountLabel ? ` de ${amountLabel}` : ' do valor efetivamente pago nesta compra'};
+                  </li>
                   <li>a assinatura será cancelada imediatamente;</li>
                   <li>o acesso pago será encerrado, sem apagar seus dados de estudo;</li>
                   <li>o crédito dependerá do prazo da bandeira e do banco emissor.</li>

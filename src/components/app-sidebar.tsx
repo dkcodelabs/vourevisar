@@ -76,7 +76,7 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
         { name: "Gerenciar Editais", url: "/admin/editais", icon: Library },
         { name: "Importância em Prova", url: "/admin/importancia-prova", icon: TrendingUp },
         { name: "Assinaturas", url: "/admin/subscription", icon: CreditCard },
-        ...(isOwner ? [{ name: "Preços e Cupons", url: "/admin/pricing", icon: Target }] : []),
+        ...(isOwner ? [{ name: "Divulgação e Repasses", url: "/admin/referrals", icon: Target }] : []),
         { name: "Auditoria", url: "/admin/audit", icon: ClipboardList },
         { name: "Erros do Sistema", url: "/admin/system/errors", icon: AlertTriangle },
         {

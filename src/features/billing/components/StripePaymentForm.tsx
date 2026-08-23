@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { PaymentElement, useCheckoutElements } from '@stripe/react-stripe-js/checkout';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, CheckCircle2, Loader2, LockKeyhole } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Loader2, LockKeyhole, Tag, X } from 'lucide-react';
 import { addMonths, addYears } from 'date-fns';
 import { getPaymentErrorMessage } from '@/features/billing/utils/paymentErrorMessage';
 import { Link } from 'react-router-dom';
@@ -41,6 +41,67 @@ export const StripePaymentForm = ({
   const [hasAcceptedContract, setHasAcceptedContract] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [elementLoadError, setElementLoadError] = useState(false);
+  const [promotionCode, setPromotionCode] = useState('');
+  const [promotionMessage, setPromotionMessage] = useState<string | null>(null);
+  const [isUpdatingPromotion, setIsUpdatingPromotion] = useState(false);
+
+  const checkout = checkoutState.type === 'success' ? checkoutState.checkout : null;
+  const appliedPromotion = checkout?.discountAmounts?.find(
+    (discount) => Boolean(discount.promotionCode),
+  ) ?? null;
+  const totalToday = checkout
+    ? new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: checkout.currency.toUpperCase(),
+      }).format(checkout.total.total.minorUnitsAmount / checkout.minorUnitsAmountDivisor)
+    : priceLabel;
+
+  const handleApplyPromotionCode = async () => {
+    const normalizedCode = promotionCode.trim().toUpperCase();
+    if (!normalizedCode || !checkout) return;
+
+    setIsUpdatingPromotion(true);
+    setPromotionMessage(null);
+    try {
+      const result = await checkout.applyPromotionCode(normalizedCode);
+      if (result.type === 'error') {
+        setPromotionMessage(
+          result.error.code === 'invalidCode'
+            ? 'Código inválido, expirado ou indisponível para este plano.'
+            : 'Não foi possível aplicar o código agora. Tente novamente.',
+        );
+        return;
+      }
+      setPromotionCode(normalizedCode);
+      setPromotionMessage('Desconto aplicado ao pagamento de hoje.');
+    } catch (error) {
+      console.error('[StripePaymentForm] Falha ao aplicar código promocional.', error);
+      setPromotionMessage('Não foi possível aplicar o código agora. Tente novamente.');
+    } finally {
+      setIsUpdatingPromotion(false);
+    }
+  };
+
+  const handleRemovePromotionCode = async () => {
+    if (!checkout) return;
+
+    setIsUpdatingPromotion(true);
+    setPromotionMessage(null);
+    try {
+      const result = await checkout.removePromotionCode();
+      if (result.type === 'error') {
+        setPromotionMessage('Não foi possível remover o código agora. Tente novamente.');
+        return;
+      }
+      setPromotionCode('');
+      setPromotionMessage(null);
+    } catch (error) {
+      console.error('[StripePaymentForm] Falha ao remover código promocional.', error);
+      setPromotionMessage('Não foi possível remover o código agora. Tente novamente.');
+    } finally {
+      setIsUpdatingPromotion(false);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -85,11 +146,72 @@ export const StripePaymentForm = ({
       <div className="mb-6 flex items-start justify-between gap-4 border-b border-[#ebe7f5] pb-5">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#746c87]">Total de hoje</p>
-          <p className="mt-1 text-3xl font-black tracking-[-0.04em] text-[#17122b]">{priceLabel}</p>
+          <p className="mt-1 text-3xl font-black tracking-[-0.04em] text-[#17122b]">{totalToday}</p>
+          {appliedPromotion && (
+            <p className="mt-1 text-xs font-bold text-[#169985]">
+              Desconto de {appliedPromotion.percentOff ?? 0}% aplicado hoje
+            </p>
+          )}
         </div>
         <span className="rounded-full bg-[#eeeaff] px-3 py-2 text-xs font-black text-[#5b47eb]">
           {intervalLabel}
         </span>
+      </div>
+
+      <div className="mb-5 rounded-2xl border border-[#ded8ed] bg-[#faf9ff] p-4">
+        <div className="flex items-center gap-2 text-sm font-black text-[#2f2940]">
+          <Tag className="h-4 w-4 text-[#5b47eb]" />
+          Código de divulgação
+        </div>
+        {appliedPromotion ? (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-[#eaf8f4] px-3 py-2.5">
+            <div>
+              <p className="text-sm font-black text-[#126f61]">{appliedPromotion.promotionCode}</p>
+              <p className="text-xs font-semibold text-[#397f75]">Válido somente para o pagamento de hoje.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleRemovePromotionCode}
+              disabled={isUpdatingPromotion}
+              aria-label="Remover código de divulgação"
+              className="rounded-lg p-2 text-[#397f75] transition hover:bg-white/70 disabled:opacity-50"
+            >
+              {isUpdatingPromotion ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              value={promotionCode}
+              onChange={(event) => {
+                setPromotionCode(event.target.value.toUpperCase());
+                setPromotionMessage(null);
+              }}
+              placeholder="Digite seu código"
+              autoComplete="off"
+              className="min-h-11 flex-1 rounded-xl border border-[#d8d2e5] bg-white px-3 text-sm font-bold uppercase text-[#2f2940] outline-none transition placeholder:normal-case placeholder:font-medium placeholder:text-[#8b8498] focus:border-[#6b4df5] focus:ring-2 focus:ring-[#6b4df5]/15"
+            />
+            <button
+              type="button"
+              onClick={handleApplyPromotionCode}
+              disabled={!promotionCode.trim() || !checkout || isUpdatingPromotion}
+              className="min-h-11 rounded-xl bg-[#ece8ff] px-5 text-sm font-black text-[#5b47eb] transition hover:bg-[#e2dcff] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isUpdatingPromotion ? 'Aplicando…' : 'Aplicar'}
+            </button>
+          </div>
+        )}
+        {promotionMessage && (
+          <p
+            role={promotionMessage.startsWith('Desconto') ? 'status' : 'alert'}
+            className={`mt-2 text-xs font-bold ${
+              promotionMessage.startsWith('Desconto') ? 'text-[#169985]' : 'text-[#a52d3b]'
+            }`}
+          >
+            {promotionMessage}
+          </p>
+        )}
       </div>
 
       <div className="min-h-[210px]">
@@ -114,8 +236,11 @@ export const StripePaymentForm = ({
         <div className="mt-5 rounded-2xl border border-[#ded8ed] bg-white/70 p-4 text-sm text-[#433b56]">
           <p className="font-black">Resumo da assinatura</p>
           <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-[#686078]">
-            <li>• Cobrança de {priceLabel} hoje.</li>
-            <li>• Renovação automática {plan === 'annual' ? 'anual' : 'mensal'} pelo mesmo valor, salvo alteração previamente informada.</li>
+            <li>• Cobrança de {totalToday} hoje.</li>
+            <li>
+              • Renovação automática {plan === 'annual' ? 'anual' : 'mensal'} pelo valor vigente do plano
+              {appliedPromotion ? ` (hoje, ${priceLabel})` : ''}, salvo alteração previamente informada.
+            </li>
             <li>• Próxima cobrança estimada em {getEstimatedRenewalDate(plan)}.</li>
             <li>• Você pode cancelar futuras renovações em Minha assinatura.</li>
             <li>• Em contratações online elegíveis, é possível desistir em até 7 dias e solicitar reembolso integral.</li>

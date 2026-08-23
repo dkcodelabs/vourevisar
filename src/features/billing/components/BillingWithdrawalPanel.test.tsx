@@ -74,6 +74,18 @@ describe('BillingWithdrawalPanel', () => {
     );
   });
 
+  it('does not invent a refund amount while the paid invoice is unavailable', () => {
+    render(
+      <MemoryRouter>
+        <BillingWithdrawalPanel withdrawal={eligibleWithdrawal} amountLabel={null} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /cancelar compra e pedir reembolso/i }));
+    expect(screen.getByText(/reembolso integral do valor efetivamente pago nesta compra/i)).toBeVisible();
+    expect(screen.queryByText(/R\$ 99,90/i)).not.toBeInTheDocument();
+  });
+
   it('distinguishes processing from a completed refund', () => {
     renderPanel({
       ...eligibleWithdrawal,

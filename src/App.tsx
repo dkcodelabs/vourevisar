@@ -49,7 +49,7 @@ const AdminFeedback = lazy(() => import("@/pages/admin/AdminFeedback"));
 const TrendAnalysis = lazy(() => import("@/pages/statistics/TrendAnalysis"));
 const ImportanciaProvaAdmin = lazy(() => import("@/pages/admin/TendenciaGUT"));
 const AdminEditais = lazy(() => import("@/pages/admin/AdminEditais"));
-const PlanCouponManager = lazy(() => import("@/pages/admin/PlanCouponManager"));
+const AffiliateReferralManagement = lazy(() => import("@/pages/admin/AffiliateReferralManagement"));
 const AISettings = lazy(() => import("@/pages/admin/AISettings"));
 const SimpleRoleTest = import.meta.env.DEV
   ? lazy(() => import("@/components/SimpleRoleTest").then(module => ({ default: module.SimpleRoleTest })))
@@ -128,7 +128,8 @@ const App = () => {
                               {exposeDebugRoutes && ToastSpamTest && (
                                 <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
                               )}
-                              <Route path="admin/pricing" element={<PlanCouponManager />} />
+                              <Route path="admin/referrals" element={<AffiliateReferralManagement />} />
+                              <Route path="admin/pricing" element={<Navigate to="/admin/referrals" replace />} />
                               <Route path="admin/ai-settings" element={<AISettings />} />
                             </Route>
 

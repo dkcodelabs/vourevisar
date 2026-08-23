@@ -9,6 +9,7 @@ const checkoutSource = readProjectFile('supabase/functions/stripe-create-checkou
 const catalogSource = readProjectFile('supabase/functions/stripe-catalog/index.ts');
 const invoiceHistorySource = readProjectFile('supabase/functions/stripe-invoice-history/index.ts');
 const adminBillingSource = readProjectFile('supabase/functions/admin-billing/index.ts');
+const adminAffiliatesSource = readProjectFile('supabase/functions/admin-affiliates/index.ts');
 const webhookSource = readProjectFile('supabase/functions/stripe-webhook/index.ts');
 const sharedSource = readProjectFile('supabase/functions/_shared/stripeBilling.ts');
 const billingEmailSource = readProjectFile('supabase/functions/_shared/billingEmail.ts');
@@ -26,6 +27,12 @@ const migrationSource = readProjectFile(
 );
 const billingModeMigrationSource = readProjectFile(
   'supabase/migrations/20260820172644_isolate_stripe_billing_by_mode.sql',
+);
+const affiliateLedgerMigrationSource = readProjectFile(
+  'supabase/migrations/20260823180851_create_stripe_affiliate_ledger.sql',
+);
+const affiliateBountyHardeningMigrationSource = readProjectFile(
+  'supabase/migrations/20260823203000_prevent_duplicate_affiliate_bounties.sql',
 );
 const contractAcceptanceMigrationSource = readProjectFile(
   'supabase/migrations/20260821024158_create_billing_contract_acceptances.sql',
@@ -111,7 +118,7 @@ describe('Stripe billing security boundaries', () => {
     expect(checkoutSource).toContain('getPlanPriceId(plan)');
     expect(sharedSource).toContain('STRIPE_MONTHLY_PRICE_ID');
     expect(sharedSource).toContain('STRIPE_ANNUAL_PRICE_ID');
-    expect(checkoutSource).toContain('CHECKOUT_IDEMPOTENCY_VERSION = "elements-v4"');
+    expect(checkoutSource).toContain('CHECKOUT_IDEMPOTENCY_VERSION = "elements-v5-promotion-codes"');
     expect(checkoutSource).toContain(
       '`billing-checkout:${CHECKOUT_IDEMPOTENCY_VERSION}:${user.id}:${customerId}:${requestId}`',
     );
@@ -141,6 +148,41 @@ describe('Stripe billing security boundaries', () => {
     expect(paymentFormSource).not.toContain('returnUrl:');
     expect(paymentFormSource).toContain('finally {');
     expect(paymentFormSource).not.toMatch(/cardNumber|card_number|cvc/i);
+  });
+
+  it('keeps affiliate discounts canonical in Stripe and the commission ledger private', () => {
+    expect(checkoutSource).toContain('allow_promotion_codes: true');
+    expect(paymentFormSource).toContain('checkout.applyPromotionCode(normalizedCode)');
+    expect(paymentFormSource).toContain('checkout.removePromotionCode()');
+    expect(adminAffiliatesSource).toContain('duration: "once"');
+    expect(adminAffiliatesSource).toContain('percent_off: AFFILIATE_DISCOUNT_PERCENT');
+    expect(adminAffiliatesSource).toContain('first_time_transaction: true');
+    expect(adminAffiliatesSource).toContain('promotion:');
+    expect(adminAffiliatesSource).toContain('requireOwner(actor.id, supabase)');
+    expect(configSource).toContain('[functions.admin-affiliates]\nverify_jwt = true');
+    expect(webhookSource).toContain('recordAffiliateConversion');
+    expect(webhookSource).toContain('billing_reason !== "subscription_create"');
+    expect(webhookSource).toContain('billing_affiliate_conversions');
+    expect(webhookSource).toContain('"refunded"');
+    expect(webhookSource).toContain('"disputed"');
+
+    for (const table of [
+      'billing_affiliates',
+      'billing_affiliate_conversions',
+      'billing_affiliate_payouts',
+    ]) {
+      expect(affiliateLedgerMigrationSource).toContain(
+        `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`,
+      );
+      expect(affiliateLedgerMigrationSource).toContain(
+        `REVOKE ALL ON TABLE public.${table} FROM PUBLIC, anon, authenticated`,
+      );
+    }
+    expect(affiliateLedgerMigrationSource).toContain('record_billing_affiliate_payout');
+    expect(affiliateLedgerMigrationSource).toContain("SET search_path = ''");
+    expect(affiliateBountyHardeningMigrationSource).toContain(
+      'CREATE UNIQUE INDEX billing_affiliate_conversions_user_key',
+    );
   });
 
   it('records a server-validated contract before confirming an enabled checkout', () => {
@@ -224,6 +266,10 @@ describe('Stripe billing security boundaries', () => {
     expect(webhookSource).toContain('case "refund.created"');
     expect(webhookSource).toContain('case "refund.updated"');
     expect(webhookSource).toContain('case "refund.failed"');
+    expect(webhookSource).toContain('case "charge.refund.updated"');
+    expect(webhookSource).toContain('requestRecord.stripe_invoice_id');
+    expect(webhookSource).toContain('updateAffiliateConversionFinancialStatus');
+    expect(webhookSource).toContain('refund_result_email_failed');
     expect(webhookSource).toContain('syncRefundRequest');
     expect(webhookSource).toContain('cancelSubscriptionIfNeeded');
     expect(webhookSource).toContain('last_stripe_event_created_at');

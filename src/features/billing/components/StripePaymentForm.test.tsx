@@ -6,13 +6,23 @@ import { StripePaymentForm } from '@/features/billing/components/StripePaymentFo
 const mocks = vi.hoisted(() => ({
   acceptContract: vi.fn(),
   confirmCheckout: vi.fn(),
+  applyPromotionCode: vi.fn(),
+  removePromotionCode: vi.fn(),
 }));
 
 vi.mock('@stripe/react-stripe-js/checkout', () => ({
   PaymentElement: () => <div data-testid="payment-element" />,
   useCheckoutElements: () => ({
     type: 'success',
-    checkout: { confirm: mocks.confirmCheckout },
+    checkout: {
+      confirm: mocks.confirmCheckout,
+      applyPromotionCode: mocks.applyPromotionCode,
+      removePromotionCode: mocks.removePromotionCode,
+      currency: 'brl',
+      minorUnitsAmountDivisor: 100,
+      total: { total: { minorUnitsAmount: 9990, amount: 'R$ 99,90' } },
+      discountAmounts: null,
+    },
   }),
 }));
 
@@ -27,6 +37,30 @@ describe('StripePaymentForm contract acceptance', () => {
   beforeEach(() => {
     mocks.acceptContract.mockReset().mockResolvedValue({ accepted: true });
     mocks.confirmCheckout.mockReset().mockResolvedValue({ type: 'success' });
+    mocks.applyPromotionCode.mockReset().mockResolvedValue({ type: 'success' });
+    mocks.removePromotionCode.mockReset().mockResolvedValue({ type: 'success' });
+  });
+
+  it('applies a promotion code through Stripe Checkout instead of calculating a discount locally', async () => {
+    render(
+      <MemoryRouter>
+        <StripePaymentForm
+          priceLabel="R$ 99,90"
+          intervalLabel="por ano"
+          plan="annual"
+          requestId="dbb35516-6e35-48dd-95e4-f704529dc515"
+          requireContractAcceptance
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Digite seu código'), {
+      target: { value: 'vrtteste20' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+
+    await waitFor(() => expect(mocks.applyPromotionCode).toHaveBeenCalledWith('VRTTESTE20'));
+    expect(screen.getByText('Desconto aplicado ao pagamento de hoje.')).toBeVisible();
   });
 
   it('blocks payment until the contract is accepted', () => {

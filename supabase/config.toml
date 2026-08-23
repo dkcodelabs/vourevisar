@@ -40,6 +40,9 @@ verify_jwt = false
 [functions.admin-billing]
 verify_jwt = true
 
+[functions.admin-affiliates]
+verify_jwt = true
+
 [functions.process-topic-incidence]
 enabled = true
 verify_jwt = false
