@@ -528,6 +528,14 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   confirmar que o webhook recebe `invoice.payment_failed`, o aluno recebe
   orientação para atualizar o cartão, a operação recebe alerta e o acesso
   permanece/suspende conforme a política de retries configurada na Stripe.
+  Em 2026-08-23 foi criado o projeto isolado `vourevisar-billing-test`
+  (`txkwvddkfdiwrpoflsyj`, região `sa-east-1`, sem dados Live). A criação de
+  branch no projeto Live foi deliberadamente descartada porque o plano Free
+  não oferece branches. O primeiro bootstrap evidenciou que as migrations do
+  repositório não conseguem criar um banco vazio: a migration inicial tenta
+  alterar `public.subjects` antes de sua criação. Antes de carregar Stripe
+  Test, criar um baseline de schema reproduzível ou documentar um bootstrap
+  schema-only sem dados; não aplicar Test no banco Live como atalho.
 
 ### Fase 4 — homologação
 
