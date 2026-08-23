@@ -499,10 +499,10 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   um segundo e-mail quando o envio já está registrado.
 - [x] Remover o botão secundário de histórico financeiro que apenas rolava para
   o card já visível na mesma página.
-- [ ] Manter o card de histórico financeiro disponível também para assinaturas
+- [x] Manter o card de histórico financeiro disponível também para assinaturas
   Stripe ativas, sem depender do Customer Portal e sem reintroduzir um botão
-  que apenas role a própria página. A correção local foi implementada em
-  2026-08-22; falta validar a renderização autenticada no domínio oficial.
+  que apenas role a própria página. Em 2026-08-22, a renderização autenticada
+  no domínio oficial confirmou a cobrança e o reembolso no mesmo histórico.
 - [ ] Eliminar a ambiguidade entre o cancelamento comum do Customer Portal e o
   arrependimento legal: dentro da janela, o botão de gestão deve abrir somente
   o deep link oficial de atualização de cartão da Stripe, sem navegação para o
@@ -510,13 +510,12 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   único caminho de cancelamento normal ao fim do período pago. Implementado e
   publicado no commit `c65cde4c`; falta a validação manual autenticada do deep
   link Live e do retorno ao sistema.
-- [ ] Simplificar a prioridade visual durante a janela de arrependimento:
+- [x] Simplificar a prioridade visual durante a janela de arrependimento:
   exibir somente a decisão "Cancelar compra e pedir reembolso", esconder
   gestão de cartão, troca anual e arte promocional até o fim do prazo e manter
   a gestão de cartão somente para recuperação de pagamento ou após a janela.
-  A implementação local foi testada em 2026-08-22; falta validar a renderização
-  autenticada no domínio oficial após a publicação. A criação do deep link
-  oficial de atualização de cartão também foi corrigida para não enviar um
+  A renderização autenticada no domínio oficial foi confirmada em 2026-08-22.
+  A criação do deep link oficial de atualização de cartão também foi corrigida para não enviar um
   `after_completion` incompatível e passou a registrar diagnóstico Stripe
   sanitizado em caso de nova falha.
 - [ ] Corrigir o bootstrap de Auth ao retornar da Stripe: somente o evento
@@ -558,15 +557,10 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   acesso pago sem apagar dados de estudo. O cancelamento imediato e a
   revogação foram confirmados no banco/UI; a ausência de nova fatura ainda
   depende de verificação posterior.
-- [ ] Confirmar e-mails e histórico auditável. O e-mail de recebimento chegou e
-  ficou auditado. O primeiro pedido Live concluiu antes de chegar um evento de
-  reembolso ao webhook, portanto o e-mail terminal não foi enviado pela versão
-  anterior. A solicitação passou a enviar/auditar o resultado diretamente
-  quando a Stripe já devolve estado terminal, mantendo o webhook como
-  reconciliação. A versão atual também expõe uma recuperação idempotente para
-  o cliente garantir o envio do comprovante sem repetir o reembolso; falta
-  executar essa ação uma vez na conta de homologação e confirmar a chegada no
-  Proton.
+- [x] Confirmar e-mails e histórico auditável. Em 2026-08-22, o e-mail de
+  recebimento e a confirmação terminal chegaram ao Proton, ambos ficaram
+  auditados como enviados, e o histórico autenticado apresentou a cobrança e
+  o reembolso correspondente sem expor dados Stripe.
 - [ ] Testar mensal e anual no Stripe Test.
 - [ ] Validar desktop, tablet e mobile.
 - [x] Executar build, lint, testes e `git diff --check`. Nesta etapa passaram
@@ -612,9 +606,13 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   mensagem de erro vista durante a abertura do Portal desapareceu quando a
   navegação para `billing.stripe.com` terminou e não correspondeu a falha
   persistida no ledger.
-- [ ] Solicitar arrependimento/reembolso dessa compra Live dentro da janela e
-  confirmar cancelamento imediato, reembolso, webhook, banco, e-mail, UI e
-  revogação do acesso sem apagar dados de estudo.
+- [x] Solicitar arrependimento/reembolso da compra Live dentro da janela e
+  confirmar cancelamento imediato, reembolso, banco, e-mail, UI e revogação do
+  acesso sem apagar dados de estudo. Em 2026-08-22, o pedido de R$ 12,90 foi
+  processado como `succeeded`, o cancelamento ficou `succeeded` sem renovação,
+  os dois e-mails foram registrados como enviados e a conta retornou ao teste
+  gratuito original. A confirmação de entrega dos novos eventos `refund.*` no
+  webhook continua no cenário controlado seguinte.
 - [x] Corrigir a consistência imediata da conta após arrependimento. O caso Live
   revelou uma janela curta em que o pedido já estava `succeeded`, mas a RPC
   ainda devolvia a assinatura local como ativa até o webhook
