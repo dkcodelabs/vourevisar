@@ -535,7 +535,13 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   repositório não conseguem criar um banco vazio: a migration inicial tenta
   alterar `public.subjects` antes de sua criação. Antes de carregar Stripe
   Test, criar um baseline de schema reproduzível ou documentar um bootstrap
-  schema-only sem dados; não aplicar Test no banco Live como atalho.
+  schema-only sem dados; não aplicar Test no banco Live como atalho. O
+  bootstrap schema-only foi aplicado em 2026-08-23 por migration temporária
+  fora do repositório, com 63 tabelas públicas/privadas, RLS ativa em todas as
+  tabelas públicas e contagens zero para perfis e todos os ledgers de billing.
+  As 11 Edge Functions de billing foram publicadas nesse projeto sem secrets.
+  O baseline temporário precisa ser convertido em estratégia versionada antes
+  de a homologação se tornar ambiente contínuo.
 
 ### Fase 4 — homologação
 
