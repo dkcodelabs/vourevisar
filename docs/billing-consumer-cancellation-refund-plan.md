@@ -542,6 +542,14 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   As 11 Edge Functions de billing foram publicadas nesse projeto sem secrets.
   O baseline temporário precisa ser convertido em estratégia versionada antes
   de a homologação se tornar ambiente contínuo.
+- [ ] Auditar separadamente os avisos de segurança já presentes no projeto
+  Live para funções `SECURITY DEFINER` executáveis por `authenticated`, com
+  prioridade para `admin_purge_user`. Não revogar permissões por suposição:
+  mapear os consumidores legítimos, a checagem interna de papel e a superfície
+  RPC antes de migrar a função para `private` ou restringir `EXECUTE`. Os
+  avisos de tabelas de billing com RLS sem política são esperados enquanto as
+  tabelas permanecem sem acesso direto do navegador; confirmar esse contrato
+  na mesma auditoria.
 
 ### Fase 4 — homologação
 
