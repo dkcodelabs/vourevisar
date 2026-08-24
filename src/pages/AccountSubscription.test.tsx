@@ -349,8 +349,7 @@ describe('AccountSubscription', () => {
 
     expect(screen.getByText('Mudou de ideia?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancelar compra e pedir reembolso/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /atualizar cartão/i })).toBeInTheDocument();
-    expect(screen.getByText(/suas cobranças e reembolsos ficam no histórico financeiro desta página/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /atualizar cartão|gerenciar assinatura/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/plano anual disponível após o prazo de arrependimento/i)).not.toBeInTheDocument();
   });
 

@@ -135,15 +135,14 @@ const AccountSubscription = () => {
     !activeStripeSubscription.cancel_at_period_end &&
     !activeStripeSubscription.cancel_at &&
     Boolean(activeStripeSubscription.current_period_end);
-  // The withdrawal flow is the only cancellation/refund action during the
-  // statutory window, but billing self-service must remain available for
-  // invoices and card updates.
-  const showManagementCard = !withdrawalEligible || pageState.primaryAction === 'portal';
-  const managementTitle = withdrawalEligible ? 'Atualize seu cartão' : pageState.asideTitle;
-  const managementDescription = withdrawalEligible
-    ? 'Troque ou adicione o cartão usado nas próximas renovações. Suas cobranças e reembolsos ficam no Histórico financeiro desta página.'
-    : pageState.asideDescription;
-  const managementActionLabel = withdrawalEligible ? 'Atualizar cartão' : pageState.primaryActionLabel;
+  // Inside the statutory withdrawal window, keep only the first-party
+  // cancellation-and-refund action visible. The Stripe Portal remains
+  // intentionally unavailable in the UI so the student never faces two
+  // cancellation paths with different financial effects.
+  const showManagementCard = !withdrawalEligible;
+  const managementTitle = pageState.asideTitle;
+  const managementDescription = pageState.asideDescription;
+  const managementActionLabel = pageState.primaryActionLabel;
   const portalErrorMessage = portal.isError
     ? getSafeBillingErrorMessage(
         portal.error,
