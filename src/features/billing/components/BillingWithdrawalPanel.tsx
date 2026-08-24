@@ -16,6 +16,7 @@ import {
   useStripeWithdrawalResultEmail,
 } from '@/features/billing/hooks/useStripeBilling';
 import { getSafeBillingErrorMessage } from '@/features/billing/services/stripeBillingService';
+import { RefundStatusProgress } from '@/features/billing/components/RefundStatusProgress';
 import type { BillingWithdrawal } from '@/features/billing/types';
 
 interface BillingWithdrawalPanelProps {
@@ -74,6 +75,9 @@ export const BillingWithdrawalPanel = ({
             Pedido registrado em {formatDeadline(withdrawal.requested_at)}.
           </p>
         )}
+        <RefundStatusProgress
+          status={needsReview ? 'attention' : succeeded ? 'succeeded' : 'pending'}
+        />
         {(succeeded || needsReview) && (
           <>
             <button
