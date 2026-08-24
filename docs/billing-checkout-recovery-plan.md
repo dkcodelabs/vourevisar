@@ -14,19 +14,21 @@ Stripe de Test e Live.
   creation`, em `19 de ago.`, para `vourevisar@proton.me`, no cartão final
   `5137`. A assinatura é a cobrança real informada pelo proprietário; não
   houve reembolso nem alteração.
-- [ ] Corrigir/verificar o webhook Live antes da virada: o destino ativo aponta
+- [x] Corrigir/verificar o webhook Live antes da virada: o destino ativo aponta
   para `stripe-webhook`, mas o Workbench registra 18 entregas na semana, 14
   malsucedidas. A inspeção mostrou que as 14 são `checkout.session.expired`
   antigas/reentregadas, todas respondendo `400 {"invalid_signature"}`; as
   entregas do pagamento real (`checkout.session.completed`, `invoice.paid` e
   `customer.subscription.created`) responderam `200 OK`. O histórico não
-  deve ser reenviado sem uma decisão explícita; falta apenas observar uma
-  nova entrega Live e confirmar que o contador deixa de crescer. Após a troca
+  deve ser reenviado sem uma decisão explícita. Após a troca
   do segredo, a validação sem cobrança confirmou um checkout anual Live criado
   (`cs_live_…`) em estado `open`; o cliente Live de `darciliokv@proton.me` existe,
   mas ainda não possui assinatura Live. A assinatura anual existente dessa conta
-  é Test (`livemode=false`).
-- [ ] Preparar as credenciais Live sem misturar ambientes: a tentativa de
+  é Test (`livemode=false`). A compra Live posterior de 24/08 confirmou a
+  cadeia atualizada de pagamento, webhook, acesso, e-mail ao aluno e alerta
+  operacional; os erros históricos de sessões expiradas permanecem apenas
+  como registro para monitoramento, não como bloqueio de lançamento.
+- [x] Preparar as credenciais Live sem misturar ambientes: a tentativa de
   alinhamento confirmou que o backend ainda estava com a chave secreta Test
   (`billing_internal_error` após `STRIPE_LIVEMODE=true`). O frontend e os
   secrets foram restaurados para Test, que voltou a responder o catálogo com
@@ -34,9 +36,9 @@ Stripe de Test e Live.
   Live passou a responder `200` com os dois preços e o segredo do webhook Live
   foi atualizado. O frontend Live foi publicado no alias
   `www.vourevisar.com.br`; a tela de planos e o Payment Element anual carregam
-  sem nova cobrança. Falta confirmar uma nova entrega de webhook após a troca
-  do segredo, o que exige concluir um pagamento Live ou emitir um evento de
-  teste no Workbench.
+  sem nova cobrança. A compra Live posterior de 24/08 confirmou uma nova
+  entrega processada pela cadeia atual: pagamento, acesso, e-mail ao aluno e
+  alerta operacional interno.
 
 - [x] Correlacionar o erro de producao `StripeIdempotencyError` com a criacao
   de sessao e a tentativa persistida.

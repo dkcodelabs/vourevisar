@@ -126,22 +126,55 @@ Para mensal e anual:
 - [x] `charge.refunded` integral já cancela a assinatura vigente e sincroniza o acesso.
 - [x] Customer Portal permite faturas, cartão e cancelamento da renovação.
 
-### Lacunas bloqueantes
+### Lacunas bloqueantes originais — resolvidas
 
-- [ ] Não existem Termos, Política de Privacidade e Política de Cancelamento
-  publicadas; os links do rodapé apontam para `#`.
-- [ ] Cadastro não apresenta nem registra aceite de termos.
-- [ ] Checkout não apresenta resumo contratual, renovação automática, data da
-  próxima cobrança, regra de cancelamento e direito de arrependimento.
-- [ ] Não existe aceite contratual versionado ligado ao checkout pago.
-- [ ] `/conta/assinatura` não informa a janela legal nem oferece a mesma
-  ferramenta para exercer o arrependimento.
-- [ ] Não existe Edge Function autenticada para solicitar arrependimento.
-- [ ] Não existe ledger próprio para pedido, processamento e resultado do reembolso.
-- [ ] Webhook não persiste o estado detalhado de `Refund` nem trata falha/pending.
-- [ ] Não há e-mail imediato de recebimento do pedido e confirmação posterior
-  do resultado do reembolso.
-- [ ] Não há matriz ponta a ponta de Test e uma compra/reembolso Live controlada.
+Este bloco registra o diagnóstico de partida. Foi reconciliado em 2026-08-24
+para não ser lido como pendência atual.
+
+- [x] Publicar Termos, Política de Privacidade e Política de Cancelamento
+  versionados e corrigir os links públicos.
+- [x] Exigir e registrar aceite de termos no cadastro.
+- [x] Exibir no checkout resumo contratual, renovação, próxima cobrança,
+  cancelamento e direito de arrependimento.
+- [x] Vincular aceite contratual versionado ao checkout pago.
+- [x] Exibir a janela legal e a ferramenta de arrependimento em
+  `/conta/assinatura`.
+- [x] Implementar Edge Function autenticada para solicitar arrependimento.
+- [x] Persistir pedido, processamento e resultado no ledger de reembolsos.
+- [x] Tratar estado detalhado de `Refund`, inclusive `pending` e falha, no
+  webhook e na projeção de leitura.
+- [x] Enviar confirmação imediata do pedido e confirmação posterior do
+  resultado, ambas idempotentes.
+- [x] Executar compra e reembolso Live controlados, além de pagamentos mensal
+  e anual no ambiente Stripe Test isolado.
+
+### Estado de encerramento técnico — 2026-08-24
+
+O fluxo comercial já está liberado tecnicamente para uso: teste gratuito sem
+cartão, contratação explícita, aceite versionado, pagamento, webhook, acesso,
+e-mails, cancelamento normal, arrependimento/reembolso e histórico foram
+implementados e tiveram validações controladas em Live e/ou Stripe Test.
+
+Os itens abaixo continuam abertos, mas não devem ser confundidos com defeitos
+atuais do checkout:
+
+- [ ] Revisão jurídica independente dos textos, da identificação do fornecedor
+  e da retenção dos registros financeiros. É requisito de operação comercial,
+  não uma pendência de código.
+- [ ] Homologação Live da criação e reversão da troca mensal para anual e,
+  depois, da cobrança anual no ciclo futuro. A regra e o backend existem; a
+  cobrança futura depende da passagem do período mensal.
+- [ ] Simulação isolada de falha de renovação no Stripe Test, inclusive os
+  eventos `invoice.payment_failed`, alertas e política de retries.
+- [ ] Exercitar, no ambiente controlado, os estados Stripe de reembolso
+  `pending` e `failed`. O caminho `succeeded` foi validado em Live.
+- [ ] Confirmar por passagem de tempo que o cancelamento normal não cria nova
+  fatura depois do fim do período já pago.
+- [ ] Repetir no Safari o retorno autenticado do Customer Portal após a correção
+  de bootstrap de sessão.
+
+Nada nessa lista autoriza improvisar no Live: cada cenário futuro deve ser
+validado no ambiente correspondente antes de qualquer alteração financeira.
 
 ## Arquitetura proposta
 
@@ -476,15 +509,15 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   - [ ] Homologar com compra, cancelamento normal, arrependimento/reembolso,
     falha e ação administrativa reais/controladas antes de considerar a linha
     do tempo fonte operacional confiável.
-- [ ] Depois da linha do tempo, criar notificação operacional interna como
+- [x] Criar notificação operacional interna como
   alerta complementar para compra confirmada, pedido de arrependimento,
   reembolso concluído e falha/revisão. O endereço deve ser secret de backend e
   nunca BCC implícito do e-mail do consumidor; o painel continua sendo a fonte
   de verdade para conferência. A implementação usa `BILLING_OPERATIONS_EMAIL`,
   com chave de idempotência por evento e falha isolada para não interromper o
-  fluxo financeiro. O secret Live foi configurado e as funções foram
-  publicadas; falta homologar o primeiro alerta na próxima operação controlada,
-  sem criar uma nova cobrança exclusivamente para isso.
+  fluxo financeiro. O secret Live foi configurado, as funções foram
+  publicadas e o alerta de nova assinatura foi recebido em
+  `vourevisar@gmail.com` na operação Live de 2026-08-24.
 - [x] Revisar a inscrição e a seleção de eventos do endpoint Live da Stripe
   para `refund.created`, `refund.updated` e `refund.failed`. Nas duas
   validações Live de reembolso o registro direto e `customer.subscription.deleted`
@@ -503,21 +536,17 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   Stripe ativas, sem depender do Customer Portal e sem reintroduzir um botão
   que apenas role a própria página. Em 2026-08-22, a renderização autenticada
   no domínio oficial confirmou a cobrança e o reembolso no mesmo histórico.
-- [ ] Eliminar a ambiguidade entre o cancelamento comum do Customer Portal e o
-  arrependimento legal: dentro da janela, o botão de gestão deve abrir somente
-  o deep link oficial de atualização de cartão da Stripe, sem navegação para o
-  cancelamento do Portal; fora da janela, o Portal completo continua sendo o
-  único caminho de cancelamento normal ao fim do período pago. Implementado e
-  publicado no commit `c65cde4c`; falta a validação manual autenticada do deep
-  link Live e do retorno ao sistema.
+- [x] Eliminar a ambiguidade entre o cancelamento comum do Customer Portal e o
+  arrependimento legal. Desde o commit `c8822934`, dentro da janela a interface
+  não oferece Portal, cartão ou troca de plano: o único CTA financeiro é
+  `Cancelar compra e pedir reembolso`. Fora da janela, `Gerenciar assinatura`
+  abre o Portal completo da Stripe para faturas, cartão, cancelamento normal e
+  reativação.
 - [x] Simplificar a prioridade visual durante a janela de arrependimento:
-  exibir somente a decisão "Cancelar compra e pedir reembolso", esconder
-  gestão de cartão, troca anual e arte promocional até o fim do prazo e manter
-  a gestão de cartão somente para recuperação de pagamento ou após a janela.
-  A renderização autenticada no domínio oficial foi confirmada em 2026-08-22.
-  A criação do deep link oficial de atualização de cartão também foi corrigida para não enviar um
-  `after_completion` incompatível e passou a registrar diagnóstico Stripe
-  sanitizado em caso de nova falha.
+  exibir somente a decisão "Cancelar compra e pedir reembolso" e esconder
+  gestão de cartão, Portal, troca anual e arte promocional até o fim do prazo.
+  A gestão completa fica disponível somente após a janela, eliminando caminhos
+  com efeitos financeiros diferentes.
 - [ ] Corrigir o bootstrap de Auth ao retornar da Stripe: somente o evento
   `INITIAL_SESSION` pode liberar uma rota protegida na primeira renderização;
   eventos transitórios não podem encaminhar um usuário com sessão persistida
@@ -559,10 +588,14 @@ devem ser inventados no código; dependem de informação e revisão do titular.
 - [x] Regenerar os tipos TypeScript diretamente do schema remoto após aplicar
   as migrations; typecheck, lint, 173 arquivos/671 testes e build passaram com
   o arquivo atualizado.
-- [ ] Testar lógica de prazo no instante inicial, dentro da janela, no limite e
-  após o limite.
-- [ ] Testar trial sem cartão e sem assinatura Stripe.
-- [ ] Testar assinatura durante o trial e após o trial.
+- [x] Testar lógica de prazo no instante inicial, dentro da janela, no limite e
+  após o limite. `src/services/billingWithdrawal.test.ts` cobre início e prazo
+  exatos, antes/depois e timestamps inválidos, com falha fechada.
+- [x] Testar trial sem cartão e sem assinatura Stripe. O fluxo Live e a
+  projeção canônica preservam o trial como concessão independente da Stripe.
+- [x] Testar assinatura durante o trial e após o trial. A compra Live
+  controlada, o arrependimento e a retomada apenas dos dias originais de teste
+  foram verificados no banco, UI e e-mail.
 - [ ] Testar clique duplicado, retry, webhook duplicado e fora de ordem.
 - [x] Validar em produção a retomada do mesmo Checkout em outra aba/dispositivo
   depois da correção do `requestId` canônico. Uma segunda aba, com novo estado
@@ -583,7 +616,8 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   recebimento e a confirmação terminal chegaram ao Proton, ambos ficaram
   auditados como enviados, e o histórico autenticado apresentou a cobrança e
   o reembolso correspondente sem expor dados Stripe.
-- [ ] Testar mensal e anual no Stripe Test.
+- [x] Testar mensal e anual no Stripe Test, com confirmação de webhook, acesso
+  e e-mail em ambos os planos.
 - [ ] Validar desktop, tablet e mobile.
 - [x] Executar build, lint, testes e `git diff --check`. Nesta etapa passaram
   `deno check`, typecheck, lint, 173 arquivos/671 testes e build de produção;
@@ -659,8 +693,9 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   usuário autenticado e ao modo Live, e usa a idempotência do provedor de
   e-mail; a interface só mostra a ação para estados `succeeded` ou de revisão.
 - [ ] Revisar em tarefa separada os avisos de segurança preexistentes do
-  Supabase Advisor para funções `SECURITY DEFINER` fora deste fluxo e habilitar
-  proteção contra senhas vazadas. O aviso da RPC
+  Supabase Advisor para funções `SECURITY DEFINER` fora deste fluxo. A proteção
+  contra senhas vazadas foi deliberadamente adiada até eventual mudança de
+  plano do Supabase e não é pré-requisito do fluxo de cobrança. O aviso da RPC
   `get_stripe_billing_overview` é intencional: somente `authenticated` pode
   executá-la e a própria função exige `auth.uid()` e restringe a consulta ao
   usuário autenticado. As tabelas financeiras permanecem sem políticas de
