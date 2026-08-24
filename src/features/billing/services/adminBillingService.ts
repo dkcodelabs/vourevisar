@@ -74,6 +74,7 @@ export interface AdminBillingOperation {
   currency: string | null;
   status: string;
   error_code: string | null;
+  affiliate_code?: string | null;
 }
 
 export interface AdminCustomerPortalPolicy {

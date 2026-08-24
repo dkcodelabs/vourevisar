@@ -260,13 +260,14 @@ type TimelineEvent = {
   currency: string | null;
   status: string;
   error_code: string | null;
+  affiliate_code?: string | null;
 };
 
 const listOperationTimeline = async (
   supabase: ReturnType<typeof createServiceClient>,
   livemode: boolean,
 ) => {
-  const [customersResult, contractsResult, refundsResult, actionsResult] = await Promise.all([
+  const [customersResult, contractsResult, refundsResult, actionsResult, affiliatesResult, affiliateConversionsResult] = await Promise.all([
     supabase
       .from("billing_customers")
       .select("id,user_id,stripe_customer_id")
@@ -290,8 +291,15 @@ const listOperationTimeline = async (
       .eq("livemode", livemode)
       .order("created_at", { ascending: false })
       .limit(100),
+    supabase
+      .from("billing_affiliates")
+      .select("id,code")
+      .eq("livemode", livemode),
+    supabase
+      .from("billing_affiliate_conversions")
+      .select("stripe_invoice_id,affiliate_id"),
   ]);
-  for (const result of [customersResult, contractsResult, refundsResult, actionsResult]) {
+  for (const result of [customersResult, contractsResult, refundsResult, actionsResult, affiliatesResult, affiliateConversionsResult]) {
     if (result.error) throw result.error;
   }
 
@@ -314,6 +322,12 @@ const listOperationTimeline = async (
   const subscriptionByStripeId = new Map(
     (subscriptions ?? []).map((subscription) => [subscription.stripe_subscription_id, subscription]),
   );
+  const affiliateCodeById = new Map((affiliatesResult.data ?? []).map((affiliate) => [affiliate.id, affiliate.code]));
+  const affiliateCodeByInvoiceId = new Map<string, string>();
+  for (const conversion of affiliateConversionsResult.data ?? []) {
+    const affiliateCode = affiliateCodeById.get(conversion.affiliate_id);
+    if (affiliateCode) affiliateCodeByInvoiceId.set(conversion.stripe_invoice_id, affiliateCode);
+  }
   const latestSubscriptionByUser = new Map<string, typeof subscriptions extends (infer Row)[] | null ? Row : never>();
   for (const subscription of subscriptions ?? []) {
     if (!latestSubscriptionByUser.has(subscription.user_id)) {
@@ -373,6 +387,7 @@ const listOperationTimeline = async (
         currency: invoice.currency,
         status: "confirmed",
         error_code: null,
+        affiliate_code: affiliateCodeByInvoiceId.get(invoice.id) ?? null,
       }));
       usersWithStripePayment.add(customer.user_id);
     }

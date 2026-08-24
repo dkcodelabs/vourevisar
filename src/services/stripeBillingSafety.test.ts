@@ -474,6 +474,8 @@ describe('Stripe billing security boundaries', () => {
     expect(adminBillingSource).toContain('stripe.invoices.list({ limit: 100 })');
     expect(adminBillingSource).toContain('amount_cents: invoice.amount_paid');
     expect(adminBillingSource).toContain('id: `invoice:${invoice.id}`');
+    expect(adminBillingSource).toContain('affiliate_code: affiliateCodeByInvoiceId.get(invoice.id) ?? null');
+    expect(adminBillingSource).toContain('.from("billing_affiliate_conversions")');
     expect(adminBillingSource).toContain('usersWithStripePayment.has(contract.user_id)');
   });
 

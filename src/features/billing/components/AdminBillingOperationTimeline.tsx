@@ -94,6 +94,9 @@ export const AdminBillingOperationTimeline = () => {
                     <Badge variant="outline" className={attention ? 'border-amber-500/30 text-amber-700 dark:text-amber-400' : 'shadow-none'}>{event.plan === 'annual' ? 'Anual' : event.plan === 'monthly' ? 'Mensal' : event.status}</Badge>
                   </div>
                   <p className="mt-1 truncate text-xs text-muted-foreground">{event.user_name || event.user_email || 'Usuário sem identificação'}{event.user_email && event.user_name ? ` · ${event.user_email}` : ''}</p>
+                  {event.type === 'payment_confirmed' && event.affiliate_code && (
+                    <p className="mt-1 text-xs font-semibold text-primary">Código {event.affiliate_code} · desconto na primeira cobrança</p>
+                  )}
                   {event.error_code && <p className="mt-1 break-all text-xs font-semibold text-red-700 dark:text-red-400">Código: {event.error_code}</p>}
                 </div>
               </div>

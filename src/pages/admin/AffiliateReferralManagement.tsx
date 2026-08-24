@@ -52,6 +52,9 @@ const statusLabel: Record<AffiliateConversionStatus, string> = {
   paid: 'Repassada',
 };
 
+type PlanFilter = 'all' | 'monthly' | 'annual';
+type StatusFilter = 'all' | AffiliateConversionStatus;
+
 export default function AffiliateReferralManagement() {
   const { isOwner, loading: roleLoading } = useUserRole();
   const ledgerQuery = useAdminAffiliateLedger();
@@ -60,6 +63,8 @@ export default function AffiliateReferralManagement() {
   const recordPayout = useRecordAdminAffiliatePayout();
   const initialRange = useMemo(currentMonthRange, []);
   const [affiliateId, setAffiliateId] = useState('all');
+  const [planFilter, setPlanFilter] = useState<PlanFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [periodStart, setPeriodStart] = useState(initialRange.start);
   const [periodEnd, setPeriodEnd] = useState(initialRange.end);
   const [createOpen, setCreateOpen] = useState(false);
@@ -69,12 +74,18 @@ export default function AffiliateReferralManagement() {
   const [paymentReference, setPaymentReference] = useState('');
 
   const ledger = ledgerQuery.data;
+  const affiliateById = useMemo(
+    () => new Map((ledger?.affiliates ?? []).map((affiliate) => [affiliate.id, affiliate])),
+    [ledger?.affiliates],
+  );
   const filteredConversions = useMemo(() => (ledger?.conversions ?? []).filter((conversion) => {
     const paidDate = saoPauloDateKey(conversion.paid_at);
     return (affiliateId === 'all' || conversion.affiliate_id === affiliateId)
+      && (planFilter === 'all' || conversion.plan_code === planFilter)
+      && (statusFilter === 'all' || conversion.payout_status === statusFilter)
       && paidDate >= periodStart
       && paidDate <= periodEnd;
-  }), [affiliateId, ledger?.conversions, periodEnd, periodStart]);
+  }), [affiliateId, ledger?.conversions, periodEnd, periodStart, planFilter, statusFilter]);
 
   const reversedAfterPayout = useMemo(() => filteredConversions.filter((conversion) =>
     conversion.payout_id !== null
@@ -87,6 +98,18 @@ export default function AffiliateReferralManagement() {
   ), [reversedAfterPayout]);
 
   const selectedAffiliate = ledger?.affiliates.find((affiliate) => affiliate.id === affiliateId) ?? null;
+  const filtersActive = affiliateId !== 'all'
+    || planFilter !== 'all'
+    || statusFilter !== 'all'
+    || periodStart !== initialRange.start
+    || periodEnd !== initialRange.end;
+  const resetFilters = () => {
+    setAffiliateId('all');
+    setPlanFilter('all');
+    setStatusFilter('all');
+    setPeriodStart(initialRange.start);
+    setPeriodEnd(initialRange.end);
+  };
   const totals = useMemo(() => filteredConversions.reduce((summary, conversion) => {
     summary.sales += conversion.payout_status === 'refunded' || conversion.payout_status === 'disputed' ? 0 : 1;
     summary.paid += conversion.payout_status === 'refunded' || conversion.payout_status === 'disputed'
@@ -169,16 +192,16 @@ export default function AffiliateReferralManagement() {
       </Alert>
 
       <Card className="print:border-0 print:shadow-none">
-        <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <CardHeader className="gap-4">
           <div>
             <CardTitle>Relatório do período</CardTitle>
-            <CardDescription>Selecione um divulgador para registrar o repasse.</CardDescription>
+            <CardDescription>Filtre as conversões antes de imprimir ou registrar o Pix de um divulgador.</CardDescription>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 print:hidden">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(13rem,1.5fr)_repeat(4,minmax(8.5rem,1fr))] print:hidden">
             <div className="space-y-1.5">
               <Label>Divulgador</Label>
               <Select value={affiliateId} onValueChange={setAffiliateId}>
-                <SelectTrigger className="min-w-48"><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   {(ledger?.affiliates ?? []).map((affiliate) => (
@@ -187,17 +210,41 @@ export default function AffiliateReferralManagement() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label>Plano</Label>
+              <Select value={planFilter} onValueChange={(value) => setPlanFilter(value as PlanFilter)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="monthly">Mensal</SelectItem>
+                  <SelectItem value="annual">Anual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {(Object.keys(statusLabel) as AffiliateConversionStatus[]).map((status) => (
+                    <SelectItem key={status} value={status}>{statusLabel[status]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5"><Label>De</Label><Input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></div>
             <div className="space-y-1.5"><Label>Até</Label><Input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></div>
           </div>
+          {filtersActive && <Button variant="ghost" size="sm" className="w-fit print:hidden" onClick={resetFilters}>Limpar filtros</Button>}
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {[
               ['Vendas válidas', String(totals.sales), Users],
-              ['Receita confirmada', formatMoney(totals.paid), CircleDollarSign],
-              ['Comissão liberada', formatMoney(totals.available), BadgeCheck],
+              ['Disponível para Pix', formatMoney(totals.available), BadgeCheck],
               ['Em carência', formatMoney(totals.hold), RefreshCw],
+              ['Já repassado', formatMoney(totals.transferred), CircleDollarSign],
               ['Reembolsos/disputas', String(totals.reversed), Ban],
             ].map(([label, value, Icon]) => (
               <div key={String(label)} className="rounded-xl border bg-muted/25 p-4">
@@ -224,14 +271,15 @@ export default function AffiliateReferralManagement() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader><TableRow>
-                  <TableHead>Aluno</TableHead><TableHead>Data</TableHead><TableHead>Plano</TableHead>
+                  <TableHead>Divulgador</TableHead><TableHead>Aluno</TableHead><TableHead>Data</TableHead><TableHead>Plano</TableHead>
                   <TableHead>Pago</TableHead><TableHead>Comissão</TableHead><TableHead>Status</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {filteredConversions.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="h-28 text-center text-muted-foreground">Nenhuma conversão neste período.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="h-28 text-center text-muted-foreground">Nenhuma conversão com estes filtros.</TableCell></TableRow>
                   ) : filteredConversions.map((conversion) => (
                     <TableRow key={conversion.id}>
+                      <TableCell><p className="font-medium">{affiliateById.get(conversion.affiliate_id)?.name ?? 'Divulgador removido'}</p><p className="font-mono text-xs text-primary">{affiliateById.get(conversion.affiliate_id)?.code ?? '—'}</p></TableCell>
                       <TableCell><p className="font-medium">{conversion.user_name || 'Aluno'}</p><p className="text-xs text-muted-foreground">{conversion.user_email || 'Conta removida'}</p></TableCell>
                       <TableCell>{localDate(conversion.paid_at)}</TableCell>
                       <TableCell>{conversion.plan_code === 'annual' ? 'Anual' : 'Mensal'}</TableCell>
