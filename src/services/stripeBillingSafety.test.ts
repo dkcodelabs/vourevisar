@@ -6,6 +6,7 @@ const readProjectFile = (path: string) =>
   readFileSync(resolve(process.cwd(), path), 'utf8');
 
 const checkoutSource = readProjectFile('supabase/functions/stripe-create-checkout/index.ts');
+const portalSource = readProjectFile('supabase/functions/stripe-create-portal/index.ts');
 const catalogSource = readProjectFile('supabase/functions/stripe-catalog/index.ts');
 const invoiceHistorySource = readProjectFile('supabase/functions/stripe-invoice-history/index.ts');
 const adminBillingSource = readProjectFile('supabase/functions/admin-billing/index.ts');
@@ -131,6 +132,12 @@ describe('Stripe billing security boundaries', () => {
     expect(checkoutSource).toContain('.gte("updated_at", currentBillingCustomer.updated_at)');
     expect(checkoutSource).toContain('requestId: openAttempt.request_id');
     expect(userFacingBillingSource).toContain('requestId={checkout.data.requestId}');
+  });
+
+  it('opens the Customer Portal through the customer mapping of the configured Stripe mode', () => {
+    expect(portalSource).toContain('.eq("billing_customer_id", customer?.id');
+    expect(portalSource).toContain('.gte("updated_at", customer?.updated_at');
+    expect(portalSource).not.toContain('.eq("livemode", livemode)\n      .in("status", ["active", "past_due"])');
   });
 
   it('serves display prices from the allowlisted Stripe catalog without legacy tables', () => {

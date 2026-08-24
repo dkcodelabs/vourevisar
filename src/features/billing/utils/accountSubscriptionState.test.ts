@@ -73,8 +73,9 @@ describe('getAccountSubscriptionState', () => {
     expect(state.badge).toBe('Renovação cancelada');
     expect(state.summaryLabel).toBe('Acesso até');
     expect(state.primaryAction).toBe('portal');
-    expect(state.alertDescription).toBe(
-      'Não haverá nova cobrança. Este cancelamento não solicitou reembolso.',
+    expect(state.alertDescription).toBeNull();
+    expect(state.asideDescription).toBe(
+      'Na Stripe, consulte as cobranças, altere o cartão ou reative a renovação. Apenas abrir não faz nenhuma alteração.',
     );
   });
 

@@ -149,6 +149,9 @@ const AccountSubscription = () => {
   const nonStripePaymentLabel = isComplimentaryAccess
     ? 'Nenhum cartão necessário'
     : 'Sem cobrança vinculada';
+  const paymentMethodLabel = activeStripeSubscription?.card_last4
+    ? `${subscription.card_brand?.toUpperCase() || 'Cartão'} •••• ${subscription.card_last4}`
+    : null;
   const summaryValue = pageState.summaryValue ?? formatDate(
     isStripeSubscriber ? subscriptionEnd : data.access_until,
   );
@@ -224,19 +227,13 @@ const AccountSubscription = () => {
               label={pageState.summaryLabel}
               value={summaryValue}
             />
-            <DetailCard
-              icon={<CreditCard className="h-5 w-5" />}
-              label="Pagamento"
-              value={
-                hasInternalAccess
-                  ? 'Não se aplica'
-                  : activeStripeSubscription?.card_last4
-                  ? `${subscription.card_brand?.toUpperCase() || 'Cartão'} •••• ${subscription.card_last4}`
-                  : isStripeSubscriber
-                    ? 'Cartão via Stripe'
-                    : nonStripePaymentLabel
-              }
-            />
+            {(!isStripeSubscriber || !paymentMethodLabel) && (
+              <DetailCard
+                icon={<CreditCard className="h-5 w-5" />}
+                label="Pagamento"
+                value={hasInternalAccess ? 'Não se aplica' : nonStripePaymentLabel}
+              />
+            )}
           </div>
 
           {shouldShowInvoiceHistory && (
@@ -244,6 +241,7 @@ const AccountSubscription = () => {
               invoices={invoiceHistory.data ?? []}
               isLoading={invoiceHistory.isLoading}
               isError={invoiceHistory.isError}
+              paymentMethodLabel={paymentMethodLabel}
             />
           )}
         </section>

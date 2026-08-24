@@ -24,9 +24,15 @@ interface BillingInvoiceHistoryProps {
   invoices: BillingInvoiceHistoryItem[];
   isLoading: boolean;
   isError: boolean;
+  paymentMethodLabel?: string | null;
 }
 
-export const BillingInvoiceHistory = ({ invoices, isLoading, isError }: BillingInvoiceHistoryProps) => (
+export const BillingInvoiceHistory = ({
+  invoices,
+  isLoading,
+  isError,
+  paymentMethodLabel,
+}: BillingInvoiceHistoryProps) => (
   <section id="historico-financeiro" className="mt-6 scroll-mt-6 rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-[0_18px_55px_-40px_rgba(36,24,77,0.55)] sm:p-6">
     <div className="flex items-start gap-3">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eeeaff] text-[#6048ed]">
@@ -37,6 +43,11 @@ export const BillingInvoiceHistory = ({ invoices, isLoading, isError }: BillingI
         <p className="mt-1 text-sm font-medium leading-6 text-[#6d657d]">
           Consulte as cobranças e os reembolsos registrados nesta conta.
         </p>
+        {paymentMethodLabel && (
+          <p className="mt-2 text-xs font-bold text-[#625a71]">
+            Cartão da assinatura: {paymentMethodLabel}
+          </p>
+        )}
       </div>
     </div>
 

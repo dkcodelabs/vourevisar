@@ -408,8 +408,9 @@ describe('AccountSubscription', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/não haverá nova cobrança/i)).toBeInTheDocument();
-    expect(screen.getByText(/não solicitou reembolso/i)).toBeInTheDocument();
-    expect(screen.getByText(/você mantém acesso até 02 de outubro de 2026/i)).toBeInTheDocument();
+    expect(screen.getByText('Renovação cancelada')).toBeInTheDocument();
+    expect(screen.getByText('Acesso até')).toBeInTheDocument();
+    expect(screen.getByText('02 de outubro de 2026')).toBeInTheDocument();
+    expect(screen.getByText('Cartão da assinatura: VISA •••• 0341')).toBeInTheDocument();
   });
 });

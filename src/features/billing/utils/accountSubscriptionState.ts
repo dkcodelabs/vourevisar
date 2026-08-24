@@ -104,13 +104,13 @@ export const getAccountSubscriptionState = (
       heroDescription: 'Sua renovação foi cancelada, mas o acesso continua disponível até o fim do período pago.',
       summaryLabel: 'Acesso até',
       summaryValue: null,
-      asideTitle: 'Gerencie sem burocracia',
-      asideDescription: 'Consulte faturas, atualize o cartão ou reative a renovação em um ambiente protegido.',
+      asideTitle: 'Gerencie sua assinatura',
+      asideDescription: 'Na Stripe, consulte as cobranças, altere o cartão ou reative a renovação. Apenas abrir não faz nenhuma alteração.',
       primaryAction: 'portal',
       primaryActionLabel: 'Gerenciar assinatura',
       artworkNextStep: 'Voltar aos estudos',
-      alertTitle: 'Renovação cancelada',
-      alertDescription: 'Não haverá nova cobrança. Este cancelamento não solicitou reembolso.',
+      alertTitle: null,
+      alertDescription: null,
     };
   }
 
