@@ -62,6 +62,7 @@ const StripeCheckout = () => {
       description="Finalize em um ambiente protegido. Seus dados de cartão são protegidos e processados diretamente pela Stripe."
       backTo={backNavigation.to}
       backLabel={backNavigation.label}
+      layout="checkout"
     >
       {!publishableKey ? (
         <CheckoutState

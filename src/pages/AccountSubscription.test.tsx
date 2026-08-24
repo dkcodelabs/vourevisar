@@ -256,7 +256,7 @@ describe('AccountSubscription', () => {
     expect(screen.getAllByText('Sem cobrança')).toHaveLength(1);
     expect(screen.getByText('Fim do período')).toBeInTheDocument();
     expect(screen.getByText('10 de agosto de 2026')).toBeInTheDocument();
-    expect(screen.getByText('Nenhum cartão necessário')).toBeInTheDocument();
+    expect(screen.queryByText('Nenhum cartão necessário')).not.toBeInTheDocument();
     expect(screen.queryByText(/VISA •••• 0341/i)).not.toBeInTheDocument();
     expect(screen.getByText('R$ 16,00')).toBeInTheDocument();
     expect(screen.getByText('Reembolso confirmado pela Stripe')).toBeInTheDocument();

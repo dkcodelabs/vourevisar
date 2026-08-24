@@ -141,9 +141,9 @@ export const StripePaymentForm = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-[2rem] border border-white/80 bg-white/85 p-5 shadow-[0_28px_80px_-42px_rgba(36,24,77,0.5)] backdrop-blur-xl sm:p-7"
+      className="rounded-[2rem] border border-white/80 bg-white/85 p-5 shadow-[0_28px_80px_-42px_rgba(36,24,77,0.5)] backdrop-blur-xl sm:p-6"
     >
-      <div className="mb-6 flex items-start justify-between gap-4 border-b border-[#ebe7f5] pb-5">
+      <div className="mb-5 flex items-start justify-between gap-4 border-b border-[#ebe7f5] pb-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#746c87]">Total de hoje</p>
           <p className="mt-1 text-3xl font-black tracking-[-0.04em] text-[#17122b]">{totalToday}</p>
@@ -158,7 +158,7 @@ export const StripePaymentForm = ({
         </span>
       </div>
 
-      <div className="mb-5 rounded-2xl border border-[#ded8ed] bg-[#faf9ff] p-4">
+      <div className="mb-4 rounded-2xl border border-[#ded8ed] bg-[#faf9ff] p-4">
         <div className="flex items-center gap-2 text-sm font-black text-[#2f2940]">
           <Tag className="h-4 w-4 text-[#5b47eb]" />
           Código de divulgação
@@ -214,7 +214,7 @@ export const StripePaymentForm = ({
         )}
       </div>
 
-      <div className="min-h-[210px]">
+      <div className="min-h-[198px]">
         <PaymentElement
           options={{ layout: 'tabs' }}
           onReady={() => {
@@ -233,7 +233,7 @@ export const StripePaymentForm = ({
       </div>
 
       {requireContractAcceptance && (
-        <div className="mt-5 rounded-2xl border border-[#ded8ed] bg-white/70 p-4 text-sm text-[#433b56]">
+        <div className="mt-4 rounded-2xl border border-[#ded8ed] bg-white/70 p-4 text-sm text-[#433b56]">
           <p className="font-black">Resumo da assinatura</p>
           <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-[#686078]">
             <li>• Cobrança de {totalToday} hoje.</li>
@@ -289,7 +289,7 @@ export const StripePaymentForm = ({
           elementLoadError ||
           (requireContractAcceptance && !hasAcceptedContract)
         }
-        className="group mt-6 flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-[#6b4df5] to-[#2478ff] px-6 text-base font-black text-white shadow-[0_16px_35px_-16px_rgba(78,73,235,0.9)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_42px_-16px_rgba(78,73,235,0.95)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8b7bff]/30 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0"
+        className="group mt-5 flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-[#6b4df5] to-[#2478ff] px-6 text-base font-black text-white shadow-[0_16px_35px_-16px_rgba(78,73,235,0.9)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_42px_-16px_rgba(78,73,235,0.95)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8b7bff]/30 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0"
       >
         {isSubmitting || contractAcceptance.isPending ? (
           <>
@@ -304,7 +304,7 @@ export const StripePaymentForm = ({
         )}
       </button>
 
-      <div className="mt-5 grid gap-3 text-xs font-bold text-[#686078] sm:grid-cols-2">
+      <div className="mt-4 grid gap-2 text-xs font-bold text-[#686078] sm:grid-cols-2">
         <span className="flex items-center gap-2">
           <LockKeyhole className="h-4 w-4 text-[#5b47eb]" />
           Pagamento protegido pela Stripe

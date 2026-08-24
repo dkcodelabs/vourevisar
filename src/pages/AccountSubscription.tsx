@@ -3,7 +3,6 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
-  CreditCard,
   ExternalLink,
   Loader2,
   RefreshCw,
@@ -145,16 +144,13 @@ const AccountSubscription = () => {
         'Não conseguimos abrir o gerenciamento agora. Nenhuma alteração foi feita. Tente novamente em alguns instantes.',
       )
     : null;
-  const nonStripePaymentLabel = isComplimentaryAccess
-    ? 'Nenhum cartão necessário'
-    : 'Sem cobrança vinculada';
-  const paymentMethodLabel = activeStripeSubscription?.card_last4
-    ? `${subscription.card_brand?.toUpperCase() || 'Cartão'} •••• ${subscription.card_last4}`
-    : null;
   const summaryValue = pageState.summaryValue ?? formatDate(
     isStripeSubscriber ? subscriptionEnd : data.access_until,
   );
-  const showsAccessInHero = pageState.kind === 'ending' && summaryValue !== '—';
+  const periodEndValue = formatDate(isStripeSubscriber ? subscriptionEnd : data.access_until);
+  const showsPeriodInHero = (
+    pageState.kind === 'ending' || pageState.kind === 'trial'
+  ) && periodEndValue !== '—';
   return (
     <SubscriptionFrame>
       <div className={`grid gap-5 ${showsTrialOffer ? 'xl:grid-cols-[0.8fr_1.2fr]' : 'xl:grid-cols-[minmax(0,1fr)_20rem]'}`}>
@@ -170,10 +166,13 @@ const AccountSubscription = () => {
                   <Sparkles className="h-4 w-4 text-[#dfff65]" />
                   {pageState.badge}
                 </span>
-                {showsAccessInHero && (
+                {showsPeriodInHero && (
                   <div className="mt-3 flex items-center gap-2 text-sm font-bold text-white/80">
                     <CalendarDays className="h-4 w-4 text-[#dfff65]" />
-                    <span>Acesso até <span className="text-white">{summaryValue}</span></span>
+                    <span>
+                      {pageState.summaryLabel}{' '}
+                      <span className="text-white">{periodEndValue}</span>
+                    </span>
                   </div>
                 )}
                 <h2 className="mt-5 text-3xl font-black tracking-[-0.045em] sm:text-[2.15rem]">
@@ -227,20 +226,13 @@ const AccountSubscription = () => {
             </div>
           )}
 
-          {pageState.kind !== 'ending' && (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {!showsPeriodInHero && (
+            <div className="mt-5">
               <DetailCard
                 icon={<CalendarDays className="h-5 w-5" />}
                 label={pageState.summaryLabel}
                 value={summaryValue}
               />
-            {(!isStripeSubscriber || !paymentMethodLabel) && (
-              <DetailCard
-                icon={<CreditCard className="h-5 w-5" />}
-                label="Pagamento"
-                value={hasInternalAccess ? 'Não se aplica' : nonStripePaymentLabel}
-              />
-            )}
             </div>
           )}
 
