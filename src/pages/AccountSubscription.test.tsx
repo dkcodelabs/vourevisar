@@ -216,6 +216,7 @@ describe('AccountSubscription', () => {
     expect(screen.getByText(/reembolso atualizado em 17 de set\. de 2026/i)).toBeInTheDocument();
     expect(screen.queryByText('Próxima renovação')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /gerenciar pagamento/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /agendar plano anual/i })).not.toBeInTheDocument();
   });
 
   it('keeps the financial history available while a Stripe subscription is active', () => {
@@ -348,7 +349,8 @@ describe('AccountSubscription', () => {
 
     expect(screen.getByText('Mudou de ideia?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancelar compra e pedir reembolso/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /atualizar cartão/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ver faturas e cartão/i })).toBeInTheDocument();
+    expect(screen.getByText(/para cancelar esta compra e pedir reembolso, use o botão acima/i)).toBeInTheDocument();
     expect(screen.queryByText(/plano anual disponível após o prazo de arrependimento/i)).not.toBeInTheDocument();
   });
 

@@ -131,13 +131,19 @@ const AccountSubscription = () => {
     : null;
   const isMonthlyPlanChangeCandidate = planChangeEnabled &&
     activeStripeSubscription?.plan === 'monthly' &&
+    activeStripeSubscription.status === 'active' &&
     !activeStripeSubscription.cancel_at_period_end &&
     !activeStripeSubscription.cancel_at &&
     Boolean(activeStripeSubscription.current_period_end);
-  // A recent purchase has one meaningful next step: keep it or use the
-  // statutory withdrawal flow. Showing card management and an annual upgrade
-  // beside that decision only creates competing, confusing actions.
-  const showManagementCard = !withdrawalEligible || pageState.kind === 'payment_attention';
+  // The withdrawal flow is the only cancellation/refund action during the
+  // statutory window, but billing self-service must remain available for
+  // invoices and card updates.
+  const showManagementCard = !withdrawalEligible || pageState.primaryAction === 'portal';
+  const managementTitle = withdrawalEligible ? 'Faturas e cartão' : pageState.asideTitle;
+  const managementDescription = withdrawalEligible
+    ? 'Consulte suas faturas ou atualize o cartão na Stripe. Para cancelar esta compra e pedir reembolso, use o botão acima.'
+    : pageState.asideDescription;
+  const managementActionLabel = withdrawalEligible ? 'Ver faturas e cartão' : pageState.primaryActionLabel;
   const portalErrorMessage = portal.isError
     ? getSafeBillingErrorMessage(
         portal.error,
@@ -269,16 +275,16 @@ const AccountSubscription = () => {
                   <ShieldCheck className="h-6 w-6" />
                 </div>
                 <h2 className="mt-4 text-xl font-black tracking-[-0.025em]">
-                  {pageState.asideTitle}
+                  {managementTitle}
                 </h2>
                 <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
-                  {pageState.asideDescription}
+                  {managementDescription}
                 </p>
 
                 {pageState.primaryAction === 'none' ? (
                   <div className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-success/15 px-5 text-sm font-black text-success">
                     <CheckCircle2 className="h-5 w-5" />
-                    {pageState.primaryActionLabel}
+                    {managementActionLabel}
                   </div>
                 ) : pageState.primaryAction === 'portal' ? (
                   <button
@@ -288,7 +294,7 @@ const AccountSubscription = () => {
                     className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground shadow-[0_16px_35px_-18px_hsl(var(--primary)/0.7)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {portal.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                    {pageState.primaryActionLabel}
+                    {managementActionLabel}
                   </button>
                 ) : (
                   <Link
