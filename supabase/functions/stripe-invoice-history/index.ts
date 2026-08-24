@@ -35,6 +35,55 @@ const toHistoryStatus = (
   return "closed";
 };
 
+const getInvoicePaymentMethodLabel = async (
+  stripe: ReturnType<typeof createStripeClient>,
+  invoiceId: string,
+): Promise<string | null> => {
+  try {
+    const invoicePayments = await stripe.invoicePayments.list({
+      invoice: invoiceId,
+      status: "paid",
+      limit: 10,
+    });
+    const paidPayment = invoicePayments.data.find((invoicePayment) =>
+      invoicePayment.payment.type === "payment_intent" &&
+      invoicePayment.amount_paid > 0
+    );
+    const paymentIntent = paidPayment?.payment.type === "payment_intent"
+      ? paidPayment.payment.payment_intent
+      : null;
+    const paymentIntentId = typeof paymentIntent === "string"
+      ? paymentIntent
+      : paymentIntent?.id;
+
+    if (!paymentIntentId) return null;
+
+    const paymentIntentDetails = await stripe.paymentIntents.retrieve(paymentIntentId, {
+      expand: ["payment_method"],
+    });
+    const paymentMethod = typeof paymentIntentDetails.payment_method === "string"
+      ? null
+      : paymentIntentDetails.payment_method;
+    if (!paymentMethod) return null;
+
+    if (paymentMethod.type === "card" && paymentMethod.card?.last4) {
+      return `${paymentMethod.card.brand.toUpperCase()} •••• ${paymentMethod.card.last4}`;
+    }
+    if (paymentMethod.type === "pix") return "Pix";
+    if (paymentMethod.type === "boleto") return "Boleto";
+
+    return "Outra forma de pagamento";
+  } catch (error) {
+    // The financial record itself remains useful even if Stripe cannot expand
+    // a legacy payment method. Do not turn a read-only history screen into an
+    // outage because this optional per-invoice detail is unavailable.
+    console.warn("[stripe-invoice-history:payment-method]", {
+      code: safeErrorCode(error),
+    });
+    return null;
+  }
+};
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return handleOptions(request);
   if (request.method !== "POST") return jsonResponse(request, { error: "method_not_allowed" }, 405);
@@ -85,7 +134,7 @@ Deno.serve(async (request) => {
     );
 
     // Display-only projection: no provider IDs, hosted links or payment URLs.
-    const invoices = result.data.map((invoice) => {
+    const invoices = await Promise.all(result.data.map(async (invoice) => {
       const refund = refundByInvoice.get(invoice.id);
       return {
         status: toHistoryStatus(invoice.status, refund?.status),
@@ -93,8 +142,11 @@ Deno.serve(async (request) => {
         currency: invoice.currency,
         occurred_at: fromUnixSeconds(invoice.status_transitions.paid_at ?? invoice.due_date ?? invoice.created),
         status_at: refund?.processed_at ?? refund?.requested_at ?? null,
+        payment_method_label: invoice.status === "paid"
+          ? await getInvoicePaymentMethodLabel(stripe, invoice.id)
+          : null,
       };
-    });
+    }));
 
     return jsonResponse(request, { invoices });
   } catch (error) {

@@ -94,4 +94,6 @@ export interface BillingInvoiceHistoryItem {
   currency: string;
   occurred_at: string | null;
   status_at: string | null;
+  /** The method actually used for this invoice, never the current subscription default. */
+  payment_method_label: string | null;
 }

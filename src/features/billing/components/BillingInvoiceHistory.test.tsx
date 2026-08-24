@@ -12,6 +12,7 @@ describe('BillingInvoiceHistory', () => {
           currency: 'brl',
           occurred_at: '2026-08-21T18:47:51.000Z',
           status_at: '2026-08-21T19:03:42.000Z',
+          payment_method_label: 'VISA •••• 5137',
         }]}
         isLoading={false}
         isError={false}
@@ -23,6 +24,7 @@ describe('BillingInvoiceHistory', () => {
     expect(screen.queryByText('Pagamento confirmado')).not.toBeInTheDocument();
     expect(screen.getByText(/cobrado em 21 de ago\. de 2026/i)).toBeVisible();
     expect(screen.getByText(/reembolso atualizado em 21 de ago\. de 2026/i)).toBeVisible();
+    expect(screen.getByText('Pago com VISA •••• 5137')).toBeVisible();
   });
 
   it('keeps an in-flight refund visible without claiming completion', () => {
@@ -34,6 +36,7 @@ describe('BillingInvoiceHistory', () => {
           currency: 'brl',
           occurred_at: '2026-08-21T18:47:51.000Z',
           status_at: '2026-08-21T19:03:42.000Z',
+          payment_method_label: null,
         }]}
         isLoading={false}
         isError={false}

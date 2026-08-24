@@ -189,6 +189,7 @@ describe('AccountSubscription', () => {
         currency: 'brl',
         occurred_at: '2026-09-02T00:00:00.000Z',
         status_at: '2026-09-17T00:00:00.000Z',
+        payment_method_label: null,
       }],
       isLoading: false,
       isError: false,
@@ -213,7 +214,6 @@ describe('AccountSubscription', () => {
     expect(screen.queryByRole('button', { name: /ver histórico financeiro/i })).not.toBeInTheDocument();
     expect(screen.getByText('Reembolso confirmado pela Stripe')).toBeInTheDocument();
     expect(screen.getByText(/reembolso atualizado em 17 de set\. de 2026/i)).toBeInTheDocument();
-    expect(screen.getByText('Retomar assinatura')).toBeInTheDocument();
     expect(screen.queryByText('Próxima renovação')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /gerenciar pagamento/i })).not.toBeInTheDocument();
   });
@@ -411,6 +411,6 @@ describe('AccountSubscription', () => {
     expect(screen.getByText('Renovação cancelada')).toBeInTheDocument();
     expect(screen.getByText('Acesso até')).toBeInTheDocument();
     expect(screen.getByText('02 de outubro de 2026')).toBeInTheDocument();
-    expect(screen.getByText('Cartão da assinatura: VISA •••• 0341')).toBeInTheDocument();
+    expect(screen.queryByText(/Cartão da assinatura:/i)).not.toBeInTheDocument();
   });
 });

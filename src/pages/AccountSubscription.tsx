@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AccountNavigation } from '@/components/account/AccountNavigation';
-import { BillingArtwork } from '@/features/billing/components/BillingArtwork';
 import { BillingInvoiceHistory } from '@/features/billing/components/BillingInvoiceHistory';
 import { BillingWithdrawalPanel } from '@/features/billing/components/BillingWithdrawalPanel';
 import { ScheduledAnnualPlanChange } from '@/features/billing/components/ScheduledAnnualPlanChange';
@@ -155,29 +154,36 @@ const AccountSubscription = () => {
   const summaryValue = pageState.summaryValue ?? formatDate(
     isStripeSubscriber ? subscriptionEnd : data.access_until,
   );
+  const showsAccessInHero = pageState.kind === 'ending' && summaryValue !== '—';
   return (
     <SubscriptionFrame>
-      <div className={`grid gap-6 ${showsTrialOffer ? 'xl:grid-cols-[0.75fr_1.25fr]' : 'xl:grid-cols-[minmax(0,1fr)_22rem]'}`}>
+      <div className={`grid gap-5 ${showsTrialOffer ? 'xl:grid-cols-[0.8fr_1.2fr]' : 'xl:grid-cols-[minmax(0,1fr)_20rem]'}`}>
         <section className="min-w-0">
           <motion.div
             initial={reduceMotion ? undefined : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="overflow-hidden rounded-[2rem] bg-[#17122b] p-6 text-white shadow-[0_30px_80px_-38px_rgba(23,18,43,0.9)] sm:p-8"
+            className="overflow-hidden rounded-3xl bg-[#17122b] p-5 text-white shadow-[0_30px_80px_-38px_rgba(23,18,43,0.9)] sm:p-6"
           >
-            <div className="flex flex-col justify-between gap-8 sm:flex-row">
+            <div className="flex flex-col justify-between gap-5 sm:flex-row">
               <div>
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
                   <Sparkles className="h-4 w-4 text-[#dfff65]" />
                   {pageState.badge}
                 </span>
-                <h2 className="mt-6 text-3xl font-black tracking-[-0.045em] sm:text-4xl">
+                {showsAccessInHero && (
+                  <div className="mt-3 flex items-center gap-2 text-sm font-bold text-white/80">
+                    <CalendarDays className="h-4 w-4 text-[#dfff65]" />
+                    <span>Acesso até <span className="text-white">{summaryValue}</span></span>
+                  </div>
+                )}
+                <h2 className="mt-5 text-3xl font-black tracking-[-0.045em] sm:text-[2.15rem]">
                   {hasInternalAccess ? (isOwner ? 'Proprietário' : 'Administrador') : planNames[data.plan]}
                 </h2>
                 <p className="mt-3 max-w-md text-sm font-medium leading-6 text-white/60">
                   {pageState.heroDescription}
                 </p>
               </div>
-              <div className="min-w-[170px] rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+              <div className="min-w-[155px] rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">
                   {hasInternalAccess
                     ? 'Vínculo'
@@ -221,12 +227,13 @@ const AccountSubscription = () => {
             </div>
           )}
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <DetailCard
-              icon={<CalendarDays className="h-5 w-5" />}
-              label={pageState.summaryLabel}
-              value={summaryValue}
-            />
+          {pageState.kind !== 'ending' && (
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <DetailCard
+                icon={<CalendarDays className="h-5 w-5" />}
+                label={pageState.summaryLabel}
+                value={summaryValue}
+              />
             {(!isStripeSubscriber || !paymentMethodLabel) && (
               <DetailCard
                 icon={<CreditCard className="h-5 w-5" />}
@@ -234,14 +241,14 @@ const AccountSubscription = () => {
                 value={hasInternalAccess ? 'Não se aplica' : nonStripePaymentLabel}
               />
             )}
-          </div>
+            </div>
+          )}
 
           {shouldShowInvoiceHistory && (
             <BillingInvoiceHistory
               invoices={invoiceHistory.data ?? []}
               isLoading={invoiceHistory.isLoading}
               isError={invoiceHistory.isError}
-              paymentMethodLabel={paymentMethodLabel}
             />
           )}
         </section>
@@ -265,11 +272,11 @@ const AccountSubscription = () => {
             <TrialConversionOffer plans={pricingPlans} isLoading={catalog.isLoading} />
           ) : showManagementCard ? (
             <>
-              <div className="rounded-[2rem] border border-border bg-card p-6 text-card-foreground shadow-[0_24px_70px_-42px_rgba(15,23,42,0.16)] dark:shadow-[0_24px_70px_-42px_rgba(0,0,0,0.52)]">
+              <div className="rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-[0_24px_70px_-42px_rgba(15,23,42,0.16)] dark:shadow-[0_24px_70px_-42px_rgba(0,0,0,0.52)]">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <ShieldCheck className="h-6 w-6" />
                 </div>
-                <h2 className="mt-5 text-xl font-black tracking-[-0.025em]">
+                <h2 className="mt-4 text-xl font-black tracking-[-0.025em]">
                   {pageState.asideTitle}
                 </h2>
                 <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
@@ -286,7 +293,7 @@ const AccountSubscription = () => {
                     type="button"
                     onClick={() => void handleOpenPortal()}
                     disabled={portal.isPending}
-                    className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground shadow-[0_16px_35px_-18px_hsl(var(--primary)/0.7)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground shadow-[0_16px_35px_-18px_hsl(var(--primary)/0.7)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {portal.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                     {pageState.primaryActionLabel}
@@ -294,7 +301,7 @@ const AccountSubscription = () => {
                 ) : (
                   <Link
                     to="/planos"
-                    className="group mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground shadow-[0_16px_35px_-18px_hsl(var(--primary)/0.7)] transition hover:-translate-y-0.5"
+                    className="group mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-info px-5 text-sm font-black text-primary-foreground shadow-[0_16px_35px_-18px_hsl(var(--primary)/0.7)] transition hover:-translate-y-0.5"
                   >
                     {pageState.primaryActionLabel}
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -305,10 +312,6 @@ const AccountSubscription = () => {
                     {portalErrorMessage}
                   </p>
                 )}
-              </div>
-
-              <div className="hidden overflow-hidden rounded-[2rem] bg-muted p-3 xl:block">
-                <BillingArtwork nextStep={pageState.artworkNextStep} />
               </div>
             </>
           ) : null}
@@ -321,9 +324,9 @@ const AccountSubscription = () => {
 const SubscriptionFrame = ({ children }: { children: React.ReactNode }) => (
   <div className="w-full">
     <AccountNavigation current="assinatura" className="mb-4" />
-    <section aria-labelledby="account-subscription-title" className="relative py-5 text-foreground">
-      <div className="relative mx-auto max-w-6xl">
-        <div className="mb-5">
+    <section aria-labelledby="account-subscription-title" className="relative py-4 text-foreground">
+      <div className="relative mx-auto max-w-7xl">
+        <div className="mb-4">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-primary">Conta e pagamento</p>
           <h1 id="account-subscription-title" className="mt-2 text-3xl font-black tracking-[-0.04em]">Minha assinatura</h1>
         </div>
