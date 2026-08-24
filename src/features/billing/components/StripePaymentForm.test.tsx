@@ -63,6 +63,34 @@ describe('StripePaymentForm contract acceptance', () => {
     expect(screen.getByText('Desconto aplicado ao pagamento de hoje.')).toBeVisible();
   });
 
+  it('explains promotion-code eligibility without exposing Stripe internals', async () => {
+    mocks.applyPromotionCode.mockResolvedValue({
+      type: 'error',
+      error: { code: 'invalidCode' },
+    });
+
+    render(
+      <MemoryRouter>
+        <StripePaymentForm
+          priceLabel="R$ 12,90"
+          intervalLabel="por mês"
+          plan="monthly"
+          requestId="dbb35516-6e35-48dd-95e4-f704529dc515"
+          requireContractAcceptance
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Digite seu código'), {
+      target: { value: 'sorafajatinah' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+
+    expect(
+      await screen.findByText('Não foi possível usar este código. Confira a grafia; códigos de divulgação valem somente para a primeira compra.'),
+    ).toBeVisible();
+  });
+
   it('blocks payment until the contract is accepted', () => {
     render(
       <MemoryRouter>

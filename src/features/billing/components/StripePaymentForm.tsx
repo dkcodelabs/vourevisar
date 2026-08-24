@@ -67,7 +67,7 @@ export const StripePaymentForm = ({
       if (result.type === 'error') {
         setPromotionMessage(
           result.error.code === 'invalidCode'
-            ? 'Código inválido, expirado ou indisponível para este plano.'
+            ? 'Não foi possível usar este código. Confira a grafia; códigos de divulgação valem somente para a primeira compra.'
             : 'Não foi possível aplicar o código agora. Tente novamente.',
         );
         return;
