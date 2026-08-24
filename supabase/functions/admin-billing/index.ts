@@ -67,6 +67,28 @@ const requireAdmin = async (userId: string, supabase: ReturnType<typeof createSe
 const isPlanCode = (value: unknown): value is PlanCode =>
   value === "free_trial" || value === "monthly" || value === "annual";
 
+const getExpandableId = (value: unknown): string | null => {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "id" in value && typeof value.id === "string") {
+    return value.id;
+  }
+  return null;
+};
+
+const getInvoiceSubscriptionId = (invoice: Stripe.Invoice): string | null => {
+  const candidate = invoice as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null;
+    parent?: {
+      subscription_details?: {
+        subscription?: string | Stripe.Subscription | null;
+      } | null;
+    } | null;
+  };
+
+  return getExpandableId(candidate.parent?.subscription_details?.subscription)
+    ?? getExpandableId(candidate.subscription);
+};
+
 const manualAccessEnd = (plan: PlanCode, now: Date) => {
   const days = plan === "annual" ? 365 : plan === "monthly" ? 30 : 7;
   return new Date(now.getTime() + days * 86_400_000).toISOString();
@@ -245,7 +267,10 @@ const listOperationTimeline = async (
   livemode: boolean,
 ) => {
   const [customersResult, contractsResult, refundsResult, actionsResult] = await Promise.all([
-    supabase.from("billing_customers").select("id").eq("livemode", livemode),
+    supabase
+      .from("billing_customers")
+      .select("id,user_id,stripe_customer_id")
+      .eq("livemode", livemode),
     supabase
       .from("billing_contract_acceptances")
       .select("id,user_id,plan_code,amount_cents,currency,contracted_at")
@@ -274,7 +299,7 @@ const listOperationTimeline = async (
   const { data: subscriptions, error: subscriptionsError } = customerIds.length
     ? await supabase
       .from("billing_subscriptions")
-      .select("id,user_id,billing_customer_id,plan_code,status,amount_cents,currency,cancel_at,cancel_at_period_end,canceled_at,updated_at")
+      .select("id,user_id,billing_customer_id,stripe_subscription_id,plan_code,status,amount_cents,currency,cancel_at,cancel_at_period_end,canceled_at,updated_at")
       .in("billing_customer_id", customerIds)
       .order("updated_at", { ascending: false })
       .limit(100)
@@ -283,7 +308,20 @@ const listOperationTimeline = async (
 
   const contractsById = new Map((contractsResult.data ?? []).map((contract) => [contract.id, contract]));
   const refundsById = new Map((refundsResult.data ?? []).map((refund) => [refund.id, refund]));
+  const customerByStripeId = new Map(
+    (customersResult.data ?? []).map((customer) => [customer.stripe_customer_id, customer]),
+  );
+  const subscriptionByStripeId = new Map(
+    (subscriptions ?? []).map((subscription) => [subscription.stripe_subscription_id, subscription]),
+  );
+  const latestSubscriptionByUser = new Map<string, typeof subscriptions extends (infer Row)[] | null ? Row : never>();
+  for (const subscription of subscriptions ?? []) {
+    if (!latestSubscriptionByUser.has(subscription.user_id)) {
+      latestSubscriptionByUser.set(subscription.user_id, subscription);
+    }
+  }
   const userIds = new Set<string>();
+  for (const customer of customersResult.data ?? []) userIds.add(customer.user_id);
   for (const contract of contractsResult.data ?? []) userIds.add(contract.user_id);
   for (const refund of refundsResult.data ?? []) userIds.add(refund.user_id);
   for (const subscription of subscriptions ?? []) userIds.add(subscription.user_id);
@@ -302,8 +340,50 @@ const listOperationTimeline = async (
   };
   const events: TimelineEvent[] = [];
 
+  // Stripe invoices are the financial source of truth. Contract acceptances
+  // intentionally keep the list price agreed to before a promotion is applied,
+  // so they cannot be used as the amount actually charged in an operations log.
+  const usersWithStripePayment = new Set<string>();
+  try {
+    const stripe = createStripeClient();
+    const invoices = await stripe.invoices.list({ limit: 100 });
+    for (const invoice of invoices.data) {
+      if (invoice.livemode !== livemode || invoice.status !== "paid" || invoice.amount_paid <= 0) continue;
+
+      const customer = customerByStripeId.get(getExpandableId(invoice.customer) ?? "");
+      if (!customer) continue;
+
+      const subscription = subscriptionByStripeId.get(getInvoiceSubscriptionId(invoice) ?? "")
+        ?? latestSubscriptionByUser.get(customer.user_id);
+      const plan = subscription?.plan_code === "annual"
+        ? "annual"
+        : subscription?.plan_code === "monthly"
+        ? "monthly"
+        : null;
+      const paidAt = invoice.status_transitions?.paid_at
+        ? new Date(invoice.status_transitions.paid_at * 1000).toISOString()
+        : new Date(invoice.created * 1000).toISOString();
+
+      events.push(eventFor("payment_confirmed", {
+        id: `invoice:${invoice.id}`,
+        occurred_at: paidAt,
+        user_id: customer.user_id,
+        plan,
+        amount_cents: invoice.amount_paid,
+        currency: invoice.currency,
+        status: "confirmed",
+        error_code: null,
+      }));
+      usersWithStripePayment.add(customer.user_id);
+    }
+  } catch (error) {
+    // The operations log remains available during a transient Stripe outage.
+    // Its legacy fallback is clearly limited to users without an invoice result.
+    console.error("admin_timeline_invoice_lookup_failed", safeErrorCode(error));
+  }
+
   for (const contract of contractsResult.data ?? []) {
-    if (!contract.contracted_at) continue;
+    if (!contract.contracted_at || usersWithStripePayment.has(contract.user_id)) continue;
     events.push(eventFor("payment_confirmed", {
       id: `contract:${contract.id}`,
       occurred_at: contract.contracted_at,

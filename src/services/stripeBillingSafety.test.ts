@@ -470,6 +470,13 @@ describe('Stripe billing security boundaries', () => {
     expect(adminBillingSource).not.toMatch(/asaas_/i);
   });
 
+  it('uses Stripe invoice payments as the financial source of truth in the admin timeline', () => {
+    expect(adminBillingSource).toContain('stripe.invoices.list({ limit: 100 })');
+    expect(adminBillingSource).toContain('amount_cents: invoice.amount_paid');
+    expect(adminBillingSource).toContain('id: `invoice:${invoice.id}`');
+    expect(adminBillingSource).toContain('usersWithStripePayment.has(contract.user_id)');
+  });
+
   it('keeps administrative refund reconciliation private, audited and non-duplicating', () => {
     expect(configSource).toContain('[functions.admin-billing]\nverify_jwt = true');
     expect(adminBillingSource).toContain('requireAdmin(actor.id, supabase)');
