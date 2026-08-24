@@ -62,6 +62,9 @@ const errorMessages: Record<string, string> = {
   plan_change_not_reversible: 'Esta troca já está em andamento ou foi concluída. Recarregue a página para ver o plano atual.',
 };
 
+export const isBillingError = (error: unknown, code: keyof typeof errorMessages) =>
+  error instanceof Error && error.message === errorMessages[code];
+
 const fallbackBillingMessage =
   'Não foi possível concluir esta ação agora. Nenhuma alteração foi feita. Tente novamente em alguns instantes.';
 

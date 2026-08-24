@@ -139,11 +139,11 @@ const AccountSubscription = () => {
   // statutory window, but billing self-service must remain available for
   // invoices and card updates.
   const showManagementCard = !withdrawalEligible || pageState.primaryAction === 'portal';
-  const managementTitle = withdrawalEligible ? 'Faturas e cartão' : pageState.asideTitle;
+  const managementTitle = withdrawalEligible ? 'Atualize seu cartão' : pageState.asideTitle;
   const managementDescription = withdrawalEligible
-    ? 'Consulte suas faturas ou atualize o cartão na Stripe. Para cancelar esta compra e pedir reembolso, use o botão acima.'
+    ? 'Troque ou adicione o cartão usado nas próximas renovações. Suas cobranças e reembolsos ficam no Histórico financeiro desta página.'
     : pageState.asideDescription;
-  const managementActionLabel = withdrawalEligible ? 'Ver faturas e cartão' : pageState.primaryActionLabel;
+  const managementActionLabel = withdrawalEligible ? 'Atualizar cartão' : pageState.primaryActionLabel;
   const portalErrorMessage = portal.isError
     ? getSafeBillingErrorMessage(
         portal.error,
