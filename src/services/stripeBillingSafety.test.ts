@@ -168,7 +168,7 @@ describe('Stripe billing security boundaries', () => {
     expect(adminAffiliatesSource).toContain('requireOwner(actor.id, supabase)');
     expect(configSource).toContain('[functions.admin-affiliates]\nverify_jwt = true');
     expect(webhookSource).toContain('recordAffiliateConversion');
-    expect(webhookSource).toContain('billing_reason !== "subscription_create"');
+    expect(webhookSource).toContain('invoice.billing_reason !== "subscription_create" || invoice.amount_paid <= 0');
     expect(webhookSource).toContain('billing_affiliate_conversions');
     expect(webhookSource).toContain('"refunded"');
     expect(webhookSource).toContain('"disputed"');
@@ -338,8 +338,9 @@ describe('Stripe billing security boundaries', () => {
     const sessionCreateBlock = checkoutSource.split('stripe.checkout.sessions.create')[1]?.split(');')[0] ?? '';
     expect(sessionCreateBlock).not.toContain('phone_number_collection');
     expect(checkoutSource).toContain('isReusableCheckoutSession');
-    expect(webhookSource).toContain('billing_reason !== "subscription_create"');
+    expect(webhookSource).toContain('invoice.billing_reason !== "subscription_create" || invoice.amount_paid <= 0');
     expect(webhookSource).toContain('sendSubscriptionConfirmation');
+    expect(webhookSource).toContain('eventKey: `payment-failed:${invoice.id}`');
     expect(webhookSource).toContain('billing_contract_acceptances');
     expect(billingEmailSource).toContain('Confirmação contratual');
     expect(billingEmailSource).toContain('/cancelamento-e-reembolso');

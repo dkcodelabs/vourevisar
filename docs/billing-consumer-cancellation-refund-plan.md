@@ -164,10 +164,15 @@ atuais do checkout:
 - [ ] Homologação Live da criação e reversão da troca mensal para anual e,
   depois, da cobrança anual no ciclo futuro. A regra e o backend existem; a
   cobrança futura depende da passagem do período mensal.
-- [ ] Simulação isolada de falha de renovação no Stripe Test: o evento
+- [x] Simulação isolada de falha de renovação no Stripe Test: o evento
   `invoice.payment_failed` e sua entrega HTTP `200` ao webhook foram
-  comprovados em 2026-08-24. Permanecem a comprovação de alerta/e-mail no
-  ambiente Test e a validação do efeito final da política de retries.
+  comprovados em 2026-08-24. Com os secrets do Resend configurados no Test,
+  o aluno recebeu a orientação para atualizar o cartão e o operacional recebeu
+  o alerta de falha. O ensaio revelou que uma fatura de criação de R$ 0,00 era
+  classificada indevidamente como "nova assinatura"; a confirmação agora exige
+  valor efetivamente pago. Os alertas operacionais usam a fatura como chave de
+  idempotência, evitando uma sequência de mensagens para os retries imediatos
+  da mesma cobrança sem ocultar uma falha posterior.
 - [ ] Exercitar, no ambiente controlado, os estados Stripe de reembolso
   `pending` e `failed`. O caminho `succeeded` foi validado em Live.
 - [ ] Confirmar por passagem de tempo que o cancelamento normal não cria nova

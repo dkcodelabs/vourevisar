@@ -701,7 +701,11 @@ const sendFirstPaymentConfirmation = async (
   eventId: string,
   livemode: boolean,
 ) => {
-  if (invoice.billing_reason !== "subscription_create") return;
+  // Invoices with zero amount may be emitted while Stripe configures a
+  // subscription fixture or applies a full discount. They are not a paid
+  // conversion and must never produce a customer confirmation or an internal
+  // "new subscription" alert.
+  if (invoice.billing_reason !== "subscription_create" || invoice.amount_paid <= 0) return;
 
   const subscriptionId = getInvoiceSubscriptionId(invoice);
   const customerId = getExpandableId(invoice.customer);
@@ -879,7 +883,11 @@ const notifySubscriptionPaymentFailure = async (
 
   try {
     await sendBillingOperationsAlert({
-      eventKey: `payment-failed:${eventId}`,
+      // Stripe emits a distinct event for each retry of the same invoice.
+      // Using the invoice as the alert key prevents a burst of identical
+      // operational messages while retaining a later retry after Resend's
+      // 24-hour idempotency window.
+      eventKey: `payment-failed:${invoice.id}`,
       title: "Falha na cobrança recorrente",
       details: [
         { label: "Tentativa", value: String(attemptCount) },
