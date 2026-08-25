@@ -164,8 +164,10 @@ atuais do checkout:
 - [ ] Homologação Live da criação e reversão da troca mensal para anual e,
   depois, da cobrança anual no ciclo futuro. A regra e o backend existem; a
   cobrança futura depende da passagem do período mensal.
-- [ ] Simulação isolada de falha de renovação no Stripe Test, inclusive os
-  eventos `invoice.payment_failed`, alertas e política de retries.
+- [ ] Simulação isolada de falha de renovação no Stripe Test: o evento
+  `invoice.payment_failed` e sua entrega HTTP `200` ao webhook foram
+  comprovados em 2026-08-24. Permanecem a comprovação de alerta/e-mail no
+  ambiente Test e a validação do efeito final da política de retries.
 - [ ] Exercitar, no ambiente controlado, os estados Stripe de reembolso
   `pending` e `failed`. O caminho `succeeded` foi validado em Live.
 - [ ] Confirmar por passagem de tempo que o cancelamento normal não cria nova
@@ -553,10 +555,17 @@ devem ser inventados no código; dependem de informação e revisão do titular.
   para `/login` antes da restauração. Implementado e publicado no commit
   `c65cde4c`; falta repetir o retorno autenticado pelo Portal no Safari para
   confirmar que não há mais tela intermediária de login.
-- [ ] Homologar falha de renovação em Stripe Test com cartão de recusa após
-  confirmar que o webhook recebe `invoice.payment_failed`, o aluno recebe
-  orientação para atualizar o cartão, a operação recebe alerta e o acesso
-  permanece/suspende conforme a política de retries configurada na Stripe.
+- [ ] Concluir a homologação de falha de renovação em Stripe Test. Em
+  2026-08-24, o cartão oficial de recusa `4000 0000 0000 0341` levou a
+  assinatura controlada a `past_due` e a fatura a `Tentando novamente`; uma
+  nova tentativa entregou `invoice.payment_failed` ao webhook Test com HTTP
+  `200`. A primeira entrega havia retornado `500` porque o cliente criado
+  manualmente no Stripe Test não tinha `metadata.supabase_user_id`; isso foi
+  corrigido apenas no fixture de Teste, sem tocar no Live. Ainda faltam provar
+  a orientação ao aluno e o alerta operacional neste ambiente, pois o projeto
+  Test não possui `RESEND_API_KEY`, `RESEND_FROM_EMAIL` nem
+  `BILLING_OPERATIONS_EMAIL`. O acesso deve continuar/suspender conforme a
+  política de retries configurada na Stripe.
   Em 2026-08-23 foi criado o projeto isolado `vourevisar-billing-test`
   (`txkwvddkfdiwrpoflsyj`, região `sa-east-1`, sem dados Live). A criação de
   branch no projeto Live foi deliberadamente descartada porque o plano Free
