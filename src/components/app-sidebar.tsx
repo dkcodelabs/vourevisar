@@ -17,6 +17,7 @@ import {
   CircleHelp,
   UserCircle,
   Sparkles,
+  BrainCircuit,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
@@ -61,8 +62,9 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
     { title: "Meus Editais", url: "/meus-editais", icon: Library },
     { title: "Ciclo de Estudos", url: "/ciclo-estudos", icon: RotateCcw },
     { title: "Revisões", url: "/revisoes", icon: Clock },
+    { title: "Treino", url: "/treino", icon: BrainCircuit },
     { title: "Cadernos", url: "/cadernos", icon: NotebookTabs },
-    { title: "Estatísticas", url: "/estatisticas", icon: BarChart3 },
+    { title: "Evolução", url: "/estatisticas", icon: BarChart3 },
   ]
 
   const adminItems: Array<{

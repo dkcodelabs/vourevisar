@@ -34,6 +34,9 @@ jobs:
         # during a financial-flow release.
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Check architecture boundaries
+        run: npm run architecture:check
+
       - name: Run typecheck
         run: npm run typecheck
 

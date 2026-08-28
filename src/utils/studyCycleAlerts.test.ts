@@ -49,6 +49,25 @@ describe('studyCycleAlerts', () => {
     expect(alerts[0].topicId).toBeUndefined();
   });
 
+  it('keeps the next weighted subjects in descending priority so the UI can preview them', () => {
+    const alerts = getStudyCycleAlerts({
+      subjects: [
+        { id: 'subject-20', name: 'Informática', exam_weight_percentage: 20, topics: [{ id: 'topic-20', name: 'Windows' }] },
+        { id: 'subject-40', name: 'Legislação', exam_weight_percentage: 40, topics: [{ id: 'topic-40', name: 'Lei' }] },
+        { id: 'subject-10', name: 'Português', exam_weight_percentage: 10, topics: [{ id: 'topic-10', name: 'Crase' }] },
+      ],
+      hasCycleHistory: true,
+      now,
+      maxAlerts: 5,
+    });
+
+    expect(alerts.filter(alert => alert.actionType === 'start_subject').map(alert => alert.subjectName)).toEqual([
+      'Legislação',
+      'Informática',
+      'Português',
+    ]);
+  });
+
   it('points to a high-volume unstarted topic with real incidence data', () => {
     const alerts = getStudyCycleAlerts({
       subjects: [
@@ -126,13 +145,60 @@ describe('studyCycleAlerts', () => {
     }));
   });
 
-  it('does not turn missing cycle history into a strategic alert by itself', () => {
+  it('identifies unstarted topic with incidence_level high', () => {
     const alerts = getStudyCycleAlerts({
-      subjects: [],
-      hasCycleHistory: false,
+      subjects: [
+        {
+          id: 'subject-1',
+          name: 'Direito Constitucional',
+          topics: [
+            { id: 'topic-1', name: 'Direitos Fundamentais', completed: false, reviewCount: 0, incidence_level: 'high' },
+          ],
+        },
+      ],
+      hasCycleHistory: true,
       now,
     });
 
-    expect(alerts).toEqual([]);
+    expect(alerts).toContainEqual(expect.objectContaining({
+      id: 'high-volume-topic-unstarted:topic-1',
+      severity: 'warning',
+      title: 'Tópico forte ainda não iniciado',
+      message: 'Direitos Fundamentais aparece com cobrança alta e ainda não teve primeiro contato.',
+      topicId: 'topic-1',
+    }));
+  });
+
+  it('creates an alert for an important topic started over 48h ago with zero reviews', () => {
+    const alerts = getStudyCycleAlerts({
+      subjects: [
+        {
+          id: 'subject-1',
+          name: 'Direito Administrativo',
+          topics: [
+            {
+              id: 'topic-1',
+              name: 'Atos Administrativos',
+              completed: false,
+              reviewCount: 0,
+              first_studied_at: '2026-05-30T10:00:00-03:00', // 4 dias atrás do mock now (2026-06-03)
+              incidence_level: 'high',
+            },
+          ],
+        },
+      ],
+      hasCycleHistory: true,
+      now,
+    });
+
+    expect(alerts).toContainEqual(expect.objectContaining({
+      id: 'unreviewed-important-topic:topic-1',
+      severity: 'warning',
+      title: 'Tópico importante sem revisão',
+      message: 'Atos Administrativos já teve 1º contato, mas ainda não foi revisado.',
+      actionLabel: 'Ver revisões',
+      actionType: 'open_reviews',
+      topicId: 'topic-1',
+    }));
   });
 });

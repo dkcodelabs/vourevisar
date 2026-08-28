@@ -36,6 +36,11 @@ export function useCycleStrategicAlertActions({
       return;
     }
 
+    if (alert.actionType === 'open_reviews') {
+      navigate('/revisoes');
+      return;
+    }
+
     if (alert.actionType === 'fill_weight' && alert.subjectId) {
       const subject = expandedSubjectList.find(item => item.subject.id === alert.subjectId)?.subject;
       if (subject) {

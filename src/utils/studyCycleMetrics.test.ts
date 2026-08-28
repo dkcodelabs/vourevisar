@@ -57,11 +57,14 @@ describe('studyCycleMetrics', () => {
       state: 'ready',
       daysRemaining: 5,
       newTopicsPerDay: 2 / 5,
-      reviewsPerDay: 3 / 5,
+      reviewsPerDay: 17 / 5,
+      totalDailyWorkload: 19 / 5,
+      totalPlannedReviews: 17,
       unstartedTopics: 2,
       pendingReviews: 3,
       futureReviewsInWindow: 1,
     });
+    expect(metrics.pace.totalDailyWorkload).toBeCloseTo(metrics.pace.newTopicsPerDay! + metrics.pace.reviewsPerDay!);
   });
 
   it('estimates first-contact closing time from current cycle pace', () => {
@@ -223,6 +226,61 @@ describe('studyCycleMetrics', () => {
       topicsPerDay: 3 / 7,
       projectedDaysToFirstContact: 7,
       averageStudyMinutes: 40,
+    });
+  });
+
+  it('calculates full workload projection across newly created, in-progress and completed topics', () => {
+    const metrics = getStudyCycleMetrics({
+      now,
+      editais: [{ exam_date: '2026-06-23' }], // 20 days until exam
+      subjects: [
+        {
+          id: 'subject-1',
+          topics: [
+            // 10 new topics -> 10 * 4 = 40 reviews
+            ...Array.from({ length: 10 }, (_, i) => ({ id: `new-${i}` })),
+            // 5 with review_count = 1 -> 5 * 3 = 15 reviews
+            ...Array.from({ length: 5 }, (_, i) => ({ id: `r1-${i}`, first_studied_at: '2026-06-01T08:00:00-03:00', review_count: 1 })),
+            // 5 with review_count = 2 -> 5 * 2 = 10 reviews
+            ...Array.from({ length: 5 }, (_, i) => ({ id: `r2-${i}`, first_studied_at: '2026-06-01T08:00:00-03:00', review_count: 2 })),
+            // 3 with review_count = 3 -> 3 * 1 = 3 reviews
+            ...Array.from({ length: 3 }, (_, i) => ({ id: `r3-${i}`, first_studied_at: '2026-06-01T08:00:00-03:00', review_count: 3 })),
+            // 2 completed -> 0 reviews
+            { id: 'done-1', completed: true, review_count: 4, first_studied_at: '2026-05-01T08:00:00-03:00' },
+            { id: 'done-2', is_completed: true, review_count: 5, first_studied_at: '2026-05-01T08:00:00-03:00' },
+          ],
+        },
+      ],
+    });
+
+    // Total topics = 25
+    // Unstarted = 10
+    // Total planned reviews = 40 + 15 + 10 + 3 + 0 = 68 reviews
+    // Days remaining = 20
+    expect(metrics.pace.state).toBe('ready');
+    expect(metrics.pace.unstartedTopics).toBe(10);
+    expect(metrics.pace.totalPlannedReviews).toBe(68);
+    expect(metrics.pace.daysRemaining).toBe(20);
+    expect(metrics.pace.newTopicsPerDay).toBe(10 / 20); // 0.5/day
+    expect(metrics.pace.reviewsPerDay).toBe(68 / 20); // 3.4/day
+    expect(metrics.pace.totalDailyWorkload).toBe(78 / 20); // 3.9/day
+    expect(metrics.pace.totalDailyWorkload).toBeCloseTo(metrics.pace.newTopicsPerDay! + metrics.pace.reviewsPerDay!);
+  });
+
+  it('returns exam_date_past when exam is today (0 days remaining)', () => {
+    const examToday = getStudyCycleMetrics({
+      now,
+      hasActiveCycle: true,
+      cycleExamDate: '2026-06-03',
+      subjects: [{ id: 'subject-1', topics: [{ id: 'topic-1' }] }],
+    });
+
+    expect(examToday.pace).toMatchObject({
+      state: 'exam_date_past',
+      daysRemaining: 0,
+      newTopicsPerDay: null,
+      reviewsPerDay: null,
+      totalDailyWorkload: null,
     });
   });
 

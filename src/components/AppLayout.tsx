@@ -29,7 +29,9 @@ const routeTitles: Record<string, string> = {
   "/ciclo-estudos": "Ciclo de Estudos",
   "/revisoes": "Revisões",
   "/cadernos": "Cadernos",
-  "/estatisticas": "Estatísticas",
+  "/treino": "Treino inteligente",
+  "/pratica": "Prática",
+  "/estatisticas": "Evolução",
   "/conta/assinatura": "Minha assinatura",
   "/conta": "Conta",
   "/perfil": "Perfil",
@@ -67,6 +69,8 @@ const appDataOverlayRoutes = [
   "/ciclo-estudos",
   "/revisoes",
   "/cadernos",
+  "/treino",
+  "/pratica",
   "/estatisticas",
 ];
 
@@ -137,6 +141,14 @@ export const AppLayout = () => {
       return () => clearInterval(interval);
     }
   }, [user, signOut, navigate, logSessionStart]);
+
+  if (currentPath.startsWith('/pratica/')) {
+    return (
+      <div className="min-h-dvh bg-background">
+        <Outlet />
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider className="app-page-bg">

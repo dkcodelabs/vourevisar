@@ -92,7 +92,7 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
     { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: RotateCcw },
     { to: "/revisoes", label: "Revisões", icon: Clock },
     { to: "/cadernos", label: "Cadernos", icon: NotebookTabs },
-    { to: "/estatisticas", label: "Estatísticas", icon: BarChart3 },
+    { to: "/estatisticas", label: "Evolução", icon: BarChart3 },
   ];
 
   const adminItems: NavItem[] = isAdmin ? [

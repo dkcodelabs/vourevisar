@@ -114,4 +114,13 @@ describe('StudyCycleWorkspace', () => {
 
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
+
+  it('renders focused milestone panel and hides toolbar and strategic panel when cycle is fully studied', () => {
+    render(<StudyCycleWorkspace {...makeProps({ isCycleFullyStudied: true, displayListLength: 6 })} />);
+
+    expect(screen.getByTestId('first-contact-finished')).toHaveTextContent('full');
+    expect(screen.getByText(/Ver matérias cumpridas nesta rodada \(6\)/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('workspace-header')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('strategic-panel')).not.toBeInTheDocument();
+  });
 });

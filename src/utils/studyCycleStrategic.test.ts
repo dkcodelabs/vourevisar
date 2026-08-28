@@ -56,7 +56,34 @@ describe('studyCycleStrategic', () => {
     });
   });
 
-  it('shows only high charging signal to the student', () => {
+  it('shows high charging signal to the student when incidenceLevel is high', () => {
+    expect(getTopicStrategicIncidence({ incidenceLevel: 'high' })).toEqual({
+      level: 'high',
+      label: 'Cobrança alta',
+      hasIncidence: true,
+      showToStudent: true,
+    });
+  });
+
+  it('shows medium charging signal to the student when incidenceLevel is medium', () => {
+    expect(getTopicStrategicIncidence({ incidenceLevel: 'medium' })).toEqual({
+      level: 'analyzed',
+      label: 'Cobrança média',
+      hasIncidence: true,
+      showToStudent: true,
+    });
+  });
+
+  it('handles low charging signal when incidenceLevel is low', () => {
+    expect(getTopicStrategicIncidence({ incidenceLevel: 'low' })).toEqual({
+      level: 'analyzed',
+      label: 'Cobrança baixa',
+      hasIncidence: true,
+      showToStudent: false,
+    });
+  });
+
+  it('shows high charging signal from totalVolume fallback', () => {
     expect(getTopicStrategicIncidence({ totalVolume: 1200 })).toEqual({
       level: 'high',
       label: 'Cobrança alta',

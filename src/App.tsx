@@ -32,6 +32,8 @@ const ConfirmEmail = lazy(() => import("@/pages/ConfirmEmail"));
 const Revisoes = lazy(() => import("@/pages/Revisoes"));
 const Editais = lazy(() => import("@/pages/Editais"));
 const Cadernos = lazy(() => import("@/pages/Cadernos"));
+const PracticeHome = lazy(() => import("@/features/practice/pages/PracticeHome"));
+const PracticeSession = lazy(() => import("@/features/practice/pages/PracticeSession"));
 const Planos = lazy(() => import("@/pages/Planos"));
 const StripeCheckout = lazy(() => import("@/pages/StripeCheckout"));
 const StripeCheckoutReturn = lazy(() => import("@/pages/StripeCheckoutReturn"));
@@ -51,6 +53,7 @@ const ImportanciaProvaAdmin = lazy(() => import("@/pages/admin/TendenciaGUT"));
 const AdminEditais = lazy(() => import("@/pages/admin/AdminEditais"));
 const AffiliateReferralManagement = lazy(() => import("@/pages/admin/AffiliateReferralManagement"));
 const AISettings = lazy(() => import("@/pages/admin/AISettings"));
+const RevealCards = lazy(() => import("@/pages/RevealCards"));
 const SimpleRoleTest = import.meta.env.DEV
   ? lazy(() => import("@/components/SimpleRoleTest").then(module => ({ default: module.SimpleRoleTest })))
   : null;
@@ -114,6 +117,8 @@ const App = () => {
                             <Route path="revisoes" element={<RequireActiveSubscription><Revisoes /></RequireActiveSubscription>} />
                             <Route path="ciclo-estudos" element={<RequireActiveSubscription><Subjects /></RequireActiveSubscription>} />
                             <Route path="cadernos" element={<RequireActiveSubscription><Cadernos /></RequireActiveSubscription>} />
+                            <Route path="treino" element={<RequireActiveSubscription><PracticeHome /></RequireActiveSubscription>} />
+                            <Route path="pratica/:sessionId" element={<RequireActiveSubscription><PracticeSession /></RequireActiveSubscription>} />
 
                             {/* Admin Routes - Protected */}
                             <Route element={<AdminRoute />}>
@@ -138,6 +143,7 @@ const App = () => {
 
                             {exposeDebugRoutes && SimpleRoleTest && <Route path="test-roles" element={<SimpleRoleTest />} />}
                             <Route path="planos" element={<Planos />} />
+                            <Route path="reveal-cards" element={<RevealCards />} />
                             <Route path="conta" element={<Account />} />
                             <Route path="conta/assinatura" element={<AccountSubscription />} />
                             <Route path="perfil" element={<Navigate to="/conta?tab=perfil" replace />} />

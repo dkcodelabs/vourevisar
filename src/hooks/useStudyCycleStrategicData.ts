@@ -217,12 +217,8 @@ export function useStudyCycleStrategicData({
     return {
       totalSubjects,
       totalTopics,
-      startedTopics,
-      completedTopics,
       coveragePercentage,
-      completedSubjects,
-      inProgressSubjects,
-      topicsStartedThisCycle,
+      startedSubjectsCount: inProgressSubjects + completedSubjects,
       highestIncidenceTopic,
       highestIncidenceSubject,
       highestPendingWeightSubject,
@@ -311,12 +307,12 @@ export function useStudyCycleStrategicData({
         subject_ids: edital.subject_ids || [],
       })),
       hasCycleHistory: cycleSnapshots.length > 0,
-      maxAlerts: 3,
+      maxAlerts: 5,
     });
 
     if (cycleMaturity.phase === 'cold_start') return [];
     if (cycleMaturity.phase === 'started') {
-      return alerts.filter(alert => alert.severity === 'critical').slice(0, 1);
+      return alerts.filter(alert => alert.severity === 'critical').slice(0, 3);
     }
 
     return alerts;

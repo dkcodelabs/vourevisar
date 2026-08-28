@@ -25,7 +25,7 @@ const getNavItems = (isAdmin: boolean): NavItem[] => {
     { to: "/dashboard", label: "Painel", icon: LayoutDashboard, end: true },
     { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: Target },
     { to: "/revisoes", label: "Revisões", icon: Clock },
-    { to: "/estatisticas", label: "Estatísticas", icon: TrendingUp },
+    { to: "/estatisticas", label: "Evolução", icon: TrendingUp },
   ];
 
 

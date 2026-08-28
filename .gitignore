@@ -42,3 +42,4 @@ src/backups/
 supabase/.temp/
 .vercel
 .env*
+.agents/**/mcp_config.json

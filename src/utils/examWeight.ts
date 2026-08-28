@@ -5,7 +5,7 @@ type SubjectExamWeight = {
   exam_weight_raw?: string | null;
 };
 
-type ExamWeightTotals = {
+export type ExamWeightTotals = {
   totalPoints: number | null;
   totalQuestions: number | null;
 };

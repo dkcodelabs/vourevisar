@@ -148,7 +148,7 @@ para não ser lido como pendência atual.
 - [x] Executar compra e reembolso Live controlados, além de pagamentos mensal
   e anual no ambiente Stripe Test isolado.
 
-### Estado de encerramento técnico — 2026-08-24
+### Estado de encerramento técnico — 2026-08-25
 
 O fluxo comercial já está liberado tecnicamente para uso: teste gratuito sem
 cartão, contratação explícita, aceite versionado, pagamento, webhook, acesso,
@@ -166,13 +166,17 @@ atuais do checkout:
   cobrança futura depende da passagem do período mensal.
 - [x] Simulação isolada de falha de renovação no Stripe Test: o evento
   `invoice.payment_failed` e sua entrega HTTP `200` ao webhook foram
-  comprovados em 2026-08-24. Com os secrets do Resend configurados no Test,
-  o aluno recebeu a orientação para atualizar o cartão e o operacional recebeu
-  o alerta de falha. O ensaio revelou que uma fatura de criação de R$ 0,00 era
+  comprovados. Em 2026-08-25, uma fatura manual de R$ 12,90 no cartão de
+  recusa do Stripe Test confirmou novamente o percurso completo: recusa,
+  webhook, e-mail ao aluno para atualizar o pagamento e um alerta operacional.
+  Com os secrets do Resend configurados no Test, o aluno recebeu a orientação
+  para atualizar o cartão e o operacional recebeu o alerta de falha. O ensaio
+  revelou que uma fatura de criação de R$ 0,00 era
   classificada indevidamente como "nova assinatura"; a confirmação agora exige
   valor efetivamente pago. Os alertas operacionais usam a fatura como chave de
   idempotência, evitando uma sequência de mensagens para os retries imediatos
-  da mesma cobrança sem ocultar uma falha posterior.
+  da mesma cobrança sem ocultar uma falha posterior. A deduplicação também é
+  coberta pelo teste automatizado do mesmo identificador de fatura.
 - [ ] Exercitar, no ambiente controlado, os estados Stripe de reembolso
   `pending` e `failed`. O caminho `succeeded` foi validado em Live.
 - [ ] Confirmar por passagem de tempo que o cancelamento normal não cria nova
@@ -513,9 +517,11 @@ devem ser inventados no código; dependem de informação e revisão do titular.
     `SubscriptionManagement.tsx` em página-monólito. A leitura Live por uma
     sessão owner confirmou a sequência pagamento, arrependimento, cancelamento
     imediato e reembolso para as validações controladas.
-  - [ ] Homologar com compra, cancelamento normal, arrependimento/reembolso,
+  - [x] Homologar com compra, cancelamento normal, arrependimento/reembolso,
     falha e ação administrativa reais/controladas antes de considerar a linha
-    do tempo fonte operacional confiável.
+    do tempo fonte operacional confiável. A falha foi repetida no Stripe Test
+    em 2026-08-25 com alerta ao aluno e ao operacional; os demais eventos já
+    haviam sido comprovados nas validações Live controladas.
 - [x] Criar notificação operacional interna como
   alerta complementar para compra confirmada, pedido de arrependimento,
   reembolso concluído e falha/revisão. O endereço deve ser secret de backend e

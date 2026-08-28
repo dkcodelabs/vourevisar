@@ -19,12 +19,12 @@ describe('ImportMethodSelector', () => {
 });
 
 describe('AiSourceStep', () => {
-  it('separa PDF e texto e lista edital principal com anexo', () => {
+  it('mostra o arquivo selecionado e permite trocar para texto', () => {
     const files = [
       new File(['principal'], 'edital.pdf', { type: 'application/pdf' }),
-      new File(['anexo'], 'anexo-iii.pdf', { type: 'application/pdf' }),
     ];
     const onModeChange = vi.fn();
+    const onRemoveFile = vi.fn();
 
     render(
       <AiSourceStep
@@ -34,14 +34,14 @@ describe('AiSourceStep', () => {
         inputText=""
         onTextChange={vi.fn()}
         onSelectFiles={vi.fn()}
-        onRemoveFile={vi.fn()}
+        onRemoveFile={onRemoveFile}
         onAnalyze={vi.fn()}
         disabled={false}
       />,
     );
 
-    expect(screen.getByText('Edital principal')).toBeInTheDocument();
-    expect(screen.getByText('Anexo 1')).toBeInTheDocument();
+    expect(screen.getByText('edital.pdf')).toBeInTheDocument();
+    expect(screen.getByText(/PDF pronto para análise/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('radio', { name: /Colar texto/i }));
     expect(onModeChange).toHaveBeenCalledWith('text');
   });
@@ -66,13 +66,13 @@ describe('AiOptionalContext', () => {
 });
 
 describe('ImportJourneyProgress', () => {
-  it('substitui a troca de método pela etapa atual e permite cancelar o processamento', () => {
+  it('substitui a troca de método pela etapa atual e permite retornar na etapa de cargo', () => {
     const onSecondaryAction = vi.fn();
-    render(<ImportJourneyProgress stage="extracting" onSecondaryAction={onSecondaryAction} />);
+    render(<ImportJourneyProgress stage="selectCargo" onSecondaryAction={onSecondaryAction} />);
 
     expect(screen.getByRole('list', { name: 'Progresso da importação' })).toBeInTheDocument();
     expect(screen.getByText('Cargo').closest('li')).toHaveAttribute('aria-current', 'step');
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar extração' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trocar documento' }));
     expect(onSecondaryAction).toHaveBeenCalledOnce();
     expect(screen.queryByRole('tab', { name: 'Manual' })).not.toBeInTheDocument();
   });

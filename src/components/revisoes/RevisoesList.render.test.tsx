@@ -88,4 +88,23 @@ describe('RevisoesList origin traceability', () => {
     expect(screen.queryByText('Melhorando')).not.toBeInTheDocument();
     expect(screen.queryByText('Piorando')).not.toBeInTheDocument();
   });
+
+  it('renders Cobrança alta badge when topic has high strategic incidence', () => {
+    renderList(makeItem({
+      incidenceLevel: 'high',
+    }));
+
+    expect(screen.getByText('Cobrança alta')).toBeInTheDocument();
+  });
+
+  it('handles missing weight and incidence cleanly without showing error or placeholder badge', () => {
+    renderList(makeItem({
+      incidenceLevel: null,
+      totalVolume: null,
+    }));
+
+    expect(screen.queryByText('Cobrança alta')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cobrança média')).not.toBeInTheDocument();
+    expect(screen.queryByText('Incidência não analisada')).not.toBeInTheDocument();
+  });
 });

@@ -4,8 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfDay } from 'date-fns';
-import { SRS_THRESHOLDS, LearningStatus } from '@/utils/calculateNextReview';
+import { LearningStatus } from '@/utils/calculateNextReview';
 import { isReviewProgramCompleted } from '@/utils/reviewStage';
+import { determineLearningStatus } from '@/utils/learningStatus';
 import { mergeService } from '@/services/mergeService';
 import {
   buildReviewTopicMergesFromUnificationMap,
@@ -41,6 +42,8 @@ export interface ReviewTopic {
   current_interval?: number;
   learningStatus?: LearningStatus;
   notes?: unknown;
+  incidence_level?: 'low' | 'medium' | 'high' | string | null;
+  total_volume?: number | null;
   source_topic_ids?: string[];
   source_edital_ids?: string[];
 }
@@ -74,17 +77,6 @@ const calculateRiskScore = (topic: ReviewTopic): number => {
 
   // Formula
   return (daysOverdue * 3.0) + (difficulty * 2.0) + (studyGapDays * 0.5);
-};
-
-export const determineLearningStatus = (stability: number, interval: number, reviewCount: number): LearningStatus => {
-  if (reviewCount < SRS_THRESHOLDS.MIN_CONSISTENCY || stability < SRS_THRESHOLDS.STABILITY_LOW) {
-    return 'Aprendendo';
-  }
-  if (stability >= SRS_THRESHOLDS.STABILITY_MID && interval >= SRS_THRESHOLDS.INTERVAL_LONG && reviewCount >= SRS_THRESHOLDS.MIN_CONSISTENCY) {
-    return 'Dominando';
-  }
-  // Se não for nem frágil demais nem totalmente maduro:
-  return 'Fixando';
 };
 
 const toRepairSubjects = (topics: ReviewTopic[]): Subject[] => {
@@ -193,6 +185,8 @@ export const useReviewsData = () => {
           memory_stability,
           current_interval,
           notes,
+          incidence_level,
+          total_volume,
           subjects!inner (
             id,
             name,
@@ -223,6 +217,8 @@ export const useReviewsData = () => {
           memory_stability: topic.memory_stability,
           current_interval: topic.current_interval,
           notes: topic.notes,
+          incidence_level: topic.incidence_level,
+          total_volume: topic.total_volume,
           subject_name: subject?.name || 'Sem disciplina',
           subjects: {
             id: subject?.id,

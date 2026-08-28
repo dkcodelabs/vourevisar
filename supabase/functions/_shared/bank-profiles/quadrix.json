@@ -1,0 +1,67 @@
+{
+  "banca": "Quadrix",
+  "aliases": [
+    "Quadrix",
+    "Instituto Quadrix",
+    "Instituto Quadrix de Tecnologia e Responsabilidade Social"
+  ],
+  "objetivo": "Orientar a IA a entender a estrutura típica de editais do Instituto Quadrix.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "DOS OBJETOS DE AVALIAÇÃO",
+      "DOS OBJETOS DE AVALIACAO",
+      "CONTEÚDO PROGRAMÁTICO",
+      "CONTEUDO PROGRAMATICO",
+      "ANEXO II - OBJETOS DE AVALIAÇÃO",
+      "ANEXO I - CONTEÚDO PROGRAMÁTICO"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS COMPLEMENTARES",
+      "PARA TODOS OS CARGOS",
+      "COMUM A TODOS OS CARGOS"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS"
+    ],
+    "marcadores_de_opcao": [
+      "CARGO",
+      "CARGOS",
+      "CÓDIGO",
+      "ESPECIALIDADE"
+    ],
+    "marcadores_de_agrupamento": [
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS COMPLEMENTARES",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "PROVA OBJETIVA",
+      "PROVA DISCURSIVA"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "DOS CARGOS",
+      "DAS VAGAS",
+      "DOS REQUISITOS",
+      "DAS FASES DO CONCURSO",
+      "DA AVALIAÇÃO DA PROVA OBJETIVA",
+      "DO CRONOGRAMA"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "No Instituto Quadrix, as opções de cargos e códigos de vaga estão descritas no Capítulo DOS CARGOS ou no Quadro de Vagas.",
+    "Preserve o código e nome completo do cargo no label_exibicao."
+  ],
+  "regras_para_extrair_conteudo": [
+    "Quadrix costuma organizar os editais em estilo Cebraspe: 'DOS OBJETOS DE AVALIAÇÃO (HABILIDADES E CONHECIMENTOS)'.",
+    "Divide o conteúdo frequentemente em três blocos: CONHECIMENTOS BÁSICOS, CONHECIMENTOS COMPLEMENTARES (Legislação e Ética na Administração Pública) e CONHECIMENTOS ESPECÍFICOS.",
+    "As disciplinas aparecem em caixa alta (ex: LÍNGUA PORTUGUESA, LEGISLAÇÃO E ÉTICA NO SERVIÇO PÚBLICO, NOÇÕES DE DIREITO CONSTITUCIONAL).",
+    "Tópicos seguem estrutura hierárquica numerada (1., 1.1, 1.2). Preserve a numeração original dos itens.",
+    "CONHECIMENTOS BÁSICOS, COMPLEMENTARES e ESPECÍFICOS são escopos, não disciplinas."
+  ],
+  "regras_para_extrair_pesos": [
+    "No quadro de provas do Quadrix, as provas são divididas por áreas de conhecimento (Básicos, Complementares, Específicos) com a quantidade de itens por prova.",
+    "Extraia o número de questões e pontuações por bloco/disciplina conforme a tabela de provas."
+  ],
+  "instrucao_para_ia": "Para editais Quadrix, identifique a seção de Objetos de Avaliação ou Conteúdo Programático. Extraia Conhecimentos Básicos, Conhecimentos Complementares e Conhecimentos Específicos do cargo. Preserve tópicos numerados no formato atômico original."
+}

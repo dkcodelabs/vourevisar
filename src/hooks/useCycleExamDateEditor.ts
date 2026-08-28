@@ -8,7 +8,7 @@ import { updateActiveCycleExamDate } from '@/services/cycleExamDateService';
 import type { UserCycle } from '@/types';
 
 type UseCycleExamDateEditorInput<T extends UserCycle> = {
-  setUserCycle: Dispatch<SetStateAction<T | null>>;
+  setUserCycle?: Dispatch<SetStateAction<T | null>> | ((cycle: T | null) => void);
   userCycle: T | null;
   userId?: string;
 };
@@ -36,7 +36,9 @@ export function useCycleExamDateEditor<T extends UserCycle>({
       if (!userId || !userCycle) return;
 
       const nextCycle = { ...userCycle, exam_date: updatedCycle.exam_date };
-      setUserCycle(nextCycle);
+      if (typeof setUserCycle === 'function') {
+        setUserCycle(nextCycle);
+      }
       localStorage.setItem(`user_cycle_cache_${userId}`, JSON.stringify(nextCycle));
       setEditorOpen(false);
       toast.success('Data da prova atualizada.');

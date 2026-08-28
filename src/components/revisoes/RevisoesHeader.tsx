@@ -14,6 +14,8 @@ interface RevisoesHeaderProps {
     isCollapsed: boolean;
     onToggle: (collapsed: boolean) => void;
     pace?: StudyCyclePaceMetrics;
+    cycleTitle?: string;
+    onOpenExamDateEditor?: () => void;
     className?: string; // Support for custom styling positioning
 }
 
@@ -31,35 +33,43 @@ const getPaceSummary = (pace?: StudyCyclePaceMetrics) => {
     if (!pace) return null;
     if (pace.state !== 'ready') return pace.explanation;
 
-    return `${pace.daysRemaining} dias para a prova, ${pace.unstartedTopics} tópicos novos pendentes e ${pace.pendingReviews} revisões previstas.`;
+    return `${pace.daysRemaining} dias para a prova · ${pace.unstartedTopics} tópicos novos e ${pace.totalPlannedReviews} revisões para concluir e consolidar 100% do edital.`;
 };
 
 const getRecentPaceText = (pace: StudyCyclePaceMetrics) => {
     const recent = pace.recentFirstContact;
     if (recent.state === 'ready' && recent.projectedDaysToFirstContact !== null) {
-        return `Ritmo recente: ${formatPaceValue(recent.topicsPerDay)}. Primeiro contato fecha em cerca de ${recent.projectedDaysToFirstContact} dias se esse ritmo continuar.`;
+        return `Histórico real recente: ${recent.topicsStarted} tópicos iniciados nos últimos ${recent.windowDays} dias (${formatPaceValue(recent.topicsPerDay)}). No ritmo histórico atual, fecharia os tópicos restantes em ~${recent.projectedDaysToFirstContact} dias.`;
     }
 
     if (recent.averageStudyMinutes !== null) {
-        return `Tempo médio real por primeiro contato: ${Math.round(recent.averageStudyMinutes)} min. Ainda falta histórico recente para projetar fechamento.`;
+        return `Tempo médio real por primeiro contato: ${Math.round(recent.averageStudyMinutes)} min.`;
     }
 
     return `Histórico recente insuficiente: ${recent.topicsStarted} primeiro${recent.topicsStarted === 1 ? '' : 's'} contato${recent.topicsStarted === 1 ? '' : 's'} nos últimos ${recent.windowDays} dias.`;
 };
 
-export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollapsed, onToggle, pace, className }) => {
+export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollapsed, onToggle, pace, cycleTitle, onOpenExamDateEditor, className }) => {
     const paceSummary = getPaceSummary(pace);
+    const isExamDateMissing = !pace || pace.state === 'missing_exam_date' || pace.state === 'missing_cycle';
 
     return (
         <div className={`w-full ${className || ''}`}>
             {/* Toggle Button Row */}
             <div className="flex items-center justify-between mb-3 px-1">
-                <h3 className="text-xs font-bold text-content-muted uppercase tracking-wider">
-                    Visão Geral
-                </h3>
+                <div className="flex items-center gap-2 min-w-0 pr-2">
+                    <h3 className="text-xs font-bold text-content-muted uppercase tracking-wider shrink-0">
+                        Visão Geral
+                    </h3>
+                    {cycleTitle && (
+                        <span className="text-xs font-semibold text-foreground truncate" title={cycleTitle}>
+                            · {cycleTitle}
+                        </span>
+                    )}
+                </div>
                 <button
                     onClick={() => onToggle(!isCollapsed)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-secondary hover:bg-accent rounded-lg transition-all"
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-secondary hover:bg-accent rounded-lg transition-all shrink-0"
                     title={isCollapsed ? 'Expandir cards' : 'Minimizar cards'}
                 >
                     {isCollapsed ? (
@@ -77,15 +87,27 @@ export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollaps
             </div>
 
             {pace && (
-                <div className="mb-4 grid gap-2 rounded-2xl border border-border/70 bg-card/70 p-3 shadow-sm sm:grid-cols-[1.15fr_0.85fr]">
+                <div className="mb-4 grid gap-3 rounded-2xl border border-border/70 bg-card/70 p-3.5 shadow-sm lg:grid-cols-[1.1fr_1fr]">
                     <div className="flex min-w-0 items-start gap-2.5">
                         <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
                             <Gauge size={16} />
                         </span>
-                        <div className="min-w-0">
-                            <p className="text-xs font-bold uppercase tracking-wider text-foreground">
-                                Ritmo até a prova
-                            </p>
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs font-bold uppercase tracking-wider text-foreground">
+                                    Ritmo até a prova
+                                </p>
+                                {onOpenExamDateEditor && (
+                                    <button
+                                        type="button"
+                                        onClick={onOpenExamDateEditor}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-all cursor-pointer shrink-0"
+                                    >
+                                        <CalendarDays size={13} />
+                                        {isExamDateMissing ? 'Definir data da prova' : 'Alterar data'}
+                                    </button>
+                                )}
+                            </div>
                             <p className="mt-1 text-xs leading-relaxed text-content-muted">
                                 {paceSummary}
                             </p>
@@ -94,23 +116,47 @@ export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollaps
                             </p>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded-xl border border-border/60 bg-surface/60 px-3 py-2">
-                            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-content-muted">
-                                <Target size={12} />
-                                Tópicos
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-xl border border-border/60 bg-surface/60 px-2.5 py-2">
+                            <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-content-muted truncate">
+                                <Target size={11} className="shrink-0" />
+                                <span className="truncate">Novos</span>
                             </div>
-                            <p className="mt-1 text-sm font-bold tabular-nums text-foreground">
-                                {formatPaceValue(pace.newTopicsPerDay)}
+                            <p className="mt-1 text-xs sm:text-sm font-bold tabular-nums text-foreground">
+                                {pace.state === 'ready'
+                                    ? formatPaceValue(pace.newTopicsPerDay)
+                                    : `${pace.unstartedTopics} novos`}
+                            </p>
+                            <p className="text-[10px] text-content-muted truncate mt-0.5">
+                                {pace.state === 'ready' ? `${pace.unstartedTopics} restantes` : '1º contato'}
                             </p>
                         </div>
-                        <div className="rounded-xl border border-border/60 bg-surface/60 px-3 py-2">
-                            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-content-muted">
-                                <CalendarDays size={12} />
-                                Revisões
+                        <div className="rounded-xl border border-border/60 bg-surface/60 px-2.5 py-2">
+                            <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-content-muted truncate">
+                                <CalendarDays size={11} className="shrink-0" />
+                                <span className="truncate">Revisões</span>
                             </div>
-                            <p className="mt-1 text-sm font-bold tabular-nums text-foreground">
-                                {formatPaceValue(pace.reviewsPerDay)}
+                            <p className="mt-1 text-xs sm:text-sm font-bold tabular-nums text-foreground">
+                                {pace.state === 'ready'
+                                    ? formatPaceValue(pace.reviewsPerDay)
+                                    : `${pace.pendingReviews} hoje`}
+                            </p>
+                            <p className="text-[10px] text-content-muted truncate mt-0.5">
+                                {pace.state === 'ready' ? `${pace.totalPlannedReviews} programa` : 'pendentes'}
+                            </p>
+                        </div>
+                        <div className="rounded-xl border border-primary/20 bg-primary/5 px-2.5 py-2">
+                            <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary truncate">
+                                <Gauge size={11} className="shrink-0" />
+                                <span className="truncate">Meta Total</span>
+                            </div>
+                            <p className="mt-1 text-xs sm:text-sm font-bold tabular-nums text-primary">
+                                {pace.state === 'ready' && pace.totalDailyWorkload !== null
+                                    ? `~${formatPaceValue(pace.totalDailyWorkload)}`
+                                    : '--'}
+                            </p>
+                            <p className="text-[10px] text-primary/80 truncate mt-0.5">
+                                {pace.state === 'ready' ? 'estudos/dia' : 'combinado'}
                             </p>
                         </div>
                     </div>

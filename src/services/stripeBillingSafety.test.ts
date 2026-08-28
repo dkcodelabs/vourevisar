@@ -30,10 +30,10 @@ const billingModeMigrationSource = readProjectFile(
   'supabase/migrations/20260820172644_isolate_stripe_billing_by_mode.sql',
 );
 const affiliateLedgerMigrationSource = readProjectFile(
-  'supabase/migrations/20260823180851_create_stripe_affiliate_ledger.sql',
+  'supabase/migrations/20260823185322_create_stripe_affiliate_ledger.sql',
 );
 const affiliateBountyHardeningMigrationSource = readProjectFile(
-  'supabase/migrations/20260823203000_prevent_duplicate_affiliate_bounties.sql',
+  'supabase/migrations/20260823185336_prevent_duplicate_affiliate_bounties.sql',
 );
 const contractAcceptanceMigrationSource = readProjectFile(
   'supabase/migrations/20260821024158_create_billing_contract_acceptances.sql',

@@ -1,0 +1,65 @@
+{
+  "banca": "IBFC",
+  "aliases": [
+    "IBFC",
+    "Instituto Brasileiro de Formacao e Capacitacao",
+    "Instituto Brasileiro de Formação e Capacitação"
+  ],
+  "objetivo": "Orientar a IA a entender a estrutura típica de editais da banca IBFC.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "CONTEÚDO PROGRAMÁTICO",
+      "CONTEUDO PROGRAMATICO",
+      "ANEXO II - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO III - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO I - CONTEÚDO PROGRAMÁTICO"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "COMUM A TODOS OS CARGOS",
+      "PARA TODOS OS CARGOS"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS"
+    ],
+    "marcadores_de_opcao": [
+      "CARGO",
+      "CARGOS",
+      "FUNÇÃO",
+      "ESPECIALIDADE",
+      "CÓDIGO DO CARGO"
+    ],
+    "marcadores_de_agrupamento": [
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "PROVA OBJETIVA",
+      "PROVA DISCURSIVA"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "DOS CARGOS E DAS VAGAS",
+      "DOS REQUISITOS",
+      "DAS ETAPAS",
+      "DA PROVA OBJETIVA",
+      "DOS CRITÉRIOS DE AVALIAÇÃO",
+      "DO CRONOGRAMA"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "Em editais IBFC, os cargos e especialidades estão listados na Tabela de Cargos/Vagas do capítulo inicial.",
+    "Preserve o código e nome completo do cargo no label_exibicao."
+  ],
+  "regras_para_extrair_conteudo": [
+    "O conteúdo programático do IBFC fica em Anexo dedicado ao final do edital.",
+    "Disciplinas aparecem em caixa alta (ex: LÍNGUA PORTUGUESA, RACIOCÍNIO LÓGICO, NOÇÕES DE INFORMÁTICA).",
+    "Os tópicos podem vir numerados ou listados em parágrafos separados por ponto-e-vírgula. Quebre em itens claros.",
+    "Aplique Conhecimentos Gerais a todas as opções e Conhecimentos Específicos ao cargo selecionado."
+  ],
+  "regras_para_extrair_pesos": [
+    "O quadro de provas do IBFC detalha Prova, Disciplinas, Quantidade de Questões, Peso e Pontuação Máxima.",
+    "Extraia os pesos e número de questões da tabela oficial de provas."
+  ],
+  "instrucao_para_ia": "Para editais IBFC, localize o Anexo de Conteúdo Programático. Separe Conhecimentos Gerais de Conhecimentos Específicos. Extraia as disciplinas e tópicos de forma atômica e fiel ao edital."
+}

@@ -32,6 +32,8 @@ import { RevisoesChartsWrapper } from '@/components/revisoes/RevisoesChartsWrapp
 import { RevisoesToolbar } from '@/components/revisoes/RevisoesToolbar';
 import { RevisoesList } from '@/components/revisoes/RevisoesList';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
+import { CycleExamDateDialog } from '@/components/study-cycle/CycleExamDateDialog';
+import { useCycleExamDateEditor } from '@/hooks/useCycleExamDateEditor';
 import { STUDY_SESSION_DISCARDED_MESSAGE } from '@/utils/studySessionFeedback';
 import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
 
@@ -41,6 +43,10 @@ import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal
 import NotesModal from '@/components/reviews/NotesModal';
 import SubjectNotesModal from '@/components/reviews/SubjectNotesModal';
 import { errorService } from '@/lib/errors/errorService';
+import {
+  PostStudyPracticeFlow,
+  type PostStudyPracticeContext,
+} from '@/features/practice/components/PostStudyPracticeFlow';
 
 type ViewTab = 'FOCUS' | 'FUTURE' | 'COMPLETED' | 'SUBJECTS' | 'ALL';
 
@@ -121,9 +127,10 @@ export const Revisoes = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { subjects, refreshData } = useApp();
-  const { userCycle, isLoading: isCycleLoading } = useCycleState();
+  const { userCycle, setUserCycle, isLoading: isCycleLoading } = useCycleState();
   const { dynamicUnificationMap } = useMergeData();
   const { editaisData, editaisNoCiclo, getOriginsForTopic } = useEditalOriginsWithMerge();
+  const [postStudyPractice, setPostStudyPractice] = useState<PostStudyPracticeContext | null>(null);
   
   const hasActiveCycle = userCycle?.ciclo_atual && userCycle.ciclo_atual.length > 0;
   const hasAnyEdital = editaisData.length > 0 || subjects.length > 0;
@@ -168,6 +175,27 @@ export const Revisoes = () => {
   const cycleExamDate = userCycle?.exam_date || null;
   const hasCompositeCycle = editaisNoCiclo.length > 1;
   const examDate = cycleExamDate || (!hasCompositeCycle ? editaisNoCiclo[0]?.exam_date ?? null : null);
+
+  const cycleTitle = useMemo(() => {
+    if (editaisNoCiclo.length === 0) return undefined;
+    if (editaisNoCiclo.length === 1) return editaisNoCiclo[0].name;
+    return `${editaisNoCiclo.map(e => e.name).join(' + ')} (${editaisNoCiclo.length} editais unificados)`;
+  }, [editaisNoCiclo]);
+
+  const {
+    editorOpen: isCycleExamDateDialogOpen,
+    errorMessage: cycleExamDateErrorMessage,
+    examDateDraft: cycleExamDateDraft,
+    handleEditorOpenChange: handleCycleExamDateOpenChange,
+    isSaving: isSavingCycleExamDate,
+    openEditor: openCycleExamDateEditor,
+    saveExamDate: saveCycleExamDate,
+    setExamDateDraft: setCycleExamDateDraft,
+  } = useCycleExamDateEditor({
+    setUserCycle,
+    userCycle,
+    userId: user?.id,
+  });
   const activeTopicScope = useMemo(
     () =>
       buildActiveTopicScope(
@@ -402,6 +430,8 @@ export const Revisoes = () => {
         originLabels: originMetadata.labels,
         isMergedOrigin: originMetadata.isMergedOrigin,
         showOrigin: originMetadata.shouldShow,
+        incidenceLevel: topic.incidence_level,
+        totalVolume: topic.total_volume,
       };
     };
 
@@ -711,6 +741,8 @@ export const Revisoes = () => {
             <RevisoesHeader
               stats={stats}
               pace={reviewPace}
+              cycleTitle={cycleTitle}
+              onOpenExamDateEditor={openCycleExamDateEditor}
               isCollapsed={headerCardsCollapsed}
               onToggle={(val) => {
                 setHeaderCardsCollapsed(val);
@@ -860,6 +892,16 @@ export const Revisoes = () => {
           try {
             setProcessedUpdate(difficultyModalData.topicId);
             await markTopicAsReviewed(difficultyModalData.topicId, d, dur, difficultyModalData.reviewCount - 1);
+            const shouldOfferPractice = difficultyModalData.reviewCount === 1 || d === 3;
+            if (shouldOfferPractice) {
+              setPostStudyPractice({
+                topicId: difficultyModalData.topicId,
+                topicName: difficultyModalData.topicName,
+                subjectName: difficultyModalData.subjectName,
+                contact: difficultyModalData.reviewCount === 1 ? 'first_contact' : 'review',
+                difficulty: d,
+              });
+            }
             stopTimer(); closeDifficultyModal(); setTimeout(() => { refreshData(); refetch(); }, 500);
           } catch (e: unknown) {
             await errorService.report(
@@ -892,6 +934,20 @@ export const Revisoes = () => {
         isOpen={isInfoModalOpen}
         onClose={() => setIsInfoModalOpen(false)}
         hasExamDate={editaisData.some(edital => Boolean(edital.exam_date))}
+      />
+      <CycleExamDateDialog
+        errorMessage={cycleExamDateErrorMessage}
+        examDate={cycleExamDateDraft}
+        isOpen={isCycleExamDateDialogOpen}
+        isSaving={isSavingCycleExamDate}
+        onExamDateChange={setCycleExamDateDraft}
+        onOpenChange={handleCycleExamDateOpenChange}
+        onSave={saveCycleExamDate}
+      />
+      <PostStudyPracticeFlow
+        userId={user?.id}
+        context={postStudyPractice}
+        onDismiss={() => setPostStudyPractice(null)}
       />
     </div>
   );

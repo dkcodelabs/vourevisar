@@ -117,4 +117,23 @@ describe('useCycleStrategicAlertActions', () => {
 
     expect(navigate).toHaveBeenCalledWith('/meus-editais');
   });
+
+  it('redireciona para revisoes quando o alerta pede ver revisoes', () => {
+    const navigate = vi.fn();
+
+    const { result } = renderHook(() => useCycleStrategicAlertActions({
+      expandedSubjectList: [],
+      focusSubject: vi.fn(),
+      handleCycleTopicStudyAction: vi.fn(),
+      handleStartWeightEdit: vi.fn(),
+      navigate,
+      openCycleExamDateEditor: vi.fn(),
+    }));
+
+    result.current.handleStrategicAlertAction(makeAlert({
+      actionType: 'open_reviews',
+    }));
+
+    expect(navigate).toHaveBeenCalledWith('/revisoes');
+  });
 });

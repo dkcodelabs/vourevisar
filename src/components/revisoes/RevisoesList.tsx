@@ -10,6 +10,7 @@ import type { MentorTrendLabel } from '@/types/mentor';
 
 import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
 import type { ActiveTimer } from '@/contexts/TimerContext';
+import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 import { getReviewTopicRowClassName } from './reviewTopicRowClassName';
 
 interface RevisoesListProps {
@@ -350,6 +351,10 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                         const isActive = activeTimer?.topicId === item.id;
                                         const isHighlighted = highlightedTopicId === item.id;
                                         const trendLabel = trendByTopic.get(item.id);
+                                        const incidence = getTopicStrategicIncidence({
+                                            totalVolume: item.totalVolume,
+                                            incidenceLevel: item.incidenceLevel,
+                                        });
                                         return (
                                             <div
                                                 id={`topic-${item.id}`}
@@ -371,8 +376,17 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                                 'bg-success'
                                                                 }`} />
                                                             <div className="min-w-0 flex-1">
-                                                                <div className={`text-sm font-bold break-words leading-snug ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                                                                <div className={`text-[13px] font-semibold break-words leading-snug ${isActive ? 'text-primary' : 'text-foreground'}`}>
                                                                     <span className="align-middle mr-1.5">{item.topic}</span>
+                                                                    {incidence.showToStudent && (
+                                                                        <span
+                                                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border border-incidence/25 bg-incidence/10 text-incidence align-middle mr-1.5"
+                                                                            title={`Classificação de cobrança no edital: ${incidence.label}`}
+                                                                        >
+                                                                            <Sparkles size={10} className="shrink-0" />
+                                                                            {incidence.label}
+                                                                        </span>
+                                                                    )}
                                                                     {trendLabel && (trendLabel === 'Melhorando' || trendLabel === 'Piorando') && (
                                                                         <span className="inline-flex mr-1.5 align-middle translate-y-[1px]" title={`Tendência de Retenção: ${trendLabel}`}>
                                                                             <TrendIcon type={trendLabel} iconOnly={false} />
@@ -380,10 +394,10 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                                     )}
                                                                     {isActive && <span className="inline-block text-[10px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full animate-pulse align-middle">Em andamento</span>}
                                                                 </div>
-                                                                {item.subject && <p className="text-xs text-content-muted mt-1 font-bold uppercase truncate">{item.subject}</p>}
+                                                                {item.subject && <p className="text-[11px] text-content-muted mt-0.5 font-bold uppercase truncate">{item.subject}</p>}
                                                                 {item.showOrigin && item.originSummary && (
                                                                     <p
-                                                                        className="mt-1 max-w-full truncate text-[11px] font-semibold text-content-muted/80"
+                                                                        className="mt-0.5 max-w-full truncate text-[11px] font-semibold text-content-muted/80"
                                                                         title={item.originLabels?.join(' + ') || item.originSummary}
                                                                     >
                                                                         Origem: {item.originSummary}
@@ -396,41 +410,35 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                     {/* 2. Dificuldade (Mobile: row) */}
                                                     <div className="flex items-center justify-between lg:justify-center pl-4 lg:pl-0">
                                                         <span className="lg:hidden text-xs text-muted-foreground font-medium">Dificuldade:</span>
-                                                        <DifficultyBarsCompact level={item.difficulty || 0} size="sm" />
+                                                        <DifficultyBarsCompact level={item.difficulty || 0} size="sm" showEmpty={true} />
                                                     </div>
 
                                                     {/* 3. Progresso (Mobile: row) */}
                                                     <div className="flex items-center justify-between lg:justify-center pl-4 lg:pl-0">
                                                         <span className="lg:hidden text-xs text-muted-foreground font-medium">Status:</span>
-                                                        <div className="flex flex-col gap-1.5 w-24">
-                                                            <div className="flex items-center gap-2">
-                                                                {(item.status === 'OVERDUE') && (
-                                                                    <span className="text-rose-600 dark:text-rose-400 text-[11px] font-bold">Atrasada</span>
-                                                                )}
+                                                        <div className="flex flex-col items-center gap-1.5 w-32">
+                                                            {item.status === 'OVERDUE' ? (
                                                                 <span
-                                                                    className="text-foreground text-[10px] font-black border border-primary/20 bg-primary/10 px-2 py-0.5 rounded w-full text-center tracking-wide"
+                                                                    className="inline-flex items-center justify-center gap-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/25 px-2 py-0.5 rounded-md w-full text-center tracking-wide"
+                                                                    title={`${item.reviewCount ?? 0} de ${item.maxReviews ?? 0} revisões concluídas. Revisão em atraso.`}
+                                                                >
+                                                                    <span className="size-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                                                                    Atrasada · {item.reviewCount ?? 0}/{item.maxReviews ?? 0}
+                                                                </span>
+                                                            ) : (
+                                                                <span
+                                                                    className="inline-flex items-center justify-center text-[10px] font-bold text-foreground border border-primary/20 bg-primary/10 px-2 py-0.5 rounded-md w-full text-center tracking-wide"
                                                                     title={`${item.reviewCount ?? 0} de ${item.maxReviews ?? 0} revisões programadas concluídas`}
                                                                 >
                                                                     {item.reviewCount ?? 0}/{item.maxReviews ?? 0} revisões
                                                                 </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                {item.learningStatus ? (
-                                                                    <span
-                                                                        className="text-content-muted text-[10px] font-semibold border border-border px-2 py-0.5 rounded cursor-help w-full text-center tracking-wide shadow-sm bg-secondary"
-                                                                        title={`Representa a retenção estimada com base na estabilidade da memória (Curva do Esquecimento + revisões): ${item.memoryStability?.toFixed(1) || 0}`}
-                                                                    >
-                                                                        {item.learningStatus}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span
-                                                                        className="text-content-muted text-[10px] font-semibold border border-border px-2 py-0.5 rounded cursor-help w-full text-center tracking-wide"
-                                                                    >
-                                                                        Novo
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            {/* Progresso visual omitido, evitando barras de progresso fixo X de Y */}
+                                                            )}
+                                                            <span
+                                                                className="inline-flex items-center justify-center text-[10px] font-medium text-content-muted border border-border px-2 py-0.5 rounded-md w-full text-center tracking-wide bg-secondary"
+                                                                title={item.learningStatus ? `Retenção estimada FSRS: ${item.memoryStability?.toFixed(1) || 0}` : 'Tópico ainda não iniciado'}
+                                                            >
+                                                                {item.learningStatus || 'Novo'}
+                                                            </span>
                                                         </div>
                                                     </div>
 

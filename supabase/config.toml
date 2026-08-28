@@ -53,3 +53,21 @@ entrypoint = "./functions/process-topic-incidence/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/process-topic-incidence/*.html" ]
+
+[functions.build-practice-session]
+verify_jwt = true
+
+[functions.reveal-practice-item]
+verify_jwt = true
+
+[functions.submit-practice-attempt]
+verify_jwt = true
+
+[functions.rate-practice-item]
+verify_jwt = true
+
+[functions.generate-practice-package]
+verify_jwt = true
+
+[functions.get-practice-overview]
+verify_jwt = true

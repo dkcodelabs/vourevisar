@@ -1,0 +1,158 @@
+{
+  "banca": "VUNESP",
+  "aliases": [
+    "VUNESP",
+    "Fundacao VUNESP",
+    "Fundação VUNESP",
+    "Fundação Vunesp",
+    "Fundacao para o Vestibular da Universidade Estadual Paulista",
+    "UNESP"
+  ],
+  "objetivo": "Orientar a IA a entender a estrutura típica de editais VUNESP (concursos municipais/estaduais, câmaras, residências médicas e processos seletivos universitários) antes de extrair cargos, matérias e tópicos. Este arquivo orienta a leitura estrutural da banca sem regras ad-hoc no motor.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "CONTEÚDO PROGRAMÁTICO",
+      "CONTEUDO PROGRAMATICO",
+      "ANEXO II – DO CONTEÚDO PROGRAMÁTICO",
+      "ANEXO II - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO I – CONTEÚDO PROGRAMÁTICO",
+      "ANEXO I - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO III - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO - CONTEÚDO PROGRAMÁTICO",
+      "DOS CONTEÚDOS PROGRAMÁTICOS",
+      "PROGRAMA DAS PROVAS"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS BÁSICOS",
+      "FORMAÇÃO BÁSICA",
+      "FORMACAO BASICA",
+      "PARA TODOS OS CARGOS",
+      "COMUM A TODOS OS CARGOS",
+      "TODOS OS CARGOS DE ENSINO SUPERIOR",
+      "TODOS OS CARGOS DE ENSINO MÉDIO",
+      "TODOS OS CARGOS DE ENSINO FUNDAMENTAL",
+      "ENSINO FUNDAMENTAL COMPLETO",
+      "ENSINO MÉDIO COMPLETO",
+      "ENSINO SUPERIOR COMPLETO",
+      "ACESSO DIRETO",
+      "ÁREAS DE ACESSO DIRETO",
+      "ESPECIALIDADES COM ACESSO DIRETO"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS",
+      "FORMAÇÃO ESPECÍFICA",
+      "FORMACAO ESPECIFICA",
+      "PARTE ESPECÍFICA",
+      "PROVA DE CONHECIMENTOS ESPECÍFICOS",
+      "PRÉ-REQUISITO",
+      "PRE-REQUISITO"
+    ],
+    "marcadores_de_opcao": [
+      "CARGO",
+      "CARGOS",
+      "OPÇÃO",
+      "OPCAO",
+      "CÓDIGO DO CARGO",
+      "ESPECIALIDADE",
+      "ESPECIALIDADES",
+      "ÁREA",
+      "AREA",
+      "PROGRAMA",
+      "PROGRAMAS",
+      "IES ASSOCIADA",
+      "POLO"
+    ],
+    "marcadores_de_agrupamento": [
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "FORMAÇÃO BÁSICA",
+      "FORMAÇÃO ESPECÍFICA",
+      "ENSINO FUNDAMENTAL",
+      "ENSINO MÉDIO",
+      "ENSINO SUPERIOR",
+      "PROVA OBJETIVA",
+      "PROVA ESCRITA",
+      "PROVA PRÁTICA",
+      "PROVA DE TÍTULOS",
+      "PROVA DISCURSIVA",
+      "PROVA PRÁTICO-PROFISSIONAL",
+      "PEÇA PRÁTICA"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "DAS DISPOSIÇÕES PRELIMINARES",
+      "DOS CARGOS E DAS VAGAS",
+      "DOS PROGRAMAS",
+      "DAS INSCRIÇÕES",
+      "DA ISENÇÃO E DA REDUÇÃO DA TAXA DE INSCRIÇÃO",
+      "DO CANDIDATO QUE TENHA EXERCIDO A FUNÇÃO DE JURADO",
+      "DA CONDIÇÃO ESPECIAL",
+      "DA CANDIDATA LACTANTE",
+      "DO NOME SOCIAL",
+      "DA RESERVA DE VAGAS",
+      "DA PARTICIPAÇÃO DE PESSOA COM DEFICIÊNCIA",
+      "DA INSCRIÇÃO DE PESSOAS PRETAS, PARDAS E INDÍGENAS",
+      "DA PRESTAÇÃO DA PROVA",
+      "DO JULGAMENTO DAS PROVAS E HABILITAÇÃO",
+      "DA PONTUAÇÃO FINAL",
+      "DOS CRITÉRIOS DE DESEMPATE",
+      "DOS RECURSOS",
+      "DA MATRÍCULA",
+      "DA CONVOCAÇÃO/ADMISSÃO",
+      "DAS DISPOSIÇÕES GERAIS",
+      "DAS DISPOSIÇÕES FINAIS",
+      "ANEXO - CRONOGRAMA",
+      "ANEXO - ENDEREÇOS",
+      "ANEXO - MODELO DE AUTODECLARAÇÃO",
+      "ANEXO - REQUERIMENTO DE INCLUSÃO E USO DO NOME SOCIAL",
+      "ANEXO - MODELO DE ATESTADO DE COMPROVAÇÃO DE EXPERIÊNCIA PROFISSIONAL",
+      "ANEXO - MODELO DE DECLARAÇÃO DE FAMÍLIA DE BAIXA RENDA",
+      "REFERÊNCIAS FORMAÇÃO BÁSICA",
+      "REFERÊNCIAS FORMAÇÃO ESPECÍFICA"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "Em concursos municipais/estaduais VUNESP (Prefeituras, Câmaras, Autarquias), identifique cargos oficiais nas tabelas do Capítulo DOS CARGOS ou DAS VAGAS (ex: Agente Legislativo, Analista de Sistemas, Procurador Legislativo).",
+    "Em editais de Residência Médica VUNESP, identifique as opções no Capítulo DOS PROGRAMAS ou DO TOTAL DE VAGAS POR ESPECIALIDADE, preservando o grupo (ex: Cirurgia Geral (Acesso Direto), Pediatria (Acesso Direto), Cardiologia (Pré-requisito em Clínica Médica), Urologia (Pré-requisito em Cirurgia Geral)).",
+    "Em processos seletivos/mestrados (como PROEF/UNESP), identifique as IES Associadas / Polos como opções quando o edital listar vagas distribuídas por instituição.",
+    "Quando houver opções numeradas por código (ex: 001 - Analista Jurídico), mantenha o nome completo do cargo no label_exibicao.",
+    "Se o edital for para um cargo único, retorne o nome real do cargo conforme o edital.",
+    "Requisitos, escolaridade, jornada, remuneração e cotas são dados administrativos e não devem virar opção ou cargo.",
+    "Tabelas de provas com divisão de disciplinas e número de questões servem apenas para confirmação e extração de pesos."
+  ],
+  "regras_para_extrair_conteudo": [
+    "Matérias e tópicos devem ser extraídos a partir da seção CONTEÚDO PROGRAMÁTICO (geralmente nos Anexos) ou, na ausência de anexo detalhado em residências médicas, a partir do quadro de disciplinas do Capítulo DAS PROVAS / DAS FASES DO PROCESSO SELETIVO.",
+    "PADRÃO 1 - CONCURSOS GERAIS (Ex: Câmaras e Prefeituras): O conteúdo programático é dividido por nível de escolaridade (ENSINO FUNDAMENTAL, ENSINO MÉDIO, ENSINO SUPERIOR) e por cargo (• PARA O CARGO DE...). Extraia as matérias de CONHECIMENTOS GERAIS comuns ao nível do cargo selecionado (ex: Língua Portuguesa, Matemática e Raciocínio Lógico) e as matérias de CONHECIMENTOS ESPECÍFICOS vinculadas ao cargo selecionado.",
+    "SUBDISCIPLINAS EM CONHECIMENTOS ESPECÍFICOS: Se dentro de Conhecimentos Específicos o edital listar ramos ou matérias com títulos em destaque ou seguidos de dois-pontos (ex: 'Direito Constitucional:', 'Direito Administrativo:', 'Direito Tributário:', 'Redação Oficial:', 'Legislação Municipal:'), extraia cada uma como uma disciplina separada com seus respectivos tópicos.",
+    "PADRÃO 2 - RESIDÊNCIAS MÉDICAS / SAÚDE: Todas as especialidades de Acesso Direto realizam a mesma prova objetiva contendo as 5 grandes áreas da medicina (Cirurgia Geral, Clínica Médica, Ginecologia e Obstetrícia, Pediatria, Medicina Preventiva e Social / Medicina de Família e Comunidade / Saúde Coletiva). Ao extrair qualquer cargo de Acesso Direto (ex: Pediatria, Oftalmologia, Anestesiologia, Cirurgia Geral), extraia todas as 5 disciplinas do programa de Acesso Direto. Para especialidades com pré-requisito, extraia a disciplina correspondente ao pré-requisito (ex: Clínica Médica ou Cirurgia Geral).",
+    "PADRÃO 3 - PROCESSOS SELETIVOS / SELEÇÕES (Ex: PROEF): O conteúdo é estruturado em FORMAÇÃO BÁSICA (Conhecimentos Gerais) e FORMAÇÃO ESPECÍFICA (Conhecimentos Específicos). Extraia cada tema/item marcado com hífen (-) como um tópico. Ignore as listas de 'REFERÊNCIAS FORMAÇÃO BÁSICA' e 'REFERÊNCIAS FORMAÇÃO ESPECÍFICA' (bibliografias ABNT), mantendo apenas os tópicos temáticos.",
+    "CONHECIMENTOS GERAIS, CONHECIMENTOS BÁSICOS, CONHECIMENTOS ESPECÍFICOS, FORMAÇÃO BÁSICA e FORMAÇÃO ESPECÍFICA são agrupadores/escopos de prova, não disciplinas estudáveis.",
+    "Tópicos em VUNESP podem ser numerados (1., 2., 1.1) ou parágrafos corridos separados por ponto-e-vírgula/ponto final. Quebre tópicos longos em itens de estudo atômicos e claros.",
+    "No modo de fatiamento incremental (extractSubject), extraia fielmente todos os tópicos e itens programáticos contidos no trecho fornecido, independentemente de estarem numerados ou em parágrafos temáticos.",
+    "Preserve a ordem original das matérias e tópicos conforme o edital."
+  ],
+  "regras_para_extrair_pesos": [
+    "Quadros de provas nos capítulos DAS PROVAS ou DO JULGAMENTO DAS PROVAS contêm tabelas com colunas CARGOS / ESPECIALIDADES, PROVAS / DISCIPLINAS, QUESTÕES e PESO.",
+    "Em editais com pontuação ponderada (ex: NP = [(NaG × 1) + (NaE × 3)] * 100 / ...), o peso das disciplinas de Conhecimentos Gerais é 1 e o de Conhecimentos Específicos é 3.",
+    "Em editais de Residência Médica com distribuição uniforme (ex: 20 questões de cada uma das 5 áreas), registre a quantidade de questões (20) e pontos por disciplina.",
+    "Extraia o número de questões e pontos por disciplina exatamente quando listados na tabela.",
+    "Não invente peso quando a tabela indicar apenas a pontuação total da prova."
+  ],
+  "quando_der_errado_ajustar_aqui": [
+    {
+      "problema": "A IA não encontrou matérias para um cargo de Residência Médica (Acesso Direto).",
+      "instrucao": "Todas as opções de Acesso Direto compartilham a prova das 5 grandes áreas médicas (Cirurgia Geral, Clínica Médica, Ginecologia e Obstetrícia, Pediatria, Medicina Preventiva e Social). Extraia as 5 disciplinas para qualquer opção de Acesso Direto."
+    },
+    {
+      "problema": "A IA incluiu referências bibliográficas (livros/autores ABNT) como tópicos.",
+      "instrucao": "Seções de REFERÊNCIAS BIBLIOGRÁFICAS são materiais de consulta e não devem virar tópicos. Mantenha apenas os temas descritos em CONTEÚDO PROGRAMÁTICO / FORMAÇÃO BÁSICA / FORMAÇÃO ESPECÍFICA."
+    },
+    {
+      "problema": "A IA agrupou todas as matérias específicas de Direito em uma única disciplina chamada 'Conhecimentos Específicos'.",
+      "instrucao": "Quando Conhecimentos Específicos contiver títulos internos de ramos jurídicos ou técnicos (ex: Direito Constitucional:, Direito Administrativo:, Redação Oficial:), desmembre em disciplinas independentes com seus respectivos tópicos."
+    }
+  ],
+  "instrucao_para_ia": "Para editais VUNESP: 1) Identifique as opções de cargo oficiais nas tabelas do Capítulo DOS CARGOS/PROGRAMAS. 2) Localize a seção CONTEÚDO PROGRAMÁTICO nos Anexos ou no Capítulo DAS PROVAS. 3) Para concursos municipais/câmaras, identifique o nível de escolaridade do cargo e extraia Conhecimentos Gerais comuns e Conhecimentos Específicos daquele cargo, desmembrando subdisciplinas internas quando existirem. 4) Para residências médicas de Acesso Direto, extraia todas as 5 grandes áreas médicas da prova unificada. 5) Para mestrados/seleções, extraia os temas de Formação Básica e Formação Específica sem incluir a bibliografia ABNT como tópico. 6) Preserve disciplinas em caixa alta e quebre tópicos em formato atômico."
+}

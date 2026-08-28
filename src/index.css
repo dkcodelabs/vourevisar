@@ -1020,6 +1020,14 @@
     overflow-x: hidden;
   }
 
+  /* Desktop density follows the product scale validated at 90% browser zoom.
+     Mobile keeps its 16px root to preserve reading and input accessibility. */
+  @media (min-width: 768px) {
+    html {
+      font-size: 90%;
+    }
+  }
+
   body {
     @apply bg-background text-foreground font-sans;
     /* Prevent any scroll on body - only inner content scrolls */

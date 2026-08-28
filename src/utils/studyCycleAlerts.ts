@@ -20,6 +20,8 @@ type AlertTopic = {
   firstStudiedAt?: Date | string | null;
   first_studied_at?: string | null;
   total_volume?: number | null;
+  incidence_level?: 'low' | 'medium' | 'high' | string | null;
+  incidenceLevel?: 'low' | 'medium' | 'high' | string | null;
   is_active?: boolean;
   is_hidden?: boolean | null;
 };
@@ -52,6 +54,7 @@ export type StudyCycleAlertActionType =
   | 'review_cycle'
   | 'edit_cycle_exam_date'
   | 'open_edital'
+  | 'open_reviews'
   | 'none';
 
 export type StudyCycleAlert = {
@@ -60,6 +63,7 @@ export type StudyCycleAlert = {
   title: string;
   message: string;
   evidence: string;
+  subjectName?: string;
   actionLabel?: string;
   actionType: StudyCycleAlertActionType;
   subjectId?: string;
@@ -92,6 +96,21 @@ const isTopicStarted = (topic: AlertTopic) =>
   hasMeaningfulReviewStage(topic.reviewStage) ||
   hasMeaningfulReviewStage(topic.review_stage) ||
   isTopicCompleted(topic);
+
+const isTopicUnreviewedAfterFirstContact = (topic: AlertTopic, now: Date) => {
+  if (isTopicCompleted(topic)) return false;
+  const reviewCount = (topic.reviewCount ?? topic.review_count ?? 0);
+  if (reviewCount > 0) return false;
+
+  const firstDateRaw = topic.first_studied_at || topic.firstStudiedAt;
+  if (!firstDateRaw) return false;
+
+  const firstDate = parseDateValue(typeof firstDateRaw === 'string' ? firstDateRaw : firstDateRaw.toISOString());
+  if (!firstDate) return false;
+
+  const hoursSinceFirstContact = (now.getTime() - firstDate.getTime()) / (1000 * 60 * 60);
+  return hoursSinceFirstContact >= 48;
+};
 
 const activeTopics = (subject: AlertSubject) =>
   getVisibleCycleTopics(subject.topics);
@@ -186,12 +205,12 @@ export const getStudyCycleAlerts = ({
     }))
     .filter(item => item.progress && item.progress.total > 0);
 
-  const unopenedWeightedSubject = weightedSubjects
+  const unopenedWeightedSubjects = weightedSubjects
     .filter(item => item.progress?.started === 0)
-    .sort((a, b) => b.effectiveWeight.value - a.effectiveWeight.value)[0];
+    .sort((a, b) => b.effectiveWeight.value - a.effectiveWeight.value)
+    .slice(0, 3);
 
-  if (unopenedWeightedSubject) {
-    const { subject, effectiveWeight, percentage } = unopenedWeightedSubject;
+  unopenedWeightedSubjects.forEach(({ subject, effectiveWeight, percentage }) => {
     alerts.push({
       id: `weighted-subject-unstarted:${subject.id}`,
       severity: percentage !== null && percentage >= 15 ? 'critical' : 'warning',
@@ -200,11 +219,12 @@ export const getStudyCycleAlerts = ({
       evidence: percentage !== null
         ? formatKnownWeightShare(percentage)
         : `${effectiveWeight.value} ${effectiveWeight.label}.`,
+      subjectName: subject.name,
       actionLabel: 'Iniciar matéria',
       actionType: 'start_subject',
       subjectId: subject.id,
     });
-  }
+  });
 
   const lowProgressWeightedSubject = weightedSubjects
     .filter(item => item.progress && item.progress.started > 0 && item.progress.ratio < 0.25)
@@ -233,6 +253,7 @@ export const getStudyCycleAlerts = ({
 
         const incidence = getTopicStrategicIncidence({
           totalVolume: topic.total_volume ?? null,
+          incidenceLevel: topic.incidence_level || topic.incidenceLevel || null,
         });
 
         return incidence.showToStudent
@@ -240,7 +261,7 @@ export const getStudyCycleAlerts = ({
               subject,
               topic,
               incidence,
-              volume: topic.total_volume || 0,
+              volume: topic.total_volume || (topic.incidence_level === 'high' || topic.incidenceLevel === 'high' ? 1000 : 500),
             }]
           : [];
       }))
@@ -256,6 +277,45 @@ export const getStudyCycleAlerts = ({
       evidence: `Matéria: ${top.subject.name}.`,
       actionLabel: 'Iniciar tópico',
       actionType: 'start_topic',
+      subjectId: top.subject.id,
+      topicId: top.topic.id,
+    });
+  }
+
+  const unreviewedImportantTopics = subjects
+    .flatMap(subject => activeTopics(subject)
+      .flatMap(topic => {
+        if (!isTopicUnreviewedAfterFirstContact(topic, now)) return [];
+
+        const incidence = getTopicStrategicIncidence({
+          totalVolume: topic.total_volume ?? null,
+          incidenceLevel: topic.incidence_level || topic.incidenceLevel || null,
+        });
+
+        const isWeightedSubject = hasSubjectExamWeight(subject);
+
+        if (incidence.level === 'high' || isWeightedSubject) {
+          return [{
+            subject,
+            topic,
+            incidence,
+          }];
+        }
+
+        return [];
+      })
+    );
+
+  if (unreviewedImportantTopics.length > 0) {
+    const top = unreviewedImportantTopics[0];
+    alerts.push({
+      id: `unreviewed-important-topic:${top.topic.id}`,
+      severity: 'warning',
+      title: 'Tópico importante sem revisão',
+      message: `${top.topic.name} já teve 1º contato, mas ainda não foi revisado.`,
+      evidence: `Matéria: ${top.subject.name}${top.incidence.showToStudent ? ` · ${top.incidence.label.toLowerCase()}` : ''}.`,
+      actionLabel: 'Ver revisões',
+      actionType: 'open_reviews',
       subjectId: top.subject.id,
       topicId: top.topic.id,
     });

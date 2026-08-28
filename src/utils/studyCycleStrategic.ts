@@ -29,7 +29,37 @@ export const getSubjectStrategicWeight = (subject: Pick<
   };
 };
 
-export const getTopicStrategicIncidence = (topic: Pick<StudyCycleTopic, 'totalVolume'>) => {
+export const getTopicStrategicIncidence = (topic: {
+  totalVolume?: number | null;
+  incidenceLevel?: 'low' | 'medium' | 'high' | string | null;
+}) => {
+  if (topic.incidenceLevel === 'high') {
+    return {
+      level: 'high' as StrategicIncidenceLevel,
+      label: 'Cobrança alta',
+      hasIncidence: true,
+      showToStudent: true,
+    };
+  }
+
+  if (topic.incidenceLevel === 'medium') {
+    return {
+      level: 'analyzed' as StrategicIncidenceLevel,
+      label: 'Cobrança média',
+      hasIncidence: true,
+      showToStudent: true,
+    };
+  }
+
+  if (topic.incidenceLevel === 'low') {
+    return {
+      level: 'analyzed' as StrategicIncidenceLevel,
+      label: 'Cobrança baixa',
+      hasIncidence: true,
+      showToStudent: false,
+    };
+  }
+
   if (!hasFiniteNumber(topic.totalVolume) || topic.totalVolume <= 0) {
     return {
       level: 'not_analyzed' as StrategicIncidenceLevel,

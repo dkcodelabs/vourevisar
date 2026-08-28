@@ -8,6 +8,8 @@
     "predev": "lsof -ti:8081 | xargs kill -9 || true",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "architecture:report": "node scripts/architecture-gate.mjs --report",
+    "architecture:check": "node scripts/architecture-gate.mjs --check",
     "lint": "eslint . --max-warnings=0",
     "preview": "vite preview",
     "test": "vitest",

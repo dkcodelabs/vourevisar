@@ -72,6 +72,31 @@ export function StudyCycleWorkspace({
     );
   }
 
+  if (isCycleFullyStudied) {
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-4 py-2 animate-in fade-in duration-300">
+        <CycleFirstContactFinishedPanel
+          cycleRoundComplete={isCycleFullyStudied}
+          formatStudyMinutes={firstContactFormatStudyMinutes}
+          onNavigate={onNavigate}
+          onStartNextCycle={onStartNextCycle}
+          summary={cycleTransitionSummary}
+          variant="full"
+        />
+
+        <details className="group rounded-2xl border app-hairline bg-surface/40 px-5 py-3.5 transition-colors hover:border-border/70">
+          <summary className="flex cursor-pointer select-none items-center justify-between text-xs font-semibold text-content-muted transition-colors hover:text-foreground">
+            <span>Ver matérias cumpridas nesta rodada ({displayListLength})</span>
+            <ChevronDown size={15} className="text-content-muted transition-transform duration-200 group-open:rotate-180" />
+          </summary>
+          <div className="pt-4">
+            <CycleQueueList {...queueProps} />
+          </div>
+        </details>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 w-full">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.58fr)] xl:gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.54fr)] items-start">
@@ -86,38 +111,14 @@ export function StudyCycleWorkspace({
 
             {(displayListLength === 0 && dataLoaded && !isLoading) ? (
               <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-500 w-full mb-12">
-                {localSubjectsCount > 0 && hasActiveCycle && isCycleFullyStudied ? (
-                  <CycleFirstContactFinishedPanel
-                    cycleRoundComplete={isCycleFullyStudied}
-                    formatStudyMinutes={firstContactFormatStudyMinutes}
-                    onNavigate={onNavigate}
-                    onStartNextCycle={onStartNextCycle}
-                    summary={cycleTransitionSummary}
-                    variant="full"
-                  />
-                ) : (
-                  <CycleEmptyState
-                    state={cycleEntryState}
-                    onGoToEditais={onGoToEditais}
-                    onOpenImport={onOpenImport}
-                  />
-                )}
+                <CycleEmptyState
+                  state={cycleEntryState}
+                  onGoToEditais={onGoToEditais}
+                  onOpenImport={onOpenImport}
+                />
               </div>
             ) : (
-              <>
-                {isCycleFullyStudied && (
-                  <CycleFirstContactFinishedPanel
-                    cycleRoundComplete={isCycleFullyStudied}
-                    formatStudyMinutes={firstContactFormatStudyMinutes}
-                    onNavigate={onNavigate}
-                    onStartNextCycle={onStartNextCycle}
-                    summary={cycleTransitionSummary}
-                    variant="compact"
-                  />
-                )}
-
-                <CycleQueueList {...queueProps} />
-              </>
+              <CycleQueueList {...queueProps} />
             )}
 
             {hasMore && (

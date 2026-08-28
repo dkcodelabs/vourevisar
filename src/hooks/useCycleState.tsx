@@ -225,6 +225,7 @@ export const useCycleState = () => {
 
   return {
     userCycle,
+    setUserCycle,
     isLoading,
     fetchUserCycle,
     updateUserCycle,

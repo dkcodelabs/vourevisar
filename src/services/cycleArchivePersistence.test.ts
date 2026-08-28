@@ -14,10 +14,15 @@ const backfillMigrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20260627162043_backfill_cycle_active_subject_scope.sql',
 );
+const syncNameMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20260825200500_sync_cycle_name_on_archive.sql',
+);
 
 const readMigration = () => readFileSync(migrationPath, 'utf8');
 const readPruneMigration = () => readFileSync(pruneMigrationPath, 'utf8');
 const readBackfillMigration = () => readFileSync(backfillMigrationPath, 'utf8');
+const readSyncNameMigration = () => readFileSync(syncNameMigrationPath, 'utf8');
 
 describe('cycle archive persistence migration', () => {
   it('keeps the cycle row when the last edital is removed so manual subject state can be restored on reload', () => {
@@ -69,5 +74,15 @@ describe('cycle archive persistence migration', () => {
     expect(sql).toMatch(/set\s+ciclo_atual\s*=\s*rebuilt_cycle\.ciclo_atual/i);
     expect(sql).toMatch(/active_subject_ids/i);
     expect(sql).toMatch(/merged_into_cycle\s*=\s*true/i);
+  });
+
+  it('synchronizes the remaining cycle name in the transaction when editais remain', () => {
+    const sql = readSyncNameMigration();
+
+    expect(sql).toContain('create or replace function public.atomic_archive_edital_from_cycle');
+    expect(sql).toMatch(/v_remaining_cycle_name/i);
+    expect(sql).toMatch(/string_agg\(\s*upper\(regexp_replace\(trim\(name\),\s*'\\s\+',\s*'\s*',\s*'g'\)\)/i);
+    expect(sql).toMatch(/update\s+public\.user_cycles/i);
+    expect(sql).toMatch(/set\s+name\s*=\s*coalesce\(v_remaining_cycle_name,\s*name\)/i);
   });
 });

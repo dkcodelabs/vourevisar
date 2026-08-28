@@ -1,0 +1,72 @@
+{
+  "banca": "Instituto AOCP",
+  "aliases": [
+    "Instituto AOCP",
+    "AOCP",
+    "AOCP Concursos",
+    "AOCP Concursos Públicos",
+    "Assessoria em Organizacao de Concursos Publicos"
+  ],
+  "objetivo": "Orientar a IA a entender a estrutura típica de editais do Instituto AOCP / AOCP.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "CONTEÚDO PROGRAMÁTICO",
+      "CONTEUDO PROGRAMATICO",
+      "ANEXO II - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO I - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO III - CONTEÚDO PROGRAMÁTICO",
+      "DOS CONTEÚDOS PROGRAMÁTICOS"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS GERAIS",
+      "COMUM A TODOS OS CARGOS",
+      "PARA TODOS OS CARGOS",
+      "TODOS OS CARGOS DE NÍVEL SUPERIOR"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS",
+      "CONHECIMENTOS ESPECÍFICOS POR CARGO"
+    ],
+    "marcadores_de_opcao": [
+      "CARGO",
+      "CARGOS",
+      "CÓDIGO",
+      "ESPECIALIDADE",
+      "ÁREA"
+    ],
+    "marcadores_de_agrupamento": [
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS GERAIS",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "PROVA OBJETIVA",
+      "PROVA DISCURSIVA"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "DOS REQUISITOS BÁSICOS",
+      "DAS DISPOSIÇÕES PRELIMINARES",
+      "DO CRONOGRAMA",
+      "DAS ETAPAS DO CONCURSO",
+      "DO QUADRO DE PROVAS",
+      "DA CLASSIFICAÇÃO",
+      "DOS CRITÉRIOS DE DESEMPATE"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "No Instituto AOCP, identifique os cargos na tabela de vagas e requisitos.",
+    "Cargos com especialidade devem preservar a especialidade no label_exibicao.",
+    "Ignore agrupadores como Nível Médio ou Nível Superior como nome de cargo."
+  ],
+  "regras_para_extrair_conteudo": [
+    "No Instituto AOCP, disciplinas aparecem em caixa alta com traço ou dois-pontos (ex: LÍNGUA PORTUGUESA, RACIOCÍNIO LÓGICO E MATEMÁTICO).",
+    "Os tópicos costumam ser numerados (1., 2., 3.). Mantenha a numeração original.",
+    "Não confunda matérias do quadro de provas com a lista detalhada do conteúdo programático.",
+    "Aplique Conhecimentos Básicos a todas as opções e Conhecimentos Específicos ao cargo exato."
+  ],
+  "regras_para_extrair_pesos": [
+    "O quadro de provas do Instituto AOCP geralmente detalha Áreas de Conhecimento, Número de Questões, Peso por Questão e Pontuação Máxima.",
+    "Use a tabela de provas para extrair pontos e questões por disciplina."
+  ],
+  "instrucao_para_ia": "Para Instituto AOCP, extraia o conteúdo programático localizado nos Anexos. Separe Conhecimentos Básicos de Conhecimentos Específicos. Preserve a numeração dos tópicos e não transforme cabeçalhos de bloco em matérias."
+}

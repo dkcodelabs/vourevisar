@@ -399,6 +399,7 @@ export function buildDashboardPace(params: {
   overdueReviews: number;
   todayReviews: number;
   futureReviewsInWindow: number;
+  totalPlannedReviews?: number;
   hasActiveCycle: boolean;
 }): DashboardPace {
   return buildStudyCyclePaceMetrics({
@@ -408,6 +409,7 @@ export function buildDashboardPace(params: {
     overdueReviews: params.overdueReviews,
     dueTodayReviews: params.todayReviews,
     futureReviewsInWindow: params.futureReviewsInWindow,
+    totalPlannedReviews: params.totalPlannedReviews,
     hasActiveCycle: params.hasActiveCycle,
   });
 }

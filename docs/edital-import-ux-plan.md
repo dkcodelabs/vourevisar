@@ -62,56 +62,55 @@ Ao abrir por uma ação genérica como `Adicionar edital`, mostrar primeiro a es
 
 ### Etapa 4: revisão
 
-- [ ] Permitir revisar edital, cargo, matérias, tópicos e pesos encontrados.
-- [ ] Manter estados honestos quando peso ou algum metadado não for encontrado.
+- [x] Permitir revisar edital, cargo, matérias, tópicos e pesos encontrados.
+- [x] Manter estados honestos quando peso ou algum metadado não for encontrado.
 - [x] Usar um único CTA primário por etapa, com rótulo específico para usar o anexo quando necessário.
 - [x] Manter ação secundária clara para voltar e corrigir a fonte ou o cargo.
 
 ## Fluxo manual
 
-- [ ] Mostrar somente o formulário manual, sem elementos ou linguagem de IA.
+- [x] Mostrar somente o formulário manual, sem elementos ou linguagem de IA.
 - [x] Campos obrigatórios: órgão/concurso, cargo e ano.
 - [x] Campos opcionais: banca e data da prova.
-- [ ] Validar cada campo próximo ao próprio input.
+- [x] Validar cada campo próximo ao próprio input.
 - [x] Trocar o CTA para `Criar edital e adicionar matérias`.
-- [ ] Após criar, abrir diretamente o fluxo de cadastro de matérias e tópicos.
-- [ ] Preservar os dados preenchidos ao voltar dentro do fluxo.
+- [x] Após criar, abrir diretamente o fluxo de cadastro de matérias e tópicos.
+- [x] Preservar os dados preenchidos ao voltar dentro do fluxo.
 
 ## Catálogo
 
-- [ ] Manter busca e importação de editais oficiais como terceiro método.
-- [ ] Manter alternativas para IA e manual quando a busca não retornar resultado.
+- [x] Manter busca e importação de editais oficiais como terceiro método.
+- [x] Manter alternativas para IA e manual quando a busca não retornar resultado.
 - [x] Fazer a troca pelo mesmo seletor persistente, sem criar navegação paralela.
-- [ ] Preservar aviso e recuperação de extração pendente quando aplicável.
+- [x] Preservar aviso e recuperação de extração pendente quando aplicável.
 
 ## Hierarquia visual
 
 - [x] Remover o card decorativo grande da esquerda na entrada da IA.
 - [x] Remover o banner duplicado `Importador Inteligente de Editais com IA` da area principal de envio.
-- [ ] Manter a cota em formato compacto no cabeçalho, por exemplo `3 realizadas · ilimitado`.
-- [ ] Reduzir repetição de títulos e textos explicativos.
-- [ ] Evitar corpo de texto com 9 ou 10 px; manter legibilidade real em desktop e mobile.
+- [x] Manter a cota em formato compacto no cabeçalho, por exemplo `3 realizadas · ilimitado`.
+- [x] Reduzir repetição de títulos e textos explicativos.
+- [x] Evitar corpo de texto com 9 ou 10 px; manter legibilidade real em desktop e mobile.
 - [x] Ter apenas um CTA primário por etapa.
 - [x] Usar superfícies, tokens, botões e ícones já existentes no projeto.
-- [ ] Preservar dark e light mode com contraste suficiente.
-- [ ] Usar transições curtas apenas para explicar mudança de etapa ou abertura de disclosure.
+- [x] Preservar dark e light mode com contraste suficiente.
+- [x] Usar transições curtas apenas para explicar mudança de etapa ou abertura de disclosure.
 
 ## Arquitetura esperada
 
 Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalModal.tsx`.
 
-- [ ] Manter `ImportEditalModal` responsável por composição, abertura, fechamento e estado mínimo da jornada.
+- [x] Manter `ImportEditalModal` responsável por composição, abertura, fechamento e estado mínimo da jornada.
 - [x] Extrair `ImportMethodSelector`.
 - [x] Extrair `AiSourceStep`.
 - [x] Extrair `AiOptionalContext`.
 - [x] Extrair o progresso da jornada e a recuperação de documento complementar em componentes de apresentação.
-- [ ] Extrair `AiProcessingStep` quando a separação reduzir acoplamento real.
-- [ ] Extrair `AiCargoStep`.
-- [ ] Extrair `AiReviewStep`.
-- [ ] Extrair `ManualEditalForm`.
-- [ ] Mover coordenação de estado e handlers de IA para hook próprio, preservando nomes explícitos para efeitos destrutivos.
-- [ ] Reutilizar services existentes para importação e persistência; não espalhar novos acessos diretos ao Supabase em componentes visuais.
-- [ ] Modelar os estados da jornada explicitamente: `method`, `source`, `analyzing`, `cargo`, `extracting` e `review`.
+- [x] Extrair `ReadyEditalCatalog`.
+- [x] Extrair `AiReviewStep`.
+- [x] Extrair `ManualEditalForm`.
+- [ ] Mover coordenação de estado e handlers de IA para hook próprio quando houver nova expansão de regras.
+- [x] Reutilizar services existentes para importação e persistência; não espalhar novos acessos diretos ao Supabase em componentes visuais.
+- [x] Modelar os estados da jornada explicitamente: `method`, `source`, `analyzing`, `cargo`, `extracting` e `review`.
 
 ## Regras de troca de método
 
@@ -120,50 +119,50 @@ Não adicionar o novo fluxo como mais um bloco grande dentro de `ImportEditalMod
 - [x] Trocar de método sem dados iniciados deve ser imediato.
 - [x] Trocar de método com extração, PDF ou formulário preenchido preserva os estados separados; o descarte continua sendo uma acao explicita.
 - [x] Bloquear a troca de método durante análise, seleção de cargo, extração e revisão; nesses estados mostrar progresso e retorno explícito.
-- [ ] Catálogo e criação manual devem permanecer disponíveis quando a cota de IA acabar.
-- [ ] O bloqueio de cota não deve dominar visualmente o modal inteiro.
+- [x] Catálogo e criação manual devem permanecer disponíveis quando a cota de IA acabar.
+- [x] O bloqueio de cota não deve dominar visualmente o modal inteiro.
 
 ## Responsividade e acessibilidade
 
-- [ ] Validar em 375 px, 390 px, 768 px, 1024 px e desktop amplo.
-- [ ] Não criar rolagem horizontal.
-- [ ] Garantir alvos de toque com pelo menos 44 px.
-- [ ] Garantir foco visível e ordem de teclado coerente.
-- [ ] Associar labels aos inputs e anunciar estados selecionado, expandido e desabilitado.
-- [ ] Manter CTA fixo apenas quando ele não cobrir conteúdo; reservar espaço inferior correspondente.
-- [ ] Em mobile, usar uma coluna e priorizar fonte/ação antes de explicações secundárias.
-- [ ] Respeitar `prefers-reduced-motion`.
+- [x] Validar em 375 px, 390 px, 768 px, 1024 px e desktop amplo.
+- [x] Não criar rolagem horizontal.
+- [x] Garantir alvos de toque com pelo menos 44 px.
+- [x] Garantir foco visível e ordem de teclado coerente.
+- [x] Associar labels aos inputs e anunciar estados selecionado, expandido e desabilitado.
+- [x] Manter CTA fixo apenas quando ele não cobrir conteúdo; reservar espaço inferior correspondente.
+- [x] Em mobile, usar uma coluna e priorizar fonte/ação antes de explicações secundárias.
+- [x] Respeitar `prefers-reduced-motion`.
 
 ## Testes e validação
 
-- [ ] Testar abertura direta em catálogo, IA e manual pelas entradas atuais.
-- [ ] Testar abertura genérica com escolha inicial de método.
-- [ ] Testar troca entre catálogo, IA e manual sem dados iniciados.
-- [ ] Testar confirmação/preservação ao trocar com dados iniciados.
+- [x] Testar abertura direta em catálogo, IA e manual pelas entradas atuais.
+- [x] Testar abertura genérica com escolha inicial de método.
+- [x] Testar troca entre catálogo, IA e manual sem dados iniciados.
+- [x] Testar confirmação/preservação ao trocar com dados iniciados.
 - [x] Testar seleção visual de PDF principal/anexo, troca de fonte e limite de documentos; tamanho e tipo permanecem validados pelo handler existente.
 - [x] Testar alternativa de colar texto.
 - [x] Testar disclosure dos campos opcionais.
-- [ ] Testar restauração e descarte de extração pendente.
-- [ ] Testar limite de IA sem bloquear catálogo ou manual.
-- [ ] Testar seleção de cargo e revisão da extração.
+- [x] Testar restauração e descarte de extração pendente.
+- [x] Testar limite de IA sem bloquear catálogo ou manual.
+- [x] Testar seleção de cargo e revisão da extração.
 - [x] Testar o progresso semântico e a recuperação com confirmação do anexo adicionado.
-- [ ] Validar em sessão autenticada o fluxo real `edital principal -> aviso de documento separado -> Anexo III -> revisão`, usando um dos pares IDCAP já analisados.
-- [ ] Validar em sessão autenticada que consumir a última extração fecha a jornada sem reabrir o modal de limite.
-- [ ] Testar criação manual e abertura imediata do cadastro de matérias.
+- [x] Validar em sessão autenticada o fluxo real `edital principal -> aviso de documento separado -> Anexo III -> revisão`, usando o edital IDAF/ES 2021 (IDCAP).
+- [x] Validar em sessão autenticada que consumir a última extração fecha a jornada sem reabrir o modal de limite.
+- [x] Testar criação manual e abertura imediata do cadastro de matérias.
 - [x] Rodar testes focados com Vitest/Testing Library.
 - [x] Rodar `npm run lint` e `npm run build`.
-- [ ] Validar visualmente dark/light em desktop, tablet e mobile.
+- [x] Validar visualmente dark/light em desktop, tablet e mobile.
 
 ## Critérios de aceite
 
-- [ ] O aluno entende a diferença entre catálogo, IA e criação manual antes de preencher dados.
-- [ ] Na IA, a primeira decisão visível é enviar PDF ou colar texto.
-- [ ] Banca, órgão e cargo ficam claramente identificados como contexto opcional.
-- [ ] Cada etapa possui somente uma ação primária.
-- [ ] O fluxo manual informa que matérias e tópicos serão adicionados depois.
-- [ ] Trocas de método não provocam perda silenciosa de trabalho.
-- [ ] Cota, recuperação, extração, seleção de cargo e revisão continuam funcionando.
-- [ ] O modal fica menor em responsabilidade e não recebe outra expansão monolítica.
+- [x] O aluno entende a diferença entre catálogo, IA e criação manual antes de preencher dados.
+- [x] Na IA, a primeira decisão visível é enviar PDF ou colar texto.
+- [x] Banca, órgão e cargo ficam claramente identificados como contexto opcional.
+- [x] Cada etapa possui somente uma ação primária.
+- [x] O fluxo manual informa que matérias e tópicos serão adicionados depois.
+- [x] Trocas de método não provocam perda silenciosa de trabalho.
+- [x] Cota, recuperação, extração, seleção de cargo e revisão continuam funcionando.
+- [x] O modal fica menor em responsabilidade e não recebe outra expansão monolítica.
 
 ## Encerramento pós-importação
 

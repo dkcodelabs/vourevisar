@@ -5,6 +5,11 @@ import cesgranrioProfile from "../_shared/bank-profiles/cesgranrio.json" with { 
 import fccProfile from "../_shared/bank-profiles/fcc.json" with { type: "json" };
 import fgvProfile from "../_shared/bank-profiles/fgv.json" with { type: "json" };
 import idcapProfile from "../_shared/bank-profiles/idcap.json" with { type: "json" };
+import vunespProfile from "../_shared/bank-profiles/vunesp.json" with { type: "json" };
+import institutoAocpProfile from "../_shared/bank-profiles/instituto_aocp.json" with { type: "json" };
+import quadrixProfile from "../_shared/bank-profiles/quadrix.json" with { type: "json" };
+import ibfcProfile from "../_shared/bank-profiles/ibfc.json" with { type: "json" };
+import iadesProfile from "../_shared/bank-profiles/iades.json" with { type: "json" };
 import { detectMissingContentProgramSource } from "../_shared/contentProgramSource.ts";
 import type { JsonBoundary } from "../_shared/jsonBoundary.ts";
 
@@ -27,6 +32,11 @@ const BANK_PROFILES: BankProfile[] = [
   fccProfile as BankProfile,
   fgvProfile as BankProfile,
   idcapProfile as BankProfile,
+  vunespProfile as BankProfile,
+  institutoAocpProfile as BankProfile,
+  quadrixProfile as BankProfile,
+  ibfcProfile as BankProfile,
+  iadesProfile as BankProfile,
 ];
 const VALID_EXTRACT_MODES = ["analyze", "extractForCargo", "mapContentStructure", "extractSubject", "extractWeights"] as const;
 
@@ -90,6 +100,7 @@ Dados do Cargo Alvo:
 
 Regras de Extracao:
 - Mapeamento flexivel: se o edital tiver apenas um cargo ou nao separar os conteudos, extraia todo o programa de provas disponivel.
+- Se o programa de provas for unificado ou compartilhado para um grupo de opcoes, especialidades ou modalidades (como "Acesso Direto", "Especialidades Medicas", "Nivel Superior" ou "Todos os Cargos"), extraia todas as disciplinas desse programa para a opcao selecionada (ex: Cirurgia Geral, Clinica Medica, Ginecologia e Obstetricia, Pediatria, Medicina Preventiva e Social). Nao descarte disciplinas achando que sao outros cargos quando elas compoem a prova da opcao.
 - Se houver separacao por cargo, area, enfase ou especialidade, busque os Conhecimentos Basicos comuns ao cargo e os Conhecimentos Especificos vinculados EXATAMENTE ao Nome do Cargo e Area/Enfase.
 - Ignore qualquer conteudo de conhecimentos especificos pertencente a outros cargos, areas, enfases ou especialidades.
 - Se a Area/Enfase selecionada contiver um codigo como "Area 8", localize exatamente o bloco de conteudo dessa area em Conhecimentos Especificos e extraia apenas ate o inicio da proxima area, proxima enfase, proxima especialidade ou proximo cargo. Nao misture materias de outras areas do mesmo cargo.
@@ -118,7 +129,8 @@ Formato JSON esperado:
       ]
     }
   ]
-}`;
+}
+`;
 
 const MAP_CONTENT_STRUCTURE_PROMPT = `Voce e um mapeador de estruturas textuais especializado em editais de concursos publicos. Sua tarefa e localizar os limites de cada disciplina do conteudo programatico APENAS para o cargo alvo fornecido.
 
@@ -129,6 +141,7 @@ Dados do Cargo Alvo:
 Regras de Mapeamento:
 - Use o TEXTO DO EDITAL fornecido como fonte principal. As ancoras precisam existir nesse texto, pois um sistema fara o recorte deterministico depois.
 - Identifique materias de Conhecimentos Basicos, Conhecimentos Especificos ou Geral que se aplicam ao cargo alvo.
+- Se o programa de provas for compartilhado para um grupo de opcoes, especialidades ou modalidades (como "Acesso Direto", "Especialidades Medicas", "Nivel Superior" ou "Todos os Cargos"), mapeie todas as disciplinas desse programa comum (ex: Cirurgia Geral, Clinica Medica, Ginecologia e Obstetricia, Pediatria, Medicina Preventiva e Social) para o cargo selecionado.
 - Se houver modalidades, cargos, areas ou enfases, use apenas divisao explicita no edital. Se o conteudo programatico nao separar por modalidade, mapeie o bloco comum.
 - Nao transcreva o conteudo completo da materia. Retorne apenas titulos e ancoras curtas.
 - startHeading deve ser o titulo da disciplina como aparece no texto, sem inventar. Exemplo: "DIREITO CONSTITUCIONAL:".
@@ -444,9 +457,13 @@ function buildBankProfileInstruction(mode: ExtractMode, inputText?: string, anal
     .map((profile) => JSON.stringify(profile, null, 2))
     .join("\n\n");
 
+  const modeClarification = mode === "extractSubject"
+    ? "\nATENÇÃO PARA extractSubject: O texto recebido abaixo já é exclusivamente o trecho da disciplina alvo. Não exija a presença de cabeçalhos globais como 'CONTEÚDO PROGRAMÁTICO' ou anexos dentro deste trecho. Extraia fielmente todos os tópicos e itens programáticos contidos no texto."
+    : "";
+
   const profileModeInstruction = matchedProfiles.length > 0
-    ? "Use o perfil abaixo como regra de leitura estrutural."
-    : "A banca ainda nao foi confirmada antes da leitura. Leia o PDF, identifique a banca explicitamente e use apenas o perfil cuja banca ou alias aparecer no edital. Se nenhum perfil corresponder, use as regras gerais do prompt.";
+    ? `Use o perfil abaixo como regra de leitura estrutural.${modeClarification}`
+    : `A banca ainda nao foi confirmada antes da leitura. Leia o PDF, identifique a banca explicitamente e use apenas o perfil cuja banca ou alias aparecer no edital. Se nenhum perfil corresponder, use as regras gerais do prompt.${modeClarification}`;
 
   return `\n\nPERFIS DE BANCA PARA GUIAR A IA:
 ${profileModeInstruction} O perfil nao substitui o edital: se nao houver evidencia no edital, nao invente. Quando a extracao der errado, o ajuste deve ser feito neste perfil, nao com regra especifica de edital no codigo.
@@ -1026,6 +1043,20 @@ function normalizeExtraction(raw: JsonBoundary, selectedCargo: string) {
           : Array.isArray(subject?.topicos)
             ? subject.topicos
             : [];
+        const rawNormalizedTopics = mergeNumberedTopicContinuations(
+            expandInlineNumberedTopics(
+              topics
+                .map((topic: JsonBoundary, index: number) => ({
+                  name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
+                  position: normalizeNumber(topic?.position) ?? index,
+                }))
+                .filter((topic: JsonBoundary) => topic.name.length >= 2),
+            ),
+        );
+        const normalizedTopics = rawNormalizedTopics.length > 0
+          ? rawNormalizedTopics
+          : [{ name: title, position: 0 }];
+
         return {
           title,
           type: subject?.type || subject?.tipo ? String(subject.type || subject.tipo).trim() : null,
@@ -1035,19 +1066,10 @@ function normalizeExtraction(raw: JsonBoundary, selectedCargo: string) {
             percentage: normalizeNumber(weight.percentage),
             rawText: weight.rawText ? String(weight.rawText).trim() : null,
           },
-          topics: mergeNumberedTopicContinuations(
-            expandInlineNumberedTopics(
-              topics
-                .map((topic: JsonBoundary, index: number) => ({
-                  name: String(typeof topic === "string" ? topic : topic?.name || topic?.n || "").replace(/\s+/g, " ").trim(),
-                  position: normalizeNumber(topic?.position) ?? index,
-                }))
-                .filter((topic: JsonBoundary) => topic.name.length >= 2),
-            ),
-          ),
+          topics: normalizedTopics,
         };
       })
-      .filter((subject: JsonBoundary) => subject.title.length > 0 && subject.topics.length > 0),
+      .filter((subject: JsonBoundary) => subject.title.length > 0),
     warnings: Array.isArray(raw?.warnings) ? raw.warnings.map((w: JsonBoundary) => String(w)) : [],
   };
 }
@@ -1407,10 +1429,15 @@ function normalizeSubjectTopicExtraction(raw: JsonBoundary, subjectTitle: string
     ),
   );
 
+  const disciplinaTitle = String(raw?.disciplina || raw?.title || subjectTitle || "").trim();
+  const finalTopics = normalizedTopics.length > 0
+    ? normalizedTopics
+    : [{ name: disciplinaTitle || "Conteúdo Geral", position: 0 }];
+
   return {
-    disciplina: String(raw?.disciplina || raw?.title || subjectTitle || "").trim(),
+    disciplina: disciplinaTitle,
     tipo: normalizeKnowledgeType(raw?.tipo || raw?.type || knowledgeType),
-    topicos: normalizedTopics,
+    topicos: finalTopics,
     avisos: Array.isArray(raw?.avisos)
       ? raw.avisos.map((w: JsonBoundary) => String(w))
       : Array.isArray(raw?.warnings)

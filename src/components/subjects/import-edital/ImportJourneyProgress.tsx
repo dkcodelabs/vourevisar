@@ -64,14 +64,15 @@ export function ImportJourneyProgress({ stage, onSecondaryAction }: ImportJourne
           })}
         </ol>
 
-        <button
-          type="button"
-          onClick={onSecondaryAction}
-          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold text-content-muted transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:min-h-9"
-        >
-          {isProcessing ? <X size={14} aria-hidden="true" /> : null}
-          {actionLabelByStage[stage]}
-        </button>
+        {!isProcessing && (
+          <button
+            type="button"
+            onClick={onSecondaryAction}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold text-content-muted transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:min-h-9"
+          >
+            {actionLabelByStage[stage]}
+          </button>
+        )}
       </div>
     </div>
   );

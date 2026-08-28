@@ -21,6 +21,7 @@ interface ComboboxProps {
   options: { value: string; label: string }[]
   value?: string
   onValueChange: (value: string) => void
+  id?: string
   placeholder?: string
   searchPlaceholder?: string
   emptyText?: string
@@ -34,6 +35,7 @@ export function Combobox({
   options,
   value,
   onValueChange,
+  id,
   placeholder = "Selecione uma opção...",
   searchPlaceholder = "Pesquisar...",
   emptyText = "Nenhuma opção encontrada.",
@@ -77,19 +79,23 @@ export function Combobox({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
+          type="button"
           variant="outline"
           role="combobox"
           aria-expanded={open}
           className={cn("w-full justify-between", className)}
           disabled={disabled}
         >
-          {selectedOption ? selectedOption.label : placeholder}
+          <span className="min-w-0 flex-1 truncate text-left" title={selectedOption?.label}>
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] border-border bg-popover p-0 shadow-xl">
         <Command shouldFilter={false}>
-          <CommandInput 
+          <CommandInput
             placeholder={searchPlaceholder}
             value={searchValue}
             onValueChange={setSearchValue}

@@ -1,0 +1,64 @@
+{
+  "banca": "IADES",
+  "aliases": [
+    "IADES",
+    "Instituto Americano de Desenvolvimento",
+    "Instituto Americano de Desenvolvimento (IADES)"
+  ],
+  "objetivo": "Orientar a IA a entender a estrutura típica de editais da banca IADES.",
+  "estrutura_basica": {
+    "inicio_do_conteudo": [
+      "CONTEÚDO PROGRAMÁTICO",
+      "CONTEUDO PROGRAMATICO",
+      "ANEXO I - CONTEÚDO PROGRAMÁTICO",
+      "ANEXO II - CONTEÚDO PROGRAMÁTICO",
+      "DOS OBJETOS DE AVALIAÇÃO"
+    ],
+    "blocos_comuns": [
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS BASICOS",
+      "CONHECIMENTOS GERAIS",
+      "COMUM A TODOS OS CARGOS",
+      "PARA TODOS OS CARGOS"
+    ],
+    "blocos_especificos": [
+      "CONHECIMENTOS ESPECÍFICOS",
+      "CONHECIMENTOS ESPECIFICOS"
+    ],
+    "marcadores_de_opcao": [
+      "CARGO",
+      "CARGOS",
+      "ESPECIALIDADE",
+      "CÓDIGO"
+    ],
+    "marcadores_de_agrupamento": [
+      "CONHECIMENTOS BÁSICOS",
+      "CONHECIMENTOS ESPECÍFICOS",
+      "PROVA OBJETIVA",
+      "PROVA DISCURSIVA"
+    ],
+    "secoes_que_nao_sao_fonte_de_materia": [
+      "DOS CARGOS",
+      "DAS VAGAS",
+      "DOS REQUISITOS",
+      "DAS ETAPAS DO CONCURSO",
+      "DA PROVA OBJETIVA",
+      "DO CRONOGRAMA"
+    ]
+  },
+  "regras_para_identificar_opcoes": [
+    "No IADES, os cargos e especialidades estão no Capítulo DOS CARGOS.",
+    "Preserve o código da vaga e nome da especialidade no label_exibicao."
+  ],
+  "regras_para_extrair_conteudo": [
+    "O conteúdo programático fica no Anexo correspondente.",
+    "Disciplinas aparecem em caixa alta com dois-pontos ou travessão (ex: LÍNGUA PORTUGUESA: 1 ...).",
+    "Tópicos são numerados (1, 1.1, 2). Preserve a numeração original.",
+    "Conhecimentos Básicos aplicam-se a todos os cargos; Conhecimentos Específicos aplicam-se exclusivamente ao cargo selecionado."
+  ],
+  "regras_para_extrair_pesos": [
+    "O quadro de provas do IADES detalha Prova, Tipo de Prova, Número de Questões, Peso e Pontuação Máxima.",
+    "Extraia número de questões e pontos por disciplina conforme a tabela."
+  ],
+  "instrucao_para_ia": "Para editais IADES, localize o Conteúdo Programático nos Anexos. Extraia Conhecimentos Básicos comuns e Conhecimentos Específicos do cargo. Preserve tópicos numerados e estrutura original."
+}

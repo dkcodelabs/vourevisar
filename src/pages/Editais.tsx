@@ -799,17 +799,22 @@ const Editais = () => {
 
     useEffect(() => {
         const refreshCatalogOnFocus = () => {
-            if (document.visibilityState === 'visible') {
+            if (document.visibilityState === 'visible' && !isImportModalOpen) {
                 fetchPublicEditais();
             }
         };
-        window.addEventListener('focus', fetchPublicEditais);
+        const handleFocus = () => {
+            if (!isImportModalOpen) {
+                fetchPublicEditais();
+            }
+        };
+        window.addEventListener('focus', handleFocus);
         document.addEventListener('visibilitychange', refreshCatalogOnFocus);
         return () => {
-            window.removeEventListener('focus', fetchPublicEditais);
+            window.removeEventListener('focus', handleFocus);
             document.removeEventListener('visibilitychange', refreshCatalogOnFocus);
         };
-    }, [fetchPublicEditais]);
+    }, [fetchPublicEditais, isImportModalOpen]);
 
     // Carrega sugestões pendentes da IA
     const loadPendingSuggestions = useCallback(async () => {

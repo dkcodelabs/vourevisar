@@ -2,6 +2,7 @@ import type { RefObject, ReactNode } from 'react';
 import {
   AlertCircle,
   BarChart2,
+  ChevronRight,
   Gauge,
   ListTodo,
   Loader2,
@@ -31,6 +32,8 @@ type StrategicEdital = {
 
 type StrategicPanelStats = {
   coveragePercentage: number;
+  startedSubjectsCount?: number;
+  totalSubjects?: number;
   highestIncidenceTopic: {
     topicName: string;
     subjectName: string;
@@ -131,6 +134,10 @@ export function StrategicEditalPanel({
   const highestPendingWeight = strategicPanelStats.highestPendingWeightSubject;
   const highestIncidence = strategicPanelStats.highestIncidenceTopic;
   const highestIncidenceSubject = strategicPanelStats.highestIncidenceSubject;
+  const subjectStartAlerts = strategicAlerts.filter(alert => alert.actionType === 'start_subject');
+  const primarySubjectAlert = subjectStartAlerts[0];
+  const upcomingSubjectAlerts = subjectStartAlerts.slice(1);
+  const otherStrategicAlerts = strategicAlerts.filter(alert => alert.actionType !== 'start_subject');
   const currentCycleNumber = cycleMaturity.cycleNumber;
   const canShowStrategicInsights = ['active', 'historical'].includes(cycleMaturity.phase);
   const activeCycleEditais = editaisNoCiclo.filter(edital =>
@@ -221,9 +228,16 @@ export function StrategicEditalPanel({
           <div className="app-gradient-panel overflow-hidden rounded-2xl p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <h4 className="app-type-eyebrow text-primary">
-                  Ciclo {currentCycleNumber}
-                </h4>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <h4 className="app-type-eyebrow text-primary">
+                    Ciclo {currentCycleNumber}
+                  </h4>
+                  {activeCycleEditais.length > 1 && (
+                    <span className="app-type-badge rounded-md border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-primary">
+                      {activeCycleEditais.length} editais combinados
+                    </span>
+                  )}
+                </div>
                 {renderCycleTooltip(
                   editalCycleLabel,
                   <p className="app-type-caption mt-1 overflow-hidden break-words text-content-muted [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
@@ -252,11 +266,16 @@ export function StrategicEditalPanel({
             <div className="app-responsive-stat-grid mt-4">
               <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="app-type-eyebrow text-content-muted">Primeiro contato</p>
+                  <p className="app-type-eyebrow text-content-muted">Matérias iniciadas</p>
                   <p className="text-sm font-bold text-title-card tabular-nums">
-                    {cycleTransitionSummary.firstContactClosedSubjects}/{cycleTransitionSummary.totalSubjects}
+                    {strategicPanelStats.startedSubjectsCount ?? 0}/{strategicPanelStats.totalSubjects ?? cycleVisualStats.totalSubjects}
                   </p>
                 </div>
+                <p className="app-type-caption mt-1 text-content-muted">
+                  {(strategicPanelStats.startedSubjectsCount ?? 0) > 0
+                    ? `${strategicPanelStats.startedSubjectsCount} de ${strategicPanelStats.totalSubjects ?? cycleVisualStats.totalSubjects} matérias com estudo em andamento.`
+                    : 'Nenhuma matéria com estudo iniciado ainda.'}
+                </p>
               </div>
               <div className="rounded-xl border app-hairline bg-surface/55 px-3 py-2 backdrop-blur">
                 <div className="flex items-center justify-between gap-3">
@@ -267,8 +286,8 @@ export function StrategicEditalPanel({
                 </div>
                 <p className="app-type-caption mt-1 text-content-muted">
                   {cycleTransitionSummary.unstartedTopics > 0
-                    ? `${cycleTransitionSummary.unstartedTopics} ainda sem primeiro contato.`
-                    : 'Sem tópico novo para iniciar.'}
+                    ? `${cycleTransitionSummary.unstartedTopics} tópicos restantes para o 1º contato.`
+                    : 'Todos os tópicos do ciclo iniciados.'}
                 </p>
               </div>
             </div>
@@ -278,12 +297,61 @@ export function StrategicEditalPanel({
             <div className="app-glass rounded-2xl p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h4 className="app-type-eyebrow text-warning">
-                  Atenção estratégica
+                  {primarySubjectAlert ? 'Prioridades do edital' : 'Atenção estratégica'}
                 </h4>
                 <AlertCircle size={15} className="text-warning" />
               </div>
               <div className="space-y-2">
-                {strategicAlerts.map(alert => {
+                {primarySubjectAlert && (() => {
+                  const style = alertStyles[primarySubjectAlert.severity];
+                  return (
+                    <div className={`rounded-xl border p-3 ${style.card}`}>
+                      <div className="mb-2 flex items-start gap-2">
+                        <div className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg ${style.icon}`}>
+                          <AlertCircle size={14} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="app-type-badge opacity-80">Agora</span>
+                            <p className="app-type-eyebrow text-title-card">{primarySubjectAlert.subjectName}</p>
+                          </div>
+                          <p className="app-type-body-small mt-1 text-title-card">{primarySubjectAlert.message}</p>
+                          <p className="app-type-caption mt-1 text-content-muted">{primarySubjectAlert.evidence}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleStrategicAlertAction(primarySubjectAlert)}
+                        className="app-type-action-xs mt-1 h-7 rounded-lg border app-hairline bg-surface/45 px-2.5 text-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                      >
+                        {primarySubjectAlert.actionLabel}
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {upcomingSubjectAlerts.length > 0 && (
+                  <div className="rounded-xl border app-hairline bg-surface/35 px-3 py-2">
+                    <p className="app-type-caption mb-1.5 text-content-muted">Depois, na ordem de peso</p>
+                    <div className="divide-y divide-border/60">
+                      {upcomingSubjectAlerts.map((alert, index) => (
+                        <button
+                          key={alert.id}
+                          type="button"
+                          onClick={() => handleStrategicAlertAction(alert)}
+                          className="flex w-full items-center gap-2 py-1.5 text-left transition-colors hover:text-primary"
+                        >
+                          <span className="app-type-badge shrink-0 text-content-muted">{index + 2}</span>
+                          <span className="app-type-body-small min-w-0 flex-1 truncate text-title-card">{alert.subjectName}</span>
+                          <span className="app-type-caption shrink-0 text-content-muted">{alert.evidence.replace(' entre as matérias com peso informado.', '')}</span>
+                          <ChevronRight size={14} className="shrink-0 text-content-muted" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {otherStrategicAlerts.map(alert => {
                   const style = alertStyles[alert.severity];
                   return (
                     <div key={alert.id} className={`rounded-xl border p-3 ${style.card}`}>

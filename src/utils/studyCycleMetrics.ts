@@ -53,6 +53,8 @@ export type StudyCyclePaceMetrics = {
   daysRemaining: number | null;
   newTopicsPerDay: number | null;
   reviewsPerDay: number | null;
+  totalDailyWorkload: number | null;
+  totalPlannedReviews: number;
   unstartedTopics: number;
   pendingReviews: number;
   futureReviewsInWindow: number;
@@ -156,6 +158,7 @@ export const buildStudyCyclePaceMetrics = ({
   overdueReviews,
   dueTodayReviews,
   futureReviewsInWindow,
+  totalPlannedReviews,
   hasActiveCycle,
   recentFirstContact,
 }: {
@@ -165,10 +168,12 @@ export const buildStudyCyclePaceMetrics = ({
   overdueReviews: number;
   dueTodayReviews: number;
   futureReviewsInWindow: number;
+  totalPlannedReviews?: number;
   hasActiveCycle: boolean;
   recentFirstContact?: StudyCyclePaceMetrics['recentFirstContact'];
 }): StudyCyclePaceMetrics => {
   const pendingReviews = overdueReviews + dueTodayReviews + futureReviewsInWindow;
+  const plannedReviews = typeof totalPlannedReviews === 'number' ? totalPlannedReviews : pendingReviews;
   const firstContactPace = recentFirstContact ?? {
     state: 'insufficient_data',
     windowDays: 7,
@@ -184,6 +189,8 @@ export const buildStudyCyclePaceMetrics = ({
       daysRemaining: null,
       newTopicsPerDay: null,
       reviewsPerDay: null,
+      totalDailyWorkload: null,
+      totalPlannedReviews: plannedReviews,
       unstartedTopics,
       pendingReviews,
       futureReviewsInWindow,
@@ -200,6 +207,8 @@ export const buildStudyCyclePaceMetrics = ({
       daysRemaining: null,
       newTopicsPerDay: null,
       reviewsPerDay: null,
+      totalDailyWorkload: null,
+      totalPlannedReviews: plannedReviews,
       unstartedTopics,
       pendingReviews,
       futureReviewsInWindow,
@@ -210,32 +219,38 @@ export const buildStudyCyclePaceMetrics = ({
 
   const daysRemaining = daysBetweenStartOfDay(parsedExamDate, today);
 
-  if (daysRemaining < 0) {
+  if (daysRemaining <= 0) {
     return {
       state: 'exam_date_past',
       daysRemaining,
       newTopicsPerDay: null,
       reviewsPerDay: null,
+      totalDailyWorkload: null,
+      totalPlannedReviews: plannedReviews,
       unstartedTopics,
       pendingReviews,
       futureReviewsInWindow,
       recentFirstContact: firstContactPace,
-      explanation: 'A data da prova já passou. Atualize a data para recalcular o ritmo.',
+      explanation: 'A data da prova já passou ou é hoje. Atualize a data para recalcular o ritmo.',
     };
   }
 
-  const divisor = Math.max(daysRemaining, 1);
+  const newTopicsPerDay = unstartedTopics / daysRemaining;
+  const reviewsPerDay = plannedReviews / daysRemaining;
+  const totalDailyWorkload = (unstartedTopics + plannedReviews) / daysRemaining;
 
   return {
     state: 'ready',
     daysRemaining,
-    newTopicsPerDay: unstartedTopics / divisor,
-    reviewsPerDay: pendingReviews / divisor,
+    newTopicsPerDay,
+    reviewsPerDay,
+    totalDailyWorkload,
+    totalPlannedReviews: plannedReviews,
     unstartedTopics,
     pendingReviews,
     futureReviewsInWindow,
     recentFirstContact: firstContactPace,
-    explanation: 'Cálculo baseado nos tópicos não iniciados, revisões pendentes e revisões futuras até a prova.',
+    explanation: 'Cálculo baseado nos tópicos não iniciados e no programa completo de revisões até a prova.',
   };
 };
 
@@ -348,6 +363,12 @@ export const getStudyCycleMetrics = ({
     unstartedTopics: unstartedTopics.length,
     windowDays: recentFirstContactWindowDays,
   });
+  const totalPlannedReviews = allTopics.reduce((total, topic) => {
+    if (isTopicCompleted(topic)) return total;
+    const count = Math.min(Math.max(Number(topic.review_count ?? topic.reviewCount ?? 0), 0), 4);
+    return total + (4 - count);
+  }, 0);
+
   const pace = buildStudyCyclePaceMetrics({
     examDate: paceExamDate,
     today: now,
@@ -355,6 +376,7 @@ export const getStudyCycleMetrics = ({
     overdueReviews,
     dueTodayReviews,
     futureReviewsInWindow,
+    totalPlannedReviews,
     hasActiveCycle,
     recentFirstContact,
   });
