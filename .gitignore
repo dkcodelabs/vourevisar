@@ -43,3 +43,4 @@ supabase/.temp/
 .vercel
 .env*
 .agents/**/mcp_config.json
+.superpowers/brainstorm/**/state/
