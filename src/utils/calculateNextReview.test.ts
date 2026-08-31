@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { calculateNextReview } from './calculateNextReview';
+import { calculateNextReview, MAX_ADAPTIVE_REVIEW_INTERVAL_DAYS } from './calculateNextReview';
 
 const today = new Date(2026, 5, 22, 12, 0, 0);
 
@@ -16,6 +16,10 @@ function metrics(reviewCount: number, overrides: Partial<{
 }
 
 describe('calculateNextReview', () => {
+  it('expõe o maior intervalo do programa adaptativo para leitores de estado', () => {
+    expect(MAX_ADAPTIVE_REVIEW_INTERVAL_DAYS).toBe(90);
+  });
+
   it('agenda a primeira revisão em até 24 horas para qualquer dificuldade', () => {
     for (const difficulty of [1, 2, 3]) {
       const result = calculateNextReview({

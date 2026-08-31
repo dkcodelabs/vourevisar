@@ -16,7 +16,12 @@ const overview = {
   recommendedTopic: null,
   selectedTopic: null,
   materialTopics: [],
-  flashcards: { dueCount: 0, dueTopicCount: 0 },
+  flashcards: { dueCount: 0, dueTopicCount: 0, newCount: 0, newTopicCount: 0 },
+  studyAction: {
+    kind: 'cycle' as const,
+    topic: null,
+    reason: 'continue_cycle' as const,
+  },
   dailyRecommendation: {
     kind: 'clear' as const,
     count: 0,

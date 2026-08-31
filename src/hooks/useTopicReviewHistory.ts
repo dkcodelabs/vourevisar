@@ -10,7 +10,6 @@ import {
   REVIEW_STAGE_ORDER,
   REVIEW_STAGES
 } from '@/types/topic-review-history';
-import { ReviewProfile, REVIEW_PROFILES } from '@/types/study';
 import type { Tables } from '@/integrations/supabase/types';
 
 type TopicScheduleRow = Pick<
@@ -18,10 +17,14 @@ type TopicScheduleRow = Pick<
   'first_studied_at' | 'review_stage' | 'next_review' | 'review_count' | 'last_reviewed_at' | 'completed'
 >;
 
+function isFirstContactStage(stage: string | null | undefined): boolean {
+  return stage === REVIEW_STAGES.FIRST_CONTACT || stage === 'Primeiro Contato';
+}
+
 /**
  * Hook para buscar e processar o histórico de revisões de um tópico
  */
-export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfile = ReviewProfile.INTERMEDIATE) => {
+export const useTopicReviewHistory = (topicId: string) => {
   const [history, setHistory] = useState<TopicReviewHistory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -59,10 +62,9 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
 
 
         // Processar histórico
-        const processedHistory = processTopicHistory(
+        const processedHistory = buildTopicReviewHistory(
           historyData || [],
           topicData,
-          userProfile
         );
 
         setHistory(processedHistory);
@@ -75,7 +77,7 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
     };
 
     fetchHistory();
-  }, [topicId, userProfile]);
+  }, [topicId]);
 
   return { history, isLoading, error };
 };
@@ -83,17 +85,17 @@ export const useTopicReviewHistory = (topicId: string, userProfile: ReviewProfil
 /**
  * Processa o histórico bruto do banco em um formato estruturado
  */
-function processTopicHistory(
+export function buildTopicReviewHistory(
   historyData: TopicReviewHistoryEntry[],
   topicData: TopicScheduleRow,
-  userProfile: ReviewProfile
+  referenceDate = new Date(),
 ): TopicReviewHistory {
-  const now = new Date();
+  const now = referenceDate;
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   // Encontrar primeiro contato
   const firstContactEntry = historyData.find(
-    entry => entry.review_stage === REVIEW_STAGES.FIRST_CONTACT
+    entry => isFirstContactStage(entry.review_stage)
   );
   const firstContact = firstContactEntry
     ? new Date(firstContactEntry.reviewed_at)
@@ -106,7 +108,7 @@ function processTopicHistory(
   let completedCount = 0;
 
   historyData.forEach((entry) => {
-    if (entry.review_stage !== REVIEW_STAGES.FIRST_CONTACT) {
+    if (!isFirstContactStage(entry.review_stage)) {
       completedCount++;
       const duration = entry.study_duration_minutes || 0;
       totalStudyTime += duration;

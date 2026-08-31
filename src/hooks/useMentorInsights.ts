@@ -9,8 +9,7 @@ import {
   MentorTrendLabel,
   MentorStrategicInsight
 } from '@/types/mentor';
-import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
-import { useUserSettings } from '@/hooks/useUserSettings';
+import { MAX_ADAPTIVE_REVIEW_INTERVAL_DAYS } from '@/utils/calculateNextReview';
 
 // Helper function para derivar a tendência baseada em estabilidade de memória
 const getTrendLabel = (stability: number, reviewCount: number): MentorTrendLabel => {
@@ -23,7 +22,6 @@ const getTrendLabel = (stability: number, reviewCount: number): MentorTrendLabel
 export const useMentorInsights = (): MentorInsights => {
   const { subjects, isDataLoaded } = useApp();
   const { userCycle } = useStudyCycleData();
-  const { settings: userSettings } = useUserSettings();
 
   const [criticalAlerts, setCriticalAlerts] = useState<MentorAlert[]>([]);
   const [allCriticals, setAllCriticals] = useState<MentorAlert[]>([]);
@@ -73,10 +71,7 @@ export const useMentorInsights = (): MentorInsights => {
 
     const today = startOfDay(new Date());
     
-    // Configurações do perfil
-    const profileKey = (userSettings?.review_profile || 'INTERMEDIATE') as keyof typeof REVIEW_PROFILES;
-    const profileRules = REVIEW_PROFILES[profileKey] || REVIEW_PROFILES.INTERMEDIATE;
-    const maxIntervalCap = profileRules.maxIntervalCap;
+    const maxIntervalCap = MAX_ADAPTIVE_REVIEW_INTERVAL_DAYS;
 
     const newCriticals: MentorAlert[] = [];
     const newGargalos: MentorAlert[] = [];
@@ -222,7 +217,7 @@ export const useMentorInsights = (): MentorInsights => {
     setConsolidatedTopics(newConsolidated);
     setTrendByTopic(newTrendByTopic);
 
-  }, [subjects, isDataLoaded, userCycle, userSettings]);
+  }, [subjects, isDataLoaded, userCycle]);
 
   const totalAlertCount = criticalAlerts.length + gargalos.length + (strategicInsight ? 1 : 0);
 

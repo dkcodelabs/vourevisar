@@ -21,6 +21,7 @@ import type {
   PracticeAnswer,
   PracticeAttempt,
   PracticeAttemptResult,
+  PracticeFormat,
   PracticeSession,
 } from "@/features/practice/services/practiceService";
 import type { PracticeFeedbackReason } from "@/features/practice/types/practice";

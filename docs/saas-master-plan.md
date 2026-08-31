@@ -49,8 +49,10 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 - [x] Manter as duas galerias internas de componentes acessíveis somente a administradores pelo menu, sem transformar referências visuais em navegação do aluno.
 - [x] Remover `generate-questions`: o frontend atual não o invoca e a auditoria remota em 2026-08-31 encontrou zero registros em `api_usage` para esse endpoint. A função usava um contrato de geração antigo, independente do fluxo atual de prática.
 - [x] Remover o subgrupo sem consumidor do calendário fixo: `sessionUtils`, sessão antiga, `Ciclo V2` paralelo e widgets de dashboard/revisões que não tinham rota nem importador. As tabelas de `study_cycles_v2` ficam para uma migration própria após auditoria de dados remotos.
-- [ ] Substituir os consumidores **ativos** restantes de `REVIEW_PROFILES` pelo contrato adaptativo canônico: `useUserSettings`, `useMentorInsights` e o detalhe de histórico de revisão. O perfil não pode continuar definindo intervalos, contagem de revisões ou conclusão.
+- [x] Remover `REVIEW_PROFILES` dos consumidores ativos: Configurações não grava mais perfil fixo; Mentor e Histórico leem o teto/agenda do motor adaptativo. A coluna `user_settings.review_profile` permanece somente para compatibilidade até a migration final de schema.
+- [x] Excluir backups locais `*.backup.*` e `*.original.*` do typecheck; eles são ignorados pelo Git e não devem virar código compilável por estarem dentro de `src/`.
 - [ ] Reduzir o baseline arquitetural em recortes: 36 acessos diretos ao Supabase em UI, 4 em utilitários e 9 páginas acima de 700 linhas. Ordem inicial: `Editais.tsx` (3896 linhas), `Revisoes.tsx` (977) e áreas administrativas. Cada recorte deve mover persistência para service/hook, sem refatoração massiva.
+- [x] Recuperar o typecheck global do Treino: corrigido `PracticeFormat` ausente em `PracticeSessionDialog`, fixture incompleto de `PracticeOverview` e uso de `Array.at`, incompatível com o alvo ES2020.
 - [ ] Corrigir avisos reais do `supabase db lint` em funções de merge/reset, começando por casts de arrays e variáveis não lidas. Não alterar RPCs sensíveis sem testes de merge/ciclo.
 
 ## Prioridade 2 — lacunas funcionais já conhecidas

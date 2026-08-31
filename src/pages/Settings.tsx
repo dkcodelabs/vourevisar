@@ -12,7 +12,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { GradientButton } from '@/components/ui';
 import { useCycleState } from '@/hooks/useCycleState';
 import { useApp } from '@/contexts/AppContext';
-import { ReviewProfile, UserSettings } from '@/types/study';
+import { UserSettings } from '@/types/study';
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ResetCycleConfirmDialog } from '@/components/ResetCycleConfirmDialog';
@@ -74,7 +74,6 @@ const Settings = () => {
   const [settings, setSettings] = useState<UserSettings>({
     id: '',
     user_id: user?.id || '',
-    review_profile: ReviewProfile.INTERMEDIATE,
     subjects_per_day: 3,
     notifications_enabled: true,
     notification_time: "08:00",
@@ -117,7 +116,6 @@ const Settings = () => {
         setSettings({
           id: '',
           user_id: data.user_id || '',
-          review_profile: data.review_profile as ReviewProfile,
           subjects_per_day: data.subjects_per_day,
           notifications_enabled: data.notifications_enabled,
           notification_time: data.notification_time,
@@ -131,7 +129,6 @@ const Settings = () => {
             .insert({
               id: '',
               user_id: user.id,
-              review_profile: settings.review_profile,
               subjects_per_day: settings.subjects_per_day,
               notifications_enabled: settings.notifications_enabled,
               notification_time: settings.notification_time,
@@ -178,7 +175,6 @@ const Settings = () => {
           subjects_per_day: settings.subjects_per_day,
           notifications_enabled: settings.notifications_enabled,
           notification_time: settings.notification_time,
-          review_profile: settings.review_profile,
           updated_at: new Date().toISOString()
         });
       if (error) throw error;

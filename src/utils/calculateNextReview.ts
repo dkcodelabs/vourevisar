@@ -65,6 +65,8 @@ const REVIEW_WINDOWS: Record<number, ReviewWindow> = {
   3: { min: 60, middle: 75, max: 90 },
 };
 
+export const MAX_ADAPTIVE_REVIEW_INTERVAL_DAYS = REVIEW_WINDOWS[3].max;
+
 function startOfDay(value: Date): Date {
   const result = new Date(value);
   result.setHours(0, 0, 0, 0);

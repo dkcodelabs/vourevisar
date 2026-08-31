@@ -204,7 +204,8 @@ describe("PracticeHome", () => {
     expect(mocks.build).toHaveBeenCalledWith(expect.objectContaining({
       mode: "flashcards_due", origin: "daily_recommendation", format: "flashcards", flashcardPurpose: "review", quantity: 2,
     }));
-    expect(mocks.build.mock.calls.at(-1)?.[0]).not.toHaveProperty("topicId");
+    const latestBuildCall = mocks.build.mock.calls[mocks.build.mock.calls.length - 1];
+    expect(latestBuildCall?.[0]).not.toHaveProperty("topicId");
   });
 
   it("oferece geração explícita para o tópico quando não há material para abrir", async () => {

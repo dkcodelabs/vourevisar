@@ -3,20 +3,17 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CheckCircle2, Clock, TrendingUp, TrendingDown, Minus, AlertCircle, ChevronRight } from 'lucide-react';
 import { useTopicReviewHistory } from '@/hooks/useTopicReviewHistory';
-import { ReviewProfile } from '@/types/study';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TopicEvolutionChart } from '@/components/topics/TopicEvolutionChart';
 
 interface TopicReviewHistorySectionProps {
   topicId: string;
-  userProfile?: ReviewProfile;
 }
 
 export const TopicReviewHistorySection: React.FC<TopicReviewHistorySectionProps> = ({
   topicId,
-  userProfile = ReviewProfile.INTERMEDIATE
 }) => {
-  const { history, isLoading, error } = useTopicReviewHistory(topicId, userProfile);
+  const { history, isLoading, error } = useTopicReviewHistory(topicId);
 
   if (isLoading) {
     return (
