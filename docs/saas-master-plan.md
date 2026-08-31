@@ -46,7 +46,7 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 
 - [x] Remover componentes sem consumidor confirmado: `SubscriptionTester.tsx`, `ProfileTester.tsx` e `ImportadorQuestoes.tsx`; não havia importador ativo dessas telas na árvore atual.
 - [x] Atualizar `scripts/architecture-baseline.json` depois da remoção de `AutomationSimulator.tsx`, que ainda estava listado apesar de já ter sido excluído.
-- [ ] Desativar e remover `generate-questions` somente após consultar logs/uso do endpoint por uma janela definida. O frontend atual não o invoca, mas uma Edge Function Live não deve ser apagada sem evidência de ausência de tráfego.
+- [x] Remover `generate-questions`: o frontend atual não o invoca e a auditoria remota em 2026-08-31 encontrou zero registros em `api_usage` para esse endpoint. A função usava um contrato de geração antigo, independente do fluxo atual de prática.
 - [ ] Substituir consumidores ativos de `REVIEW_PROFILES` e `sessionUtils` pelo contrato adaptativo canônico, por domínio e com testes de regressão. Eles ainda são usados por telas/hook legados; apagá-los agora quebraria revisões.
 - [ ] Reduzir o baseline arquitetural em recortes: 36 acessos diretos ao Supabase em UI, 4 em utilitários e 9 páginas acima de 700 linhas. Ordem inicial: `Editais.tsx` (3896 linhas), `Revisoes.tsx` (977) e áreas administrativas. Cada recorte deve mover persistência para service/hook, sem refatoração massiva.
 - [ ] Corrigir avisos reais do `supabase db lint` em funções de merge/reset, começando por casts de arrays e variáveis não lidas. Não alterar RPCs sensíveis sem testes de merge/ciclo.
