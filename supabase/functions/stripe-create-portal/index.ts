@@ -21,7 +21,7 @@ Deno.serve(async (request) => {
     const livemode = getStripeLivemode();
     const { data: customer, error } = await supabase
       .from("billing_customers")
-      .select("id,stripe_customer_id,updated_at")
+      .select("id,stripe_customer_id")
       .eq("user_id", user.id)
       .eq("livemode", livemode)
       .maybeSingle();
@@ -49,7 +49,6 @@ Deno.serve(async (request) => {
       // customer mapping is the mode boundary: it prevents a Test subscription
       // from changing the Live Customer Portal behavior and vice-versa.
       .eq("billing_customer_id", customer?.id ?? "00000000-0000-0000-0000-000000000000")
-      .gte("updated_at", customer?.updated_at ?? new Date().toISOString())
       .in("status", ["active", "past_due"])
       .order("current_period_end", { ascending: false })
       .limit(1)

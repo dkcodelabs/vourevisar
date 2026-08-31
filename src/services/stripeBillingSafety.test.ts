@@ -135,7 +135,7 @@ describe('Stripe billing security boundaries', () => {
 
   it('opens the Customer Portal through the customer mapping of the configured Stripe mode', () => {
     expect(portalSource).toContain('.eq("billing_customer_id", customer?.id');
-    expect(portalSource).toContain('.gte("updated_at", customer?.updated_at');
+    expect(portalSource).not.toContain('.gte("updated_at", customer?.updated_at');
     expect(portalSource).not.toContain('.eq("livemode", livemode)\n      .in("status", ["active", "past_due"])');
   });
 
