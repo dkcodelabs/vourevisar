@@ -1,4 +1,6 @@
-# Plano: Pagina Ciclo de Estudos como Mapa Estrategico do Edital
+# Arquivo histórico: Ciclo de Estudos como Mapa Estratégico do Edital
+
+> Este documento preserva decisões e evidências anteriores. A fonte única de pendências e prioridades é [saas-master-plan.md](saas-master-plan.md), desde 2026-08-31. Não adicionar novos itens operacionais aqui.
 
 Este plano e a referencia de implementacao da pagina Ciclo de Estudos. A pagina deve responder:
 

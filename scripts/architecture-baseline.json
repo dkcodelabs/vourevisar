@@ -8,11 +8,9 @@
   "directSupabaseInUi": [
     "src/components/AppLayout.tsx",
     "src/components/AuthCallback.tsx",
-    "src/components/AutomationSimulator.tsx",
     "src/components/ContentUploadModal.tsx",
     "src/components/EditableTopicName.tsx",
     "src/components/GeneralNotesModal.tsx",
-    "src/components/ImportadorQuestoes.tsx",
     "src/components/ResetCycleConfirmDialog.tsx",
     "src/components/admin/AdminAddEditalModal.tsx",
     "src/components/admin/AdminEditalSubjectsModal.tsx",

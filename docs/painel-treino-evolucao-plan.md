@@ -1,4 +1,6 @@
-# Plano vivo: Painel, Treino e Evolução
+# Arquivo histórico: Painel, Treino e Evolução
+
+> Este documento preserva o histórico técnico. A fonte única de pendências e prioridades é [saas-master-plan.md](saas-master-plan.md), desde 2026-08-31. Não adicionar novos itens operacionais aqui.
 
 ## Objetivo e regra de execução
 

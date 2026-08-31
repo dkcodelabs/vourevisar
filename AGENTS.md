@@ -29,7 +29,7 @@ Este arquivo é a fonte principal de instruções para agentes neste projeto. Se
 
 ## Planejamento vivo obrigatório
 
-- Antes de implementar ou sugerir próximo passo em uma área já planejada, consulte o plano vivo correspondente. Para a página de ciclo e inteligência estratégica, use `docs/study-cycle-strategic-page-plan.md`.
+- Antes de implementar ou sugerir próximo passo, consulte `docs/saas-master-plan.md`, a fonte única de prioridade operacional. Os planos antigos em `docs/` preservam especificações e evidências, mas não devem receber novas pendências.
 - Tudo que ficar pendente deve ser registrado no plano como item `[ ]`, mesmo que seja melhoria, correção, validação, dúvida de produto, dívida técnica ou etapa futura.
 - Quando algo for implementado e verificado, marque o item correspondente como `[x]`. Se for parcialmente feito, mantenha `[ ]` e descreva claramente o que ainda falta.
 - Se surgir uma pendência fora do escopo do plano atual, crie uma seção de backlog no plano existente ou proponha um novo plano em `docs/`, mas não deixe a pendência apenas na conversa.

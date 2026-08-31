@@ -1,4 +1,6 @@
-# Plano: arrependimento, cancelamento e reembolso de assinaturas
+# Arquivo histórico: arrependimento, cancelamento e reembolso de assinaturas
+
+> Este documento preserva contrato, decisões e evidências. A fonte única de pendências e prioridades é [saas-master-plan.md](saas-master-plan.md), desde 2026-08-31. Não adicionar novos itens operacionais aqui.
 
 ## Objetivo
 
