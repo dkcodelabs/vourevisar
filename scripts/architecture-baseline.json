@@ -17,7 +17,6 @@
     "src/components/admin/EditRoleModal.tsx",
     "src/components/admin/UserActivityList.tsx",
     "src/components/dashboard-v2/DifficultyEvolutionWidget.tsx",
-    "src/components/dashboard/CompactSubjectAccordion.tsx",
     "src/components/editais/EditalSubjectsModal.tsx",
     "src/components/reviews/NotesModal.tsx",
     "src/components/reviews/SubjectNotesModal.tsx",
@@ -46,7 +45,6 @@
   "directSupabaseInUtils": [
     "src/utils/cycleUtils.ts",
     "src/utils/migrateDifficultyLevels.ts",
-    "src/utils/sessionUtils.ts",
     "src/utils/studiesCompletionChecker.ts"
   ],
   "oversizedPages": [

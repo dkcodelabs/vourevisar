@@ -46,8 +46,10 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 
 - [x] Remover componentes sem consumidor confirmado: `SubscriptionTester.tsx`, `ProfileTester.tsx` e `ImportadorQuestoes.tsx`; não havia importador ativo dessas telas na árvore atual.
 - [x] Atualizar `scripts/architecture-baseline.json` depois da remoção de `AutomationSimulator.tsx`, que ainda estava listado apesar de já ter sido excluído.
+- [x] Manter as duas galerias internas de componentes acessíveis somente a administradores pelo menu, sem transformar referências visuais em navegação do aluno.
 - [x] Remover `generate-questions`: o frontend atual não o invoca e a auditoria remota em 2026-08-31 encontrou zero registros em `api_usage` para esse endpoint. A função usava um contrato de geração antigo, independente do fluxo atual de prática.
-- [ ] Substituir consumidores ativos de `REVIEW_PROFILES` e `sessionUtils` pelo contrato adaptativo canônico, por domínio e com testes de regressão. Eles ainda são usados por telas/hook legados; apagá-los agora quebraria revisões.
+- [x] Remover o subgrupo sem consumidor do calendário fixo: `sessionUtils`, sessão antiga, `Ciclo V2` paralelo e widgets de dashboard/revisões que não tinham rota nem importador. As tabelas de `study_cycles_v2` ficam para uma migration própria após auditoria de dados remotos.
+- [ ] Substituir os consumidores **ativos** restantes de `REVIEW_PROFILES` pelo contrato adaptativo canônico: `useUserSettings`, `useMentorInsights` e o detalhe de histórico de revisão. O perfil não pode continuar definindo intervalos, contagem de revisões ou conclusão.
 - [ ] Reduzir o baseline arquitetural em recortes: 36 acessos diretos ao Supabase em UI, 4 em utilitários e 9 páginas acima de 700 linhas. Ordem inicial: `Editais.tsx` (3896 linhas), `Revisoes.tsx` (977) e áreas administrativas. Cada recorte deve mover persistência para service/hook, sem refatoração massiva.
 - [ ] Corrigir avisos reais do `supabase db lint` em funções de merge/reset, começando por casts de arrays e variáveis não lidas. Não alterar RPCs sensíveis sem testes de merge/ciclo.
 
