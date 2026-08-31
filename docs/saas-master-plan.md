@@ -59,7 +59,7 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 ## Prioridade 2 — lacunas funcionais já conhecidas
 
 - [ ] Concluir uma validação autenticada da transição do primeiro contato: ao finalizar o tópico prioritário, o `Agora` deve mudar para a próxima matéria sem alterar o ciclo indevidamente.
-- [ ] Completar a matriz de estados de entrada e acesso: sem edital, edital vazio, edital fora do ciclo, ciclo vazio, erro/reconexão, trial, assinatura vencida e conta paga/admin. A tela deve usar somente dados persistidos e CTAs existentes.
+- [ ] Completar a matriz de estados de entrada e acesso: em 2026-08-31, o estado `sem edital` foi validado em produção com CTA para adicionar edital; a conta paga e o Portal também foram validados. Ainda faltam edital vazio/fora do ciclo, ciclo vazio, erro/reconexão, trial, assinatura vencida e admin. A tela deve usar somente dados persistidos e CTAs existentes.
 - [ ] Validar com editais reais variados a extração, o merge e a ordenação, registrando novas variações estruturais nos perfis de banca em vez de criar exceção de tela.
 - [ ] Tratar revisões manuais após a quarta revisão como contato distinto, sem corromper o programa adaptativo já concluído.
 - [ ] Fazer auditoria final da semântica de conclusão em calendários e componentes legados antes de retirar o motor de revisão fixa.
