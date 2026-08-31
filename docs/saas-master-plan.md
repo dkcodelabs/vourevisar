@@ -53,7 +53,7 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 - [x] Excluir backups locais `*.backup.*` e `*.original.*` do typecheck; eles são ignorados pelo Git e não devem virar código compilável por estarem dentro de `src/`.
 - [ ] Reduzir o baseline arquitetural em recortes: 36 acessos diretos ao Supabase em UI, 4 em utilitários e 9 páginas acima de 700 linhas. Ordem inicial: `Editais.tsx` (3896 linhas), `Revisoes.tsx` (977) e áreas administrativas. Cada recorte deve mover persistência para service/hook, sem refatoração massiva.
 - [x] Recuperar o typecheck global do Treino: corrigido `PracticeFormat` ausente em `PracticeSessionDialog`, fixture incompleto de `PracticeOverview` e uso de `Array.at`, incompatível com o alvo ES2020.
-- [ ] Corrigir avisos reais do `supabase db lint` em funções de merge/reset, começando por casts de arrays e variáveis não lidas. Não alterar RPCs sensíveis sem testes de merge/ciclo.
+- [ ] Corrigir os avisos restantes do `supabase db lint` nas RPCs transacionais `atomic_delete_subject`, `reset_edital_study_progress`, `atomic_cycle_load`, `atomic_archive_edital_from_cycle`, `revert_subject_merge`, `revert_topic_merge` e `sync_topic_merge_progress`. Em 2026-08-31 foram removidas e publicadas as variáveis sem uso isoladas de auditoria, log de eventos e progresso diário; os casts de arrays e as variáveis restantes exigem testes de contrato de merge/ciclo antes de qualquer `CREATE OR REPLACE`.
 
 ## Prioridade 2 — lacunas funcionais já conhecidas
 
