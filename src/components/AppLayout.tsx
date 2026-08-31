@@ -43,7 +43,6 @@ const routeTitles: Record<string, string> = {
   "/admin/subscription": "Assinaturas",
   "/admin/users": "Gerenciar Usuários",
   "/admin/editais": "Gerenciar Editais",
-  "/admin/importancia-prova": "Importância em Prova",
   "/admin/feedback": "Feedback",
   "/admin/system/errors": "Erros do Sistema",
 };

@@ -3,7 +3,6 @@ export type DashboardActionKind =
   | 'review_today'
   | 'start_cycle_topic'
   | 'continue_cycle_topic'
-  | 'strategic_high_charge'
   | 'configure_exam_date'
   | 'load_cycle'
   | 'all_caught_up';
@@ -18,6 +17,9 @@ export interface DashboardActionTarget {
   editalId?: string;
   reminderId?: string;
 }
+
+export type DashboardNavigate = (href: string, target?: DashboardActionTarget) => void;
+export type DashboardDataIssueSource = 'activity' | 'reminders';
 
 export interface DashboardAction {
   id: string;
@@ -37,7 +39,6 @@ export interface DashboardAction {
   metadata?: {
     reviewCount?: number | null;
     daysOverdue?: number | null;
-    totalVolume?: number | null;
   };
 }
 
@@ -63,8 +64,6 @@ export interface DashboardCycleTopic {
   completed?: boolean | null;
   nextReview?: string | null;
   difficultyLevel?: number | null;
-  totalVolume?: number | null;
-  incidenceLevel?: 'low' | 'medium' | 'high' | null;
 }
 
 export interface DashboardCycleSubject {
@@ -75,7 +74,6 @@ export interface DashboardCycleSubject {
   topics: DashboardCycleTopic[];
 }
 
-export type ChargeCoverageState = 'none' | 'partial' | 'sufficient';
 
 export interface DashboardExamContext {
   editalName: string | null;
@@ -107,47 +105,12 @@ export interface DashboardReminder {
   href: string;
 }
 
-export interface DashboardActivityDay {
+export interface DashboardRecentPaceDay {
   date: string;
   studiedCount: number;
   reviewedCount: number;
-  questionsCount: number;
-  totalDurationMinutes: number;
-  difficultyAverage: number | null;
-  entries: Array<{
-    id: string;
-    topicId: string | null;
-    topicName: string;
-    subjectName?: string | null;
-    durationMinutes: number;
-    reviewedAt: string;
-    type: 'study' | 'review' | 'questions';
-  }>;
 }
 
-export interface DashboardDifficultySummary {
-  easy: number;
-  medium: number;
-  hard: number;
-  totalRated: number;
-}
-
-export interface DashboardChargePriority {
-  count: number;
-  topicId: string | null;
-}
-
-export interface DashboardChargeSummary {
-  low: number;
-  medium: number;
-  high: number;
-  analyzedTopics: number;
-  totalTopics: number;
-  unanalyzedTopics: number;
-  highOverdue: DashboardChargePriority;
-  highUnstarted: DashboardChargePriority;
-  highInReview: DashboardChargePriority;
-}
 
 export interface DashboardProgressSummary {
   startedTopics: number;
@@ -160,6 +123,7 @@ export interface DashboardProgressSummary {
 export interface DashboardDecisionModel {
   isLoading: boolean;
   error: unknown;
+  dataIssues: DashboardDataIssueSource[];
   studyEntryState?: 'no-edital' | 'empty-edital' | 'no-cycle' | null;
   examContext: DashboardExamContext;
   pace: DashboardPace;
@@ -167,10 +131,7 @@ export interface DashboardDecisionModel {
   actionQueue: DashboardAction[];
   continueCycleItems: DashboardAction[];
   reminders: DashboardReminder[];
-  activityDays: DashboardActivityDay[];
-  chargeCoverage: ChargeCoverageState;
-  chargeSummary: DashboardChargeSummary;
-  difficultySummary: DashboardDifficultySummary;
+  activityDays: DashboardRecentPaceDay[];
   progressSummary: DashboardProgressSummary;
   totals: {
     overdueReviews: number;

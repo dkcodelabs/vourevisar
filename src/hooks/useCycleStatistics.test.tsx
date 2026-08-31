@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCycleStatistics } from '@/hooks/useCycleStatistics';
 import { fetchCycleStatisticsSource } from '@/services/cycleStatisticsService';
@@ -24,6 +24,8 @@ describe('useCycleStatistics', () => {
       topics: [],
       subjects: [],
       sessions: [],
+      dayContacts: [],
+      dayContactsUnavailable: false,
     });
   });
 
@@ -34,7 +36,7 @@ describe('useCycleStatistics', () => {
       },
     });
 
-    queryClient.setQueryData(['cycle-statistics', 'user-1', 7], null);
+    queryClient.setQueryData(['cycle-statistics', 'user-1', 7, null], null);
 
     const wrapper = ({ children }: PropsWithChildren) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -46,7 +48,29 @@ describe('useCycleStatistics', () => {
       expect(fetchCycleStatisticsSourceMock).toHaveBeenCalledWith({
         userId: 'user-1',
         period: 7,
+        selectedDate: null,
       });
     });
+  });
+
+  it('revalida a consulta ativa quando um evento de domínio altera sua base', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { unmount } = renderHook(() => useCycleStatistics(7), { wrapper });
+    await waitFor(() => expect(fetchCycleStatisticsSourceMock).toHaveBeenCalledTimes(1));
+
+    act(() => window.dispatchEvent(new CustomEvent('topicUpdated')));
+    await waitFor(() => expect(fetchCycleStatisticsSourceMock).toHaveBeenCalledTimes(2));
+
+    unmount();
+    act(() => window.dispatchEvent(new CustomEvent('topicUpdated')));
+    expect(fetchCycleStatisticsSourceMock).toHaveBeenCalledTimes(2);
   });
 });

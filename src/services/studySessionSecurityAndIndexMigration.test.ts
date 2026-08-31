@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260705221633_secure_study_session_access_and_indexes.sql',
+  'supabase/migrations_legacy/20260705221633_secure_study_session_access_and_indexes.sql',
 );
 
 const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim().toLowerCase();

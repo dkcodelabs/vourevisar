@@ -29,7 +29,7 @@ import type {
 } from "@/features/practice/hooks/usePracticeTopicOptions";
 import { usePracticeTopics } from "@/features/practice/hooks/usePracticeTopicOptions";
 
-type BuilderGoal = "reinforce" | "pending" | "subject" | "topic";
+type BuilderGoal = "reinforce" | "subject" | "topic";
 
 type PracticeBuilderDialogProps = {
   open: boolean;
@@ -47,11 +47,16 @@ type PracticeBuilderDialogProps = {
     subjectId?: string;
   }) => void;
   onGenerate: (topicId: string) => void;
+  onBackToManual?: () => void;
+  initialGoal?: BuilderGoal;
+  initialSubjectId?: string;
+  initialTopicId?: string;
+  initialSubjectName?: string;
+  initialTopicName?: string;
+  initialFormat?: PracticeFormat;
 };
 
 const goals: Array<{ value: BuilderGoal; label: string; detail: string }> = [
-  { value: "reinforce", label: "Reforçar falhas", detail: "Use seus erros e esquecimentos recentes." },
-  { value: "pending", label: "Revisar pendências", detail: "Priorize o que já pede recuperação." },
   { value: "subject", label: "Por matéria", detail: "Pratique itens de uma matéria escolhida." },
   { value: "topic", label: "Por tópico", detail: "Foque um assunto específico." },
 ];
@@ -72,8 +77,15 @@ export const PracticeBuilderDialog = ({
   onOpenChange,
   onStart,
   onGenerate,
+  onBackToManual,
+  initialGoal = "topic",
+  initialSubjectId = "",
+  initialTopicId = "",
+  initialSubjectName = "",
+  initialTopicName = "",
+  initialFormat = "questions",
 }: PracticeBuilderDialogProps) => {
-  const [goal, setGoal] = useState<BuilderGoal>("reinforce");
+  const [goal, setGoal] = useState<BuilderGoal>(initialGoal);
   const [format, setFormat] = useState<PracticeFormat>("questions");
   const [quantity, setQuantity] = useState(3);
   const [subjectId, setSubjectId] = useState("");
@@ -82,12 +94,12 @@ export const PracticeBuilderDialog = ({
 
   useEffect(() => {
     if (!open) return;
-    setGoal("reinforce");
-    setFormat("questions");
+    setGoal(initialGoal);
+    setFormat(initialFormat);
     setQuantity(3);
-    setSubjectId("");
-    setTopicId("");
-  }, [mode, open]);
+    setSubjectId(initialSubjectId);
+    setTopicId(initialTopicId);
+  }, [initialFormat, initialGoal, initialSubjectId, initialTopicId, mode, open]);
 
   const subjectOptions = useMemo(
     () => subjects.map((subject) => ({ value: subject.id, label: subject.name })),
@@ -104,16 +116,16 @@ export const PracticeBuilderDialog = ({
   const isDeepening = mode === "deepening";
 
   const start = () => {
-    const selectedMode: PracticeMode = format === "questions"
-      ? "questions"
-      : format === "flashcards" && goal === "pending"
-        ? "flashcards_due"
-        : "quick";
+    const selectedMode: PracticeMode = format === "questions" ? "questions" : "quick";
     onStart({
       mode: selectedMode,
       format,
       quantity,
-      ...(goal === "topic" ? { topicId } : goal === "subject" ? { subjectId } : {}),
+      ...(goal === "topic" || (goal === "reinforce" && initialTopicId)
+        ? { topicId: goal === "topic" ? topicId : initialTopicId }
+        : goal === "subject"
+          ? { subjectId }
+          : {}),
     });
   };
 
@@ -122,12 +134,12 @@ export const PracticeBuilderDialog = ({
       <DialogContent className="max-h-[calc(100dvh-1.5rem)] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl sm:max-w-2xl">
         <DialogHeader className="pr-8 text-left">
           <DialogTitle className="text-lg font-semibold tracking-tight">
-            {isDeepening ? "Aprofundar com IA" : "Montar treino"}
+            {isDeepening ? "Gerar questões e flashcards com IA" : "Praticar material disponível"}
           </DialogTitle>
           <DialogDescription className="leading-relaxed">
             {isDeepening
-              ? "Escolha um tópico para criar um lote privado novo. A geração só acontece após sua confirmação."
-              : "Escolha a intenção. O sistema seleciona apenas material privado já disponível."}
+              ? "Escolha um tópico para gerar questões e flashcards privados. A geração só acontece após sua confirmação."
+              : "Escolha uma matéria ou tópico para praticar questões e flashcards já disponíveis. Falhas e pendências aparecem como recomendação quando existirem."}
           </DialogDescription>
         </DialogHeader>
 
@@ -155,13 +167,14 @@ export const PracticeBuilderDialog = ({
               className="h-11"
             />
             <Button className="mt-3 h-11 w-full" disabled={!topicId || isGenerating} onClick={() => setConfirmGeneration(true)}>
-              <WandSparkles className="size-4" /> {isGenerating ? "Gerando material…" : "Preparar lote com IA"}
+              <WandSparkles className="size-4" /> {isGenerating ? "Gerando questões e flashcards…" : "Gerar questões e flashcards"}
             </Button>
+            {onBackToManual ? <Button type="button" variant="ghost" className="h-10 w-full text-xs" onClick={onBackToManual}>Voltar para material disponível</Button> : null}
           </div>
         ) : (
           <div className="space-y-6">
             <fieldset>
-              <legend className="text-sm font-medium">O que você quer fazer?</legend>
+              <legend className="text-sm font-medium">O que você quer praticar?</legend>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {goals.map((option) => (
                   <button key={option.value} type="button" onClick={() => setGoal(option.value)} className={`rounded-xl border p-3 text-left transition-colors ${goal === option.value ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"}`}>
@@ -171,6 +184,14 @@ export const PracticeBuilderDialog = ({
                 ))}
               </div>
             </fieldset>
+
+            {initialTopicId && initialTopicName ? (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-primary">Foco deste reforço</span>
+                <span className="mt-1 block leading-relaxed">{initialSubjectName || "Matéria selecionada"}</span>
+                <span className="mt-0.5 block leading-relaxed text-content-muted">{initialTopicName}</span>
+              </div>
+            ) : null}
 
             {needsSubject && (
               <div className="grid gap-3 sm:grid-cols-2">

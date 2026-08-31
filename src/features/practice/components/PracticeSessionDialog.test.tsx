@@ -65,19 +65,22 @@ const renderDialog = (session: PracticeSession) => {
   const onReveal = vi.fn();
   const onRate = vi.fn();
 
+  const onOpenChange = vi.fn();
+  const onStartAnother = vi.fn();
+
   render(
     <PracticeSessionDialog
       mode={session.mode === 'flashcards_due' ? 'flashcards' : 'questions'}
       session={session}
-      onOpenChange={vi.fn()}
+      onOpenChange={onOpenChange}
       onReveal={onReveal}
       onSubmitAttempt={onSubmitAttempt}
       onRate={onRate}
-      onStartAnother={vi.fn()}
+      onStartAnother={onStartAnother}
     />,
   );
 
-  return { onReveal, onSubmitAttempt, onRate };
+  return { onReveal, onSubmitAttempt, onRate, onOpenChange, onStartAnother };
 };
 
 describe('PracticeSessionDialog', () => {
@@ -98,13 +101,15 @@ describe('PracticeSessionDialog', () => {
     });
     expect(await screen.findByText(/a resposta correta é errado/i)).toBeInTheDocument();
     expect(screen.getByText(questionAnswer.explanation)).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: /progresso do treino/i })).toHaveAttribute('aria-valuenow', '1');
   });
 
   it('revela o verso somente após a Edge Function e salva a autoavaliação', async () => {
-    const { onReveal, onSubmitAttempt } = renderDialog(flashcardSession);
+    const { onReveal, onSubmitAttempt, onRate } = renderDialog(flashcardSession);
     onReveal.mockResolvedValue(answer);
     onSubmitAttempt.mockResolvedValue({ attempt: attempt('effortful'), answer });
 
+    expect(screen.getByText(/busca o verso já salvo\. não usa ia\./i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /revelar resposta/i }));
     await waitFor(() => {
       expect(onReveal).toHaveBeenCalledWith('session-flashcard', 'item-flashcard');
@@ -121,5 +126,58 @@ describe('PracticeSessionDialog', () => {
       }));
     });
     expect(await screen.findByText(/treino concluído/i)).toBeInTheDocument();
+    expect(screen.getByText(/este flashcard foi útil/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /flashcard útil/i }));
+    await waitFor(() => {
+      expect(onRate).toHaveBeenCalledWith(expect.objectContaining({
+        sessionId: 'session-flashcard',
+        itemId: 'item-flashcard',
+        rating: 1,
+      }));
+    });
+  });
+
+  it('não oferece outro treino quando a sessão foi concluída sem falhas', async () => {
+    const { onSubmitAttempt, onOpenChange, onStartAnother } = renderDialog(questionSession);
+    onSubmitAttempt.mockResolvedValue({ attempt: attempt('correct'), answer: questionAnswer });
+
+    fireEvent.click(screen.getByRole('radio', { name: /certo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirmar resposta/i }));
+    await screen.findByText(/resposta correta/i);
+    fireEvent.click(screen.getByRole('button', { name: /ver resultado/i }));
+    expect(await screen.findByText('Questões concluídas')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /fazer outro treino|reforçar falhas/i })).not.toBeInTheDocument();
+    expect(onStartAnother).not.toHaveBeenCalled();
+  });
+
+  it('oferece reforço e preenche a intenção quando houve dificuldade', async () => {
+    const { onReveal, onSubmitAttempt, onOpenChange, onStartAnother } = renderDialog(flashcardSession);
+    onReveal.mockResolvedValue(answer);
+    onSubmitAttempt.mockResolvedValue({ attempt: attempt('effortful'), answer });
+
+    fireEvent.click(await screen.findByRole('button', { name: /revelar resposta/i }));
+    expect(await screen.findByText(answer.explanation)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /com esforço/i }));
+    fireEvent.click(screen.getByRole('button', { name: /ver resultado/i }));
+    const reinforceButton = await screen.findByRole('button', { name: /reforçar este tópico/i });
+    fireEvent.click(reinforceButton);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onStartAnother).toHaveBeenCalledWith({ goal: 'reinforce', topicId: 'topic-1', format: 'flashcards' });
+  });
+
+  it('mostra acertos, erros e aproveitamento ao concluir questões', async () => {
+    const { onSubmitAttempt } = renderDialog(questionSession);
+    onSubmitAttempt.mockResolvedValue({ attempt: attempt('incorrect'), answer: questionAnswer });
+
+    fireEvent.click(screen.getByRole('radio', { name: /certo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirmar resposta/i }));
+    await screen.findByText(/a resposta correta/i);
+    fireEvent.click(screen.getByRole('button', { name: /ver resultado/i }));
+
+    expect(await screen.findByText('Acertos')).toBeInTheDocument();
+    expect(screen.getByText('Erros')).toBeInTheDocument();
+    expect(screen.getByText('Aproveitamento')).toBeInTheDocument();
+    expect(screen.getByText('0%')).toBeInTheDocument();
   });
 });

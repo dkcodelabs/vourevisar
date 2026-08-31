@@ -10,7 +10,6 @@ type QueueTopic = {
   id: string;
   is_active?: boolean;
   is_hidden?: boolean | null;
-  total_volume?: number | null;
   firstStudiedAt?: Date | string | null;
   first_studied_at?: string | null;
   reviewCount?: number;
@@ -72,11 +71,6 @@ const isTopicStarted = (topic: QueueTopic) =>
   hasMeaningfulReviewStage(topic.review_stage) ||
   isTopicCompleted(topic);
 
-const subjectIncidenceVolume = (subject: QueueSubject) =>
-  activeTopics(subject).reduce((sum, topic) =>
-    sum + (typeof topic.total_volume === 'number' && topic.total_volume > 0 ? topic.total_volume : 0),
-  0);
-
 const getStartedRatio = (subject: QueueSubject) => {
   const topics = activeTopics(subject);
   if (topics.length === 0) return 1;
@@ -117,11 +111,7 @@ export const getStudyCycleQueueSuggestion = ({
   const weightTotals = getExamWeightTotals(activeSubjects);
   const weightedSubjectsCount = activeSubjects.filter(hasSubjectExamWeight).length;
   const canCompareWeight = weightedSubjectsCount >= 2;
-  const maxIncidence = Math.max(...activeSubjects.map(subjectIncidenceVolume), 0);
-  const incidenceSubjectsCount = activeSubjects.filter(subject => subjectIncidenceVolume(subject) > 0).length;
-  const canCompareIncidence = incidenceSubjectsCount >= 2;
-
-  if (!canCompareWeight && !canCompareIncidence) return null;
+  if (!canCompareWeight) return null;
 
   const studyEventsBySubject = getStudyEventsBySubject(events);
   const maxEventCount = Math.max(...activeSubjects.map(subject => studyEventsBySubject.get(subject.id) || 0), 1);
@@ -131,24 +121,21 @@ export const getStudyCycleQueueSuggestion = ({
       const weightPercentage = canCompareWeight
         ? getSubjectExamWeightPercentage(subject, weightTotals)
         : null;
-      const incidenceVolume = subjectIncidenceVolume(subject);
-      const incidenceScore = canCompareIncidence && maxIncidence > 0 ? incidenceVolume / maxIncidence : 0;
       const weightScore = typeof weightPercentage === 'number' ? Math.min(weightPercentage / 30, 1) : 0;
       const startedRatio = getStartedRatio(subject);
       const eventCount = studyEventsBySubject.get(subject.id) || 0;
       const usageScore = eventCount / maxEventCount;
       const needsAttention = 1 - Math.min(startedRatio, usageScore);
-      const priorityScore = (weightScore * 0.55) + (incidenceScore * 0.35) + (needsAttention * 0.10);
+      const priorityScore = (weightScore * 0.85) + (needsAttention * 0.15);
 
       return {
         subject,
         index,
         weightPercentage,
-        incidenceVolume,
         startedRatio,
         eventCount,
         priorityScore,
-        hasComparableSignal: weightScore > 0 || incidenceScore > 0,
+        hasComparableSignal: weightScore > 0,
       };
     })
     .filter(item => item.hasComparableSignal)
@@ -171,16 +158,9 @@ export const getStudyCycleQueueSuggestion = ({
   if (!canCompareWeight && weightedSubjectsCount === 1) {
     limitations.push('Só uma matéria tem peso conhecido; a sugestão não usa peso como ranking geral.');
   }
-  if (!canCompareIncidence && incidenceSubjectsCount === 1) {
-    limitations.push('Só uma matéria tem incidência analisada; a sugestão não usa incidência como ranking geral.');
-  }
-
   const evidenceParts = [
     top.weightPercentage !== null
       ? `${top.weightPercentage.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% entre os pesos informados`
-      : null,
-    top.incidenceVolume > 0
-      ? `maior cobrança analisada na fila`
       : null,
     `${Math.round(top.startedRatio * 100)}% dos tópicos iniciados`,
   ].filter(Boolean);

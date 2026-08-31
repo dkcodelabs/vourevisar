@@ -27,8 +27,6 @@ type CycleTopicRowProps = {
   activeStudySessionStatus: 'RUNNING' | 'PAUSED' | null;
   completed: boolean;
   hasStarted: boolean;
-  incidenceDisplay: string | null;
-  incidenceTitle: string;
   onGoToReview: () => void;
   onOpenNotes: () => void;
   onStudyAction: () => void;
@@ -53,8 +51,6 @@ export function CycleTopicRow({
   activeStudySessionStatus,
   completed,
   hasStarted,
-  incidenceDisplay,
-  incidenceTitle,
   onGoToReview,
   onOpenNotes,
   onStudyAction,
@@ -102,16 +98,6 @@ export function CycleTopicRow({
             />
           )}
         </div>
-        {incidenceDisplay && (
-          <div className="flex min-w-0">
-            {renderCycleTooltip(
-              incidenceTitle,
-              <span className="app-type-badge max-w-full truncate rounded border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-incidence">
-                {incidenceDisplay}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       <div className="flex min-w-0 items-center justify-end gap-1 self-center">

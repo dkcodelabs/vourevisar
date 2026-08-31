@@ -34,18 +34,6 @@ export interface StudyCycleTopic {
   reviewCount?: number;
   /** Quantidade de revisões com difficulty_numeric = 3 (Difícil, penalidade -40%) */
   hardReviewCount?: number;
-  /** Volume/importância calculado pelo módulo de incidência quando disponível */
-  totalVolume?: number | null;
-  /** Faixa persistida de cobrança na prova quando o tópico já foi analisado */
-  incidenceLevel?: 'low' | 'medium' | 'high' | null;
-  /** Contexto da última análise de incidência quando disponível */
-  lastSearchContext?: string | null;
-  strategicIncidence?: {
-    level: 'high' | 'analyzed' | 'not_analyzed';
-    label: string;
-    hasIncidence: boolean;
-    showToStudent?: boolean;
-  };
 }
 
 export enum SubjectStatus {

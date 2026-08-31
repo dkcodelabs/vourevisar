@@ -161,42 +161,6 @@ export function useStudyCycleStrategicData({
       0,
     );
     const examWeightTotals = getExamWeightTotals(cycleSubjects);
-    const highestIncidenceTopic = cycleSubjects.flatMap(subject =>
-      subject.topics
-        .filter(topic => isVisibleCycleTopic(topic) && typeof topic.total_volume === 'number' && topic.total_volume > 0)
-        .map(topic => ({
-          topicName: topic.name,
-          subjectName: getUnifiedSubjectName(subject.id, subject.name),
-          volume: topic.total_volume || 0,
-        }))
-    ).reduce<{
-      topicName: string;
-      subjectName: string;
-      volume: number;
-    } | null>((best, topic) => {
-      if (!best || topic.volume > best.volume) return topic;
-      return best;
-    }, null);
-    const highestIncidenceSubject = cycleSubjects.map(subject => {
-      const analyzedTopics = subject.topics.filter(topic =>
-        isVisibleCycleTopic(topic) && typeof topic.total_volume === 'number' && topic.total_volume > 0
-      );
-      const totalVolume = analyzedTopics.reduce((sum, topic) => sum + (topic.total_volume || 0), 0);
-
-      return {
-        subjectName: getUnifiedSubjectName(subject.id, subject.name),
-        totalVolume,
-        analyzedTopicsCount: analyzedTopics.length,
-      };
-    }).filter(item => item.totalVolume > 0)
-      .reduce<{
-        subjectName: string;
-        totalVolume: number;
-        analyzedTopicsCount: number;
-      } | null>((best, subject) => {
-        if (!best || subject.totalVolume > best.totalVolume) return subject;
-        return best;
-      }, null);
     const highestPendingWeightSubject = cycleSubjects
       .filter(subject => getSubjectPendingTopicsCount(subject) > 0)
       .map(subject => ({
@@ -217,13 +181,13 @@ export function useStudyCycleStrategicData({
     return {
       totalSubjects,
       totalTopics,
+      startedTopics,
+      topicsStartedThisCycle,
       coveragePercentage,
       startedSubjectsCount: inProgressSubjects + completedSubjects,
-      highestIncidenceTopic,
-      highestIncidenceSubject,
       highestPendingWeightSubject,
     };
-  }, [expandedSubjectList, getUnifiedSubjectName, userCycle?.data_inicio_ciclo]);
+  }, [expandedSubjectList, userCycle?.data_inicio_ciclo]);
 
   const cycleTransitionSummary = useMemo(() => getStudyCycleTransitionSummary({
     subjects: expandedSubjectList.map(item => ({
@@ -267,7 +231,7 @@ export function useStudyCycleStrategicData({
     const descriptionByPhase: Record<StudyCycleMaturityPhase, string> = {
       cold_start: 'Comece alguns tópicos para o sistema detectar padrões sem forçar alerta cedo demais.',
       started: 'Já existe primeiro contato. Os próximos sinais aparecem conforme você avança na fila.',
-      active: 'Já há uso suficiente para cruzar ritmo, cobertura, peso e cobrança com mais segurança.',
+      active: 'Já há uso suficiente para cruzar ritmo, cobertura, peso e histórico com mais segurança.',
       historical: hasSavedCycleHistory
         ? 'Já há ciclo salvo para comparação e leitura de evolução.'
         : `Você está no ciclo ${cycleNumber}, mas o histórico detalhado começou a ser salvo agora.`,

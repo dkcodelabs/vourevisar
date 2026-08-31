@@ -1,10 +1,12 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Subject, UserCycle } from '@/types';
 import Subjects from './Subjects';
+import { NextBestActionCard } from '@/components/dashboard-decision/NextBestActionCard';
+import { getNextCycleActions, resolveDashboardNavigation } from '@/utils/dashboardDecision';
 
 type CyclePageScenario = {
   subjects: Subject[];
@@ -277,6 +279,26 @@ const makeCycle = (): UserCycle => ({
   created_at: '2026-07-01T10:00:00.000Z',
 });
 
+function DashboardEntry() {
+  const navigate = useNavigate();
+  const subject = makeSubject();
+  const subjects = [{
+    id: subject.id, name: subject.name, cyclePosition: 1, isCompletedInCycle: false,
+    topics: subject.topics.map(topic => ({
+      id: topic.id, name: topic.name, subjectId: subject.id, subjectName: subject.name,
+    })),
+  }];
+  return <NextBestActionCard action={getNextCycleActions(subjects)[0]} onNavigate={(href, target) => {
+    const destination = resolveDashboardNavigation(href, target, subjects);
+    if (!destination.unavailable) navigate(destination.href, { state: destination.state });
+  }} />;
+}
+
+function CycleNavigationDestination() {
+  const navigate = useNavigate();
+  return <><button onClick={() => navigate(-1)}>Voltar ao painel de teste</button><Subjects /></>;
+}
+
 const renderSubjects = (initialEntry: string | { pathname: string; state?: unknown } = '/ciclo-estudos') => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -291,7 +313,8 @@ const renderSubjects = (initialEntry: string | { pathname: string; state?: unkno
         initialEntries={[initialEntry]}
       >
         <Routes>
-          <Route path="/ciclo-estudos" element={<Subjects />} />
+          <Route path="/dashboard" element={<DashboardEntry />} />
+          <Route path="/ciclo-estudos" element={<CycleNavigationDestination />} />
           <Route path="/meus-editais" element={<div>Destino Meus Editais</div>} />
           <Route path="/revisoes" element={<div>Destino Revisões</div>} />
           <Route path="/estatisticas" element={<div>Destino Estatísticas</div>} />
@@ -430,6 +453,26 @@ describe('Subjects cycle integration', () => {
     await waitFor(() => {
       expect(scrollIntoView).toHaveBeenCalled();
     });
+  });
+
+  it('opens the recommended topic from the dashboard and returns without starting or recording study', async () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { value: scrollIntoView, configurable: true });
+    setScenario({ subjects: [makeSubject()], cycle: makeCycle() });
+    renderSubjects('/dashboard');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir tópico no ciclo' }));
+    expect(await screen.findByRole('button', { name: 'Iniciar estudo do tópico Controle de Constitucionalidade' })).toBeInTheDocument();
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+    expect(testState.handleTopicStudyAction).not.toHaveBeenCalled();
+    expect(testState.markTopicAsReviewed).not.toHaveBeenCalled();
+    expect(testState.resumeTimer).not.toHaveBeenCalled();
+    expect(testState.stopTimer).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar ao painel de teste' }));
+    expect(screen.getByRole('button', { name: 'Abrir tópico no ciclo' })).toBeInTheDocument();
+    expect(testState.handleTopicStudyAction).not.toHaveBeenCalled();
+    expect(testState.markTopicAsReviewed).not.toHaveBeenCalled();
   });
 
   it('routes the timer guard back to reviews when the active session is a review', async () => {

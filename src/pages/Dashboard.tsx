@@ -6,8 +6,6 @@ import { useDashboardDecisionModel } from '@/hooks/useDashboardDecisionModel';
 const Dashboard = () => {
   const {
     model,
-    activityRange,
-    setActivityRange,
     addReminder,
     toggleReminder,
     deleteReminder,
@@ -16,6 +14,7 @@ const Dashboard = () => {
     isDeletingReminder,
     isUpdatingCycleName,
     navigateToAction,
+    retryDashboardDataIssue,
   } = useDashboardDecisionModel();
 
   if (model.error) {
@@ -41,9 +40,8 @@ const Dashboard = () => {
     <div className="h-full w-full pb-10">
       <DashboardDecisionExperience
         model={model}
-        activityRange={activityRange}
-        onActivityRangeChange={setActivityRange}
         onNavigate={navigateToAction}
+        onRetryDataIssue={retryDashboardDataIssue}
         onAddReminder={addReminder}
         onToggleReminder={toggleReminder}
         onDeleteReminder={deleteReminder}

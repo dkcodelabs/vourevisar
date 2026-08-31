@@ -16,9 +16,10 @@ const negativeReasons: Array<{ value: PracticeFeedbackReason; label: string }> =
 
 type PracticeItemRatingProps = {
   onRate?: (rating: 1 | -1, reason?: PracticeFeedbackReason) => Promise<unknown> | void;
+  itemLabel?: 'questão' | 'flashcard';
 };
 
-export const PracticeItemRating = ({ onRate }: PracticeItemRatingProps) => {
+export const PracticeItemRating = ({ onRate, itemLabel = 'questão' }: PracticeItemRatingProps) => {
   const [rating, setRating] = useState<1 | -1 | null>(null);
   const [removedReason, setRemovedReason] = useState<PracticeFeedbackReason | null>(null);
   const [saving, setSaving] = useState(false);
@@ -64,7 +65,9 @@ export const PracticeItemRating = ({ onRate }: PracticeItemRatingProps) => {
     return (
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-secondary/35 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-foreground">Questão removida dos seus próximos treinos</p>
+          <p className="text-sm font-semibold text-foreground">
+            {itemLabel === 'flashcard' ? 'Flashcard removido' : 'Questão removida'} dos seus próximos treinos
+          </p>
           <p className="mt-0.5 text-xs text-content-muted">O histórico desta tentativa foi preservado.</p>
         </div>
         <Button type="button" variant="quiet" size="sm" onClick={handleUndo}>
@@ -78,37 +81,44 @@ export const PracticeItemRating = ({ onRate }: PracticeItemRatingProps) => {
   return (
     <div className="border-t border-border pt-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-medium text-foreground">Esta questão foi útil?</p>
-        <div className="flex items-center gap-2" aria-label="Avaliar questão">
+        <p className="text-sm font-medium text-foreground">
+          {itemLabel === 'flashcard' ? 'Este flashcard foi útil?' : 'Esta questão foi útil?'}
+        </p>
+        <div
+          className="flex items-center gap-2"
+          aria-label={itemLabel === 'flashcard' ? 'Avaliar flashcard' : 'Avaliar questão'}
+        >
           <button
             type="button"
-            aria-label="Questão útil"
+            aria-label={`${itemLabel === 'flashcard' ? 'Flashcard' : 'Questão'} útil`}
             aria-pressed={rating === 1}
             onClick={() => void handlePositive()}
             disabled={saving}
             className={cn(
-              'flex h-10 w-10 items-center justify-center rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35',
+              'flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35',
               rating === 1
                 ? 'border-success/35 bg-success/10 text-success'
                 : 'border-border bg-card text-content-muted hover:bg-secondary hover:text-foreground',
             )}
           >
             <ThumbsUp className="h-4 w-4" />
+            Útil
           </button>
           <button
             type="button"
-            aria-label="Questão não útil"
+            aria-label={`${itemLabel === 'flashcard' ? 'Flashcard' : 'Questão'} não útil`}
             aria-pressed={rating === -1}
             onClick={handleNegative}
             disabled={saving}
             className={cn(
-              'flex h-10 w-10 items-center justify-center rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35',
+              'flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35',
               rating === -1
                 ? 'border-destructive/35 bg-destructive/10 text-destructive'
                 : 'border-border bg-card text-content-muted hover:bg-secondary hover:text-foreground',
             )}
           >
             <ThumbsDown className="h-4 w-4" />
+            Problema
           </button>
         </div>
       </div>

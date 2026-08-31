@@ -69,27 +69,25 @@ describe('calculateNextReview', () => {
     expect(result.newInterval).toBe(0);
   });
 
-  it('mantém ajustes estratégicos dentro da janela da etapa', () => {
-    const highIncidence = calculateNextReview({
+  it('mantém ajustes adaptativos dentro da janela da etapa', () => {
+    const worseningTrend = calculateNextReview({
       today,
       difficulty: 2,
-      incidenceLevel: 'high',
       trendDelta: 1,
       overdueDays: 8,
       metrics: metrics(2, { memoryStability: 5, currentInterval: 15 }),
     });
-    const lowIncidence = calculateNextReview({
+    const improvingTrend = calculateNextReview({
       today,
       difficulty: 2,
-      incidenceLevel: 'low',
       trendDelta: -1,
       metrics: metrics(2, { memoryStability: 30, currentInterval: 15 }),
     });
 
-    expect(highIncidence.newInterval).toBeGreaterThanOrEqual(15);
-    expect(highIncidence.newInterval).toBeLessThan(22);
-    expect(lowIncidence.newInterval).toBeGreaterThan(22);
-    expect(lowIncidence.newInterval).toBeLessThanOrEqual(30);
+    expect(worseningTrend.newInterval).toBeGreaterThanOrEqual(15);
+    expect(worseningTrend.newInterval).toBeLessThan(22);
+    expect(improvingTrend.newInterval).toBeGreaterThan(22);
+    expect(improvingTrend.newInterval).toBeLessThanOrEqual(30);
   });
 
   it('não comprime a agenda quando o edital não tem data de prova', () => {

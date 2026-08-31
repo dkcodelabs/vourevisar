@@ -12,15 +12,6 @@ import {
 import { REVIEW_PROFILES, ReviewProfile } from '@/types/study';
 import { useUserSettings } from '@/hooks/useUserSettings';
 
-// Helper function para derivar nota de importância baseada no volume de questões
-const extractImportanceScore = (volume: number): 1 | 2 | 3 | 4 | 5 => {
-  if (volume > 1000) return 5;
-  if (volume > 500) return 4;
-  if (volume > 200) return 3;
-  if (volume > 50) return 2;
-  return 1;
-};
-
 // Helper function para derivar a tendência baseada em estabilidade de memória
 const getTrendLabel = (stability: number, reviewCount: number): MentorTrendLabel => {
   if (reviewCount === 0) return 'Sem histórico';
@@ -110,9 +101,6 @@ export const useMentorInsights = (): MentorInsights => {
 
         if (!isActuallyStarted || isNotStarted) return;
 
-        const volume = topic.total_volume || 0;
-        const notaImportancia = extractImportanceScore(volume);
-        
         let daysOverdue = 0;
         if (topic.next_review) {
           daysOverdue = Math.max(0, differenceInDays(today, startOfDay(new Date(topic.next_review))));
@@ -123,9 +111,8 @@ export const useMentorInsights = (): MentorInsights => {
         }
 
         // --- NÍVEL 1: Risco Crítico ---
-        // Alta prioridade que está sendo negligenciada
-        if (notaImportancia >= 4 && daysOverdue > 0) {
-          const priorityLabel = notaImportancia === 5 ? 'Extrema Importância' : 'Alta Importância';
+        // Atrasos longos são críticos mesmo sem sinais externos de cobrança.
+        if (daysOverdue >= 7) {
           newCriticals.push({
             id: `crit-${topic.id}`,
             level: 'critical',
@@ -133,10 +120,8 @@ export const useMentorInsights = (): MentorInsights => {
             subjectName: subject.name,
             topicId: topic.id,
             topicName: topic.name,
-            message: `${priorityLabel}: ${daysOverdue} dias em atraso. Retome o foco.`,
+            message: `Revisão atrasada há ${daysOverdue} dias. Retome o foco.`,
             daysOverdue,
-            notaImportancia: notaImportancia,
-            totalVolume: volume,
           });
         }
 
@@ -182,17 +167,16 @@ export const useMentorInsights = (): MentorInsights => {
     const groupedCriticals = new Map<string, MentorAlert>();
        newCriticals.forEach(alert => {
         const existing = groupedCriticals.get(alert.subjectId);
-        if (!existing || (alert.totalVolume || 0) > (existing.totalVolume || 0)) {
-          const priorityLabel = alert.notaImportancia === 5 ? 'Extrema Importância' : 'Alta Importância';
+        if (!existing || (alert.daysOverdue || 0) > (existing.daysOverdue || 0)) {
           groupedCriticals.set(alert.subjectId, {
             ...alert,
-            message: `A matéria ${alert.subjectName} possui o tópico "${alert.topicName}" de ${priorityLabel} com ${alert.daysOverdue} dias de atraso.`
+            message: `A matéria ${alert.subjectName} possui o tópico "${alert.topicName}" com ${alert.daysOverdue} dias de atraso.`
           });
         }
       });
 
     const topCriticals = Array.from(groupedCriticals.values())
-       .sort((a, b) => (b.totalVolume || 0) - (a.totalVolume || 0))
+       .sort((a, b) => (b.daysOverdue || 0) - (a.daysOverdue || 0))
        .slice(0, 3);
     
     let remainingAlertSlots = 3 - topCriticals.length;

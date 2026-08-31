@@ -15,7 +15,7 @@ describe('admin subscription mutation safety', () => {
 
   it('resets AI quota through the authorized admin action without rewriting edital origin', () => {
     const source = readFileSync('supabase/functions/admin-rpc/index.ts', 'utf8');
-    const migration = readFileSync('supabase/migrations/20260722012921_notify_ai_quota_reset.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations_legacy/20260722012921_notify_ai_quota_reset.sql', 'utf8');
 
     expect(source).toContain('"reset_user_ai_quota"');
     expect(source).toContain('reset_user_ai_quota');

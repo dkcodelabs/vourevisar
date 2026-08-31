@@ -4,20 +4,47 @@ import {
   buildDashboardPace,
   buildNextBestAction,
   buildProgressSummary,
-  getChargeCoverageState,
-  getDashboardActivitySelection,
   getDashboardEditalIdentity,
+  getDashboardDataIssues,
+  getDashboardCriticalError,
   getPaceBannerAction,
+  getDashboardRecentPace,
   formatPaceRequirement,
   formatPaceValue,
-  getDifficultySummary,
   getNextCycleActions,
   normalizeReminderDate,
+  resolveDashboardNavigation,
   splitReviewsByDueDate,
 } from './dashboardDecision';
-import type { DashboardActivityDay, DashboardCycleSubject, DashboardReviewTopic } from '@/types/dashboardDecision';
+import type { DashboardCycleSubject, DashboardRecentPaceDay, DashboardReviewTopic } from '@/types/dashboardDecision';
 
 const today = new Date('2026-06-19T12:00:00.000Z');
+
+describe('getDashboardDataIssues', () => {
+  it('reports only the optional queries that failed', () => {
+    expect(getDashboardDataIssues({ activityError: null, remindersError: null })).toEqual([]);
+    expect(getDashboardDataIssues({ activityError: new Error('activity'), remindersError: null })).toEqual(['activity']);
+    expect(getDashboardDataIssues({ activityError: null, remindersError: new Error('reminders') })).toEqual(['reminders']);
+    expect(getDashboardDataIssues({ activityError: new Error('activity'), remindersError: new Error('reminders') })).toEqual(['activity', 'reminders']);
+  });
+});
+describe('getDashboardCriticalError', () => {
+  it('returns null only when every critical source loaded successfully', () => {
+    expect(getDashboardCriticalError({ reviewsError: null, cycleError: null, editaisError: null })).toBeNull();
+  });
+
+  it('propagates cycle and edital failures instead of allowing an empty-dashboard fallback', () => {
+    const cycleError = new Error('cycle unavailable');
+    const editaisError = new Error('editais unavailable');
+    expect(getDashboardCriticalError({ reviewsError: null, cycleError, editaisError: null })).toBe(cycleError);
+    expect(getDashboardCriticalError({ reviewsError: null, cycleError: null, editaisError })).toBe(editaisError);
+  });
+
+  it('keeps the established reviews error as the first critical cause', () => {
+    const reviewsError = new Error('reviews unavailable');
+    expect(getDashboardCriticalError({ reviewsError, cycleError: new Error('cycle'), editaisError: new Error('editais') })).toBe(reviewsError);
+  });
+});
 
 describe('normalizeReminderDate', () => {
   it('preserves the selected civil date when Supabase returns a UTC timestamp', () => {
@@ -51,6 +78,28 @@ describe('getPaceBannerAction', () => {
       label: 'Carregar edital no ciclo',
       href: '/meus-editais',
     });
+  });
+});
+
+describe('getDashboardRecentPace', () => {
+  const day = (date: string, studiedCount = 0, reviewedCount = 0): DashboardRecentPaceDay => ({
+    date, studiedCount, reviewedCount,
+  });
+
+  it('uses only the last seven supplied days, including zero days, with existing rounding', () => {
+    const days = [day('2026-08-21', 99, 99), ...Array.from({ length: 7 }, (_, index) => day(`2026-08-${22 + index}`, index === 6 ? 3 : 0, index === 6 ? 1 : 0))];
+    const result = getDashboardRecentPace(days);
+    expect(result).toEqual({ recentDays: days.slice(1), studiedTopics: 3, completedReviews: 1, currentTopicsAverage: 0.4, currentReviewsAverage: 0.1 });
+    expect(days).toHaveLength(8);
+    expect(days[0].studiedCount).toBe(99);
+  });
+
+  it('preserves the available-day divisor for a shorter window', () => {
+    expect(getDashboardRecentPace([day('2026-08-27'), day('2026-08-28', 3, 1)])).toMatchObject({ currentTopicsAverage: 1.5, currentReviewsAverage: 0.5 });
+  });
+
+  it('keeps empty-window arithmetic finite without inventing activity', () => {
+    expect(getDashboardRecentPace([])).toEqual({ recentDays: [], studiedTopics: 0, completedReviews: 0, currentTopicsAverage: 0, currentReviewsAverage: 0 });
   });
 });
 
@@ -107,11 +156,53 @@ const cycleSubject = (overrides: Partial<DashboardCycleSubject> = {}): Dashboard
       firstStudiedAt: null,
       reviewCount: 0,
       completed: false,
-      totalVolume: null,
       difficultyLevel: null,
     },
   ],
   ...overrides,
+});
+
+describe('resolveDashboardNavigation', () => {
+  it('carries only current subject/topic identity into the cycle focus contract', () => {
+    expect(resolveDashboardNavigation('/ciclo-estudos', {
+      subjectId: 'subject-1', topicId: 'topic-new-1', subjectName: 'Nome apenas visual',
+    }, [cycleSubject()])).toEqual({
+      href: '/ciclo-estudos', unavailable: false,
+      state: { focusSubjectId: 'subject-1', focusTopicId: 'topic-new-1' },
+    });
+  });
+
+  it('resolves the rendered subject for a topic after merging subjects', () => {
+    expect(resolveDashboardNavigation('/ciclo-estudos', {
+      subjectId: 'old-subject', topicId: 'topic-new-1',
+    }, [cycleSubject({ id: 'unified-subject' })]).state).toEqual({
+      focusSubjectId: 'unified-subject', focusTopicId: 'topic-new-1',
+    });
+  });
+
+  it('does not fall back to another topic when the recommended one is unavailable', () => {
+    expect(resolveDashboardNavigation('/ciclo-estudos', {
+      subjectId: 'subject-1', topicId: 'removed-topic',
+    }, [cycleSubject()])).toEqual({ href: '/ciclo-estudos', unavailable: true });
+  });
+
+  it('rejects old focus after unloading or changing the active cycle', () => {
+    const target = { subjectId: 'subject-1', topicId: 'topic-new-1' };
+    expect(resolveDashboardNavigation('/ciclo-estudos', target, []).unavailable).toBe(true);
+    expect(resolveDashboardNavigation('/ciclo-estudos', target, [cycleSubject({ id: 'other-subject', topics: [] })]).unavailable).toBe(true);
+  });
+
+  it('supports a current subject without a topic and generic cycle navigation', () => {
+    expect(resolveDashboardNavigation('/ciclo-estudos', { subjectId: 'subject-1' }, [cycleSubject()]).state).toEqual({ focusSubjectId: 'subject-1' });
+    expect(resolveDashboardNavigation('/ciclo-estudos', undefined, [])).toEqual({ href: '/ciclo-estudos', unavailable: false });
+    expect(resolveDashboardNavigation('/ciclo-estudos', {}, [])).toEqual({ href: '/ciclo-estudos', unavailable: false });
+  });
+
+  it.each(['/revisoes?topicId=review-topic', '/meus-editais', '/estatisticas?date=2026-08-28'])(
+    'preserves other destinations without overriding their own context (%s)', href => {
+      expect(resolveDashboardNavigation(href, { topicId: 'other-topic', subjectId: 'subject-1' }, [])).toEqual({ href, unavailable: false });
+    },
+  );
 });
 
 describe('getDashboardEditalIdentity', () => {
@@ -179,7 +270,6 @@ describe('getNextCycleActions', () => {
             firstStudiedAt: '2026-06-10T10:00:00.000Z',
             reviewCount: 1,
             completed: false,
-            totalVolume: null,
           },
           {
             id: 'topic-new',
@@ -189,7 +279,6 @@ describe('getNextCycleActions', () => {
             firstStudiedAt: null,
             reviewCount: 0,
             completed: false,
-            totalVolume: null,
           },
         ],
       }),
@@ -201,47 +290,9 @@ describe('getNextCycleActions', () => {
         subjectName: 'Direito Administrativo',
         topicName: 'Atos Administrativos',
       },
-      primaryLabel: 'Iniciar estudo',
+      primaryLabel: 'Abrir tópico no ciclo',
       primaryHref: '/ciclo-estudos',
     });
-  });
-});
-
-describe('getChargeCoverageState', () => {
-  it('returns none when no topic has persisted charge level', () => {
-    expect(getChargeCoverageState([cycleSubject()])).toBe('none');
-  });
-
-  it('returns partial when only some topics have persisted charge level', () => {
-    expect(
-      getChargeCoverageState([
-        cycleSubject({
-          topics: [
-            {
-              id: 'topic-a',
-              name: 'Licitações',
-              subjectId: 'subject-1',
-              subjectName: 'Direito Administrativo',
-              firstStudiedAt: null,
-              reviewCount: 0,
-              completed: false,
-              totalVolume: 20,
-              incidenceLevel: 'high',
-            },
-            {
-              id: 'topic-b',
-              name: 'Contratos',
-              subjectId: 'subject-1',
-              subjectName: 'Direito Administrativo',
-              firstStudiedAt: null,
-              reviewCount: 0,
-              completed: false,
-              totalVolume: null,
-            },
-          ],
-        }),
-      ]),
-    ).toBe('partial');
   });
 });
 
@@ -292,6 +343,32 @@ describe('buildNextBestAction', () => {
 });
 
 describe('buildActionQueue', () => {
+  it('keeps the singular recommendation and queue on the same priority contract', () => {
+    const overdue = reviewTopic({ id: 'overdue-first', nextReview: '2026-06-18T12:00:00.000Z' });
+    const todayTopic = reviewTopic({ id: 'today-second', nextReview: '2026-06-19T12:00:00.000Z' });
+    const cycleActions = getNextCycleActions([cycleSubject()]);
+    const next = buildNextBestAction({
+      overdueReviews: [overdue],
+      todayReviews: [todayTopic],
+      cycleActions,
+      strategicActions: [],
+      hasActiveCycle: true,
+      today,
+    });
+    const queue = buildActionQueue({
+      overdueReviews: [overdue],
+      todayReviews: [todayTopic],
+      cycleActions,
+      strategicActions: [],
+      today,
+    });
+
+    expect(next.id).toBe('review_overdue:overdue-first');
+    expect(queue[0]?.id).toBe(next.id);
+    expect(queue.find((action) => action.target.topicId === next.target.topicId)).toBeDefined();
+    expect(queue.find((action) => action.target.topicId === todayTopic.id)?.priorityScore).toBeLessThan(next.priorityScore);
+  });
+
   it('does not repeat the same topic as cycle and strategic actions', () => {
     const cycleActions = getNextCycleActions([
       cycleSubject({
@@ -304,20 +381,12 @@ describe('buildActionQueue', () => {
             firstStudiedAt: null,
             reviewCount: 0,
             completed: false,
-            totalVolume: 30,
           },
         ],
       }),
     ]);
 
-    const strategicActions = [
-      {
-        ...cycleActions[0],
-        id: 'charge:topic-shared',
-        kind: 'strategic_high_charge' as const,
-        priorityScore: 40,
-      },
-    ];
+    const strategicActions = [];
 
     const actions = buildActionQueue({
       overdueReviews: [],
@@ -365,8 +434,8 @@ describe('buildDashboardPace', () => {
       state: 'ready',
       daysRemaining: 10,
       newTopicsPerDay: 1,
-      reviewsPerDay: 1,
-      pendingReviews: 10,
+      reviewsPerDay: 0.5,
+      pendingReviews: 5,
     });
   });
 
@@ -386,22 +455,7 @@ describe('buildDashboardPace', () => {
   });
 });
 
-describe('study trajectory summaries', () => {
-  it('counts only rated topics in difficulty percentages', () => {
-    const summary = getDifficultySummary([
-      cycleSubject({
-        topics: [
-          { id: 'easy', name: 'A', subjectId: 's', subjectName: 'S', difficultyLevel: 1 },
-          { id: 'medium', name: 'B', subjectId: 's', subjectName: 'S', difficultyLevel: 2 },
-          { id: 'hard', name: 'C', subjectId: 's', subjectName: 'S', difficultyLevel: 3 },
-          { id: 'unrated', name: 'D', subjectId: 's', subjectName: 'S', difficultyLevel: null },
-        ],
-      }),
-    ]);
-
-    expect(summary).toEqual({ easy: 1, medium: 1, hard: 1, totalRated: 3 });
-  });
-
+describe('study progress summary', () => {
   it('builds progress from real topic states', () => {
     const progress = buildProgressSummary([
       cycleSubject({
@@ -420,95 +474,5 @@ describe('study trajectory summaries', () => {
       totalTopics: 3,
       editalProgressPercentage: 67,
     });
-  });
-});
-
-describe('getDashboardActivitySelection', () => {
-  const activityDay = (
-    date: string,
-    entries: DashboardActivityDay['entries'] = [],
-  ): DashboardActivityDay => ({
-    date,
-    studiedCount: entries.filter((entry) => entry.type === 'study').length,
-    reviewedCount: entries.filter((entry) => entry.type === 'review').length,
-    questionsCount: entries.filter((entry) => entry.type === 'questions').length,
-    totalDurationMinutes: entries.reduce((total, entry) => total + entry.durationMinutes, 0),
-    difficultyAverage: null,
-    entries,
-  });
-
-  it('opens the current day by default even when an earlier day has activity', () => {
-    const selection = getDashboardActivitySelection([
-      activityDay('2026-06-18', [
-        {
-          id: 'study-1',
-          topicId: 'topic-1',
-          topicName: 'Interpretação de Textos',
-          subjectName: 'Língua Portuguesa',
-          durationMinutes: 55,
-          reviewedAt: '2026-06-18T10:00:00.000Z',
-          type: 'study',
-        },
-        {
-          id: 'review-1',
-          topicId: 'topic-2',
-          topicName: 'ADI e ADC',
-          subjectName: 'Direito Constitucional',
-          durationMinutes: 30,
-          reviewedAt: '2026-06-18T12:00:00.000Z',
-          type: 'review',
-        },
-      ]),
-      activityDay('2026-06-19'),
-    ]);
-
-    expect(selection.day?.date).toBe('2026-06-19');
-    expect(selection.studies).toEqual([]);
-    expect(selection.reviews).toEqual([]);
-  });
-
-  it('returns an empty detail when the selected day has no activity', () => {
-    const selection = getDashboardActivitySelection(
-      [
-        activityDay('2026-06-18', [
-          {
-            id: 'study-1',
-            topicId: 'topic-1',
-            topicName: 'Interpretação de Textos',
-            durationMinutes: 55,
-            reviewedAt: '2026-06-18T10:00:00.000Z',
-            type: 'study',
-          },
-        ]),
-        activityDay('2026-06-19'),
-      ],
-      '2026-06-19',
-    );
-
-    expect(selection.day?.date).toBe('2026-06-19');
-    expect(selection.studies).toEqual([]);
-    expect(selection.reviews).toEqual([]);
-  });
-
-  it('keeps the period summary active when no day is selected', () => {
-    const selection = getDashboardActivitySelection(
-      [
-        activityDay('2026-06-18', [
-          {
-            id: 'study-1',
-            topicId: 'topic-1',
-            topicName: 'Interpretação de Textos',
-            durationMinutes: 55,
-            reviewedAt: '2026-06-18T10:00:00.000Z',
-            type: 'study',
-          },
-        ]),
-      ],
-      null,
-    );
-
-    expect(selection.day).toBeNull();
-    expect(selection.studies).toEqual([]);
-    expect(selection.reviews).toEqual([]);
   });
 });

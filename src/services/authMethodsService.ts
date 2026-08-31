@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { invokeUserRpc } from '@/services/userRpcService';
 
 export type AuthMethodsCapability = {
   hasPassword: boolean;
@@ -22,7 +22,6 @@ const parseAuthMethodsCapability = (value: unknown): AuthMethodsCapability => {
 };
 
 export const getMyAuthMethods = async (): Promise<AuthMethodsCapability> => {
-  const { data, error } = await supabase.rpc('get_my_auth_methods');
-  if (error) throw error;
+  const data = await invokeUserRpc<unknown>('get_my_auth_methods');
   return parseAuthMethodsCapability(data);
 };

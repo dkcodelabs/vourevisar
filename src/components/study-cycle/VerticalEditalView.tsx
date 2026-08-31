@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import type { Subject, Topic } from '@/types';
+import { sortTopicsInStudyOrder } from '@/utils/topicOrder';
 
 type TopicStatusVisual = {
   actionClassName: string;
@@ -38,8 +39,6 @@ type VerticalEditalViewProps = {
   expandedSubjectIds: string[];
   getCycleTopicStatusVisual: (topic: Topic, hasStarted: boolean) => TopicStatusVisual;
   getStartedTopicCta: (topicName: string) => StartedTopicCta;
-  getStrategicTopicIncidenceDisplay: (topic: Topic) => string | null;
-  getStrategicTopicIncidenceTitle: (topic: Topic) => string;
   getSubjectTopicSummaryLabel: (subject: Subject, activeSubjectTopics: Topic[]) => string;
   getTopicContactCount: (topic: Topic) => number;
   getUnifiedSubjectName: (subjectId: string, fallbackName: string) => string;
@@ -67,22 +66,11 @@ const hasTopicNotes = (topic: Topic) => {
   return Boolean(content?.trim()) && content !== '<p><br></p>';
 };
 
-const sortTopicsForVerticalView = (topics: Topic[]) =>
-  topics.slice().sort((a, b) => {
-    if (a.position !== undefined && b.position !== undefined) return a.position - b.position;
-    if (!a.created_at && !b.created_at) return 0;
-    if (!a.created_at) return 1;
-    if (!b.created_at) return -1;
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  });
-
 export function VerticalEditalView({
   emptySearchQuery,
   expandedSubjectIds,
   getCycleTopicStatusVisual,
   getStartedTopicCta,
-  getStrategicTopicIncidenceDisplay,
-  getStrategicTopicIncidenceTitle,
   getSubjectTopicSummaryLabel,
   getTopicContactCount,
   getUnifiedSubjectName,
@@ -138,15 +126,13 @@ export function VerticalEditalView({
                   </div>
                 </div>
 
-                {isExpanded && sortTopicsForVerticalView(topics).map((topic) => {
+                {isExpanded && sortTopicsInStudyOrder(topics).map((topic) => {
                   const contactCount = getTopicContactCount(topic);
                   const hasStarted = contactCount > 0 || isTopicStarted(topic);
                   const status = getVerticalTopicStatus(topic, hasStarted);
                   const statusVisual = getCycleTopicStatusVisual(topic, hasStarted);
                   const startedTopicCta = getStartedTopicCta(topic.name);
                   const studiedInCurrentCycle = isTopicNewlyStartedInCycle(topic);
-                  const incidenceTitle = getStrategicTopicIncidenceTitle(topic);
-                  const incidenceDisplay = getStrategicTopicIncidenceDisplay(topic);
                   const completed = isTopicCompleted(topic);
                   const studySessionStatus = getTopicStudySessionStatus(topic.id);
                   const renderVerticalTopicNotesButton = () => renderCycleTooltip(
@@ -163,14 +149,6 @@ export function VerticalEditalView({
                       <FileText size={12} />
                     </button>
                   );
-                  const renderVerticalTopicIncidenceBadge = () => incidenceDisplay
-                    ? renderCycleTooltip(
-                        incidenceTitle,
-                        <span className="app-type-badge max-w-[8rem] truncate rounded border border-incidence/20 bg-incidence/10 px-1.5 py-0.5 text-incidence">
-                          {incidenceDisplay}
-                        </span>
-                      )
-                    : null;
                   const mobileTopicAction = completed ? (
                     renderCycleTooltip(
                       'Tópico concluído: revisões finalizadas.',
@@ -254,7 +232,6 @@ export function VerticalEditalView({
                       </div>
 
                       <div className="flex min-w-0 items-center justify-end gap-1 lg:hidden">
-                        {renderVerticalTopicIncidenceBadge()}
                         {renderVerticalTopicNotesButton()}
                         {mobileTopicAction}
                       </div>
@@ -263,7 +240,6 @@ export function VerticalEditalView({
                         <span className="sr-only">{status.label}</span>
                         <div className="grid shrink-0 grid-cols-[minmax(0,auto)_6.75rem] items-center gap-1 sm:grid-cols-[minmax(0,auto)_7.5rem]">
                           <div className="flex min-w-0 items-center justify-end gap-1">
-                            {renderVerticalTopicIncidenceBadge()}
                             {renderVerticalTopicNotesButton()}
                           </div>
 

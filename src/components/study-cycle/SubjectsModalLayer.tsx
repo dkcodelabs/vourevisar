@@ -73,8 +73,6 @@ type DifficultyModalData = {
   reviewCount: number;
   isCompleting: boolean;
   duration?: number | null;
-  strategicIncidenceLabel?: string | null;
-  strategicIncidenceDescription?: string | null;
 };
 
 type MergeOriginal = {
@@ -278,7 +276,7 @@ export function SubjectsModalLayer({
                         )}
                         {choice.edital.examBoard && (
                           <span className="inline-flex min-w-0 items-center gap-1.5">
-                            <GraduationCap size={11} className="shrink-0 text-incidence/80" />
+                            <GraduationCap size={11} className="shrink-0 text-primary/80" />
                             <span className="truncate">{choice.edital.examBoard}</span>
                           </span>
                         )}
@@ -474,7 +472,7 @@ export function SubjectsModalLayer({
                         edital.source_id
                           ? 'bg-primary/15 text-primary'
                           : edital.is_imported
-                            ? 'bg-incidence/15 text-incidence'
+                            ? 'bg-primary/15 text-primary'
                             : 'bg-success/15 text-success'
                       }`}>
                         {edital.source_id ? 'CÓPIA • SISTEMA' : edital.is_imported ? 'CÓPIA • IA' : 'MANUAL'}
@@ -528,7 +526,7 @@ export function SubjectsModalLayer({
                             : edital.source_id
                               ? 'bg-primary/15 text-primary'
                               : edital.is_imported
-                                ? 'bg-incidence/15 text-incidence'
+                            ? 'bg-primary/15 text-primary'
                                 : 'bg-success/15 text-success'
                         }`}>
                           {isOriginalSystem ? 'SISTEMA' : edital.source_id ? 'CÓPIA' : edital.is_imported ? 'IA' : 'MANUAL'}
@@ -607,8 +605,6 @@ export function SubjectsModalLayer({
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
         duration={difficultyModalData.duration ?? 0}
-        strategicIncidenceLabel={difficultyModalData.strategicIncidenceLabel}
-        strategicIncidenceDescription={difficultyModalData.strategicIncidenceDescription}
       />
 
       <ConfirmModal

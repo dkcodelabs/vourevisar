@@ -34,4 +34,13 @@ describe('PracticeItemRating', () => {
     });
     expect(screen.getByText(/ajuda a selecionar treinos melhores/i)).toBeInTheDocument();
   });
+
+  it('adapta a pergunta e os controles para flashcards', () => {
+    render(<PracticeItemRating itemLabel="flashcard" />);
+
+    expect(screen.getByText('Este flashcard foi útil?')).toBeInTheDocument();
+    expect(screen.getByLabelText('Avaliar flashcard')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Flashcard útil' })).toHaveTextContent('Útil');
+    expect(screen.getByRole('button', { name: 'Flashcard não útil' })).toHaveTextContent('Problema');
+  });
 });

@@ -29,10 +29,6 @@ export interface MentorAlert {
   message: string;
   /** Dias em atraso na revisão (daysOverdue > 0 = atrasado) */
   daysOverdue?: number;
-  /** Nota de Importância derivada do total_volume (1-5) */
-  notaImportancia?: 1 | 2 | 3 | 4 | 5;
-  /** Volume de questões (origem: topics.total_volume) */
-  totalVolume?: number;
   /** Tendência calculada via memory_stability + review_count */
   trendLabel?: MentorTrendLabel;
 }
@@ -68,7 +64,7 @@ export interface MentorConsolidatedTopic {
 // Objeto retornado pelo hook useMentorInsights
 // ──────────────────────────────────────────────
 export interface MentorInsights {
-  /** Nível 1: até 3 alertas críticos ordenados por total_volume desc */
+  /** Nível 1: até 3 alertas críticos ordenados por risco de esquecimento */
   criticalAlerts: MentorAlert[];
   /** Nível 2: alertas consultivos de gargalo (trend Piorando) */
   gargalos: MentorAlert[];

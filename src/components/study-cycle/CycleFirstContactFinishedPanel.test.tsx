@@ -24,6 +24,7 @@ const makeSummary = (overrides: Partial<StudyCycleTransitionSummary> = {}): Stud
     unscheduled: 0,
   },
   startedTopics: 8,
+  lowestSubjectByStudyMinutes: null,
   topSubjectByStudyMinutes: {
     minutes: 230,
     subjectId: 'subject-1',
@@ -117,5 +118,33 @@ describe('CycleFirstContactFinishedPanel', () => {
     expect(screen.queryByRole('button', { name: /Revisar/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Iniciar próximo ciclo/i })).toBeInTheDocument();
   });
-});
 
+  it('renders both highest and lowest study time in the highlight row when available', () => {
+    render(
+      <CycleFirstContactFinishedPanel
+        cycleRoundComplete
+        formatStudyMinutes={(minutes) => `${minutes} min`}
+        onNavigate={vi.fn()}
+        onStartNextCycle={vi.fn()}
+        summary={makeSummary({
+          topSubjectByStudyMinutes: {
+            subjectId: 'subject-1',
+            subjectName: 'Legislação',
+            minutes: 30,
+          },
+          lowestSubjectByStudyMinutes: {
+            subjectId: 'subject-2',
+            subjectName: 'Informática',
+            minutes: 5,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText('DESTAQUE')).toBeInTheDocument();
+    expect(screen.getByText(/Legislação/)).toBeInTheDocument();
+    expect(screen.getByText('30 min')).toBeInTheDocument();
+    expect(screen.getByText(/Informática/)).toBeInTheDocument();
+    expect(screen.getByText('5 min')).toBeInTheDocument();
+  });
+});

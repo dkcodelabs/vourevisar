@@ -26,6 +26,7 @@ import { buildLatestTrustedReviewTrendByTopic, type ReviewTrendHistoryRow } from
 import { ReviewHistoryItem, RevisionItem, RevisionStatus } from '@/types/revision';
 import { PROGRAMMED_REVIEW_COUNT } from '@/utils/calculateNextReview';
 import { getProgrammedReviewsCompleted, isReviewProgramCompleted } from '@/utils/reviewStage';
+import { getReviewScheduleBucket } from '@/utils/reviewSchedule';
 
 import { RevisoesHeader } from '@/components/revisoes/RevisoesHeader';
 import { RevisoesChartsWrapper } from '@/components/revisoes/RevisoesChartsWrapper';
@@ -393,20 +394,15 @@ export const Revisoes = () => {
         showInCompositeCycle: hasCompositeCycle,
       });
 
-      // Determine Status Dynamically - Use local date strings for consistency with hook
-      let status = RevisionStatus.UNSTARTED;
-      const isActuallyStarted = (topic.review_count || 0) > 0;
-
-      if (programCompleted) {
-        status = RevisionStatus.CONSOLIDATED;
-      } else if (topic.next_review && isActuallyStarted) {
-        const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
-        const reviewDateStr = format(startOfDay(new Date(topic.next_review)), 'yyyy-MM-dd');
-        
-        if (reviewDateStr < todayStr) status = RevisionStatus.OVERDUE;
-        else if (reviewDateStr === todayStr) status = RevisionStatus.TODAY;
-        else status = RevisionStatus.FUTURE;
-      }
+      const statusByBucket: Record<string, RevisionStatus> = {
+        overdue: RevisionStatus.OVERDUE,
+        today: RevisionStatus.TODAY,
+        future: RevisionStatus.FUTURE,
+        completed: RevisionStatus.CONSOLIDATED,
+        unstarted: RevisionStatus.UNSTARTED,
+        unscheduled: RevisionStatus.UNSTARTED,
+      };
+      const status = statusByBucket[getReviewScheduleBucket(topic)];
 
       return {
         id: topic.id,
@@ -430,8 +426,6 @@ export const Revisoes = () => {
         originLabels: originMetadata.labels,
         isMergedOrigin: originMetadata.isMergedOrigin,
         showOrigin: originMetadata.shouldShow,
-        incidenceLevel: topic.incidence_level,
-        totalVolume: topic.total_volume,
       };
     };
 
@@ -468,6 +462,10 @@ export const Revisoes = () => {
     const totalTopics = new Set(topics.map(getCanonicalReviewTopicKey)).size;
     const totalSubjects = subjects.length; // Added
     const completedReviews = completedTopics.length + consolidatedTopics.length;
+    const todayDate = format(startOfDay(new Date()), 'yyyy-MM-dd');
+    const reviewsDoneToday = (reviewData || []).filter((review) =>
+      format(startOfDay(new Date(review.reviewed_at)), 'yyyy-MM-dd') === todayDate,
+    ).length;
     const totalScheduledReviews = delayedTopics.length + todayTopics.length + futureTopics.length + completedReviews;
     const focusCount = new Set(focusTopics.map(getCanonicalReviewTopicKey)).size;
     return {
@@ -476,13 +474,14 @@ export const Revisoes = () => {
       future: futureTopics.length,
       completedTopicsCount: consolidatedTopics.length,
       completedReviews,
+      reviewsDoneToday,
       totalScheduledReviews,
       startedTopicsCount: allTopics.length,
       focusCount,
       totalTopics,
       totalSubjects,
     };
-  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, subjects, topics, getCanonicalReviewTopicKey]);
+  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, subjects, topics, reviewData, getCanonicalReviewTopicKey]);
 
   const reviewPace = useMemo(() => {
     return getStudyCycleMetrics({
@@ -527,35 +526,44 @@ export const Revisoes = () => {
     return groups;
   }, [items, activeTab]);
 
-  // Effects (URL params, Smart Nav, Highlight) - preserved largely
-  useEffect(() => {
-    const subjectId = searchParams.get('subject');
-    if (subjectId) setActiveTab('SUBJECTS');
-  }, [searchParams]);
-
   const location = useLocation();
   const focusedTopicId = getFocusTopicId(location.state) || searchParams.get('topicId');
   const focusPulseKey = focusedTopicId ? `${focusedTopicId}:${location.key}` : null;
+
+  // Effects (URL params, Smart Nav, Highlight) - preserved largely
+  useEffect(() => {
+    const subjectId = searchParams.get('subject');
+    if (subjectId) {
+      setActiveTab('SUBJECTS');
+      return;
+    }
+
+    if (focusedTopicId) return;
+    const tabByQuery: Record<string, ViewTab> = {
+      hoje: 'FOCUS',
+      atrasadas: 'FOCUS',
+      futuras: 'FUTURE',
+      concluidas: 'COMPLETED',
+      todas: 'ALL',
+    };
+    const target = tabByQuery[searchParams.get('tab') || ''];
+    if (target && activeTab !== target) setActiveTab(target);
+  }, [activeTab, focusedTopicId, searchParams]);
 
   useEffect(() => {
     const topicId = focusedTopicId;
     if (topicId) {
       const raw = topics.find(t => t.id === topicId);
       if (raw) {
-        const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
         let target: ViewTab = 'FOCUS';
-        const isActuallyStarted = (raw.review_count || 0) > 0;
-        
-        if (isReviewProgramCompleted(raw)) {
+        const bucket = getReviewScheduleBucket(raw);
+
+        if (bucket === 'completed') {
           target = 'COMPLETED';
-        } else if (!isActuallyStarted) {
+        } else if (bucket === 'unstarted' || bucket === 'unscheduled') {
           target = 'ALL';
-        } else if (raw.next_review) {
-          const rDate = format(startOfDay(new Date(raw.next_review)), 'yyyy-MM-dd');
-          if (rDate <= todayStr) target = 'FOCUS';
-          else target = 'FUTURE';
-        } else {
-          target = 'ALL';
+        } else if (bucket === 'future') {
+          target = 'FUTURE';
         }
 
         if (activeTab !== target) setActiveTab(target);
@@ -803,7 +811,22 @@ export const Revisoes = () => {
           {stats.totalTopics > 0 && (
             <RevisoesToolbar
               activeTab={activeTab}
-              setActiveTab={setActiveTab}
+              setActiveTab={(tab) => {
+                setActiveTab(tab);
+                setSearchParams((previous) => {
+                  const next = new URLSearchParams(previous);
+                  const tabByView: Partial<Record<ViewTab, string>> = {
+                    FOCUS: 'hoje',
+                    FUTURE: 'futuras',
+                    COMPLETED: 'concluidas',
+                    ALL: 'todas',
+                  };
+                  const queryTab = tabByView[tab];
+                  if (queryTab) next.set('tab', queryTab);
+                  else next.delete('tab');
+                  return next;
+                });
+              }}
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
               reviewStageFilter={reviewStageFilter}
@@ -927,8 +950,6 @@ export const Revisoes = () => {
         reviewCount={difficultyModalData.reviewCount}
         isCompleting={difficultyModalData.isCompleting}
         duration={difficultyModalData.duration}
-        strategicIncidenceLabel={difficultyModalData.strategicIncidenceLabel}
-        strategicIncidenceDescription={difficultyModalData.strategicIncidenceDescription}
       />
       <SpacedRepetitionInfoModal
         isOpen={isInfoModalOpen}

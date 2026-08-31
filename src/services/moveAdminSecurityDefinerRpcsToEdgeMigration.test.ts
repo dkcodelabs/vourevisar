@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260707123905_move_admin_security_definer_rpcs_to_edge.sql',
+  'supabase/migrations_legacy/20260707123905_move_admin_security_definer_rpcs_to_edge.sql',
 );
 
 const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim().toLowerCase();

@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from 'react';
 import type { Subject, Topic } from '@/types';
 import { getStudyCycleSubjectActionState } from '@/utils/studyCycleSubjectState';
 import { getVisibleCycleTopics, isVisibleCycleTopic } from '@/utils/studyCycleTopicVisibility';
+import { sortTopicsInStudyOrder } from '@/utils/topicOrder';
 
 import { CycleSubjectCard } from '@/components/study-cycle/CycleSubjectCard';
 import { CycleSubjectWeightRenderer } from '@/components/study-cycle/CycleSubjectWeightRenderer';
@@ -51,8 +52,6 @@ type CycleQueueListProps = {
   fullyStartedSubjectIdSet: Set<string>;
   getCycleTopicStatusVisual: (topic: Topic, hasStarted: boolean) => CycleTopicStatusVisual;
   getStartedTopicCta: (topicName: string) => StartedTopicCta;
-  getStrategicTopicIncidenceDisplay: (topic: Topic) => string | null;
-  getStrategicTopicIncidenceTitle: (topic: Topic) => string;
   getSubjectMergeInfo: (subjectId: string) => MergeInfo;
   getTopicContactCount: (topic: Topic) => number;
   getUnifiedSubjectName: (subjectId: string, fallbackName: string) => string;
@@ -96,8 +95,6 @@ export function CycleQueueList({
   fullyStartedSubjectIdSet,
   getCycleTopicStatusVisual,
   getStartedTopicCta,
-  getStrategicTopicIncidenceDisplay,
-  getStrategicTopicIncidenceTitle,
   getSubjectMergeInfo,
   getTopicContactCount,
   getUnifiedSubjectName,
@@ -135,7 +132,7 @@ export function CycleQueueList({
           const isCompletedInEdital = completedEditalSubjectIdSet.has(subject.id);
           const hasCompletionVisual = isManuallyStudiedInCycle || isCompletedInEdital;
           const isClosedInCycle = hasCompletionVisual || isFullyStartedInCycle;
-          const activeSubjectTopics = getVisibleCycleTopics(subject.topics);
+          const activeSubjectTopics = sortTopicsInStudyOrder(getVisibleCycleTopics(subject.topics));
           const totalTopicsCount = activeSubjectTopics.length;
           const completedTopicsCount = activeSubjectTopics.filter(isTopicCompleted).length;
           const inReviewTopicsCount = activeSubjectTopics.filter((topic) =>
@@ -227,8 +224,6 @@ export function CycleQueueList({
                       key={topic.id}
                       completed={completed}
                       hasStarted={hasStarted}
-                      incidenceDisplay={getStrategicTopicIncidenceDisplay(topic)}
-                      incidenceTitle={getStrategicTopicIncidenceTitle(topic)}
                       onGoToReview={() => onGoToReview(topic.id)}
                       onOpenNotes={() => handleOpenNotes(subject, topic)}
                       onStudyAction={() => handleStudyAction(topic.id)}

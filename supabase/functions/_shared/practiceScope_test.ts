@@ -28,3 +28,21 @@ Deno.test("practice scope distinguishes a student without any edital", () => {
     throw new Error("O estado sem edital precisa ser distinto do ciclo vazio.");
   }
 });
+
+Deno.test("practice scope switches exclusively to the newly loaded edital", () => {
+  const previousScope = resolvePracticeActiveScope(["subject-a"], [
+    { merged_into_cycle: true, active_subject_ids: ["subject-a"] },
+    { merged_into_cycle: false, active_subject_ids: ["subject-b"] },
+  ]);
+  const nextScope = resolvePracticeActiveScope(["subject-b"], [
+    { merged_into_cycle: false, active_subject_ids: [] },
+    { merged_into_cycle: true, active_subject_ids: ["subject-b"] },
+  ]);
+
+  if (previousScope.subjectIds.join(",") !== "subject-a") {
+    throw new Error("O escopo anterior deve conter somente o edital carregado anteriormente.");
+  }
+  if (nextScope.status !== "active" || nextScope.subjectIds.join(",") !== "subject-b") {
+    throw new Error("A troca de edital deve remover o escopo anterior e expor somente o novo.");
+  }
+});

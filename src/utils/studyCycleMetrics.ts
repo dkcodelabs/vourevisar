@@ -1,5 +1,6 @@
 import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { getVisibleCycleTopics } from './studyCycleTopicVisibility';
+import { getReviewScheduleBucket, isReviewScheduleStarted } from './reviewSchedule';
 
 type MetricTopic = {
   id: string;
@@ -13,7 +14,6 @@ type MetricTopic = {
   first_studied_at?: string | null;
   nextReview?: Date | string | null;
   next_review?: string | null;
-  total_volume?: number | null;
   is_active?: boolean;
   is_hidden?: boolean | null;
 };
@@ -172,7 +172,9 @@ export const buildStudyCyclePaceMetrics = ({
   hasActiveCycle: boolean;
   recentFirstContact?: StudyCyclePaceMetrics['recentFirstContact'];
 }): StudyCyclePaceMetrics => {
-  const pendingReviews = overdueReviews + dueTodayReviews + futureReviewsInWindow;
+  // Pendentes são a fila de atenção de hoje. Revisões futuras continuam na
+  // agenda, mas não podem inflar nenhum indicador rotulado como "hoje".
+  const pendingReviews = overdueReviews + dueTodayReviews;
   const plannedReviews = typeof totalPlannedReviews === 'number' ? totalPlannedReviews : pendingReviews;
   const firstContactPace = recentFirstContact ?? {
     state: 'insufficient_data',
@@ -257,20 +259,7 @@ export const buildStudyCyclePaceMetrics = ({
 const isTopicCompleted = (topic: MetricTopic) =>
   isReviewProgramCompleted(topic);
 
-const hasMeaningfulReviewStage = (stage?: string | null) => {
-  const normalized = String(stage || '').trim().toLowerCase();
-  return Boolean(normalized) &&
-    !['0', 'novo', 'não iniciado', 'nao iniciado', 'null', 'undefined'].includes(normalized);
-};
-
-const isTopicStarted = (topic: MetricTopic) =>
-  Boolean(topic.first_studied_at) ||
-  Boolean(topic.firstStudiedAt) ||
-  (topic.reviewCount || 0) > 0 ||
-  (topic.review_count || 0) > 0 ||
-  hasMeaningfulReviewStage(topic.reviewStage) ||
-  hasMeaningfulReviewStage(topic.review_stage) ||
-  isTopicCompleted(topic);
+const isTopicStarted = (topic: MetricTopic) => isReviewScheduleStarted(topic);
 
 const firstStudyDate = (topic: MetricTopic) =>
   topic.first_studied_at || topic.firstStudiedAt || null;
@@ -317,15 +306,9 @@ export const getStudyCycleMetrics = ({
     : startedTopics.length;
 
   const reviewCandidates = allTopics.filter(topic => isTopicStarted(topic) && !isTopicCompleted(topic));
-  const overdueReviews = reviewCandidates.filter(topic => {
-    const date = asDate(nextReviewDate(topic));
-    return date && startOfLocalDay(date).getTime() < today.getTime();
-  }).length;
-  const dueTodayReviews = reviewCandidates.filter(topic => isSameLocalDay(nextReviewDate(topic), today)).length;
-  const futureReviews = reviewCandidates.filter(topic => {
-    const date = asDate(nextReviewDate(topic));
-    return date && startOfLocalDay(date).getTime() > today.getTime();
-  }).length;
+  const overdueReviews = reviewCandidates.filter(topic => getReviewScheduleBucket(topic, now) === 'overdue').length;
+  const dueTodayReviews = reviewCandidates.filter(topic => getReviewScheduleBucket(topic, now) === 'today').length;
+  const futureReviews = reviewCandidates.filter(topic => getReviewScheduleBucket(topic, now) === 'future').length;
   const dailyReviewGoal = overdueReviews + dueTodayReviews;
 
   const cycleExam = asDate(cycleExamDate);
@@ -342,7 +325,7 @@ export const getStudyCycleMetrics = ({
   const paceExamDate = examContext?.date ?? null;
   const futureReviewsInWindow = reviewCandidates.filter(topic => {
     const date = asDate(nextReviewDate(topic));
-    if (!date || startOfLocalDay(date).getTime() <= today.getTime()) return false;
+    if (getReviewScheduleBucket(topic, now) !== 'future' || !date) return false;
     if (!paceExamDate) return true;
     return startOfLocalDay(date).getTime() <= startOfLocalDay(paceExamDate).getTime();
   }).length;
@@ -384,7 +367,7 @@ export const getStudyCycleMetrics = ({
   const importantUnstartedTopics = subjects.flatMap(subject =>
     activeTopics(subject)
       .filter(topic => !isTopicStarted(topic))
-      .filter(topic => (typeof topic.total_volume === 'number' && topic.total_volume > 0) || hasKnownWeight(subject))
+      .filter(() => hasKnownWeight(subject))
   ).length;
 
   const maturity: StudyCycleMaturity = hasCycleHistory

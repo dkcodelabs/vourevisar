@@ -158,9 +158,14 @@ implementados e tiveram validações controladas em Live e/ou Stripe Test.
 Os itens abaixo continuam abertos, mas não devem ser confundidos com defeitos
 atuais do checkout:
 
-- [ ] Revisão jurídica independente dos textos, da identificação do fornecedor
-  e da retenção dos registros financeiros. É requisito de operação comercial,
-  não uma pendência de código.
+- [x] Revisão técnico-documental dos textos, identificação configurável do
+  fornecedor, atendimento eletrônico e fluxo de arrependimento. Em 2026-08-31,
+  os documentos passaram a explicar a contratação, renovação, atendimento,
+  pedido de arrependimento pela Conta e processamento do estorno de forma
+  consistente com o CDC e o Decreto 7.962/2013.
+- [ ] Revisão jurídica independente dos textos, da identificação final do
+  fornecedor e da retenção dos registros financeiros. É requisito de operação
+  comercial externo; não há ajuste de código que o substitua.
 - [ ] Homologação Live da criação e reversão da troca mensal para anual e,
   depois, da cobrança anual no ciclo futuro. A regra e o backend existem; a
   cobrança futura depende da passagem do período mensal.

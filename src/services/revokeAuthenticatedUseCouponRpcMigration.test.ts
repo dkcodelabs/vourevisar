@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260707124258_revoke_authenticated_use_coupon_rpc.sql',
+  'supabase/migrations_legacy/20260707124258_revoke_authenticated_use_coupon_rpc.sql',
 );
 
 describe('revoke authenticated use coupon rpc migration', () => {

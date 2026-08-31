@@ -1,18 +1,25 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { format } from 'date-fns';
 import Statistics from '@/pages/Statistics';
 import type { CycleStatisticsData } from '@/types/cycleStatistics';
 
 const navigate = vi.fn();
 const useCycleStatistics = vi.fn();
+const setSearchParams = vi.fn();
+let searchParams = new URLSearchParams();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
-  return { ...actual, useNavigate: () => navigate };
+  return {
+    ...actual,
+    useNavigate: () => navigate,
+    useSearchParams: () => [searchParams, setSearchParams],
+  };
 });
 
 vi.mock('@/hooks/useCycleStatistics', () => ({
-  useCycleStatistics: (period: number) => useCycleStatistics(period),
+  useCycleStatistics: (period: number | 'all', selectedDate: string | null) => useCycleStatistics(period, selectedDate),
 }));
 
 vi.mock('recharts', () => ({
@@ -77,6 +84,12 @@ const statistics: CycleStatisticsData = {
       coveragePercentage: 80,
       weightLabel: '20 questões',
       hasWeight: true,
+      difficulty: {
+        ratedTopics: 7,
+        easyTopics: 2,
+        mediumTopics: 3,
+        hardTopics: 2,
+      },
     },
   ],
   insight: {
@@ -90,11 +103,14 @@ const statistics: CycleStatisticsData = {
     focusSubjectId: 'subject-1',
   },
   hasStudyTime: true,
+  selectedDay: null,
 };
 
 describe('Statistics', () => {
   beforeEach(() => {
     navigate.mockReset();
+    setSearchParams.mockReset();
+    searchParams = new URLSearchParams();
     useCycleStatistics.mockReset();
     useCycleStatistics.mockReturnValue({
       data: statistics,
@@ -113,6 +129,11 @@ describe('Statistics', () => {
     expect(screen.getByText('Maturidade do conteúdo')).toBeInTheDocument();
     expect(screen.getByText('Ritmo registrado')).toBeInTheDocument();
     expect(screen.getByText('Direito Constitucional')).toBeInTheDocument();
+    expect(screen.getByText(/Dificuldade vem das suas marcações/)).toBeInTheDocument();
+    expect(screen.getByText('2 difíceis')).toBeInTheDocument();
+    expect(screen.getByText('7/10 avaliados')).toBeInTheDocument();
+    expect(screen.queryByText('3 altas')).not.toBeInTheDocument();
+    expect(screen.queryByText('8/10 analisados')).not.toBeInTheDocument();
     expect(screen.queryByText(/migrar difficulty/i)).not.toBeInTheDocument();
   });
 
@@ -120,11 +141,89 @@ describe('Statistics', () => {
     render(<Statistics />);
 
     fireEvent.click(screen.getByRole('button', { name: '14 dias' }));
-    expect(useCycleStatistics).toHaveBeenLastCalledWith(14);
+    expect(useCycleStatistics).toHaveBeenLastCalledWith(14, null);
 
     fireEvent.click(screen.getByRole('button', { name: 'Abrir revisões' }));
     expect(navigate).toHaveBeenCalledWith('/revisoes', {
       state: { focusSubjectId: 'subject-1' },
     });
+  });
+
+  it('opens a linked day and clears the date when returning to the period', () => {
+    const selectedDate = format(new Date(), 'yyyy-MM-dd');
+    searchParams = new URLSearchParams(`date=${selectedDate}`);
+    useCycleStatistics.mockReturnValue({
+      data: {
+        ...statistics,
+        selectedDay: {
+          date: selectedDate,
+          label: 'Sexta, 29 de agosto',
+          sessionMinutes: 40,
+          subjectMinutes: [{
+            subjectId: 'subject-1',
+            subjectName: 'Direito Constitucional',
+            color: '#2563eb',
+            minutes: 40,
+          }],
+          contacts: [{
+            id: 'contact-1',
+            topicId: 'topic-1',
+            topicName: 'Controle de constitucionalidade',
+            subjectId: 'subject-1',
+            subjectName: 'Direito Constitucional',
+            durationMinutes: 90,
+            reviewedAt: `${selectedDate}T10:00:00.000Z`,
+            type: 'review',
+          }],
+          contactsUnavailable: false,
+        },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
+
+    render(<Statistics />);
+
+    expect(useCycleStatistics).toHaveBeenLastCalledWith(7, selectedDate);
+    expect(screen.getByRole('heading', { name: 'Sexta, 29 de agosto' })).toBeInTheDocument();
+    expect(screen.getAllByText('40 min')).toHaveLength(2);
+    expect(screen.getByText('Controle de constitucionalidade')).toBeInTheDocument();
+    expect(screen.getByText('registro: 1h 30min')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar ao período' }));
+    expect(setSearchParams).toHaveBeenCalledWith({}, { replace: true });
+  });
+
+  it('keeps canonical statistics visible when only the daily contacts fail', () => {
+    const selectedDate = format(new Date(), 'yyyy-MM-dd');
+    const refetch = vi.fn();
+    searchParams = new URLSearchParams(`date=${selectedDate}`);
+    useCycleStatistics.mockReturnValue({
+      data: {
+        ...statistics,
+        selectedDay: {
+          date: selectedDate,
+          label: 'Sexta, 29 de agosto',
+          sessionMinutes: 40,
+          subjectMinutes: [],
+          contacts: [],
+          contactsUnavailable: true,
+        },
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      refetch,
+    });
+
+    render(<Statistics />);
+
+    expect(screen.getByText('60%')).toBeInTheDocument();
+    expect(screen.getByText('Contatos do dia indisponíveis')).toBeInTheDocument();
+    expect(screen.queryByText('Nenhum contato registrado')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+    expect(refetch).toHaveBeenCalledOnce();
   });
 });

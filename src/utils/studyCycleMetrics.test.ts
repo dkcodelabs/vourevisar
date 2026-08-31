@@ -61,7 +61,7 @@ describe('studyCycleMetrics', () => {
       totalDailyWorkload: 19 / 5,
       totalPlannedReviews: 17,
       unstartedTopics: 2,
-      pendingReviews: 3,
+      pendingReviews: 2,
       futureReviewsInWindow: 1,
     });
     expect(metrics.pace.totalDailyWorkload).toBeCloseTo(metrics.pace.newTopicsPerDay! + metrics.pace.reviewsPerDay!);
@@ -89,7 +89,7 @@ describe('studyCycleMetrics', () => {
     expect(metrics.estimatedDaysToFirstContact).toBe(3);
   });
 
-  it('counts important unstarted topics by incidence or subject weight', () => {
+  it('counts important unstarted topics only from explicit subject weight', () => {
     const metrics = getStudyCycleMetrics({
       now,
       subjects: [
@@ -99,8 +99,8 @@ describe('studyCycleMetrics', () => {
           topics: [{ id: 'topic-1' }],
         },
         {
-          id: 'incidence',
-          topics: [{ id: 'topic-2', total_volume: 10 }],
+          id: 'without-weight',
+          topics: [{ id: 'topic-2' }],
         },
         {
           id: 'started',
@@ -110,7 +110,7 @@ describe('studyCycleMetrics', () => {
       ],
     });
 
-    expect(metrics.importantUnstartedTopics).toBe(2);
+    expect(metrics.importantUnstartedTopics).toBe(1);
   });
 
   it('excludes hidden topics from cycle totals and pending counts', () => {

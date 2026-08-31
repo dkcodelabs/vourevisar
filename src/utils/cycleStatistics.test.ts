@@ -5,7 +5,11 @@ import type {
   CycleStatisticsSubjectInput,
   CycleStatisticsTopicInput,
 } from '@/types/cycleStatistics';
-import { buildCycleStatistics } from '@/utils/cycleStatistics';
+import {
+  aggregateCycleTopicDifficulty,
+  buildCycleStatistics,
+  resolveStatisticsDateSelection,
+} from '@/utils/cycleStatistics';
 
 const now = new Date('2026-08-25T12:00:00-03:00');
 
@@ -33,6 +37,7 @@ const makeTopic = (overrides: Partial<CycleStatisticsTopicInput> = {}): CycleSta
   lastReviewedAt: null,
   memoryStability: null,
   currentInterval: null,
+  difficultyLevel: null,
   ...overrides,
 });
 
@@ -48,6 +53,26 @@ const build = (overrides: Partial<BuildCycleStatisticsInput> = {}) => buildCycle
 });
 
 describe('cycleStatistics', () => {
+  it('preserves the strongest difficulty signal across merged origins', () => {
+    expect(aggregateCycleTopicDifficulty([
+      { difficultyLevel: 1 },
+      { difficultyLevel: 3 },
+      { difficultyLevel: 2 },
+    ])).toBe(3);
+
+    expect(aggregateCycleTopicDifficulty([
+      { difficultyLevel: null },
+    ])).toBeNull();
+  });
+
+  it('validates a linked date and expands the period needed to contain it', () => {
+    expect(resolveStatisticsDateSelection('2026-08-25', now)).toEqual({ date: '2026-08-25', period: 7 });
+    expect(resolveStatisticsDateSelection('2026-08-12', now)).toEqual({ date: '2026-08-12', period: 14 });
+    expect(resolveStatisticsDateSelection('2026-07-01', now)).toEqual({ date: '2026-07-01', period: 'all' });
+    expect(resolveStatisticsDateSelection('2026-02-30', now)).toBeNull();
+    expect(resolveStatisticsDateSelection('2026-08-26', now)).toBeNull();
+  });
+
   it('separates coverage, development and consolidation without treating first contact as completion', () => {
     const data = build({
       topics: [
@@ -93,6 +118,60 @@ describe('cycleStatistics', () => {
     expect(data.time.previousPeriodMinutes).toBe(10);
     expect(data.time.activeDays).toBe(1);
     expect(data.subjects[0].studyMinutes).toBe(20);
+  });
+
+  it('reports difficulty with its evaluated base per subject', () => {
+    const data = build({
+      topics: [
+        makeTopic({ id: 'easy', difficultyLevel: 1 }),
+        makeTopic({ id: 'hard', difficultyLevel: 3 }),
+        makeTopic({ id: 'harder', difficultyLevel: 4 }),
+        makeTopic({ id: 'unrated', difficultyLevel: null }),
+        makeTopic({ id: 'without-signals' }),
+      ],
+    });
+
+    expect(data.subjects[0]).toMatchObject({
+      totalTopics: 5,
+      difficulty: { ratedTopics: 3, easyTopics: 1, mediumTopics: 0, hardTopics: 2 },
+    });
+  });
+
+  it('keeps selected-day review and question contacts separate from the canonical session total', () => {
+    const data = build({
+      selectedDate: '2026-08-25',
+      sessions: [
+        { id: 'session-1', subjectId: 'subject-1', studyDate: '2026-08-25', durationMinutes: 40 },
+      ],
+      dayContacts: [{
+        id: 'contact-1',
+        topicId: 'topic-1',
+        topicName: 'Constituição',
+        subjectId: 'subject-1',
+        subjectName: 'Direito Constitucional',
+        durationMinutes: 100,
+        reviewedAt: '2026-08-25T10:00:00-03:00',
+        type: 'review',
+      }, {
+        id: 'question-contact-1',
+        topicId: 'topic-1',
+        topicName: 'Constituição',
+        subjectId: 'subject-1',
+        subjectName: 'Direito Constitucional',
+        durationMinutes: 0,
+        reviewedAt: '2026-08-25T10:05:00-03:00',
+        type: 'questions',
+      }],
+    });
+
+    expect(data.selectedDay).toMatchObject({
+      date: '2026-08-25',
+      sessionMinutes: 40,
+      subjectMinutes: [{ subjectId: 'subject-1', minutes: 40 }],
+    });
+    expect(data.selectedDay?.contacts[0].durationMinutes).toBe(100);
+    expect(data.selectedDay?.contacts.map(contact => contact.type)).toEqual(['review', 'questions']);
+    expect(data.time.totalMinutes).toBe(40);
   });
 
   it('uses the existing adaptive maturity thresholds and keeps overdue as a separate dimension', () => {
@@ -146,6 +225,31 @@ describe('cycleStatistics', () => {
 
     expect(data.time.comparisonPercentage).toBeNull();
     expect(data.time.previousPeriodMinutes).toBe(0);
+  });
+
+  it('keeps a started cycle honest when there is no session history yet', () => {
+    const data = build({
+      topics: [makeTopic({ firstStudiedAt: '2026-08-20T10:00:00-03:00' })],
+      sessions: [],
+    });
+
+    expect(data.time).toMatchObject({
+      totalMinutes: 0,
+      previousPeriodMinutes: 0,
+      activeDays: 0,
+      comparisonPercentage: null,
+    });
+    expect(data.insight.id).toBe('no-recent-time');
+  });
+
+  it('identifies a combined cycle without changing its canonical name', () => {
+    const data = build({
+      editalNames: ['TJ ES — Analista', 'TJ ES — Técnico'],
+    });
+
+    expect(data.cycleName).toBe('TJ ES');
+    expect(data.editalLabel).toBe('TJ ES — Analista + TJ ES — Técnico');
+    expect(data.combinedEditaisCount).toBe(2);
   });
 
   it('uses only the selected period for current time metrics', () => {

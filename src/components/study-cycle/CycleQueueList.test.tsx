@@ -66,8 +66,6 @@ describe('CycleQueueList', () => {
           ariaLabel: 'Continuar revisão do tópico',
           label: 'Continuar',
         })}
-        getStrategicTopicIncidenceDisplay={() => null}
-        getStrategicTopicIncidenceTitle={() => 'Sem destaque'}
         getSubjectMergeInfo={() => null}
         getTopicContactCount={() => 1}
         getUnifiedSubjectName={() => 'Direito Constitucional'}
@@ -137,8 +135,6 @@ describe('CycleQueueList', () => {
           ariaLabel: 'Ir para revisão do tópico',
           label: 'Ir para Revisão',
         })}
-        getStrategicTopicIncidenceDisplay={() => null}
-        getStrategicTopicIncidenceTitle={() => 'Sem destaque'}
         getSubjectMergeInfo={() => null}
         getTopicContactCount={() => 1}
         getUnifiedSubjectName={() => 'Matemática'}

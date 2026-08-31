@@ -68,16 +68,16 @@ describe('studyCycleAlerts', () => {
     ]);
   });
 
-  it('points to a high-volume unstarted topic with real incidence data', () => {
+  it('does not prioritize an unstarted topic without explicit edital weight', () => {
     const alerts = getStudyCycleAlerts({
       subjects: [
         {
           id: 'subject-1',
           name: 'Informática',
           topics: [
-            { id: 'topic-1', name: 'Segurança da informação', completed: false, reviewCount: 0, total_volume: 35 },
-            { id: 'topic-2', name: 'Planilhas', completed: false, reviewCount: 1, total_volume: 1200 },
-            { id: 'topic-3', name: 'Direito constitucional', completed: false, reviewCount: 0, total_volume: 1200 },
+            { id: 'topic-1', name: 'Segurança da informação', completed: false, reviewCount: 0 },
+            { id: 'topic-2', name: 'Planilhas', completed: false, reviewCount: 1 },
+            { id: 'topic-3', name: 'Direito constitucional', completed: false, reviewCount: 0 },
           ],
         },
       ],
@@ -85,21 +85,17 @@ describe('studyCycleAlerts', () => {
       now,
     });
 
-    expect(alerts).toContainEqual(expect.objectContaining({
-      id: 'high-volume-topic-unstarted:topic-3',
-      severity: 'warning',
-      topicId: 'topic-3',
-    }));
+    expect(alerts.some(alert => alert.topicId === 'topic-3')).toBe(false);
   });
 
-  it('uses exam date only when there are relevant open topics', () => {
+  it('does not turn an exam date into an unsupported topic priority', () => {
     const alerts = getStudyCycleAlerts({
       subjects: [
         {
           id: 'subject-1',
           name: 'Português',
           topics: [
-            { id: 'topic-1', name: 'Interpretação', completed: false, reviewCount: 0, total_volume: 1200 },
+            { id: 'topic-1', name: 'Interpretação', completed: false, reviewCount: 0 },
           ],
         },
       ],
@@ -110,12 +106,7 @@ describe('studyCycleAlerts', () => {
       now,
     });
 
-    expect(alerts).toContainEqual(expect.objectContaining({
-      id: 'exam-near-open-relevant-topic:edital-1:topic-1',
-      severity: 'critical',
-      message: 'Prova em 17 dias · 20/06/2026. Ainda há tópico cobrado sem primeiro contato.',
-      evidence: 'Interpretação · matéria: Português.',
-    }));
+    expect(alerts.some(alert => alert.topicId === 'topic-1')).toBe(false);
   });
 
   it('creates a critical alert when the active cycle exam date is already past', () => {
@@ -145,14 +136,14 @@ describe('studyCycleAlerts', () => {
     }));
   });
 
-  it('identifies unstarted topic with incidence_level high', () => {
+  it('does not create a priority alert from incidence data alone', () => {
     const alerts = getStudyCycleAlerts({
       subjects: [
         {
           id: 'subject-1',
           name: 'Direito Constitucional',
           topics: [
-            { id: 'topic-1', name: 'Direitos Fundamentais', completed: false, reviewCount: 0, incidence_level: 'high' },
+            { id: 'topic-1', name: 'Direitos Fundamentais', completed: false, reviewCount: 0 },
           ],
         },
       ],
@@ -160,13 +151,7 @@ describe('studyCycleAlerts', () => {
       now,
     });
 
-    expect(alerts).toContainEqual(expect.objectContaining({
-      id: 'high-volume-topic-unstarted:topic-1',
-      severity: 'warning',
-      title: 'Tópico forte ainda não iniciado',
-      message: 'Direitos Fundamentais aparece com cobrança alta e ainda não teve primeiro contato.',
-      topicId: 'topic-1',
-    }));
+    expect(alerts.some(alert => alert.topicId === 'topic-1')).toBe(false);
   });
 
   it('creates an alert for an important topic started over 48h ago with zero reviews', () => {
@@ -175,6 +160,7 @@ describe('studyCycleAlerts', () => {
         {
           id: 'subject-1',
           name: 'Direito Administrativo',
+          exam_weight_percentage: 20,
           topics: [
             {
               id: 'topic-1',
@@ -182,7 +168,6 @@ describe('studyCycleAlerts', () => {
               completed: false,
               reviewCount: 0,
               first_studied_at: '2026-05-30T10:00:00-03:00', // 4 dias atrás do mock now (2026-06-03)
-              incidence_level: 'high',
             },
           ],
         },

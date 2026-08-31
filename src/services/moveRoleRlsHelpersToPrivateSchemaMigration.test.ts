@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const migrationPath = path.resolve(
   process.cwd(),
-  'supabase/migrations/20260707132120_move_role_rls_helpers_to_private_schema.sql',
+  'supabase/migrations_legacy/20260707132120_move_role_rls_helpers_to_private_schema.sql',
 );
 
 describe('move role RLS helpers to private schema migration', () => {

@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const sql = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260716143000_transactional_merge_revert.sql'),
+  resolve(process.cwd(), 'supabase/migrations_legacy/20260716143000_transactional_merge_revert.sql'),
   'utf8',
 );
 

@@ -5,6 +5,7 @@ import type { PracticeFeedbackReason } from '@/features/practice/types/practice'
 
 export type PracticeMode = 'questions' | 'flashcards_due' | 'quick';
 export type PracticeFormat = 'questions' | 'flashcards' | 'mixed';
+export type PracticeFlashcardPurpose = 'new' | 'review';
 export type PracticeOrigin = 'daily_recommendation' | 'manual' | 'post_study';
 export type PracticeItemType = 'flashcard' | 'multiple_choice' | 'true_false';
 export type PracticeAttemptResult = 'correct' | 'incorrect' | 'skipped' | 'recalled' | 'effortful' | 'forgotten';
@@ -61,7 +62,8 @@ export type GeneratePracticePackageResult = {
   reused: boolean;
 };
 
-export type PracticeRecommendationReason = 'overdue_review' | 'review_due_today' | 'recent_failure' | 'recorded_difficulty' | 'available_topic';
+export type PracticeRecommendationReason = 'recent_failure' | 'recorded_difficulty' | 'practice_inactive';
+export type PracticeStudyActionReason = 'overdue_review' | 'review_due_today' | 'continue_cycle';
 export type PracticeScopeStatus = 'active' | 'no_edital' | 'no_active_edital';
 
 export type PracticeOverviewTopic = {
@@ -73,13 +75,24 @@ export type PracticeOverviewTopic = {
   difficultyLevel: number | null;
   lastReviewedAt: string | null;
   recentFailureCount?: number;
-  incidenceScore?: number | null;
+  recentAttemptCount?: number;
+  recentCorrectCount?: number;
+  practiceConsistencyGap?: boolean;
   subjectWeight?: number | null;
   reason?: PracticeRecommendationReason;
   questionCount?: number;
   flashcardCount?: number;
   isGenerating?: boolean;
   hasReadyPackage?: boolean;
+};
+
+export type PracticeMaterialTopic = PracticeOverviewTopic & {
+  questionCount: number;
+  flashcardCount: number;
+  dueFlashcardCount: number;
+  latestPackageCreatedAt: string | null;
+  isGenerating: boolean;
+  hasReadyPackage: boolean;
 };
 
 export type PracticeOverview = {
@@ -90,13 +103,20 @@ export type PracticeOverview = {
   };
   recommendedTopic: PracticeOverviewTopic | null;
   selectedTopic: PracticeOverviewTopic | null;
-  flashcards: { dueCount: number; dueTopicCount: number };
+  materialTopics: PracticeMaterialTopic[];
+  flashcards: { dueCount: number; dueTopicCount: number; newCount: number; newTopicCount: number };
+  studyAction: {
+    kind: 'reviews' | 'cycle';
+    topic: PracticeOverviewTopic | null;
+    reason: PracticeStudyActionReason;
+  };
   dailyRecommendation: {
-    kind: 'flashcards_due' | 'questions' | 'clear';
+    kind: 'flashcards_due' | 'flashcards_new' | 'questions' | 'clear';
     count: number;
+    pendingCount?: number;
     topicCount: number;
     topic?: PracticeOverviewTopic | null;
-    reason: PracticeRecommendationReason | 'flashcards_due' | 'clear';
+    reason: PracticeRecommendationReason | 'flashcards_due' | 'flashcards_new' | 'clear';
     estimatedMinutes: number;
   };
 };
@@ -175,6 +195,7 @@ export type BuildPracticeSessionInput = {
   subjectId?: string;
   format?: PracticeFormat;
   origin?: PracticeOrigin;
+  flashcardPurpose?: PracticeFlashcardPurpose;
   quantity: number;
   idempotencyKey: string;
 };

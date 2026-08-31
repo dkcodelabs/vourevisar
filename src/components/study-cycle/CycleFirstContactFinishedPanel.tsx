@@ -32,6 +32,7 @@ export function CycleFirstContactFinishedPanel({
   const action = summary.primaryAction;
   const reviewCounts = summary.reviewCounts;
   const topSubject = summary.topSubjectByStudyMinutes;
+  const lowestSubject = summary.lowestSubjectByStudyMinutes;
   const shouldOfferNextCycle = cycleRoundComplete && action.kind === 'continue_cycle';
 
   let eyebrow = 'PRIMEIRO CONTATO FINALIZADO';
@@ -252,8 +253,19 @@ export function CycleFirstContactFinishedPanel({
               <span>DESTAQUE</span>
             </div>
             <p className="min-w-0 flex-1 leading-normal text-content-muted">
-              <strong className="font-bold text-foreground">{topSubject.subjectName}</strong> teve a maior dedicação da rodada com{' '}
-              <span className="font-bold text-primary">{formatStudyMinutes(topSubject.minutes)}</span> de estudo registrado.
+              {lowestSubject && lowestSubject.minutes > 0 ? (
+                <>
+                  <strong className="font-bold text-foreground">{topSubject.subjectName}</strong> teve a maior dedicação da rodada com{' '}
+                  <span className="font-bold text-primary">{formatStudyMinutes(topSubject.minutes)}</span>, enquanto{' '}
+                  <strong className="font-bold text-foreground">{lowestSubject.subjectName}</strong> teve a menor com{' '}
+                  <span className="font-bold text-amber-500/90">{formatStudyMinutes(lowestSubject.minutes)}</span>.
+                </>
+              ) : (
+                <>
+                  <strong className="font-bold text-foreground">{topSubject.subjectName}</strong> teve a maior dedicação da rodada com{' '}
+                  <span className="font-bold text-primary">{formatStudyMinutes(topSubject.minutes)}</span> de estudo registrado.
+                </>
+              )}
             </p>
           </div>
         )}

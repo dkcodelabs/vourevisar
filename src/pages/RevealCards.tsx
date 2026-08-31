@@ -85,7 +85,7 @@ export default function RevealCardsPage() {
               <div className="flex flex-col items-center justify-center p-6 text-center space-y-2">
                 <p className="text-sm font-semibold text-foreground">Dica Estratégica</p>
                 <p className="text-xs text-content-muted">
-                  Revise os tópicos de maior cobrança nos primeiros 15 dias após o primeiro contato.
+                  Revise os tópicos prioritários nos primeiros 15 dias após o primeiro contato.
                 </p>
               </div>
             }

@@ -52,8 +52,6 @@ export interface RevisionItem {
     originLabels?: string[];
     isMergedOrigin?: boolean;
     showOrigin?: boolean;
-    incidenceLevel?: 'low' | 'medium' | 'high' | string | null;
-    totalVolume?: number | null;
 }
 
 export interface GroupedData {

@@ -34,7 +34,6 @@ import {
     resolveBulkSubjectName
 } from '@/utils/subjectSearch';
 import { parseBulkTopics, shouldAdvanceToBulkTopics } from '@/utils/bulkTopicParser';
-import { getIncidenceLevelLabel } from '@/utils/topicIncidenceLevel';
 import { subjectNameSchema } from '@/lib/validation';
 import { EditEditalModal } from '@/components/editais/EditEditalModal';
 import {
@@ -132,9 +131,6 @@ export const EditalSubjectsModal = ({
             nextReview: t.nextReview,
             is_completed: t.is_completed ?? false,
             difficulty_level: t.difficulty_level ?? null,
-            incidence_level: t.incidence_level ?? null,
-            incidence_score: t.incidence_score ?? null,
-            total_volume: t.total_volume ?? null,
             subtopics: t.subtopics || []
         })),
         status: (s.status as Status) || 'Nova',
@@ -1307,7 +1303,7 @@ export const EditalSubjectsModal = ({
                 >
                     <div className="pointer-events-none absolute inset-x-10 top-0 z-20 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
                     {/* ── Header ── */}
-                    <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-border bg-gradient-to-br from-primary/[0.07] via-transparent to-incidence/[0.04] px-4 py-4 sm:gap-4 sm:px-6">
+                    <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-border bg-gradient-to-br from-primary/[0.07] via-transparent to-primary/[0.04] px-4 py-4 sm:gap-4 sm:px-6">
                         <div className="flex min-w-0 items-start gap-3">
                             {initialExpandedSubjectId && (
                                 <button
@@ -1360,7 +1356,7 @@ export const EditalSubjectsModal = ({
                                     )}
                                     {selectedEdital.examBoard && (
                                         <p className={`flex min-w-0 items-center gap-1.5 truncate text-content-muted ${editalHeaderExamBoardTypography}`}>
-                                            <GraduationCap size={11} className="shrink-0 text-incidence" />
+                                            <GraduationCap size={11} className="shrink-0 text-primary" />
                                             <span className="truncate">{selectedEdital.examBoard}</span>
                                         </p>
                                     )}
@@ -1971,17 +1967,11 @@ export const EditalSubjectsModal = ({
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
-                                                                                    {!isTmpTopic && (progressBadge || getIncidenceLevelLabel(topic.incidence_level)) && (
+                                                                                    {!isTmpTopic && progressBadge && (
                                                                                         <div className="flex flex-wrap items-center gap-1.5 pl-[2px]">
                                                                                             {progressBadge && (
                                                                                                 <span className={`inline-flex min-h-6 items-center rounded-md border px-1.5 text-[9px] font-black uppercase tracking-[0.08em] ${progressBadgeClass}`}>
                                                                                                     {progressBadge.label}
-                                                                                                </span>
-                                                                                            )}
-                                                                                            {getIncidenceLevelLabel(topic.incidence_level) && (
-                                                                                                <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-content-muted/70">
-                                                                                                    <BarChart2 size={10} className="text-primary/70" />
-                                                                                                    {getIncidenceLevelLabel(topic.incidence_level)}
                                                                                                 </span>
                                                                                             )}
                                                                                         </div>

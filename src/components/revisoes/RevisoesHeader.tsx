@@ -9,6 +9,7 @@ interface RevisoesHeaderProps {
         future: number;
         completedTopicsCount: number;
         completedReviews: number;
+        reviewsDoneToday: number;
         totalScheduledReviews: number;
     };
     isCollapsed: boolean;
@@ -139,7 +140,7 @@ export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollaps
                             <p className="mt-1 text-xs sm:text-sm font-bold tabular-nums text-foreground">
                                 {pace.state === 'ready'
                                     ? formatPaceValue(pace.reviewsPerDay)
-                                    : `${pace.pendingReviews} hoje`}
+                                    : `${stats.today + stats.overdue} hoje`}
                             </p>
                             <p className="text-[10px] text-content-muted truncate mt-0.5">
                                 {pace.state === 'ready' ? `${pace.totalPlannedReviews} programa` : 'pendentes'}
@@ -187,8 +188,8 @@ export const RevisoesHeader: React.FC<RevisoesHeaderProps> = ({ stats, isCollaps
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                            <span className="text-xs text-content-muted">Revisões Feitas:</span>
-                            <span className="text-sm font-bold text-foreground">{stats.completedReviews}</span>
+                            <span className="text-xs text-content-muted">Feitas hoje:</span>
+                            <span className="text-sm font-bold text-foreground">{stats.reviewsDoneToday}</span>
                         </div>
                     </div>
                     {/* Integrated Expand Button */}

@@ -89,19 +89,8 @@ describe('RevisoesList origin traceability', () => {
     expect(screen.queryByText('Piorando')).not.toBeInTheDocument();
   });
 
-  it('renders Cobrança alta badge when topic has high strategic incidence', () => {
-    renderList(makeItem({
-      incidenceLevel: 'high',
-    }));
-
-    expect(screen.getByText('Cobrança alta')).toBeInTheDocument();
-  });
-
-  it('handles missing weight and incidence cleanly without showing error or placeholder badge', () => {
-    renderList(makeItem({
-      incidenceLevel: null,
-      totalVolume: null,
-    }));
+  it('does not render retired incidence labels in review rows', () => {
+    renderList(makeItem());
 
     expect(screen.queryByText('Cobrança alta')).not.toBeInTheDocument();
     expect(screen.queryByText('Cobrança média')).not.toBeInTheDocument();

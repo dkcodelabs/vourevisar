@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260711120000_reset_edital_study_progress.sql',
+  'supabase/migrations_legacy/20260711120000_reset_edital_study_progress.sql',
 );
 
 const readMigration = () => readFileSync(migrationPath, 'utf8').toLowerCase();

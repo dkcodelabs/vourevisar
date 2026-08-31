@@ -33,7 +33,6 @@ const Revisoes = lazy(() => import("@/pages/Revisoes"));
 const Editais = lazy(() => import("@/pages/Editais"));
 const Cadernos = lazy(() => import("@/pages/Cadernos"));
 const PracticeHome = lazy(() => import("@/features/practice/pages/PracticeHome"));
-const PracticeSession = lazy(() => import("@/features/practice/pages/PracticeSession"));
 const Planos = lazy(() => import("@/pages/Planos"));
 const StripeCheckout = lazy(() => import("@/pages/StripeCheckout"));
 const StripeCheckoutReturn = lazy(() => import("@/pages/StripeCheckoutReturn"));
@@ -48,8 +47,6 @@ const SystemErrors = lazy(() => import("@/pages/admin/system/SystemErrors"));
 const RolesManagement = lazy(() => import("@/pages/admin/security/RolesManagement"));
 const AuditLogs = lazy(() => import("@/pages/admin/AuditLogs"));
 const AdminFeedback = lazy(() => import("@/pages/admin/AdminFeedback"));
-const TrendAnalysis = lazy(() => import("@/pages/statistics/TrendAnalysis"));
-const ImportanciaProvaAdmin = lazy(() => import("@/pages/admin/TendenciaGUT"));
 const AdminEditais = lazy(() => import("@/pages/admin/AdminEditais"));
 const AffiliateReferralManagement = lazy(() => import("@/pages/admin/AffiliateReferralManagement"));
 const AISettings = lazy(() => import("@/pages/admin/AISettings"));
@@ -114,16 +111,17 @@ const App = () => {
                             <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
                             <Route path="topicos" element={<Navigate to="/ciclo-estudos" replace />} />
                             <Route path="subjects" element={<Navigate to="/ciclo-estudos" replace />} />
+                            <Route path="admin/importancia-prova" element={<Navigate to="/dashboard" replace />} />
+                            <Route path="estatisticas/tendencia" element={<Navigate to="/estatisticas" replace />} />
                             <Route path="revisoes" element={<RequireActiveSubscription><Revisoes /></RequireActiveSubscription>} />
                             <Route path="ciclo-estudos" element={<RequireActiveSubscription><Subjects /></RequireActiveSubscription>} />
                             <Route path="cadernos" element={<RequireActiveSubscription><Cadernos /></RequireActiveSubscription>} />
                             <Route path="treino" element={<RequireActiveSubscription><PracticeHome /></RequireActiveSubscription>} />
-                            <Route path="pratica/:sessionId" element={<RequireActiveSubscription><PracticeSession /></RequireActiveSubscription>} />
+                            <Route path="pratica/:sessionId" element={<Navigate to="/treino" replace />} />
 
                             {/* Admin Routes - Protected */}
                             <Route element={<AdminRoute />}>
                               <Route path="admin/users" element={<UserManagement />} />
-                              <Route path="admin/importancia-prova" element={<ImportanciaProvaAdmin />} />
                               <Route path="admin/subscription" element={<SubscriptionManagement />} />
                               <Route path="admin/security/roles" element={<RolesManagement />} />
                               <Route path="admin/audit" element={<AuditLogs />} />
@@ -137,9 +135,6 @@ const App = () => {
                               <Route path="admin/pricing" element={<Navigate to="/admin/referrals" replace />} />
                               <Route path="admin/ai-settings" element={<AISettings />} />
                             </Route>
-
-                            {/* Statistics Routes */}
-                            <Route path="estatisticas/tendencia" element={<RequireActiveSubscription><TrendAnalysis /></RequireActiveSubscription>} />
 
                             {exposeDebugRoutes && SimpleRoleTest && <Route path="test-roles" element={<SimpleRoleTest />} />}
                             <Route path="planos" element={<Planos />} />

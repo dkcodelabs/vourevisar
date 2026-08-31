@@ -22,8 +22,8 @@ vi.mock('@/contexts/AuthContext', () => ({
 vi.mock('@/features/billing/legal/billingLegalDocuments', () => ({
   isBillingContractAcceptanceEnabled: () => true,
   signupLegalAcceptance: {
-    termsVersion: '2026-08-21.1',
-    privacyVersion: '2026-08-21.1',
+    termsVersion: '2026-08-31.1',
+    privacyVersion: '2026-08-31.1',
   },
 }));
 
@@ -106,8 +106,8 @@ describe('Login', () => {
       'Aluno Teste',
       '',
       {
-        termsVersion: '2026-08-21.1',
-        privacyVersion: '2026-08-21.1',
+        termsVersion: '2026-08-31.1',
+        privacyVersion: '2026-08-31.1',
       },
     );
   });

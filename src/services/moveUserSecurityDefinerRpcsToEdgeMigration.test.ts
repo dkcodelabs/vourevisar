@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const migrationPath = path.resolve(
   process.cwd(),
-  'supabase/migrations/20260707125900_move_user_security_definer_rpcs_to_edge.sql',
+  'supabase/migrations_legacy/20260707125900_move_user_security_definer_rpcs_to_edge.sql',
 );
 
 describe('move user security definer RPCs to Edge migration', () => {

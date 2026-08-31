@@ -16,7 +16,6 @@ describe('transformSubjectsData', () => {
             completed: false,
             review_count: 0,
             is_active: true,
-            total_volume: 10,
           },
           {
             id: 'topic-inactive',
@@ -24,7 +23,6 @@ describe('transformSubjectsData', () => {
             completed: false,
             review_count: 0,
             is_active: false,
-            total_volume: 999,
           },
         ],
       },

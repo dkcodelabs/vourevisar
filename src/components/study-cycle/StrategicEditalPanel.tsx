@@ -10,8 +10,6 @@ import {
   RefreshCw,
   Sparkles,
   Target,
-  TrendingUp,
-  Trophy,
 } from 'lucide-react';
 
 import type { Subject, UserCycle } from '@/types';
@@ -34,16 +32,6 @@ type StrategicPanelStats = {
   coveragePercentage: number;
   startedSubjectsCount?: number;
   totalSubjects?: number;
-  highestIncidenceTopic: {
-    topicName: string;
-    subjectName: string;
-    volume: number;
-  } | null;
-  highestIncidenceSubject: {
-    subjectName: string;
-    totalVolume: number;
-    analyzedTopicsCount: number;
-  } | null;
   highestPendingWeightSubject: {
     subject: Subject;
     effectiveWeight: {
@@ -65,6 +53,7 @@ type CycleMaturity = {
 
 type CycleVisualStats = {
   daysToFinish: number | null;
+  totalSubjects: number;
 };
 
 type StrategicEditalPanelProps = {
@@ -132,8 +121,6 @@ export function StrategicEditalPanel({
   userCycle,
 }: StrategicEditalPanelProps) {
   const highestPendingWeight = strategicPanelStats.highestPendingWeightSubject;
-  const highestIncidence = strategicPanelStats.highestIncidenceTopic;
-  const highestIncidenceSubject = strategicPanelStats.highestIncidenceSubject;
   const subjectStartAlerts = strategicAlerts.filter(alert => alert.actionType === 'start_subject');
   const primarySubjectAlert = subjectStartAlerts[0];
   const upcomingSubjectAlerts = subjectStartAlerts.slice(1);
@@ -162,25 +149,9 @@ export function StrategicEditalPanel({
       value: `${insight.message} ${insight.evidence}`,
       icon: BarChart2,
       className: insight.severity === 'warning'
-        ? 'border-incidence/25 bg-incidence/10 text-incidence'
-        : 'border-incidence/20 bg-incidence/10 text-incidence',
+        ? 'border-primary/25 bg-primary/10 text-primary'
+        : 'border-primary/20 bg-primary/10 text-primary',
     })) : []),
-    canShowStrategicInsights && highestIncidenceSubject
-      ? {
-          label: 'Maior cobrança por matéria',
-          value: `${highestIncidenceSubject.subjectName}: cobrança alta encontrada em ${highestIncidenceSubject.analyzedTopicsCount} tópico${highestIncidenceSubject.analyzedTopicsCount === 1 ? '' : 's'}.`,
-          icon: Trophy,
-          className: 'border-info/20 bg-info/10 text-info',
-        }
-      : null,
-    canShowStrategicInsights && highestIncidence
-      ? {
-          label: 'Tópico de maior cobrança',
-          value: `${highestIncidence.topicName}. Matéria: ${highestIncidence.subjectName}.`,
-          icon: TrendingUp,
-          className: 'border-incidence/20 bg-incidence/10 text-incidence',
-        }
-      : null,
     canShowStrategicInsights && highestPendingWeight
       ? {
           label: 'Maior peso pendente',
@@ -203,8 +174,8 @@ export function StrategicEditalPanel({
       return `${cycleMaturity.description} As comparações finas aparecem depois que um ciclo for fechado com snapshot salvo.`;
     }
 
-    if (!highestIncidence && !highestIncidenceSubject && cycleEventInsights.length === 0) {
-      return 'Ainda não encontrei risco ou oportunidade confiável. Quando houver cobrança analisada, peso conhecido relevante ou padrão real de uso, o insight aparece aqui.';
+    if (!highestPendingWeight && cycleEventInsights.length === 0) {
+      return 'Ainda não encontrei risco ou oportunidade confiável. Quando houver peso conhecido relevante ou padrão real de uso, o insight aparece aqui.';
     }
 
     return 'Nenhum novo insight estratégico confiável neste momento.';
@@ -385,19 +356,19 @@ export function StrategicEditalPanel({
           )}
 
           {queueSuggestion && (
-            <div className="rounded-2xl border border-incidence/20 bg-incidence/[0.07] p-4">
+            <div className="rounded-2xl border border-primary/20 bg-primary/[0.07] p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h4 className="app-type-eyebrow text-incidence">
+                <h4 className="app-type-eyebrow text-primary">
                   Ajuste sugerido da fila
                 </h4>
-                <ListTodo size={15} className="text-incidence" />
+                <ListTodo size={15} className="text-primary" />
               </div>
-              <div className="rounded-xl border border-incidence/20 bg-surface/45 p-3 backdrop-blur">
+              <div className="rounded-xl border border-primary/20 bg-surface/45 p-3 backdrop-blur">
                 <div className="mb-2 flex items-center gap-2">
-                  <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-incidence/15 text-incidence">
+                  <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
                     <MoveUp size={14} />
                   </div>
-                  <p className="app-type-eyebrow text-incidence">
+                  <p className="app-type-eyebrow text-primary">
                     {queueSuggestion.title}
                   </p>
                 </div>
@@ -415,7 +386,7 @@ export function StrategicEditalPanel({
                 <button
                   type="button"
                   onClick={() => handleApplySuggestedQueueOrder(queueSuggestion.suggestedOrder)}
-                  className="app-type-action-xs mt-3 h-8 rounded-lg border border-incidence/25 bg-incidence/10 px-3 text-incidence transition-colors hover:border-incidence/50 hover:bg-incidence/20"
+                  className="app-type-action-xs mt-3 h-8 rounded-lg border border-primary/25 bg-primary/10 px-3 text-primary transition-colors hover:border-primary/50 hover:bg-primary/20"
                 >
                   Aplicar sugestão
                 </button>

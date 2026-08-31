@@ -10,12 +10,10 @@ import {
   calculateNextReview,
   COMPLETION_CONTACT_COUNT,
   formatDateForDB,
-  type ReviewIncidenceLevel,
 } from '@/utils/calculateNextReview';
 import { Topic } from '@/types';
 import { registerDualProgress, findSiblingTopicIds } from '@/services/cycleMergeService';
 import { syncMergedTopicProgress } from '@/services/topicMergeProgressService';
-import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 import { fetchTopicExamDate, getOverdueDays } from '@/services/topicReviewScheduleService';
 import { getReviewStage } from '@/utils/reviewStage';
 import { getTopicStudySessionContactType } from '@/utils/studySessionContactType';
@@ -41,8 +39,6 @@ export const useTopicReview = () => {
     reviewCount: number;
     isCompleting: boolean;
     duration?: number;
-    strategicIncidenceLabel?: string | null;
-    strategicIncidenceDescription?: string | null;
   }>({
     isOpen: false,
     topicId: '',
@@ -54,8 +50,6 @@ export const useTopicReview = () => {
     reviewCount: 0,
     isCompleting: false,
     duration: 0,
-    strategicIncidenceLabel: null,
-    strategicIncidenceDescription: null
   });
 
   // Nova função para abrir o modal de revisão (SEM marcar ainda)
@@ -74,10 +68,6 @@ export const useTopicReview = () => {
       if (!data) throw new Error('Tópico não encontrado');
 
       const topic = data as unknown as Topic;
-      const strategicIncidence = getTopicStrategicIncidence({
-        totalVolume: topic.total_volume ?? null,
-      });
-
       const currentReviewCount = topic.review_count || 0;
       const nextReviewCount = currentReviewCount + 1;
       let reviewStage = '';
@@ -111,10 +101,6 @@ export const useTopicReview = () => {
         reviewCount: nextReviewCount,
         isCompleting: nextReviewCount >= COMPLETION_CONTACT_COUNT,
         duration,
-        strategicIncidenceLabel: strategicIncidence.showToStudent ? strategicIncidence.label : null,
-        strategicIncidenceDescription: strategicIncidence.showToStudent
-          ? 'Cobrança alta detectada no mapa do edital.'
-          : null
       });
 
     } catch (error) {
@@ -184,9 +170,6 @@ export const useTopicReview = () => {
         pastReviews,
       );
 
-      const incidenceLevel = ['low', 'medium', 'high'].includes(String(topic.incidence_level))
-        ? topic.incidence_level as ReviewIncidenceLevel
-        : null;
       const overdueDays = getOverdueDays(topic.next_review, new Date());
 
       // Aplicar o programa adaptativo de quatro revisões.
@@ -199,7 +182,6 @@ export const useTopicReview = () => {
         examDate,
         trendDelta,
         overdueDays,
-        incidenceLevel,
         metrics: {
           memoryStability: stability,
           currentInterval: currentInt,
@@ -384,8 +366,6 @@ export const useTopicReview = () => {
       reviewStage: '',
       reviewCount: 0,
       isCompleting: false,
-      strategicIncidenceLabel: null,
-      strategicIncidenceDescription: null
     });
   };
 
@@ -401,8 +381,6 @@ export const useTopicReview = () => {
       reviewCount: 0,
       isCompleting: false,
       duration: 0,
-      strategicIncidenceLabel: null,
-      strategicIncidenceDescription: null
     });
   };
 

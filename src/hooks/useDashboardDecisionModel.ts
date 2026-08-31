@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays, format, isAfter, parseISO, startOfDay, subDays } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -13,26 +13,28 @@ import {
   buildDashboardPace,
   buildNextBestAction,
   buildProgressSummary,
-  getChargeCoverageState,
-  getChargeSummary,
   getDashboardEditalIdentity,
-  getDifficultySummary,
   getNextCycleActions,
+  getDashboardDataIssues,
+  getDashboardCriticalError,
   normalizeReminderDate,
-  getStrategicHighChargeActions,
+  resolveDashboardNavigation,
 } from '@/utils/dashboardDecision';
 import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
 import { toastManager } from '@/utils/toastManager';
 import type {
-  DashboardActivityDay,
   DashboardCycleSubject,
   DashboardDecisionModel,
+  DashboardNavigate,
+  DashboardDataIssueSource,
   DashboardReminder,
+  DashboardRecentPaceDay,
   DashboardReviewTopic,
 } from '@/types/dashboardDecision';
 import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
 
 const toLocalDate = (date: string) => (date.length === 10 ? parseISO(date) : new Date(date));
+const DASHBOARD_PACE_WINDOW_DAYS = 7;
 
 const toReviewTopic = (topic: {
   id: string;
@@ -57,23 +59,14 @@ const toReviewTopic = (topic: {
 });
 
 interface DashboardActivityHistoryRow {
-  id: string;
   topic_id: string | null;
   review_stage: string | null;
   reviewed_at: string;
-  study_duration_minutes: number | null;
-  difficulty_numeric: number | null;
-  topics:
-    | {
-        name: string;
-        subjects: { name: string } | null;
-      }
-    | null;
 }
 
-const buildActivityDays = (rows: DashboardActivityHistoryRow[], days: number): DashboardActivityDay[] => {
+const buildActivityDays = (rows: DashboardActivityHistoryRow[], days: number): DashboardRecentPaceDay[] => {
   const today = startOfDay(new Date());
-  const map = new Map<string, DashboardActivityDay>();
+  const map = new Map<string, DashboardRecentPaceDay>();
 
   for (let index = days - 1; index >= 0; index -= 1) {
     const date = format(subDays(today, index), 'yyyy-MM-dd');
@@ -81,14 +74,8 @@ const buildActivityDays = (rows: DashboardActivityHistoryRow[], days: number): D
       date,
       studiedCount: 0,
       reviewedCount: 0,
-      questionsCount: 0,
-      totalDurationMinutes: 0,
-      difficultyAverage: null,
-      entries: [],
     });
   }
-
-  const difficultyByDay = new Map<string, number[]>();
 
   for (const row of rows) {
     const date = format(startOfDay(new Date(row.reviewed_at)), 'yyyy-MM-dd');
@@ -96,38 +83,14 @@ const buildActivityDays = (rows: DashboardActivityHistoryRow[], days: number): D
     if (!day) continue;
 
     const stage = String(row.review_stage || '').toLowerCase();
-    const type: 'study' | 'review' | 'questions' =
-      stage.includes('quest') ? 'questions' : row.review_stage === 'Primeiro Contato' || row.review_stage === 'first_contact' ? 'study' : 'review';
+    const type = stage.includes('quest')
+      ? 'questions'
+      : row.review_stage === 'Primeiro Contato' || row.review_stage === 'first_contact'
+        ? 'study'
+        : 'review';
 
     if (type === 'study') day.studiedCount += 1;
     if (type === 'review') day.reviewedCount += 1;
-    if (type === 'questions') day.questionsCount += 1;
-
-    const duration = row.study_duration_minutes ?? 0;
-    day.totalDurationMinutes += duration;
-
-    if (typeof row.difficulty_numeric === 'number') {
-      const current = difficultyByDay.get(date) ?? [];
-      current.push(row.difficulty_numeric);
-      difficultyByDay.set(date, current);
-    }
-
-    const topic = row.topics;
-    day.entries.push({
-      id: row.id,
-      topicId: row.topic_id,
-      topicName: topic?.name || 'Tópico registrado',
-      subjectName: topic?.subjects?.name ?? null,
-      durationMinutes: duration,
-      reviewedAt: row.reviewed_at,
-      type,
-    });
-  }
-
-  for (const [date, values] of difficultyByDay.entries()) {
-    const day = map.get(date);
-    if (!day || values.length === 0) continue;
-    day.difficultyAverage = values.reduce((sum, value) => sum + value, 0) / values.length;
   }
 
   return Array.from(map.values());
@@ -139,8 +102,7 @@ export const useDashboardDecisionModel = () => {
   const queryClient = useQueryClient();
   const reviewsData = useReviewsData();
   const cycleData = useStudyCycleData();
-  const { editaisData, editaisNoCiclo, isLoading: isEditaisLoading } = useEditalOriginsWithMerge();
-  const [activityRange, setActivityRange] = useState<7 | 14 | 30>(7);
+  const { editaisData, editaisNoCiclo, isLoading: isEditaisLoading, error: editaisError } = useEditalOriginsWithMerge();
 
   const activeEdital = editaisNoCiclo[0];
   const hasActiveCycle = Boolean(cycleData.userCycle?.ciclo_atual?.length);
@@ -170,8 +132,6 @@ export const useDashboardDecisionModel = () => {
           nextReview: topic.nextReviewDate ?? null,
           difficultyLevel:
             topic.difficulty === 'EASY' ? 1 : topic.difficulty === 'HARD' ? 3 : topic.difficulty === 'MEDIUM' ? 2 : null,
-          totalVolume: topic.totalVolume ?? null,
-          incidenceLevel: topic.incidenceLevel ?? null,
         })),
       })),
     [cycleData.studyCycleSubjects],
@@ -193,13 +153,9 @@ export const useDashboardDecisionModel = () => {
   }, [examDate, futureReviews]);
 
   const cycleActions = useMemo(() => getNextCycleActions(dashboardSubjects, 3), [dashboardSubjects]);
-  const strategicActions = useMemo(() => getStrategicHighChargeActions(dashboardSubjects, 2), [dashboardSubjects]);
-  const chargeCoverage = useMemo(() => getChargeCoverageState(dashboardSubjects), [dashboardSubjects]);
-  const chargeSummary = useMemo(() => getChargeSummary(dashboardSubjects), [dashboardSubjects]);
-  const difficultySummary = useMemo(() => getDifficultySummary(dashboardSubjects), [dashboardSubjects]);
   const progressSummary = useMemo(() => buildProgressSummary(dashboardSubjects), [dashboardSubjects]);
 
-  const { data: reminders = [], isLoading: isRemindersLoading } = useQuery({
+  const { data: reminders = [], isLoading: isRemindersLoading, error: remindersError, refetch: refetchReminders } = useQuery({
     queryKey: ['dashboard-reminders', user?.id],
     queryFn: async (): Promise<DashboardReminder[]> => {
       if (!user?.id) return [];
@@ -226,32 +182,17 @@ export const useDashboardDecisionModel = () => {
     enabled: Boolean(user?.id),
   });
 
-  const { data: activityDays = [], isLoading: isActivityLoading } = useQuery({
-    queryKey: ['dashboard-activity-days', user?.id, activityRange, activeTopicScope.scopeKey],
+  const { data: activityDays = [], isLoading: isActivityLoading, error: activityError, refetch: refetchActivity } = useQuery({
+    queryKey: ['dashboard-recent-pace', user?.id, activeTopicScope.scopeKey],
     queryFn: async () => {
       if (!user?.id) return [];
-      if (!activeTopicScope.hasScopedData) return buildActivityDays([], activityRange);
-      const start = startOfDay(subDays(new Date(), activityRange - 1)).toISOString();
+      if (!activeTopicScope.hasScopedData) return buildActivityDays([], DASHBOARD_PACE_WINDOW_DAYS);
+      const start = startOfDay(subDays(new Date(), DASHBOARD_PACE_WINDOW_DAYS - 1)).toISOString();
       const end = addDays(startOfDay(new Date()), 1).toISOString();
 
       const { data, error } = await supabase
         .from('topic_review_history')
-        .select(`
-          id,
-          topic_id,
-          review_stage,
-          reviewed_at,
-          study_duration_minutes,
-          difficulty_numeric,
-          topics (
-            id,
-            name,
-            subjects (
-              id,
-              name
-            )
-          )
-        `)
+        .select('topic_id, review_stage, reviewed_at')
         .eq('user_id', user.id)
         .in('topic_id', activeTopicScope.activeTopicIds)
         .gte('reviewed_at', start)
@@ -264,10 +205,13 @@ export const useDashboardDecisionModel = () => {
           (data || []) as unknown as DashboardActivityHistoryRow[],
           activeTopicScope.activeTopicIds,
         ),
-        activityRange,
+        DASHBOARD_PACE_WINDOW_DAYS,
       );
     },
     enabled: Boolean(user?.id && hasActiveCycle),
+    // Estudo e revisão acontecem em outras rotas. Reconciliar ao voltar evita
+    // comparar a meta com uma janela recente ainda válida apenas no cache.
+    refetchOnMount: 'always',
   });
 
   const addReminder = useMutation({
@@ -366,10 +310,10 @@ export const useDashboardDecisionModel = () => {
         overdueReviews,
         todayReviews,
         cycleActions,
-        strategicActions,
+        strategicActions: [],
         hasActiveCycle,
       }),
-    [cycleActions, hasActiveCycle, overdueReviews, strategicActions, todayReviews],
+    [cycleActions, hasActiveCycle, overdueReviews, todayReviews],
   );
 
   const actionQueue = useMemo(
@@ -378,10 +322,10 @@ export const useDashboardDecisionModel = () => {
         overdueReviews,
         todayReviews,
         cycleActions,
-        strategicActions,
+        strategicActions: [],
         limit: 4,
       }).filter((action) => action.id !== nextBestAction.id),
-    [cycleActions, nextBestAction.id, overdueReviews, strategicActions, todayReviews],
+    [cycleActions, nextBestAction.id, overdueReviews, todayReviews],
   );
 
   const daysRemaining = pace.daysRemaining;
@@ -400,9 +344,16 @@ export const useDashboardDecisionModel = () => {
     hasActiveCycle,
   });
 
+  const criticalError = getDashboardCriticalError({
+    reviewsError: reviewsData.error,
+    cycleError: cycleData.error,
+    editaisError,
+  });
+
   const model: DashboardDecisionModel = {
     isLoading: reviewsData.isLoading || cycleData.isLoading || isEditaisLoading || isRemindersLoading || (hasActiveCycle && isActivityLoading),
-    error: reviewsData.error,
+    error: criticalError,
+    dataIssues: getDashboardDataIssues({ activityError, remindersError }),
     studyEntryState,
     examContext: {
       editalName: cycleDisplayName || editalIdentity.editalName,
@@ -418,9 +369,6 @@ export const useDashboardDecisionModel = () => {
     continueCycleItems: cycleActions,
     reminders,
     activityDays: hasActiveCycle ? activityDays : [],
-    chargeCoverage,
-    chargeSummary,
-    difficultySummary,
     progressSummary,
     totals: {
       overdueReviews: overdueReviews.length,
@@ -433,17 +381,33 @@ export const useDashboardDecisionModel = () => {
     },
   };
 
+  const navigateToAction: DashboardNavigate = (href, target) => {
+    const destination = resolveDashboardNavigation(href, target, hasActiveCycle ? dashboardSubjects : []);
+    if (destination.unavailable) {
+      toastManager.error('Este tópico ou matéria não está mais no ciclo ativo. Confira a fila atual.');
+      return;
+    }
+    navigate(destination.href, destination.state ? { state: destination.state } : undefined);
+  };
+
+  const retryDashboardDataIssue = async (source: DashboardDataIssueSource) => {
+    if (source === 'activity') {
+      await refetchActivity();
+      return;
+    }
+    await refetchReminders();
+  };
+
   return {
     model,
-    activityRange,
-    setActivityRange,
     addReminder: (text: string, reminderDate: string | null) => addReminder.mutateAsync({ text, reminderDate }),
     toggleReminder: (id: string, completed: boolean) => toggleReminder.mutateAsync({ id, completed }),
     deleteReminder: (id: string) => deleteReminder.mutateAsync(id),
     updateCycleName: (name: string) => updateCycleName.mutateAsync(name),
     isAddingReminder: addReminder.isPending,
     isUpdatingCycleName: updateCycleName.isPending,
-    navigateToAction: (href: string) => navigate(href),
+    navigateToAction,
+    retryDashboardDataIssue,
     isTogglingReminder: toggleReminder.isPending,
     isDeletingReminder: deleteReminder.isPending,
   };

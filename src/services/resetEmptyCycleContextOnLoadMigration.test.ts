@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260712172622_reset_empty_cycle_context_on_load.sql',
+  'supabase/migrations_legacy/20260712172622_reset_empty_cycle_context_on_load.sql',
 );
 
 const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim().toLowerCase();

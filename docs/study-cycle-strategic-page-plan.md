@@ -53,6 +53,7 @@ Este plano e a referencia de implementacao da pagina Ciclo de Estudos. A pagina 
 - [x] Foi criada persistencia de snapshots por ciclo fechado para comparacoes futuras.
 - [x] Insights nao repetem metricas do card do ciclo; execucao fica no card de ciclo, estrategia fica em cobranca/peso.
 - [x] Continuar topico ja iniciado nao conta como topico novo no ciclo.
+- [x] Painel de conclusao de rodada/primeiro contato destaca o contraste de dedicacao: exibe a materia com maior tempo e a materia com menor tempo na rodada (quando houver mais de uma materia estudada com tempos distintos).
 - [x] Criar camada de alertas estrategicos reais a partir de dados confiaveis.
 - [x] Salvar historico de uso/ordem real de estudo no ciclo para sugerir reorganizacao sem alterar a fila automaticamente.
 - [x] Criar metrica unificada de ritmo ate a prova para exibir na pagina Ciclo, na pagina Revisoes e no Painel: abaixo do titulo do painel/area estrategica, mostrar quantos dias faltam para a prova, quantos dias restam para iniciar os topicos novos ate a prova e quantos topicos novos por dia seriam necessarios. O calculo deve usar dados reais disponiveis: topicos ativos ainda nao iniciados, data da prova, historico real de inicio/primeiro contato, tempo medio real para iniciar um novo topico quando existir e ritmo recente do aluno. Se nao houver dados suficientes, mostrar estado honesto e nao inventar previsao.
@@ -62,6 +63,11 @@ Este plano e a referencia de implementacao da pagina Ciclo de Estudos. A pagina 
   - [x] Corrigir o escopo canonico das metricas contextuais para impedir vazamento de historico global quando o usuario troca/carrega edital no ciclo: Painel (`Sua trajetoria`, `Consistencia recente`), Revisoes (`Tendencia de estudos`, `Engajamento semanal`) e qualquer resumo de ritmo/contexto devem filtrar apenas topicos ativos/visiveis do `user_cycles.ciclo_atual`. Implementacao aplicada em Dashboard, Revisoes, `useCycleStatsData`, `useRealStatistics` e pagina Ciclo; topicos sem `difficulty_level` nao entram mais automaticamente como `medio`; tempo total de Estatisticas deixou de inflar dado real com estimativa por dificuldade. Spec em `docs/superpowers/specs/2026-06-22-cycle-analytics-scope-design.md`.
 
 ## Painel de decisao do aluno
+
+- [ ] Executar a reorganização incremental aprovada em 2026-08-28 conforme
+  [Painel, Treino e Evolução](painel-treino-evolucao-plan.md), começando pelo card
+  de próxima ação e preservando histórico, prioridade e integrações até validar
+  seus destinos. Os itens abaixo registram entregas anteriores, não este novo gate.
 
 - [x] Redesenhar `/dashboard` como painel de decisao, priorizando: atrasos, proxima acao, fila curta, ritmo ate a prova e evolucao.
 - [x] Usar a fila real de revisoes e a ordem salva do ciclo, sem reordenar materias automaticamente.
@@ -391,7 +397,7 @@ Os alertas devem apoiar decisao, nao comandar o aluno.
 - [x] Evitar alertas grandes, repetitivos ou culpabilizantes.
 - [x] Nao transformar ausencia de peso/incidencia em problema quando a IA ainda nao gerou dado e o aluno nao pode agir.
 - [x] Transformar alertas consecutivos de materias importantes em uma pilha explicita de prioridades: destacar a materia a iniciar agora, antecipar as proximas materias ordenadas por peso e preservar a fila manual do aluno. `studyCycleAlerts` agora entrega as tres materias ponderadas ainda sem primeiro contato, ordenadas por peso; o painel mostra `Agora` e `Depois, na ordem de peso`, permitindo abrir qualquer materia sem reordenar `ciclo_atual`. Teste de ordenacao, lint, typecheck, build e `git diff --check` aprovados.
-- [ ] Validar visualmente, em uma sessao madura com prioridades ativas, a transicao real de `Agora` para a proxima materia apos concluir o primeiro contato. A sessao autenticada atual esta em `cold_start` e, corretamente, nao mostra alertas estrategicos.
+- [ ] Validar visualmente, em uma sessao madura com prioridades ativas, a transicao real de `Agora` para a proxima materia apos concluir o primeiro contato. A validação autenticada em 2026-08-31 confirmou a prioridade real e a ordem por peso (`Inspeção Industrial` → `Defesa Sanitária` → `Outras Legislações`); `Iniciar matéria` direciona ao bloco prioritário sem criar estudo automático. Falta concluir um tópico nesse recorte para confirmar a troca de `Agora`.
 
 ### Alertas calculaveis agora
 
@@ -674,6 +680,22 @@ Esta camada transforma o ciclo em orientacao diaria concreta: quantos topicos in
 - [x] Usar eventos para detectar concentracao ou negligencia de materias importantes.
 - [x] Preparar sugestao manual de reorganizacao da fila com base no historico.
 
+### Decisão de produto — incidência retirada em 2026-08-30
+
+- [x] Cancelar a POC, a fila automática e qualquer alimentação manual de
+  provas, bancas, matérias ou tópicos. O custo e a operação não sustentam a
+  margem nem a autonomia esperada para o lançamento.
+- [x] Remover as rotas e a navegação de `Importância em Prova`.
+- [x] Remover incidência/cobrança do Painel, Ciclo, Revisões, Evolução, Mentor,
+  Treino e do motor de agendamento de revisões.
+- [x] Manter peso explícito do edital, atraso, dificuldade, desempenho,
+  histórico e data da prova como sinais sustentáveis de personalização.
+- [x] Limpeza física da incidência concluída na migration `20260830130908_remove_incidence_legacy`: tabelas, constraints, índice e colunas `topics.incidence_*` removidos; serviços/componentes locais antigos excluídos; a Edge Function remota `process-topic-incidence` foi removida; os tipos Supabase foram regenerados. Os campos antigos de volume/auditoria permanecem reservados para a limpeza geral final por ainda integrarem a RPC legada `get_all_topics_admin`.
+
+As fases 3.7 e 3.8 abaixo ficam preservadas apenas como histórico do experimento;
+seus itens abertos não pertencem mais ao backlog ativo. A decisão atual e seus
+critérios estão em `docs/incidence-metric-contract.md`.
+
 ### Fase 3.7: Incidencia/cobranca automatizada dos topicos
 
 - [x] Revisar o fluxo atual que gera o valor de cobranca do topico.
@@ -806,6 +828,7 @@ Pagina atual de referencia: `/admin/importancia-prova`.
   - Quando outro edital/aluno recriar topico equivalente com mesma materia/banca, o sistema deve reaproveitar `topic_incidence_catalog`.
   - Antes de criar limpeza futura de catalogo, exigir regra de retencao e nunca apagar catalogo apenas porque um aluno removeu edital.
 - [ ] Criar modelo de pontuacao de incidencia mais estavel que contagem bruta de resultados:
+  - [x] Consolidar o contrato de produto, evidencia e recomendacao em [incidence-metric-contract.md](incidence-metric-contract.md), mantendo busca como descoberta e bloqueando recomendacao baseada em volume bruto.
   - Usar volume bruto apenas como sinal.
   - Nao tratar `totalResults` do Google como quantidade confirmada de questoes/provas; isso e apenas volume bruto de resultados encontrados.
   - [x] Ajustar UI para comunicar o dado como `sinal bruto`/`volume bruto encontrado`, nao como questoes confirmadas.
@@ -824,6 +847,8 @@ Pagina atual de referencia: `/admin/importancia-prova`.
   - [x] Gravar `worker_version` no contexto da incidencia para rastrear quais resultados vieram de cada estrategia de busca.
   - [ ] Validar lote real da versao `2026-06-05-broad-board-query-budget` para confirmar se o custo continua baixo sem aumentar falsos `Sinal 0`.
     - Evidencia parcial: primeiro teste real processou 1 topico, `ai: 1`, `zero: 0`, `errors: 0`.
+    - Evidencia adicional em 2026-08-30: lote manual do edital PCDF/Cebraspe processou 2 topicos, com 1 reaproveitado do catalogo e 1 via IA; a execucao consumiu 3 buscas da cota diaria e persistiu os dois resultados. O retorno de busca (`536` para morfossintaxe) confirma que `totalResults` e somente sinal bruto: nao e numero confirmado de questoes cobradas e nao pode, sozinho, sustentar recomendacao forte ao aluno.
+    - Gate de produto: manter o processamento manual/admin e a exibicao conservadora enquanto nao forem definidos fonte de evidencia, regra de deduplicacao, confianca, politica de cota e como o sinal se combina com atraso, dificuldade e desempenho para recomendar uma proxima acao. Nao habilitar cron nem apresentar essa metrica como incidencia real antes desse fechamento.
   - [ ] Criar reprocessamento controlado dos topicos `Sinal 0` gerados pela versao restritiva `2026-06-04-search-budget-per-topic`.
     - [x] Adicionar botao manual por linha para processar um topico especifico, permitindo reteste controlado.
   - [ ] Avaliar arquitetura de longo prazo baseada em banco proprio de questoes/provas por banca/materia/topico, reduzindo dependencia de busca web em tempo real.
@@ -941,6 +966,12 @@ Decisao de produto: flashcards/questoes nao devem ser gerados automaticamente pa
 
 ### Fase 4: Limpeza de revisao e polimento
 
+- [x] Corrigir ordem de apresentação dos tópicos numerados no Ciclo. Prefixos
+  explícitos do edital agora usam ordenação natural (`1`, `1.1`, `2`, `11`) em
+  fila e modo edital, mesmo quando posições antigas estejam invertidas. Tópicos
+  sem prefixo mantêm posição manual e data como fallback. Não houve mutação de
+  posições no banco; validação autenticada em 2026-08-31 confirmou a sequência
+  visível `1` a `6` na matéria afetada.
 - [x] Remover ou reduzir informacoes de revisao nesta pagina.
 - [x] Ajustar estados vazios.
 - [x] Corrigir o Painel para nao exibir metricas, mapas ou historico de atividade quando nao houver edital carregado no ciclo: o estado `missing_cycle` agora mostra apenas o direcionamento para carregar o edital, a consulta de atividade fica desabilitada sem ciclo ativo e qualquer valor antigo em cache e zerado no modelo visual.
@@ -1129,7 +1160,13 @@ As partes pesadas ficam para depois: motor definitivo de cobranca/incidencia, au
 - [x] Integrar `Minha assinatura` ao tema global: remover canvas e cores fixas que forçam superfície clara no modo escuro e compactar o espaçamento vertical para não criar rolagem sem conteúdo em monitores baixos. Concluído em 2026-08-20: a página passou a usar tokens semânticos do tema, sem canvas ou blur próprios; a oferta foi condensada sem ocultar conteúdo. Validado no navegador em 1366x768, nos modos claro e escuro, com altura rolável igual à altura visível e sem overflow horizontal.
 - [x] Configurar no Stripe em modo de teste os produtos/preços mensal e anual, o Customer Portal e o endpoint de webhook; não ativar produção antes da matriz ponta a ponta. Concluído em 2026-07-31: produto e preços recorrentes mensal/anual configurados no sandbox, Customer Portal limitado a cartão/faturas/cancelamento no fim do período, branding provisório aplicado e destino de webhook criado com 13 eventos financeiros. A assinatura e a entrega foram validadas ponta a ponta com `checkout.session.expired`, resposta HTTP 200 e evento processado uma única vez no ledger local. Produção Stripe continua bloqueada até a matriz completa.
 - [x] Recriar a homologação na conta Stripe oficial escolhida pelo responsável (`vouRevisar PF`) antes de trocar qualquer secret do projeto: em 2026-08-17, o catálogo Test estava vazio. O produto `vouRevisar — Acesso Completo` e os preços de lançamento recorrentes já foram criados em Test (`R$ 12,90/mês` e `R$ 99,90/ano`); o destino `vourevisar-supabase-test` foi criado com os 13 eventos processados pelo código e seu segredo de assinatura foi salvo no cofre do Supabase. Em 2026-08-18, os quatro secrets de sandbox foram alinhados entre Supabase/Vercel e o projeto Vercel foi redeployado pelo painel; `stripe-catalog` respondeu 200. O `stripe-create-portal` ainda falhava porque `billing_customers` continha IDs da conta Stripe anterior; a função passou a reconciliar clientes por conta e foi publicada na versão 25. A validação seguinte respondeu HTTP 200 e abriu o Customer Portal. O histórico de faturas também passou a tratar IDs antigos como histórico vazio, sem erro 500, e foi publicado na versão 22.
-- [ ] Ativar a conta Live oficial `vouRevisar PF` após a análise do Stripe: em 2026-08-17, o dashboard informou que funcionalidades de pagamento estão pausadas enquanto revisa as informações, com prazo indicado de 2 a 3 dias. A conta foi deliberadamente escolhida como `Pessoa Física`; confirmar CPF, titularidade bancária e requisitos fiscais diretamente no Stripe, sem enviar documentos sensíveis por chat. Quando o status permitir receber pagamentos, criar separadamente os produtos/preços/webhook Live e só então trocar os secrets de produção.
+- [x] Ativar a conta Live oficial `vouRevisar PF` após a análise do Stripe.
+  Verificado diretamente no dashboard em 2026-08-31: Payments está ativado,
+  o produto Live `vouRevisar — Acesso Completo` possui os preços recorrentes
+  de R$ 12,90/mês e R$ 99,90/ano, e o endpoint ativo
+  `stripe-webhook` entrega ao Supabase com 0% de falhas. A confirmação de CPF,
+  titularidade bancária e requisitos fiscais permaneceu no painel Stripe, sem
+  expor documentos ou secrets no produto.
 - [x] Aplicar a migration Stripe no Supabase, configurar secrets das Edge Functions, publicar as quatro funções e regenerar `src/integrations/supabase/types.ts`. Concluído em 2026-07-31: migration aplicada no projeto remoto, RLS/grants/RPC verificados, secrets de sandbox configurados, `stripe-catalog`, `stripe-create-checkout`, `stripe-create-portal` e `stripe-webhook` publicados com autenticação adequada e tipos TypeScript regenerados a partir do schema remoto.
 - [x] Corrigir a fronteira de geração do cliente Stripe no checkout e no painel administrativo. Em 2026-08-19, assinaturas antigas vinculadas a outro Customer/conta deixaram de aparecer como acesso atual, bloquear nova contratação ou preencher valor/cartão/cancelamento; continuam apenas como histórico imutável. A RPC canônica, `admin-billing` e `stripe-create-checkout` passaram a exigir o Customer Stripe atual e `updated_at` da geração vigente. A migration remota e as Edge Functions foram publicadas; a validação em `www.vourevisar.com.br` mostrou `/planos` em R$ 12,90/R$ 99,90, checkout Elements montado sem erro e `/conta/assinatura` ainda sem acesso após somente abrir o checkout.
 - [x] Reconciliar com migration auditável os vínculos históricos de `billing_subscriptions` que ficaram associados a `billing_customers` do modo oposto. Em 2026-08-24, a migration `20260824134752_reconcile_live_subscription_customer_mapping.sql` corrigiu exclusivamente o vínculo confirmado de `vourevisar@proton.me`: a assinatura Live `sub_1U68zGQ2ZdcaFdY4unbQPnNB` passou a apontar ao Customer interno Live `cus_V6AYqAzb7X1thG`. A validação remota confirmou `livemode=true`, status `active`, plano mensal e período até 2026-09-19. Não houve chamada à Stripe nem alteração de cobrança, cancelamento, reembolso, plano ou acesso. A divergência histórica Test de outro usuário permanece isolada para diagnóstico próprio, sem afetar Live.
@@ -1144,7 +1181,15 @@ As partes pesadas ficam para depois: motor definitivo de cobranca/incidencia, au
 - [x] Refinar a leitura administrativa de divulgação sem alterar a autoridade financeira da Stripe: deixar explícito o filtro já existente por divulgador e incluir filtros locais por plano e status; ordenar os indicadores por operação de repasse (disponível, em carência, repassado, reversões e vendas); mostrar divulgador/código na tabela e o código na linha do tempo administrativa de pagamento para justificar descontos. O aluno continua vendo apenas valor efetivamente pago, cartão e situação da cobrança — nunca o código de divulgação ou a comissão. Implementado e publicado no Supabase Live/Vercel em 2026-08-24; tipagem, teste de fronteira Stripe, lint e build passaram. A confirmação visual em sessão de proprietário foi recebida em 2026-08-24.
 - [x] Manter o domínio Stripe sem dependência operacional do Asaas. A ponte temporária de períodos legados foi descartada em 2026-07-31 porque não existem usuários reais pagos: `/planos` passou a consumir exclusivamente o catálogo e o resumo do billing Stripe, `stripe-create-checkout` deixou de consultar `user_subscriptions` e os grants de origem `migration` foram revogados pela migration `20260731171535_revoke_legacy_billing_bridge.sql`. O histórico técnico da migration anterior permanece apenas para rastreabilidade.
 - [x] Fixar o lançamento Stripe em cartão recorrente apenas. Confirmado em 2026-08-05: o Checkout aceita somente `card`; mensal e anual permanecem assinaturas recorrentes, com renovação, falha, cancelamento e acesso conduzidos pelo mesmo contrato já homologado. Não há Pix parcialmente habilitado, link paralelo nem tentativa de simular recorrência por cobrança manual.
-- [ ] Antes de habilitar produção Stripe, configurar chaves, preços e webhook de produção separados do sandbox, publicar por um único caminho reprodutível e repetir a matriz crítica com uma conta de produção controlada. Parcial em 2026-08-05: as seis Edge Functions Stripe publicadas foram baixadas para comparação isolada; catálogo, checkout, portal, histórico e admin já coincidiam, e o webhook local foi atualizado com a mesma resolução de cobrança via PaymentIntent presente no remoto. Decisão confirmada em 2026-08-19: manter um único projeto Supabase e concluir toda a validação em Stripe Teste antes do corte; não criar segundo projeto nem adicionar custo. Como os secrets das Edge Functions são globais por projeto, Teste e Live não funcionarão simultaneamente: no corte aprovado, criar os recursos Live, trocar uma única vez os quatro secrets Stripe e a chave pública Vercel, publicar e repetir apenas a matriz mínima em Live. Até esse corte, não usar chaves Live no projeto compartilhado e não misturar `pk_test` com `sk_live`.
+- [x] Configurar a produção Stripe separada do sandbox e validar o corte
+  financeiro. Em 2026-08-31, a inspeção do dashboard confirmou produto/preços
+  Live, segredo de assinatura e endpoint Live ativos; o Supabase possui os
+  secrets `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_LIVEMODE`,
+  `STRIPE_MONTHLY_PRICE_ID` e `STRIPE_ANNUAL_PRICE_ID`, e as funções Stripe
+  necessárias estão ativas. O catálogo consumido pelo produto retornou os dois
+  preços Live corretos. Não trocar secrets, preços ou webhook enquanto houver
+  assinaturas Live ativas; qualquer mudança futura deve ser um corte novo e
+  controlado.
 - [x] Publicar o frontend de homologação Stripe no domínio oficial mantendo a Stripe em sandbox. Concluído em 2026-07-31: variável publicável configurada na Vercel, CSP limitada aos endpoints oficiais necessários ao Stripe.js/Payment Element, build remoto promovido para `www.vourevisar.com.br` e `/conta/assinatura` validada em produção. Um build pré-compilado local com placeholders `[SENSITIVE]` foi detectado pela checagem visual e substituído por build remoto na Vercel. Enquanto as variáveis cliente estiverem marcadas como Sensitive, publicar este projeto com `vercel deploy --prod`, sem `vercel build --prod` local seguido de `--prebuilt`. Em 2026-08-06, a revisão Stripe atual foi publicada diretamente no domínio oficial, que passou a servir o bundle novo; o preflight de `stripe-catalog`, `stripe-create-checkout` e `stripe-create-portal` foi confirmado com origem `https://www.vourevisar.com.br` e resposta `204`. O Preview permanece fora do escopo de homologação por ter origem própria não autorizada no CORS.
 - [x] Validar no modo de teste: renovação, `past_due`, cancelamento no fim do período, estorno vigente, estorno antigo e disputa; confirmar de forma isolada que retorno do checkout sem webhook não libera acesso. Concluído em 2026-08-05: cartão aprovado, recusa (`card_declined`), 3DS obrigatório, cancelamento, reativação, falha de renovação via Test Clock, estorno vigente, estorno antigo e disputa perdida/vencida foram validados na mesma cadeia de assinatura, webhook e estado local. Todas as entregas relevantes chegaram ao endpoint com HTTP 200 e a liberação permaneceu exclusiva da visão canônica pós-webhook. Nesta revisão final, as seis funções Stripe remotas foram comparadas ao fonte local; o único desvio era o fallback do webhook por PaymentIntent, já existente no remoto, restaurado localmente e coberto por teste de regressão.
 - [x] Concluir o primeiro pagamento real de sandbox com Stripe Elements. Concluído em 2026-08-01: a assinatura mensal de teste foi paga com cartão oficial de sandbox, o retorno permaneceu aguardando a verdade local, `customer.subscription.created` e `checkout.session.completed` foram processados uma única vez no ledger, e o evento `invoice.paid` mais antigo foi ignorado corretamente pela proteção contra eventos fora de ordem. A RPC passou a devolver plano mensal ativo, período até 2026-09-01 e cartão Visa final 4242; `/conta/assinatura` refletiu os mesmos dados e o Customer Portal abriu com assinatura, forma de pagamento, fatura paga e cancelamento disponíveis. Antes da conclusão, foram corrigidos o nome do modo (`elements`), o namespace idempotente, a duplicação de `returnUrl` no `confirm()` e a liberação do loading em exceções.

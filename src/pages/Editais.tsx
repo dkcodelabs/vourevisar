@@ -405,7 +405,9 @@ const Editais = () => {
                             Preservar histórico do edital
                         </span>
                         <span className="mt-2 block text-[10px] font-medium leading-relaxed text-content-muted">
-                            Mantém revisões, agenda e tópicos já iniciados deste edital. O ciclo anterior será substituído por uma fila nova.
+                            {cycleConflict.existingIds.length > 0
+                                ? 'Mantém revisões, agenda e tópicos já iniciados deste edital. O ciclo anterior será substituído por uma fila nova.'
+                                : 'Mantém revisões, agenda e tópicos já iniciados deste edital na sua nova fila de estudos.'}
                         </span>
                     </button>
 
@@ -1738,10 +1740,15 @@ const Editais = () => {
 
             // Notificações e Transição de Tela
             if (action === 'replace') {
+                const isReplacingExisting = cycleConflict.existingIds.length > 0;
                 toast.success(
-                    resumedReviewCount > 0
-                        ? `Ciclo substituído por "${edital.name}". A agenda de revisão foi retomada em ${resumedReviewCount} ${resumedReviewCount === 1 ? 'tópico' : 'tópicos'} após a pausa.`
-                        : `Ciclo substituído com sucesso por "${edital.name}".`,
+                    isReplacingExisting
+                        ? (resumedReviewCount > 0
+                            ? `Ciclo substituído por "${edital.name}". A agenda de revisão foi retomada em ${resumedReviewCount} ${resumedReviewCount === 1 ? 'tópico' : 'tópicos'} após a pausa.`
+                            : `Ciclo substituído com sucesso por "${edital.name}".`)
+                        : (resumedReviewCount > 0
+                            ? `Ciclo carregado com "${edital.name}". A agenda de revisão foi retomada em ${resumedReviewCount} ${resumedReviewCount === 1 ? 'tópico' : 'tópicos'}.`
+                            : `Ciclo carregado com sucesso com "${edital.name}".`),
                 );
             } else {
                 const currentStats = cycleConflict.hybridResult?.stats;
@@ -2844,7 +2851,7 @@ const Editais = () => {
                             <div className="absolute inset-0 pointer-events-none border border-white/[0.03] rounded-[32px]" />
                             {/* Overlay de processamento */}
                             {(isMerging || isAnalyzingTopics || isCycleFinalizationLocked) && cycleConflict.step !== 'success' && (
-                                <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-background/90 backdrop-blur-md animate-in fade-in duration-300 rounded-[28px]">
+                                <div className="absolute inset-0 z-[70] flex items-center justify-center p-6 bg-background/90 backdrop-blur-md animate-in fade-in duration-300 rounded-[28px]">
                                     <div className="flex flex-col items-center gap-6 text-center max-w-[280px]">
                                         <div className="relative">
                                             <div className="absolute -inset-4 rounded-full bg-success/20 blur-2xl animate-pulse" />
@@ -3507,15 +3514,6 @@ const Editais = () => {
                                                         </div>
                                                     </div>
 
-                                                    {cycleConflict.existingIds.length > 0 && cycleConflict.action === 'replace' && (
-                                                        <div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/10 p-3 text-primary">
-                                                            <Info size={14} className="mt-0.5 shrink-0" />
-                                                            <p className="text-[11px] font-medium leading-relaxed text-foreground/90">
-                                                                O ciclo anterior foi desativado e sua nova trilha de estudos está pronta para execução.
-                                                            </p>
-                                                        </div>
-                                                    )}
-
                                                     <div className="rounded-2xl bg-surface/70 p-3.5 dark:bg-surface/40">
                                                         <div className="grid gap-3 sm:grid-cols-3">
                                                             <div className="rounded-xl bg-background/70 px-3 py-2 dark:bg-modal/55">
@@ -3532,30 +3530,41 @@ const Editais = () => {
                                                             </div>
                                                         </div>
 
-                                                        <div className="mt-3 flex flex-wrap gap-1.5">
+                                                        <div className="mt-3 space-y-2">
                                                             {successCycleSources.map(source => (
-                                                                <span key={source.id} className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-background/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-tight text-foreground ring-1 ring-border/55 dark:bg-modal/65">
-                                                                    <Library size={10} className="shrink-0 text-primary" />
-                                                                    <span className="truncate">{formatCycleSourceName(source.name)}</span>
-                                                                    {source.position && (
-                                                                        <span className="hidden min-w-0 truncate text-content-muted sm:inline">
-                                                                            / {formatCycleSourceName(source.position)}
-                                                                        </span>
-                                                                    )}
-                                                                </span>
+                                                                <div
+                                                                    key={source.id}
+                                                                    className="flex items-start gap-2.5 rounded-xl bg-background/80 p-2.5 ring-1 ring-border/55 dark:bg-modal/65"
+                                                                >
+                                                                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
+                                                                        <Library size={12} />
+                                                                    </div>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="text-[11px] font-black uppercase tracking-tight text-foreground break-words leading-snug">
+                                                                            {formatCycleSourceName(source.name)}
+                                                                        </p>
+                                                                        {source.position && (
+                                                                            <p className="mt-0.5 text-[10px] font-semibold text-content-muted break-words leading-tight">
+                                                                                {formatCycleSourceName(source.position)}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             ))}
                                                         </div>
                                                     </div>
 
                                                     {cycleConflict.action === 'replace' ? (
-                                                        <div className="flex items-start gap-2 rounded-xl bg-primary/10 p-3 text-primary ring-1 ring-primary/20">
-                                                            <Info size={14} className="mt-0.5 shrink-0" />
-                                                            <div className="min-w-0">
-                                                                <p className="text-[11px] font-semibold leading-relaxed text-foreground">
-                                                                    O ciclo anterior foi substituído. A data usada será {cycleExamDateDraft ? formatExamDateLabel(cycleExamDateDraft) : 'definida depois'}.
-                                                                </p>
+                                                        cycleConflict.existingIds.length > 0 ? (
+                                                            <div className="flex items-start gap-2 rounded-xl bg-primary/10 p-3 text-primary ring-1 ring-primary/20">
+                                                                <Info size={14} className="mt-0.5 shrink-0" />
+                                                                <div className="min-w-0">
+                                                                    <p className="text-[11px] font-semibold leading-relaxed text-foreground">
+                                                                        O ciclo anterior foi substituído. A data usada será {cycleExamDateDraft ? formatExamDateLabel(cycleExamDateDraft) : 'definida depois'}.
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        ) : null
                                                     ) : (
                                                         <div className="grid gap-3 md:grid-cols-2">
                                                             <section className="rounded-2xl bg-surface/70 p-3.5 dark:bg-surface/40">

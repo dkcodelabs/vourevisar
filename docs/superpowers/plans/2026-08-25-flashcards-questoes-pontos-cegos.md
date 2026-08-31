@@ -791,7 +791,7 @@ Analytics não contém enunciado, resposta livre, anotação ou dado sensível.
 
 - [x] `/treino` concentra recomendação personalizada, flashcards vencidos e escolha manual.
 - [x] `/treino` abre questões, flashcards e pós-revisão na mesma sobreposição, sem navegação no fluxo normal.
-- [ ] Definir o fallback de deep link de sessão (`/pratica/:sessionId`) sem manter uma segunda experiência concorrente.
+- [x] Definir o fallback de deep link de sessão (`/pratica/:sessionId`) sem manter uma segunda experiência concorrente. Em 2026-08-29, a rota antiga passou a redirecionar para `/treino`; a execução canônica permanece na sobreposição autenticada até existir contrato seguro para hidratar uma sessão por ID.
 - [x] Revisões apenas encaminha o tópico por CTA contextual.
 - [x] O encerramento de `Parar e avaliar` é a descoberta contextual principal; `/treino` continua disponível na navegação.
 - [x] Dashboard e Ciclo não recebem novos cards no MVP.
@@ -1088,8 +1088,11 @@ Pendências antes de conectar dados reais:
 - [x] Ajustar múltipla escolha para alternativa vertical, com leitura e
   seleção no padrão de prova, preservando estados certo/errado e navegação por
   teclado.
-- [ ] Manter o verso fora do payload inicial do flashcard e explicar na UI que
+- [x] Manter o verso fora do payload inicial do flashcard e explicar na UI que
   `Revelar resposta` busca apenas o conteúdo já persistido, sem acionar IA.
+  Validado em 2026-08-29 no fluxo autenticado: a frente abriu sem o verso, o
+  clique exibiu `Abrindo resposta salva…` e a UI passou a informar
+  explicitamente `Busca o verso já salvo. Não usa IA.`
 - [x] Diferenciar falhas do provedor no ledger e na UI sem vazar prompt, nota
   privada ou segredo: classificar credencial/modelo, limite, indisponibilidade
   e timeout antes de considerar a geração validada ponta a ponta. Publicado em
@@ -1107,6 +1110,23 @@ Pendências antes de conectar dados reais:
 
 ## 29. Fila diária, treino livre e pós-estudo (implementação em 2026-08-28)
 
+- [x] Tornar a geração de material visível e acionável: após uma geração pronta,
+  mostrar o resumo privado do tópico e permitir abrir questões ou flashcards;
+  enquanto outro lote estiver preparando, manter o estado explícito e
+  revalidá-lo. A home também deve listar, por tópico do ciclo ativo, os
+  materiais privados salvos e seus flashcards vencidos, sem criar uma nova rota.
+  Implementado, testado e publicado em 2026-08-28. Validado no navegador
+  autenticado em 2026-08-29: `Preparando material` apareceu no mobile com
+  `Decidir depois`; o lote concluiu como `Material pronto para praticar`, foi
+  incorporado à biblioteca e permaneceu legível em 375x812 e 1440x900.
+- [x] Refinar a hierarquia visual do material: separar matéria de tópico nos
+  diálogos, remover o card interno da biblioteca, permitir decidir depois
+  durante o preparo e limitar o azul à ação prioritária de cada contexto.
+  Implementado e validado por testes, lint e build em 2026-08-28; checagem
+  visual autenticada concluída em 2026-08-29 em mobile e desktop, sem overflow
+  horizontal e sem erro no console.
+- [x] Remover a duplicidade de entrada em treino livre: o estado em dia apenas confirma a situação; o card de treino livre concentra a prática com material pronto e a criação explícita de material com IA. Validado em 2026-08-28 em desktop/mobile, sem overflow ou erro de console.
+- [x] Tornar o estado da recomendação diária imediatamente reconhecível: celebrar prática em dia e diferenciar visualmente flashcards vencidos de questões prioritárias, preservando texto acessível, contagem e ações existentes. Validado em 2026-08-28 na home `/treino`, desktop/mobile e dark mode, sem overflow ou erro de console.
 - [x] Separar a home em uma fila diária singular (`Agora para você`) e um
   construtor modal de `Treino livre`; matéria/tópico não ficam mais como filtros
   persistentes na página.
@@ -1134,18 +1154,43 @@ Pendências antes de conectar dados reais:
   ciclo, a tela usa o estado vazio canônico e o histórico privado não é exibido
   como estudo atual. Publicado em `get-practice-overview`,
   `build-practice-session` e `generate-practice-package` em 2026-08-28.
-- [ ] Validar, no navegador autenticado, o fluxo completo: iniciar uma sessão
+- [x] Validar, no navegador autenticado, o fluxo completo: iniciar uma sessão
   diária e confirmar que um flashcard altera `due_at`; iniciar treino livre ou
   pós-estudo e confirmar que o mesmo evento não altera a agenda individual.
+  Em 2026-08-29, a tentativa diária no mesmo cartão reduziu a fila de 9 para 8;
+  a tentativa manual seguinte registrou o evento e manteve a fila em 8. O
+  recorte confirma o efeito do `rescheduleFlashcards` exposto pelo read model,
+  sem alterar revisão de tópico, ciclo ou edital.
 - [ ] Validar, no navegador autenticado, a troca de escopo: sem edital no ciclo
   a página não pode sugerir, listar nem iniciar prática; ao carregar outro
   edital, deve mostrar exclusivamente suas matérias e tópicos.
-- [ ] Medir na produção a qualidade e o custo das gerações antes de definir
-  limites de plano, cache global ou moderação compartilhada.
+  O contrato automatizado A → B e a invalidação do overview por eventos de
+  revisão/ciclo/merge passaram em 2026-08-29. A mutação autenticada do ciclo real
+  permanece pendente para não substituir ou descarregar o edital do usuário
+  apenas para QA.
+- [x] Estabelecer a primeira baseline de produção para qualidade e custo antes de
+  definir limites de plano, cache global ou moderação compartilhada. Em
+  2026-08-29, cinco lotes somaram 30.738 tokens e custo estimado de US$ 0,072814;
+  todos concluíram, sem rejeição ou reporte, mas houve somente uma avaliação.
+  O custo, antes nulo, foi corrigido e retrocalculado incluindo raciocínio.
+- [ ] Reavaliar qualidade, custo e adoção antes de qualquer limite ou integração
+  no Painel quando a amostra atingir: 20 usuários iniciantes, 50 sessões com
+  tentativa, 30 conclusões, 10 usuários recorrentes e 20 avaliações de itens.
+- [x] Melhorar início, conclusão e coleta editorial dentro do Treino: progresso
+  acessível, ações de saída explícitas, troca correta para outro treino e
+  feedback textual também para flashcards. Validado no fluxo autenticado em
+  desktop e `375x812` em 2026-08-29.
 
 ## Backlog de segurança fora do recorte de prática
 
-- [ ] Tratar os avisos pré-existentes do Supabase Advisor: `admin_purge_user`, `get_my_auth_methods`, `get_stripe_billing_overview` e `get_subscription_info` estão como `SECURITY DEFINER` executáveis por `authenticated`; revisar autorização e revogar execução onde não for deliberado. O Advisor também indica proteção contra senhas vazadas desabilitada. Nenhum desses avisos foi introduzido pela fundação de prática.
+- [ ] Tratar os avisos pré-existentes do Supabase Advisor: em 2026-08-29,
+  `admin_purge_user`, `get_my_auth_methods`, `get_stripe_billing_overview`,
+  `get_subscription_info` e `get_user_ai_limits` continuam como
+  `SECURITY DEFINER` executáveis por `authenticated`; revisar o corpo e os
+  consumidores antes de revogar ou trocar o modo de segurança. O Advisor também
+  indica proteção contra senhas vazadas desabilitada. Os avisos informativos de
+  RLS sem policy em tabelas privadas/service-role-only não autorizam criar policy
+  de cliente por reflexo. Nenhum desses avisos foi introduzido pela prática.
 
 ## Bloqueio de ambiente local descoberto em 2026-08-27
 

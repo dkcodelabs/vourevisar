@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const migration = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260716131500_deprecate_subject_visibility_for_students.sql'),
+  resolve(process.cwd(), 'supabase/migrations_legacy/20260716131500_deprecate_subject_visibility_for_students.sql'),
   'utf8',
 );
 

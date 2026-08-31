@@ -110,4 +110,74 @@ describe('studyCycleTransitionSummary', () => {
       to: '/revisoes',
     });
   });
+
+  it('calculates top and lowest subject by study minutes when multiple subjects exist', () => {
+    const summary = getStudyCycleTransitionSummary({
+      subjects: [
+        {
+          id: 'subject-1',
+          name: 'Legislação',
+          topics: [
+            { id: 'topic-1', is_active: true, first_studied_at: '2026-06-20T10:00:00.000Z' },
+          ],
+        },
+        {
+          id: 'subject-2',
+          name: 'Português',
+          topics: [
+            { id: 'topic-2', is_active: true, first_studied_at: '2026-06-20T10:00:00.000Z' },
+          ],
+        },
+        {
+          id: 'subject-3',
+          name: 'Informática',
+          topics: [
+            { id: 'topic-3', is_active: true, first_studied_at: '2026-06-20T10:00:00.000Z' },
+          ],
+        },
+      ],
+      studyMinutesByTopicId: new Map([
+        ['topic-1', 45],
+        ['topic-2', 20],
+        ['topic-3', 10],
+      ]),
+      now,
+    });
+
+    expect(summary.topSubjectByStudyMinutes).toEqual({
+      subjectId: 'subject-1',
+      subjectName: 'Legislação',
+      minutes: 45,
+    });
+    expect(summary.lowestSubjectByStudyMinutes).toEqual({
+      subjectId: 'subject-3',
+      subjectName: 'Informática',
+      minutes: 10,
+    });
+  });
+
+  it('returns null for lowestSubjectByStudyMinutes when all studied subjects have the same duration', () => {
+    const summary = getStudyCycleTransitionSummary({
+      subjects: [
+        {
+          id: 'subject-1',
+          name: 'Legislação',
+          topics: [{ id: 'topic-1', is_active: true, first_studied_at: '2026-06-20T10:00:00.000Z' }],
+        },
+        {
+          id: 'subject-2',
+          name: 'Português',
+          topics: [{ id: 'topic-2', is_active: true, first_studied_at: '2026-06-20T10:00:00.000Z' }],
+        },
+      ],
+      studyMinutesByTopicId: new Map([
+        ['topic-1', 30],
+        ['topic-2', 30],
+      ]),
+      now,
+    });
+
+    expect(summary.topSubjectByStudyMinutes?.minutes).toBe(30);
+    expect(summary.lowestSubjectByStudyMinutes).toBeNull();
+  });
 });

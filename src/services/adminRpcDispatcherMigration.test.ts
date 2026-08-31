@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260707124113_add_admin_rpc_dispatcher.sql',
+  'supabase/migrations_legacy/20260707124113_add_admin_rpc_dispatcher.sql',
 );
 
 const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim().toLowerCase();

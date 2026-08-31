@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260707125432_remove_email_assets_listing_policy.sql',
+  'supabase/migrations_legacy/20260707125432_remove_email_assets_listing_policy.sql',
 );
 
 describe('remove email assets listing policy migration', () => {

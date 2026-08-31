@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260707121121_disable_unused_pg_graphql.sql',
+  'supabase/migrations_legacy/20260707121121_disable_unused_pg_graphql.sql',
 );
 
 const readMigration = () => readFileSync(migrationPath, 'utf8');

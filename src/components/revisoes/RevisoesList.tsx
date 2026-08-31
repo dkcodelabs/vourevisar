@@ -10,7 +10,6 @@ import type { MentorTrendLabel } from '@/types/mentor';
 
 import { DifficultyBarsCompact } from '@/components/ui/difficulty-rating';
 import type { ActiveTimer } from '@/contexts/TimerContext';
-import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 import { getReviewTopicRowClassName } from './reviewTopicRowClassName';
 
 interface RevisoesListProps {
@@ -351,10 +350,6 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                         const isActive = activeTimer?.topicId === item.id;
                                         const isHighlighted = highlightedTopicId === item.id;
                                         const trendLabel = trendByTopic.get(item.id);
-                                        const incidence = getTopicStrategicIncidence({
-                                            totalVolume: item.totalVolume,
-                                            incidenceLevel: item.incidenceLevel,
-                                        });
                                         return (
                                             <div
                                                 id={`topic-${item.id}`}
@@ -378,15 +373,6 @@ export const RevisoesList: React.FC<RevisoesListProps> = ({
                                                             <div className="min-w-0 flex-1">
                                                                 <div className={`text-[13px] font-semibold break-words leading-snug ${isActive ? 'text-primary' : 'text-foreground'}`}>
                                                                     <span className="align-middle mr-1.5">{item.topic}</span>
-                                                                    {incidence.showToStudent && (
-                                                                        <span
-                                                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border border-incidence/25 bg-incidence/10 text-incidence align-middle mr-1.5"
-                                                                            title={`Classificação de cobrança no edital: ${incidence.label}`}
-                                                                        >
-                                                                            <Sparkles size={10} className="shrink-0" />
-                                                                            {incidence.label}
-                                                                        </span>
-                                                                    )}
                                                                     {trendLabel && (trendLabel === 'Melhorando' || trendLabel === 'Piorando') && (
                                                                         <span className="inline-flex mr-1.5 align-middle translate-y-[1px]" title={`Tendência de Retenção: ${trendLabel}`}>
                                                                             <TrendIcon type={trendLabel} iconOnly={false} />

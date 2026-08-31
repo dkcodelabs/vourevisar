@@ -24,22 +24,22 @@ const contractDocumentsClientSource = readProjectFile(
   'src/features/billing/legal/billingLegalDocuments.ts',
 );
 const migrationSource = readProjectFile(
-  'supabase/migrations/20260730221919_create_stripe_billing_core.sql',
+  'supabase/migrations_legacy/20260730221919_create_stripe_billing_core.sql',
 );
 const billingModeMigrationSource = readProjectFile(
-  'supabase/migrations/20260820172644_isolate_stripe_billing_by_mode.sql',
+  'supabase/migrations_legacy/20260820172644_isolate_stripe_billing_by_mode.sql',
 );
 const affiliateLedgerMigrationSource = readProjectFile(
-  'supabase/migrations/20260823185322_create_stripe_affiliate_ledger.sql',
+  'supabase/migrations_legacy/20260823185322_create_stripe_affiliate_ledger.sql',
 );
 const affiliateBountyHardeningMigrationSource = readProjectFile(
-  'supabase/migrations/20260823185336_prevent_duplicate_affiliate_bounties.sql',
+  'supabase/migrations_legacy/20260823185336_prevent_duplicate_affiliate_bounties.sql',
 );
 const contractAcceptanceMigrationSource = readProjectFile(
-  'supabase/migrations/20260821024158_create_billing_contract_acceptances.sql',
+  'supabase/migrations_legacy/20260821024158_create_billing_contract_acceptances.sql',
 );
 const signupAcceptanceMigrationSource = readProjectFile(
-  'supabase/migrations/20260821025536_create_signup_legal_acceptances.sql',
+  'supabase/migrations_legacy/20260821025536_create_signup_legal_acceptances.sql',
 );
 const authOperationsSource = readProjectFile('src/hooks/useAuthOperations.tsx');
 const legalAcceptanceFunctionSource = readProjectFile(
@@ -49,37 +49,37 @@ const signupAcceptanceServiceSource = readProjectFile(
   'src/features/billing/legal/signupLegalAcceptanceService.ts',
 );
 const refundRequestMigrationSource = readProjectFile(
-  'supabase/migrations/20260821030336_create_billing_refund_requests.sql',
+  'supabase/migrations_legacy/20260821030336_create_billing_refund_requests.sql',
 );
 const withdrawalFunctionSource = readProjectFile(
   'supabase/functions/stripe-request-withdrawal/index.ts',
 );
 const withdrawalOverviewMigrationSource = readProjectFile(
-  'supabase/migrations/20260821031010_expose_billing_withdrawal_status.sql',
+  'supabase/migrations_legacy/20260821031010_expose_billing_withdrawal_status.sql',
 );
 const immediateRefundStateMigrationSource = readProjectFile(
-  'supabase/migrations/20260821191410_make_refund_terminal_state_immediate.sql',
+  'supabase/migrations_legacy/20260821191410_make_refund_terminal_state_immediate.sql',
 );
 const restoredTrialAfterWithdrawalMigrationSource = readProjectFile(
-  'supabase/migrations/20260822120906_resume_original_trial_after_withdrawal.sql',
+  'supabase/migrations_legacy/20260822120906_resume_original_trial_after_withdrawal.sql',
 );
 const withdrawalPanelSource = readProjectFile(
   'src/features/billing/components/BillingWithdrawalPanel.tsx',
 );
 const refundAdminActionsMigrationSource = readProjectFile(
-  'supabase/migrations/20260821114843_create_billing_refund_admin_actions.sql',
+  'supabase/migrations_legacy/20260821114843_create_billing_refund_admin_actions.sql',
 );
 const refundAdminQueueSource = readProjectFile(
   'src/features/billing/components/AdminBillingRefundQueue.tsx',
 );
 const legacyGrantMigrationSource = readProjectFile(
-  'supabase/migrations/20260731170341_backfill_legacy_paid_access_grants.sql',
+  'supabase/migrations_legacy/20260731170341_backfill_legacy_paid_access_grants.sql',
 );
 const legacyBridgeRemovalSource = readProjectFile(
-  'supabase/migrations/20260731171535_revoke_legacy_billing_bridge.sql',
+  'supabase/migrations_legacy/20260731171535_revoke_legacy_billing_bridge.sql',
 );
 const flexibleCancellationMigrationSource = readProjectFile(
-  'supabase/migrations/20260802170643_support_stripe_flexible_cancellation.sql',
+  'supabase/migrations_legacy/20260802170643_support_stripe_flexible_cancellation.sql',
 );
 const configSource = readProjectFile('supabase/config.toml');
 const paymentFormSource = readProjectFile(
@@ -92,18 +92,17 @@ const sidebarSubscriptionSource = readProjectFile('src/hooks/useSubscriptionInfo
 const userManagementSource = readProjectFile('src/pages/admin/UserManagement.tsx');
 const importEditalSource = readProjectFile('src/components/subjects/ImportEditalModal.tsx');
 const extractEditalSource = readProjectFile('supabase/functions/extract-edital/index.ts');
-const processTopicIncidenceSource = readProjectFile('supabase/functions/process-topic-incidence/index.ts');
 const aiQuotaMigrationSource = readProjectFile(
-  'supabase/migrations/20260804170000_move_ai_quota_off_legacy_subscriptions.sql',
+  'supabase/migrations_legacy/20260804170000_move_ai_quota_off_legacy_subscriptions.sql',
 );
 const legacyTableRetirementSource = readProjectFile(
-  'supabase/migrations/20260804173000_remove_legacy_subscription_table.sql',
+  'supabase/migrations_legacy/20260804173000_remove_legacy_subscription_table.sql',
 );
 const finalAsaasResidueRemovalSource = readProjectFile(
-  'supabase/migrations/20260804174500_remove_final_asaas_schema_residue.sql',
+  'supabase/migrations_legacy/20260804174500_remove_final_asaas_schema_residue.sql',
 );
 const couponFunctionRetirementSource = readProjectFile(
-  'supabase/migrations/20260804175500_remove_asaas_coupon_function_parameter.sql',
+  'supabase/migrations_legacy/20260804175500_remove_asaas_coupon_function_parameter.sql',
 );
 const userFacingBillingSource = [
   'src/pages/StripeCheckout.tsx',
@@ -206,7 +205,7 @@ describe('Stripe billing security boundaries', () => {
   });
 
   it('keeps legal document versions aligned across browser and server', () => {
-    const expectedVersion = '2026-08-21.1';
+    const expectedVersion = '2026-08-31.1';
     expect(contractDocumentsServerSource).toContain(expectedVersion);
     expect(contractDocumentsClientSource).toContain(expectedVersion);
     expect(contractDocumentsServerSource).toContain('crypto.subtle.digest');
@@ -528,7 +527,6 @@ describe('Stripe billing security boundaries', () => {
     expect(aiQuotaMigrationSource).toContain('public.user_ai_quota_resets');
     expect(importEditalSource).not.toContain('user_subscriptions');
     expect(extractEditalSource).not.toContain('user_subscriptions');
-    expect(processTopicIncidenceSource).not.toContain('user_subscriptions');
     expect(extractEditalSource).toContain('AI_QUOTA_UNAVAILABLE');
   });
 

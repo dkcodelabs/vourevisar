@@ -5,7 +5,6 @@ const subject = (
   id: string,
   options: {
     weight?: number;
-    volume?: number;
     startedTopics?: number;
     totalTopics?: number;
   } = {},
@@ -15,7 +14,6 @@ const subject = (
   exam_weight_percentage: options.weight ?? null,
   topics: Array.from({ length: options.totalTopics ?? 10 }, (_, index) => ({
     id: `${id}-${index}`,
-    total_volume: options.volume ? Math.round(options.volume / (options.totalTopics ?? 10)) : null,
     first_studied_at: index < (options.startedTopics ?? 0) ? '2026-06-03T12:00:00-03:00' : null,
   })),
 });
@@ -28,7 +26,7 @@ const events = (subjectIds: string[]) =>
   }));
 
 describe('studyCycleQueueSuggestion', () => {
-  it('does not suggest a queue when only one subject has weight and there is no comparable incidence', () => {
+  it('does not suggest a queue when only one subject has weight', () => {
     const suggestion = getStudyCycleQueueSuggestion({
       subjects: [
         subject('a'),
@@ -61,20 +59,19 @@ describe('studyCycleQueueSuggestion', () => {
     }));
   });
 
-  it('uses incidence when weights are missing but incidence is comparable', () => {
+  it('does not use legacy incidence when weights are missing', () => {
     const suggestion = getStudyCycleQueueSuggestion({
       subjects: [
-        subject('a', { volume: 10, startedTopics: 4 }),
-        subject('b', { volume: 20, startedTopics: 4 }),
-        subject('c', { volume: 80, startedTopics: 0 }),
-        subject('d', { volume: 5, startedTopics: 2 }),
+        subject('a', { startedTopics: 4 }),
+        subject('b', { startedTopics: 4 }),
+        subject('c', { startedTopics: 0 }),
+        subject('d', { startedTopics: 2 }),
       ],
       events: events(['a', 'a', 'a', 'b', 'b', 'd']),
       currentOrder: ['a', 'b', 'c', 'd'],
     });
 
-    expect(suggestion?.suggestedOrder[0]).toBe('c');
-    expect(suggestion?.evidence).toContain('maior cobrança');
+    expect(suggestion).toBeNull();
   });
 
   it('does not suggest moving a subject already closed in the cycle', () => {
@@ -82,7 +79,7 @@ describe('studyCycleQueueSuggestion', () => {
       subjects: [
         subject('a', { weight: 5, startedTopics: 1 }),
         subject('b', { weight: 8, startedTopics: 1 }),
-        subject('c', { weight: 40, volume: 1000, startedTopics: 10 }),
+        subject('c', { weight: 40, startedTopics: 10 }),
         subject('d', { weight: 10, startedTopics: 1 }),
       ],
       events: events(['a', 'a', 'b', 'b', 'd', 'd']),

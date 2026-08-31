@@ -12,6 +12,8 @@ const ALLOWED_ACTIONS = new Set([
   "reset_edital_study_progress",
   "revert_subject_merge",
   "revert_topic_merge",
+  "get_my_auth_methods",
+  "get_stripe_billing_overview",
   "get_subscription_info",
   "get_unified_subject_name",
   "get_unified_topic_name",
@@ -92,6 +94,10 @@ function isAuthorizedForAction(action: string, args: Record<string, unknown>, us
     case "revert_topic_merge":
     case "sync_topic_merge_progress":
       return getString(args, "p_user_id") === userId;
+    case "get_my_auth_methods":
+      return Object.keys(args).length === 0;
+    case "get_stripe_billing_overview":
+      return typeof args.p_livemode === "boolean";
     case "get_subscription_info":
       return !args.check_user_id || args.check_user_id === userId;
     case "get_unified_subject_name":

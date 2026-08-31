@@ -107,13 +107,14 @@ export const RevisoesChartsWrapper: React.FC<RevisoesChartsWrapperProps> = ({
                     totalTopics={stats.totalTopics}
                     totalScheduledReviews={stats.totalScheduledReviews}
                     startedTopicsCount={stats.startedTopicsCount}
-                    completedTopicsCount={stats.completedTopicsCount}
                     completedReviews={stats.completedReviews}
-                    pendingReviews={stats.overdue + stats.today + stats.future}
+                    scheduledReviews={stats.overdue + stats.today + stats.future}
                     notStartedReviews={Math.max(stats.totalTopics - stats.startedTopicsCount, 0)}
-                    overdue={stats.overdue}
-                    today={stats.today}
-                    future={stats.future}
+                    schedule={{
+                        overdue: stats.overdue,
+                        today: stats.today,
+                        future: stats.future,
+                    }}
                     protectionMode={protectionMode}
                     maxReviews={maxReviews}
                     className="h-full"

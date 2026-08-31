@@ -10,7 +10,6 @@ import {
   NotebookTabs,
   RotateCcw,
   Target,
-  TrendingUp,
   Users,
   Clock,
   AlertTriangle,
@@ -76,7 +75,6 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
     ? [
         { name: "Gerenciar Usuários", url: "/admin/users", icon: Users },
         { name: "Gerenciar Editais", url: "/admin/editais", icon: Library },
-        { name: "Importância em Prova", url: "/admin/importancia-prova", icon: TrendingUp },
         { name: "Assinaturas", url: "/admin/subscription", icon: CreditCard },
         ...(isOwner ? [{ name: "Divulgação e Repasses", url: "/admin/referrals", icon: Target }] : []),
         { name: "Auditoria", url: "/admin/audit", icon: ClipboardList },

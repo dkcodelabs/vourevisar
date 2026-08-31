@@ -126,8 +126,8 @@ describe('studyCycleEventInsights', () => {
           name: 'Direito Penal',
           exam_weight_percentage: 35,
           topics: [
-            { id: 'a-1', first_studied_at: '2026-06-01T12:00:00-03:00', total_volume: 900 },
-            { id: 'a-2', first_studied_at: '2026-06-01T12:00:00-03:00', total_volume: 700 },
+            { id: 'a-1', first_studied_at: '2026-06-01T12:00:00-03:00' },
+            { id: 'a-2', first_studied_at: '2026-06-01T12:00:00-03:00' },
           ],
         },
         { id: 'b', name: 'Português', topics: [{ id: 'b-1' }] },

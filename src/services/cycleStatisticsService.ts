@@ -2,11 +2,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { mergeService } from '@/services/mergeService';
 import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
 import type {
+  CycleStatisticsDayContactInput,
   CycleStatisticsPeriod,
   CycleStatisticsSessionInput,
   CycleStatisticsSubjectInput,
   CycleStatisticsTopicInput,
 } from '@/types/cycleStatistics';
+import { addDays, parseISO, startOfDay } from 'date-fns';
 import {
   buildReviewTopicMergesFromUnificationMap,
   dedupeMergedReviewTopics,
@@ -14,7 +16,7 @@ import {
 } from '@/utils/reviewMergeScope';
 import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { determineLearningStatus } from '@/utils/learningStatus';
-import { getCycleStatisticsQueryStart } from '@/utils/cycleStatistics';
+import { aggregateCycleTopicDifficulty, getCycleStatisticsQueryStart } from '@/utils/cycleStatistics';
 import { getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
 
 type CycleRow = {
@@ -52,6 +54,7 @@ type TopicRow = {
   current_interval: number | null;
   is_active: boolean | null;
   is_hidden: boolean | null;
+  difficulty_level: number | null;
 };
 
 type SessionRow = {
@@ -67,6 +70,21 @@ type EditalRow = {
   subject_ids: string[];
 };
 
+type DayContactRow = {
+  id: string;
+  topic_id: string;
+  review_stage: string;
+  reviewed_at: string;
+  study_duration_minutes: number | null;
+};
+
+type PracticeAttemptDayRow = {
+  id: string;
+  topic_id: string | null;
+  created_at: string;
+  response_time_ms: number | null;
+};
+
 export type CycleStatisticsSource = {
   cycle: {
     id: string;
@@ -78,6 +96,8 @@ export type CycleStatisticsSource = {
   topics: CycleStatisticsTopicInput[];
   subjects: CycleStatisticsSubjectInput[];
   sessions: CycleStatisticsSessionInput[];
+  dayContacts: CycleStatisticsDayContactInput[];
+  dayContactsUnavailable: boolean;
 };
 
 type SubjectPresentationGroup = CycleStatisticsSubjectInput & {
@@ -208,6 +228,7 @@ async function fetchSessions(params: {
 export async function fetchCycleStatisticsSource(params: {
   userId: string;
   period: CycleStatisticsPeriod;
+  selectedDate?: string | null;
   now?: Date;
 }): Promise<CycleStatisticsSource> {
   const { data: cycleData, error: cycleError } = await supabase
@@ -220,7 +241,15 @@ export async function fetchCycleStatisticsSource(params: {
 
   if (cycleError) throw cycleError;
   if (!cycleData || !Array.isArray(cycleData.ciclo_atual) || cycleData.ciclo_atual.length === 0) {
-    return { cycle: null, editalNames: [], topics: [], subjects: [], sessions: [] };
+    return {
+      cycle: null,
+      editalNames: [],
+      topics: [],
+      subjects: [],
+      sessions: [],
+      dayContacts: [],
+      dayContactsUnavailable: false,
+    };
   }
 
   const cycle = cycleData as CycleRow;
@@ -256,6 +285,7 @@ export async function fetchCycleStatisticsSource(params: {
         current_interval,
         is_active,
         is_hidden,
+        difficulty_level,
         subjects!inner(user_id)
       `)
       .eq('subjects.user_id', params.userId)
@@ -288,9 +318,16 @@ export async function fetchCycleStatisticsSource(params: {
     ...buildReviewTopicMergesFromUnificationMap(unificationMap, reviewScopeTopics),
     ...topicMerges,
   ]);
+  const visibleTopicById = new Map(visibleTopics.map(topic => [topic.id, topic]));
   const topics: CycleStatisticsTopicInput[] = dedupedTopics.map(topic => {
     const completed = isReviewProgramCompleted(topic);
     const reviewCount = topic.review_count ?? 0;
+    const difficultyLevel = aggregateCycleTopicDifficulty(
+      (topic.source_topic_ids ?? [topic.id])
+        .map(topicId => visibleTopicById.get(topicId))
+        .filter((source): source is TopicRow => Boolean(source))
+        .map(source => ({ difficultyLevel: source.difficulty_level })),
+    );
     return {
       id: topic.id,
       name: topic.name,
@@ -304,6 +341,7 @@ export async function fetchCycleStatisticsSource(params: {
       lastReviewedAt: topic.last_reviewed_at ?? null,
       memoryStability: topic.memory_stability ?? null,
       currentInterval: topic.current_interval ?? null,
+      difficultyLevel,
       learningStatus: completed
         ? 'Dominando'
         : (topic.first_studied_at || reviewCount > 0)
@@ -311,6 +349,92 @@ export async function fetchCycleStatisticsSource(params: {
           : undefined,
     };
   });
+
+  let dayContacts: CycleStatisticsDayContactInput[] = [];
+  let dayContactsUnavailable = false;
+  const sourceTopicIds = unique(dedupedTopics.flatMap(topic => topic.source_topic_ids ?? [topic.id]));
+  if (params.selectedDate && sourceTopicIds.length > 0) {
+    const selectedDayStart = startOfDay(parseISO(params.selectedDate));
+    const selectedDayEnd = addDays(selectedDayStart, 1).toISOString();
+    const [reviewContactsResult, questionAttemptsResult] = await Promise.all([
+      supabase
+        .from('topic_review_history')
+        .select('id, topic_id, review_stage, reviewed_at, study_duration_minutes')
+        .eq('user_id', params.userId)
+        .in('topic_id', sourceTopicIds)
+        .gte('reviewed_at', selectedDayStart.toISOString())
+        .lt('reviewed_at', selectedDayEnd)
+        .order('reviewed_at', { ascending: true }),
+      supabase
+        .from('practice_attempts')
+        .select('id, topic_id, created_at, response_time_ms')
+        .eq('user_id', params.userId)
+        .eq('attempt_kind', 'objective_answer')
+        .is('invalidated_at', null)
+        .in('topic_id', sourceTopicIds)
+        .gte('created_at', selectedDayStart.toISOString())
+        .lt('created_at', selectedDayEnd)
+        .order('created_at', { ascending: true }),
+    ]);
+
+    if (reviewContactsResult.error || questionAttemptsResult.error) {
+      console.error(
+        '[cycleStatisticsService] Falha ao carregar contatos do dia:',
+        reviewContactsResult.error ?? questionAttemptsResult.error,
+      );
+      dayContactsUnavailable = true;
+    } else {
+      const representativeBySourceTopicId = new Map(
+        dedupedTopics.flatMap(topic => (
+          (topic.source_topic_ids ?? [topic.id]).map(sourceId => [sourceId, topic] as const)
+        )),
+      );
+      const subjectById = new Map(groups.map(group => [group.id, group]));
+      const reviewContacts = ((reviewContactsResult.data ?? []) as DayContactRow[]).map(row => {
+        const topic = representativeBySourceTopicId.get(row.topic_id);
+        const subjectId = topic
+          ? (groupIdBySubjectId.get(topic.subject_id) ?? topic.subject_id)
+          : '';
+        const stage = row.review_stage.toLowerCase();
+        const type = stage.includes('quest')
+          ? 'questions' as const
+          : row.review_stage === 'Primeiro Contato' || row.review_stage === 'first_contact'
+            ? 'study' as const
+            : 'review' as const;
+        return {
+          id: row.id,
+          topicId: topic?.id ?? row.topic_id,
+          topicName: topic?.name ?? 'Tópico registrado',
+          subjectId,
+          subjectName: subjectById.get(subjectId)?.name ?? 'Matéria do ciclo',
+          durationMinutes: Math.max(0, Number(row.study_duration_minutes ?? 0)),
+          reviewedAt: row.reviewed_at,
+          type,
+        };
+      });
+      const questionContacts = ((questionAttemptsResult.data ?? []) as PracticeAttemptDayRow[])
+        .filter((row): row is PracticeAttemptDayRow & { topic_id: string } => Boolean(row.topic_id))
+        .map(row => {
+          const topic = representativeBySourceTopicId.get(row.topic_id);
+          const subjectId = topic
+            ? (groupIdBySubjectId.get(topic.subject_id) ?? topic.subject_id)
+            : '';
+          return {
+            id: `practice:${row.id}`,
+            topicId: topic?.id ?? row.topic_id,
+            topicName: topic?.name ?? 'Questão registrada',
+            subjectId,
+            subjectName: subjectById.get(subjectId)?.name ?? 'Matéria do ciclo',
+            durationMinutes: 0,
+            reviewedAt: row.created_at,
+            type: 'questions' as const,
+          };
+        });
+
+      dayContacts = [...reviewContacts, ...questionContacts]
+        .sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt));
+    }
+  }
 
   const editalIdsFromMap = new Set(unificationMap?.editalIds ?? []);
   const subjectScopeSet = new Set(subjectScopeIds);
@@ -334,5 +458,7 @@ export async function fetchCycleStatisticsSource(params: {
       studyDate: session.study_date,
       durationMinutes: Math.max(0, Number(session.session_duration_minutes ?? 0)),
     })),
+    dayContacts,
+    dayContactsUnavailable,
   };
 }

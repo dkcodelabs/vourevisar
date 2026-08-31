@@ -223,12 +223,21 @@ serve(async (request) => {
       return json(request, { error: noActivePracticeScopeMessage }, 409);
     }
 
-    const existing = await supabase
-      .from("practice_sessions")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("idempotency_key", input.idempotencyKey)
-      .maybeSingle();
+    const [existing, topic, subject, scopedTopicsResult] = await Promise.all([
+      supabase
+        .from("practice_sessions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("idempotency_key", input.idempotencyKey)
+        .maybeSingle(),
+      input.topicId ? getOwnedTopic(supabase, user.id, input.topicId) : Promise.resolve(null),
+      input.subjectId ? getOwnedSubject(supabase, user.id, input.subjectId) : Promise.resolve(null),
+      supabase
+        .from("topics")
+        .select("id, subject_id")
+        .in("subject_id", scope.subjectIds)
+        .neq("is_active", false),
+    ]);
 
     if (existing.error) throw existing.error;
     if (existing.data) {
@@ -236,7 +245,6 @@ serve(async (request) => {
       if (session) return json(request, { status: "ready", session, reused: true });
     }
 
-    const topic = input.topicId ? await getOwnedTopic(supabase, user.id, input.topicId) : null;
     if (input.topicId && !topic) {
       return json(request, { error: "Tópico não encontrado." }, 404);
     }
@@ -244,9 +252,6 @@ serve(async (request) => {
       return json(request, { error: outsidePracticeScopeMessage }, 409);
     }
 
-    const subject = input.subjectId
-      ? await getOwnedSubject(supabase, user.id, input.subjectId)
-      : null;
     if (input.subjectId && !subject) {
       return json(request, { error: "Matéria não encontrada." }, 404);
     }
@@ -254,11 +259,7 @@ serve(async (request) => {
       return json(request, { error: outsidePracticeScopeMessage }, 409);
     }
 
-    const { data: scopedTopics, error: scopedTopicsError } = await supabase
-      .from("topics")
-      .select("id, subject_id")
-      .in("subject_id", scope.subjectIds)
-      .neq("is_active", false);
+    const { data: scopedTopics, error: scopedTopicsError } = scopedTopicsResult;
     if (scopedTopicsError) throw scopedTopicsError;
 
     const scopedTopicIds = (scopedTopics ?? []).flatMap((item) => {
@@ -292,12 +293,35 @@ serve(async (request) => {
     }
 
     const packageTopicById = new Map(packages.map((item) => [item.id, item.topic_id]));
-    const { data: databaseItems, error: itemsError } = await supabase
+    const dueSchedulesResult = input.mode === "flashcards_due"
+      ? await supabase
+        .from("flashcard_schedules")
+        .select("item_id, due_at, last_rating, repetitions, lapses")
+        .eq("user_id", user.id)
+        .lte("due_at", new Date().toISOString())
+        .order("due_at", { ascending: true })
+        .limit(60)
+      : { data: [], error: null };
+    if (dueSchedulesResult.error) throw dueSchedulesResult.error;
+
+    const dueSchedules = (dueSchedulesResult.data ?? []).filter((schedule) => {
+      const isNew = schedule.last_rating === null && schedule.repetitions === 0 && schedule.lapses === 0;
+      return input.flashcardPurpose === "new" ? isNew : input.flashcardPurpose === "review" ? !isNew : true;
+    });
+    const dueItemIds = dueSchedules.map((schedule) => schedule.item_id);
+    if (input.mode === "flashcards_due" && !dueItemIds.length) {
+      return json(request, { status: "needs_material", topicId: null, reason: "no_due_flashcard" });
+    }
+
+    let itemsQuery = supabase
       .from("practice_items")
       .select("id, package_id, item_type, prompt, options, learning_objective, depth, target_difficulty, created_at")
       .in("package_id", packages.map((item) => item.id))
-      .eq("status", "private_ready")
-      .limit(60);
+      .eq("status", "private_ready");
+    itemsQuery = input.mode === "flashcards_due"
+      ? itemsQuery.in("id", dueItemIds)
+      : itemsQuery.limit(60);
+    const { data: databaseItems, error: itemsError } = await itemsQuery;
 
     if (itemsError) throw itemsError;
     if (!databaseItems?.length) {
@@ -332,14 +356,7 @@ serve(async (request) => {
     const dueAtByItemId = new Map<string, string>();
 
     if (input.mode === "flashcards_due") {
-      const { data: schedules, error: schedulesError } = await supabase
-        .from("flashcard_schedules")
-        .select("item_id, due_at")
-        .eq("user_id", user.id)
-        .lte("due_at", new Date().toISOString())
-        .in("item_id", itemIds);
-      if (schedulesError) throw schedulesError;
-      for (const schedule of schedules ?? []) dueAtByItemId.set(schedule.item_id, schedule.due_at);
+      for (const schedule of dueSchedules) dueAtByItemId.set(schedule.item_id, schedule.due_at);
     }
 
     const selected = selectPracticeItems({
@@ -366,11 +383,14 @@ serve(async (request) => {
       });
     }
 
+    const selectedTopicId = selected.every((item) => item.topicId === selected[0]?.topicId)
+      ? selected[0]?.topicId ?? null
+      : null;
     const { data: sessionId, error: sessionCreateError } = await supabase.rpc(
       "create_practice_session_internal",
       {
         p_user_id: user.id,
-        p_topic_id: input.topicId ?? null,
+        p_topic_id: input.topicId ?? selectedTopicId,
         p_mode: input.mode,
         p_idempotency_key: input.idempotencyKey,
         p_signal_snapshot: {
@@ -378,6 +398,7 @@ serve(async (request) => {
           origin: input.origin,
           requestedMode: input.mode,
           requestedFormat: input.format ?? (input.mode === "flashcards_due" ? "flashcards" : "questions"),
+          flashcardPurpose: input.flashcardPurpose,
           rescheduleFlashcards: input.origin === "daily_recommendation" && input.mode === "flashcards_due",
           selectedCount: selected.length,
         },

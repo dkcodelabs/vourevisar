@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260705221040_add_study_session_contact_type.sql',
+  'supabase/migrations_legacy/20260705221040_add_study_session_contact_type.sql',
 );
 
 const readMigration = () => readFileSync(migrationPath, 'utf8');

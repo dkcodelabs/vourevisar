@@ -20,7 +20,6 @@ export const SRS_THRESHOLDS = {
 
 export type LearningStatus = 'Aprendendo' | 'Fixando' | 'Dominando';
 export type ReviewDifficulty = 1 | 2 | 3;
-export type ReviewIncidenceLevel = 'low' | 'medium' | 'high';
 
 export interface SRSMetrics {
   memoryStability: number;
@@ -39,8 +38,6 @@ export interface CalculateNextReviewParams {
   trendDelta?: number | null;
   /** Dias de atraso da revisão que acabou de ser concluída. */
   overdueDays?: number;
-  /** Sinal estratégico do edital; não representa força de memória. */
-  incidenceLevel?: ReviewIncidenceLevel | null;
 }
 
 export interface CalculateNextReviewResult {
@@ -106,9 +103,8 @@ function getAdaptiveMultiplier(params: {
   metrics: SRSMetrics;
   trendDelta?: number | null;
   overdueDays: number;
-  incidenceLevel?: ReviewIncidenceLevel | null;
 }): number {
-  const { difficulty, metrics, trendDelta, overdueDays, incidenceLevel } = params;
+  const { difficulty, metrics, trendDelta, overdueDays } = params;
   let multiplier = 1;
 
   if (metrics.currentInterval > 0 && metrics.memoryStability > 0) {
@@ -126,11 +122,6 @@ function getAdaptiveMultiplier(params: {
     if (difficulty === 3) multiplier *= 0.95;
     else if (difficulty === 1) multiplier *= 1.05;
   }
-
-  // Incidência é prioridade estratégica: alta antecipa levemente; baixa permite
-  // o lado mais longo quando os sinais cognitivos não pedem urgência.
-  if (incidenceLevel === 'high') multiplier *= 0.9;
-  else if (incidenceLevel === 'low') multiplier *= 1.05;
 
   return multiplier;
 }
@@ -153,7 +144,6 @@ export function calculateNextReview(params: CalculateNextReviewParams): Calculat
     examDate = null,
     trendDelta = null,
     overdueDays = 0,
-    incidenceLevel = null,
   } = params;
   const difficulty = normalizeDifficulty(params.difficulty);
   const todayStart = startOfDay(today);
@@ -182,7 +172,6 @@ export function calculateNextReview(params: CalculateNextReviewParams): Calculat
       metrics,
       trendDelta,
       overdueDays: Math.max(0, overdueDays),
-      incidenceLevel,
     });
 
   const newInterval = clamp(Math.round(baseInterval * multiplier), window.min, window.max);

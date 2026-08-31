@@ -1,4 +1,3 @@
-import type { Json } from '@/integrations/supabase/types';
 
 export type Status = 'Nova' | 'Em Estudo' | 'Concluída';
 export type RevisionStatus = 'Atrasado' | 'Hoje' | 'Futura';
@@ -41,9 +40,6 @@ export interface Topic {
   difficulty_level?: DifficultyLevel | null;
   subtopics?: TopicSubtopic[];
   difficulty_set_at?: string | null;
-  last_search_context?: string | null;
-  last_used_query?: string | null;
-  last_audit_log?: Json | null;
   created_at?: string;
   position?: number;
   memory_stability?: number | null;
@@ -54,10 +50,6 @@ export interface Topic {
   is_hidden?: boolean;
   edital_id?: string;
   origin_id?: string;
-  total_volume?: number | null;
-  incidence_score?: number | null;
-  incidence_level?: 'low' | 'medium' | 'high' | null;
-  incidence_context?: Record<string, unknown> | null;
 }
 
 export interface Subject {

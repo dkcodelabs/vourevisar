@@ -26,19 +26,25 @@ type OriginInfo = { name: string; organ?: string; isImported: boolean; sourceId?
 
 export const useEditalOriginsWithMerge = () => {
     const { user } = useAuth();
-    const { userCycle, isLoading: isCycleLoading } = useCycleState();
+    const { userCycle, isLoading: isCycleLoading, error: cycleError, fetchUserCycle } = useCycleState();
     const [editaisData, setEditaisData] = useState<EditalOriginData[]>([]);
     const [subjectMerges, setSubjectMerges] = useState<SubjectMerge[]>([]);
     const [topicMerges, setTopicMerges] = useState<TopicMerge[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isMergesLoading, setIsMergesLoading] = useState(true);
+    const [editaisError, setEditaisError] = useState<unknown>(null);
+    const [mergesError, setMergesError] = useState<unknown>(null);
 
     const editaisTable = useCallback(() => supabase.from('user_editais'), []);
 
     const loadMerges = useCallback(async () => {
         if (!user) {
-            setIsLoading(false);
+            setMergesError(null);
+            setIsMergesLoading(false);
             return;
         }
+        setIsMergesLoading(true);
+        setMergesError(null);
         try {
             const [sMerges, tMerges] = await withTimeout(
                 Promise.all([
@@ -52,14 +58,20 @@ export const useEditalOriginsWithMerge = () => {
             setTopicMerges(tMerges);
         } catch (err) {
             console.error('[useEditalOriginsWithMerge] Error fetching merges:', err);
+            setMergesError(err);
+        } finally {
+            setIsMergesLoading(false);
         }
     }, [user]);
 
     const fetchEditais = useCallback(async () => {
         if (!user) {
+            setEditaisError(null);
             setIsLoading(false);
             return;
         }
+        setIsLoading(true);
+        setEditaisError(null);
         try {
             const { data, error } = await withTimeout(
                 supabase.from('user_editais')
@@ -89,6 +101,7 @@ export const useEditalOriginsWithMerge = () => {
             setEditaisData(parsedEditais);
         } catch (err) {
             console.error('[useEditalOriginsWithMerge] Erro ao buscar origens:', err);
+            setEditaisError(err);
         } finally {
             setIsLoading(false);
         }
@@ -367,6 +380,14 @@ export const useEditalOriginsWithMerge = () => {
         return set;
     }, [editaisNoCiclo, subjectMerges]);
 
+    const retry = useCallback(async () => {
+        await Promise.allSettled([
+            fetchEditais(),
+            loadMerges(),
+            ...(cycleError ? [fetchUserCycle()] : []),
+        ]);
+    }, [cycleError, fetchEditais, fetchUserCycle, loadMerges]);
+
     return { 
         originsMap, 
         subjectIndividualOriginsMap,
@@ -377,6 +398,8 @@ export const useEditalOriginsWithMerge = () => {
         getOriginsForSubject, 
         getOriginsForTopic,
         refresh: fetchEditais,
-        isLoading: isLoading || isCycleLoading
+        retry,
+        error: editaisError ?? mergesError ?? cycleError,
+        isLoading: isLoading || isMergesLoading || isCycleLoading
     };
 };

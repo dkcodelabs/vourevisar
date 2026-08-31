@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { DifficultyRating } from '@/components/ui/difficulty-rating';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Clock, Info, Loader2, Target, X } from 'lucide-react';
+import { CheckCircle2, Clock, Info, Loader2, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface DifficultyRatingModalProps {
@@ -22,8 +22,6 @@ interface DifficultyRatingModalProps {
   duration?: number;
   isSaving?: boolean;
   savingText?: string;
-  strategicIncidenceLabel?: string | null;
-  strategicIncidenceDescription?: string | null;
 }
 
 export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
@@ -40,9 +38,7 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
   reviewCount,
   duration = 0,
   isSaving = false,
-  savingText = 'Salvando...',
-  strategicIncidenceLabel = null,
-  strategicIncidenceDescription = null
+  savingText = 'Salvando...'
 }) => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null);
   const [editedDuration, setEditedDuration] = useState<string>('');
@@ -150,15 +146,6 @@ export const DifficultyRatingModal: React.FC<DifficultyRatingModalProps> = ({
               <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-content-muted/50" />
               <span className="min-w-0 break-words">{topicName || reviewStage || 'Tópico'}</span>
             </div>
-            {strategicIncidenceLabel && (
-              <div
-                className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-incidence/20 bg-incidence/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-incidence"
-                aria-label={strategicIncidenceDescription || strategicIncidenceLabel}
-              >
-                <Target className="h-3 w-3 shrink-0" />
-                <span className="truncate">{strategicIncidenceLabel}</span>
-              </div>
-            )}
           </div>
         </div>
 

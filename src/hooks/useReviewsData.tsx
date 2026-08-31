@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format, startOfDay } from 'date-fns';
 import { LearningStatus } from '@/utils/calculateNextReview';
 import { isReviewProgramCompleted } from '@/utils/reviewStage';
+import { getReviewScheduleBucket } from '@/utils/reviewSchedule';
 import { determineLearningStatus } from '@/utils/learningStatus';
 import { mergeService } from '@/services/mergeService';
 import {
@@ -42,8 +43,6 @@ export interface ReviewTopic {
   current_interval?: number;
   learningStatus?: LearningStatus;
   notes?: unknown;
-  incidence_level?: 'low' | 'medium' | 'high' | string | null;
-  total_volume?: number | null;
   source_topic_ids?: string[];
   source_edital_ids?: string[];
 }
@@ -185,8 +184,6 @@ export const useReviewsData = () => {
           memory_stability,
           current_interval,
           notes,
-          incidence_level,
-          total_volume,
           subjects!inner (
             id,
             name,
@@ -217,8 +214,6 @@ export const useReviewsData = () => {
           memory_stability: topic.memory_stability,
           current_interval: topic.current_interval,
           notes: topic.notes,
-          incidence_level: topic.incidence_level,
-          total_volume: topic.total_volume,
           subject_name: subject?.name || 'Sem disciplina',
           subjects: {
             id: subject?.id,
@@ -335,13 +330,10 @@ export const useReviewsData = () => {
 
   const checkRecoveryMode = (allTopics: ReviewTopic[]) => {
     const today = new Date();
-    const todayDateString = format(startOfDay(today), 'yyyy-MM-dd');
 
     // 1. Check Backlog Size
     const overdueTopics = allTopics.filter(t => {
-      if (t.completed || !t.next_review) return false;
-      const reviewDate = format(startOfDay(new Date(t.next_review)), 'yyyy-MM-dd');
-      return reviewDate < todayDateString;
+      return getReviewScheduleBucket(t) === 'overdue';
     });
 
     if (overdueTopics.length > 20) {
@@ -398,33 +390,20 @@ export const useReviewsData = () => {
     setSearchTerm('');
   };
 
-  // CORREÇÃO: Usar comparação de strings de data para evitar problemas de timezone
-  const todayDateString = format(startOfDay(new Date()), 'yyyy-MM-dd');
-
   const { delayedTopics, todayTopics, futureTopics, completedTopics, consolidatedTopics, totalPendingCount } = filteredTopics.reduce(
     (acc, topic) => {
-      // Estabilidade alta pode indicar "Dominando", mas não encerra o programa.
-      if (isReviewProgramCompleted(topic)) {
+      const bucket = getReviewScheduleBucket(topic);
+
+      if (bucket === 'completed') {
         acc.consolidatedTopics.push(topic);
-        return acc;
-      }
-
-      if (!topic.next_review) return acc;
-
-      const reviewDateString = format(startOfDay(new Date(topic.next_review)), 'yyyy-MM-dd');
-
-      if (reviewDateString < todayDateString) {
+      } else if (bucket === 'overdue') {
         acc.delayedTopics.push(topic);
         acc.totalPendingCount++;
-      } else if (reviewDateString === todayDateString) {
+      } else if (bucket === 'today') {
         acc.todayTopics.push(topic);
         acc.totalPendingCount++;
-      } else {
+      } else if (bucket === 'future') {
         acc.futureTopics.push(topic);
-        if (!isRecoveryMode) acc.totalPendingCount++; // In recovery, we might treat future differently in total counts? 
-        // Plan says: "Cards do topo NÃO devem ser redesenhados... Mostram realidade completa". 
-        // So pending count should probably reflect TRUTH, not just recovery slice.
-        // Let's keep it true total.
       }
 
       return acc;

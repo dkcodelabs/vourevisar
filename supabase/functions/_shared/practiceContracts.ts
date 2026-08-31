@@ -14,6 +14,7 @@ const practiceOriginSchema = z.enum([
   "manual",
   "post_study",
 ]);
+const flashcardPurposeSchema = z.enum(["new", "review"]);
 
 export const buildPracticeSessionSchema = z
   .object({
@@ -22,6 +23,7 @@ export const buildPracticeSessionSchema = z
     subjectId: uuid.optional(),
     format: practiceFormatSchema.optional(),
     origin: practiceOriginSchema.default("manual"),
+    flashcardPurpose: flashcardPurposeSchema.optional(),
     quantity: z.number().int().min(1).max(10),
     idempotencyKey: uuid,
   })
@@ -39,6 +41,14 @@ export const buildPracticeSessionSchema = z
         code: z.ZodIssueCode.custom,
         path: ["format"],
         message: "Flashcards pendentes usam formato de flashcards.",
+      });
+    }
+
+    if (value.flashcardPurpose && value.mode !== "flashcards_due") {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["flashcardPurpose"],
+        message: "A finalidade do flashcard só pode ser usada na fila diária.",
       });
     }
   });

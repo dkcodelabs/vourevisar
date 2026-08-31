@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StudyCycleSubject, StudyCycleTopic } from '@/types/study-cycle';
+import { sortTopicsInStudyOrder } from '@/utils/topicOrder';
 import { ReviewInterval, SubjectStatus } from '@/types/study-cycle';
 import type { MentorAlert } from '@/types/mentor';
 import { FileText, ArrowRight, RotateCcw, Flame, Target, CheckCircle2 } from 'lucide-react';
@@ -350,19 +351,10 @@ export const StudyCycleVerticalView: React.FC<StudyCycleVerticalViewProps> = ({
   consolidatedTopicIds,
   isActionable = true,
 }) => {
-  const sortTopics = (topics: StudyCycleTopic[]) =>
-    [...topics].sort((a, b) => {
-      if (a.position !== undefined && b.position !== undefined) return a.position - b.position;
-      if (!a.createdAt && !b.createdAt) return 0;
-      if (!a.createdAt) return 1;
-      if (!b.createdAt) return -1;
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    });
-
   const visibleSubjects = useMemo(() => {
     return subjects
       .map(subject => {
-        const sorted = sortTopics(subject.topics);
+        const sorted = sortTopicsInStudyOrder(subject.topics);
         const filtered = filterTopicsBySearch ? filterTopicsBySearch(sorted) : sorted;
         return { subject, topics: filtered };
       })

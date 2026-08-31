@@ -9,13 +9,17 @@ export const useCycleState = () => {
   const { user } = useAuth();
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
 
   const fetchUserCycle = useCallback(async () => {
     if (!user) {
+      setLoadError(null);
       setIsLoading(false);
       return;
     }
 
+    setIsLoading(true);
+    setLoadError(null);
     try {
       const { data, error } = await withTimeout(
         supabase
@@ -30,6 +34,7 @@ export const useCycleState = () => {
 
       if (error) {
         console.error('Erro ao buscar ciclo do usuário:', error);
+        setLoadError(error);
         return;
       }
 
@@ -40,6 +45,7 @@ export const useCycleState = () => {
       }
     } catch (error) {
       console.error('Erro ao buscar ciclo:', error);
+      setLoadError(error);
     } finally {
       setIsLoading(false);
     }
@@ -227,6 +233,7 @@ export const useCycleState = () => {
     userCycle,
     setUserCycle,
     isLoading,
+    error: loadError,
     fetchUserCycle,
     updateUserCycle,
     createInitialUserCycle,

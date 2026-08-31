@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260707124414_move_validate_coupon_to_edge.sql',
+  'supabase/migrations_legacy/20260707124414_move_validate_coupon_to_edge.sql',
 );
 
 describe('move validate coupon to edge migration', () => {

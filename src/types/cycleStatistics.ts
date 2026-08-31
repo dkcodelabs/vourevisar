@@ -45,6 +45,33 @@ export interface CycleStatisticsTime {
   daily: CycleStatisticsDay[];
 }
 
+export type CycleStatisticsContactType = 'study' | 'review' | 'questions';
+
+export interface CycleStatisticsDayContactInput {
+  id: string;
+  topicId: string;
+  topicName: string;
+  subjectId: string;
+  subjectName: string;
+  durationMinutes: number;
+  reviewedAt: string;
+  type: CycleStatisticsContactType;
+}
+
+export interface CycleStatisticsSelectedDay {
+  date: string;
+  label: string;
+  sessionMinutes: number;
+  subjectMinutes: Array<{
+    subjectId: string;
+    subjectName: string;
+    color: string | null;
+    minutes: number;
+  }>;
+  contacts: CycleStatisticsDayContactInput[];
+  contactsUnavailable: boolean;
+}
+
 export interface CycleStatisticsSubject {
   id: string;
   name: string;
@@ -57,6 +84,12 @@ export interface CycleStatisticsSubject {
   coveragePercentage: number;
   weightLabel: string;
   hasWeight: boolean;
+  difficulty: {
+    ratedTopics: number;
+    easyTopics: number;
+    mediumTopics: number;
+    hardTopics: number;
+  };
 }
 
 export interface CycleStatisticsInsight {
@@ -82,6 +115,7 @@ export interface CycleStatisticsData {
   subjects: CycleStatisticsSubject[];
   insight: CycleStatisticsInsight;
   hasStudyTime: boolean;
+  selectedDay: CycleStatisticsSelectedDay | null;
 }
 
 export interface CycleStatisticsTopicInput {
@@ -97,6 +131,7 @@ export interface CycleStatisticsTopicInput {
   lastReviewedAt: string | null;
   memoryStability: number | null;
   currentInterval: number | null;
+  difficultyLevel: number | null;
   learningStatus?: LearningStatus;
 }
 
@@ -130,5 +165,8 @@ export interface BuildCycleStatisticsInput {
   topics: CycleStatisticsTopicInput[];
   subjects: CycleStatisticsSubjectInput[];
   sessions: CycleStatisticsSessionInput[];
+  selectedDate?: string | null;
+  dayContacts?: CycleStatisticsDayContactInput[];
+  dayContactsUnavailable?: boolean;
   now?: Date;
 }

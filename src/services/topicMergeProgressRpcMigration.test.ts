@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260626194107_sync_topic_merge_progress_rpc.sql',
+  'supabase/migrations_legacy/20260626194107_sync_topic_merge_progress_rpc.sql',
 );
 
 const readMigration = () => readFileSync(migrationPath, 'utf8');

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, Users, Clock,
-  Trophy, TrendingUp, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
+  Trophy, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
   ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Monitor, FileSearch,
   MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Bot, NotebookTabs, AlertTriangle, Crown, LogOut, User
 } from "lucide-react";
@@ -98,7 +98,6 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
   const adminItems: NavItem[] = isAdmin ? [
     { to: "/admin/users", label: "Gerenciar Usuários", icon: Users },
     { to: "/admin/editais", label: "Gerenciar Editais", icon: Library },
-    { to: "/admin/importancia-prova", label: "Importância em Prova", icon: TrendingUp },
     { to: "/admin/subscription", label: "Assinaturas", icon: CreditCard },
     ...(isOwner ? [{ to: "/admin/referrals", label: "Divulgação e Repasses", icon: Target }] : []),
     { to: "/admin/audit", label: "Auditoria", icon: ClipboardList },

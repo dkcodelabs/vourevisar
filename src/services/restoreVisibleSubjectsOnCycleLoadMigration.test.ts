@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const migration = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260716130000_restore_visible_subjects_on_cycle_load.sql'),
+  resolve(process.cwd(), 'supabase/migrations_legacy/20260716130000_restore_visible_subjects_on_cycle_load.sql'),
   'utf8',
 );
 

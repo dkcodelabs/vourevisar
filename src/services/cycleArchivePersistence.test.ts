@@ -4,19 +4,19 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260626192250_promote_surviving_subject_on_archive.sql',
+  'supabase/migrations_legacy/20260626192250_promote_surviving_subject_on_archive.sql',
 );
 const pruneMigrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260627161607_prune_removed_subjects_from_cycle.sql',
+  'supabase/migrations_legacy/20260627161607_prune_removed_subjects_from_cycle.sql',
 );
 const backfillMigrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260627162043_backfill_cycle_active_subject_scope.sql',
+  'supabase/migrations_legacy/20260627162043_backfill_cycle_active_subject_scope.sql',
 );
 const syncNameMigrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260825200500_sync_cycle_name_on_archive.sql',
+  'supabase/migrations_legacy/20260825200500_sync_cycle_name_on_archive.sql',
 );
 
 const readMigration = () => readFileSync(migrationPath, 'utf8');

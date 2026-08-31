@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260707123500_tighten_unused_authenticated_security_definer_grants.sql',
+  'supabase/migrations_legacy/20260707123500_tighten_unused_authenticated_security_definer_grants.sql',
 );
 
 const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim().toLowerCase();

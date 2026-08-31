@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toastGate } from '@/lib/errors/toastGate';
+import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeUserRpc } from '@/services/userRpcService';
@@ -324,18 +325,18 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
         );
 
         const newRecoveredAiSubjects: AiSubject[] = recoveredBasicSubjects
-            .filter(recovered => !normalizedSubjectTitles.has(recovered.name.trim().toLowerCase()))
+            .filter(recovered => !normalizedSubjectTitles.has(recovered.titulo.trim().toLowerCase()))
             .map((recovered, idx) => ({
                 id: `cesgranrio-recovered-${idx}-${Date.now()}`,
-                title: recovered.name,
+                title: recovered.titulo,
+                selected: true,
                 knowledgeType: 'Conhecimentos Básicos',
                 expanded: false,
-                topics: (recovered.topics || []).map((topic, tIdx) => ({
-                    id: `cesgranrio-rec-top-${idx}-${tIdx}`,
-                    name: topic.name,
+                topics: [{
+                    name: recovered.firstTopicAnchor || recovered.titulo,
                     selected: true,
-                    position: topic.position ?? tIdx,
-                }))
+                    position: 0,
+                }]
             }));
 
         if (newRecoveredAiSubjects.length === 0) return subjects;
@@ -444,12 +445,7 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
 
                 setAiResult(restoredAiResult);
                 setAnalysisResult(storedAnalysis);
-                if (storedMissingContent) {
-                    setMissingContentSource({
-                        message: storedMissingContent.message,
-                        originalFileCount: 0,
-                    });
-                } else if (!restoredAiResult.length && !restoredSourcePayload?.inputText && !restoredSourcePayload?.pdfUrl && !restoredSourcePayload?.pdfPath) {
+                if (!restoredAiResult.length && !restoredSourcePayload?.inputText && !restoredSourcePayload?.pdfUrl && !restoredSourcePayload?.pdfPath) {
                     setMissingContentSource({
                         message: 'Rascunho recuperado. Anexe o arquivo PDF do edital para extrair as disciplinas deste cargo.',
                         originalFileCount: 1,
@@ -642,7 +638,6 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
             const topRec = asRecord(rawTopic);
             const name = typeof rawTopic === 'string' ? rawTopic : getString(topRec, 'name', 'n');
             return {
-                id: `inc-top-${index}-${tIdx}-${Date.now()}`,
                 name: name.trim(),
                 selected: true,
                 position: tIdx,
@@ -652,7 +647,6 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
         const finalTopics: AiTopic[] = topics.length > 0
             ? topics
             : [{
-                id: `inc-top-${index}-0-${Date.now()}`,
                 name: title,
                 selected: true,
                 position: 0,
@@ -719,10 +713,12 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
                     if (!weight) return subject;
                     return {
                         ...subject,
-                        examWeightPoints: weight.points,
-                        examWeightQuestions: weight.questions,
-                        examWeightPercentage: weight.percentage,
-                        examWeightRaw: weight.rawText,
+                        weight: {
+                            points: weight.points,
+                            questions: weight.questions,
+                            percentage: weight.percentage,
+                            rawText: weight.rawText,
+                        },
                     };
                 });
             }
@@ -1061,7 +1057,7 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
                     message: 'Para extrair as disciplinas deste cargo, anexe novamente o arquivo PDF do edital abaixo.',
                     originalFileCount: 1
                 });
-                toastGate.notifyWarning('Por favor, anexe o PDF do edital para extrair as disciplinas.', 'IA-DOC-01');
+                toast.warning('Por favor, anexe o PDF do edital para extrair as disciplinas.');
                 return;
             }
 
@@ -1157,10 +1153,10 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
 
     const aiExamWeightTotals = useMemo(() => {
         return getExamWeightTotals(aiResult.map(s => ({
-            exam_weight_points: s.examWeightPoints ?? null,
-            exam_weight_questions: s.examWeightQuestions ?? null,
-            exam_weight_percentage: s.examWeightPercentage ?? null,
-            exam_weight_raw: s.examWeightRaw ?? null,
+            exam_weight_points: s.weight?.points ?? null,
+            exam_weight_questions: s.weight?.questions ?? null,
+            exam_weight_percentage: s.weight?.percentage ?? null,
+            exam_weight_raw: s.weight?.rawText ?? null,
         })));
     }, [aiResult]);
 

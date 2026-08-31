@@ -1,14 +1,33 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchCycleStatisticsSource } from '@/services/cycleStatisticsService';
 import type { CycleStatisticsPeriod } from '@/types/cycleStatistics';
 import { buildCycleStatistics } from '@/utils/cycleStatistics';
 
-export function useCycleStatistics(period: CycleStatisticsPeriod) {
+export function useCycleStatistics(period: CycleStatisticsPeriod, selectedDate: string | null = null) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user?.id || typeof window === 'undefined') return;
+    const invalidateStatistics = () => {
+      void queryClient.invalidateQueries({ queryKey: ['cycle-statistics', user.id] });
+    };
+    const events = [
+      'topicUpdated',
+      'subjectUpdated',
+      'cycleUpdated',
+      'mergeUpdated',
+      'dailyProgressUpdated',
+      'external-topic-completed',
+    ];
+    events.forEach(eventName => window.addEventListener(eventName, invalidateStatistics));
+    return () => events.forEach(eventName => window.removeEventListener(eventName, invalidateStatistics));
+  }, [queryClient, user?.id]);
 
   return useQuery({
-    queryKey: ['cycle-statistics', user?.id, period],
+    queryKey: ['cycle-statistics', user?.id, period, selectedDate],
     enabled: Boolean(user?.id),
     staleTime: 60_000,
     // O ciclo pode ser carregado em outra rota enquanto esta query mantém um
@@ -17,7 +36,7 @@ export function useCycleStatistics(period: CycleStatisticsPeriod) {
     refetchOnMount: 'always',
     queryFn: async () => {
       if (!user?.id) throw new Error('Usuário não autenticado.');
-      const source = await fetchCycleStatisticsSource({ userId: user.id, period });
+      const source = await fetchCycleStatisticsSource({ userId: user.id, period, selectedDate });
       if (!source.cycle) return null;
       return buildCycleStatistics({
         cycle: source.cycle,
@@ -26,6 +45,9 @@ export function useCycleStatistics(period: CycleStatisticsPeriod) {
         topics: source.topics,
         subjects: source.subjects,
         sessions: source.sessions,
+        selectedDate,
+        dayContacts: source.dayContacts,
+        dayContactsUnavailable: source.dayContactsUnavailable,
       });
     },
   });

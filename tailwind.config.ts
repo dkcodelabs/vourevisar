@@ -80,10 +80,6 @@ export default {
 					DEFAULT: 'hsl(var(--info))',
 					foreground: 'hsl(var(--info-foreground))',
 				},
-				incidence: {
-					DEFAULT: 'hsl(var(--incidence))',
-					foreground: 'hsl(var(--incidence-foreground))',
-				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',

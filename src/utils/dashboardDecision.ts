@@ -1,21 +1,72 @@
 import { differenceInCalendarDays, format, startOfDay } from 'date-fns';
 import type {
-  ChargeCoverageState,
   DashboardAction,
-  DashboardActivityDay,
+  DashboardActionTarget,
   DashboardCycleSubject,
   DashboardCycleTopic,
-  DashboardChargeSummary,
-  DashboardDifficultySummary,
+  DashboardDataIssueSource,
   DashboardPace,
   DashboardProgressSummary,
   DashboardReviewTopic,
+  DashboardRecentPaceDay,
 } from '@/types/dashboardDecision';
 import { buildStudyCyclePaceMetrics } from './studyCycleMetrics';
+
+/** Resolves display focus only; it never starts a session or changes cycle order. */
+export function resolveDashboardNavigation(
+  href: string,
+  target: DashboardActionTarget | undefined,
+  subjects: DashboardCycleSubject[],
+): { href: string; state?: { focusSubjectId: string; focusTopicId?: string }; unavailable: boolean } {
+  if (href !== '/ciclo-estudos' || (!target?.subjectId && !target?.topicId)) {
+    return { href, unavailable: false };
+  }
+
+  // Topic identity wins over a source subject id after a subject merge.
+  const subject = target.topicId
+    ? subjects.find(item => item.topics.some(topic => topic.id === target.topicId))
+    : subjects.find(item => item.id === target.subjectId);
+
+  if (!subject) return { href, unavailable: true };
+
+  return {
+    href,
+    state: {
+      focusSubjectId: subject.id,
+      ...(target.topicId ? { focusTopicId: target.topicId } : {}),
+    },
+    unavailable: false,
+  };
+}
 
 export function normalizeReminderDate(value: string | null | undefined) {
   if (!value) return null;
   return value.slice(0, 10);
+}
+
+export function getDashboardDataIssues({
+  activityError,
+  remindersError,
+}: {
+  activityError: unknown;
+  remindersError: unknown;
+}): DashboardDataIssueSource[] {
+  return [
+    ...(activityError ? ['activity' as const] : []),
+    ...(remindersError ? ['reminders' as const] : []),
+  ];
+}
+
+export function getDashboardCriticalError({
+  reviewsError,
+  cycleError,
+  editaisError,
+}: {
+  reviewsError: unknown;
+  cycleError: unknown;
+  editaisError: unknown;
+}) {
+  return reviewsError ?? cycleError ?? editaisError ?? null;
 }
 
 export function getPaceBannerAction(state: DashboardPace['state']) {
@@ -54,26 +105,18 @@ export function formatPaceValue(value: number | null) {
   return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}/dia`;
 }
 
-export function getDashboardActivitySelection(days: DashboardActivityDay[], selectedDate?: string | null) {
-  if (selectedDate === null) {
-    return {
-      day: null,
-      studies: [],
-      reviews: [],
-    };
-  }
-
-  const selectedDay = selectedDate ? days.find((day) => day.date === selectedDate) : null;
-  const day =
-    selectedDay ??
-    days[days.length - 1] ??
-    null;
-  const entries = day?.entries ?? [];
-
+/** Keep the dashboard's existing seven-day window, zero days and one-decimal rounding. */
+export function getDashboardRecentPace(activityDays: DashboardRecentPaceDay[]) {
+  const recentDays = activityDays.slice(-7);
+  const periodDivisor = Math.max(recentDays.length, 1);
+  const studiedTopics = recentDays.reduce((total, day) => total + day.studiedCount, 0);
+  const completedReviews = recentDays.reduce((total, day) => total + day.reviewedCount, 0);
   return {
-    day,
-    studies: entries.filter((entry) => entry.type === 'study'),
-    reviews: entries.filter((entry) => entry.type === 'review'),
+    recentDays,
+    studiedTopics,
+    completedReviews,
+    currentTopicsAverage: Number((studiedTopics / periodDivisor).toFixed(1)),
+    currentReviewsAverage: Number((completedReviews / periodDivisor).toFixed(1)),
   };
 }
 
@@ -153,7 +196,7 @@ export function getNextCycleActions(subjects: DashboardCycleSubject[], limit = 3
       scientificBasis: startsNewTopic
         ? 'Primeiro contato organizado reduz troca de contexto e mantém progresso incremental.'
         : 'Continuar um tópico já iniciado diminui perda de contexto antes de abrir novo conteúdo.',
-      primaryLabel: startsNewTopic ? 'Iniciar estudo' : 'Continuar estudo',
+      primaryLabel: 'Abrir tópico no ciclo',
       primaryHref: '/ciclo-estudos',
       secondaryLabel: 'Ver no ciclo',
       secondaryHref: '/ciclo-estudos',
@@ -165,117 +208,13 @@ export function getNextCycleActions(subjects: DashboardCycleSubject[], limit = 3
       },
       priorityScore: startsNewTopic ? 60 : 50,
       dueDate: topic.nextReview ?? null,
-      metadata: {
-        reviewCount: topic.reviewCount ?? 0,
-        totalVolume: topic.totalVolume ?? null,
-      },
+      metadata: { reviewCount: topic.reviewCount ?? 0 },
     });
 
     if (actions.length >= limit) break;
   }
 
   return actions;
-}
-
-export function getChargeCoverageState(subjects: DashboardCycleSubject[]): ChargeCoverageState {
-  const topics = subjects.flatMap((subject) => subject.topics);
-  if (topics.length === 0) return 'none';
-
-  const analyzed = topics.filter(
-    (topic) => topic.incidenceLevel === 'low' || topic.incidenceLevel === 'medium' || topic.incidenceLevel === 'high',
-  ).length;
-  if (analyzed === 0) return 'none';
-
-  const coverage = analyzed / topics.length;
-  return coverage >= 0.7 ? 'sufficient' : 'partial';
-}
-
-export function getChargeSummary(
-  subjects: DashboardCycleSubject[],
-  today = new Date(),
-): DashboardChargeSummary {
-  const topics = subjects.flatMap((subject) => subject.topics);
-  const analyzedTopics = topics.filter(
-    (topic) => topic.incidenceLevel === 'low' || topic.incidenceLevel === 'medium' || topic.incidenceLevel === 'high',
-  );
-  const highTopics = analyzedTopics.filter((topic) => topic.incidenceLevel === 'high');
-  const todayKey = dayKey(today);
-  const isOverdue = (topic: DashboardCycleTopic) => {
-    if (!topic.nextReview || topic.completed || !isTopicStarted(topic)) return false;
-    const dueDate = new Date(topic.nextReview);
-    if (Number.isNaN(dueDate.getTime())) return false;
-    return dayKey(dueDate) < todayKey;
-  };
-  const highOverdueTopics = highTopics.filter(isOverdue);
-  const highUnstartedTopics = highTopics.filter((topic) => !topic.completed && !isTopicStarted(topic));
-  const highInReviewTopics = highTopics.filter(
-    (topic) => !topic.completed && isTopicStarted(topic) && !isOverdue(topic),
-  );
-
-  return {
-    low: analyzedTopics.filter((topic) => topic.incidenceLevel === 'low').length,
-    medium: analyzedTopics.filter((topic) => topic.incidenceLevel === 'medium').length,
-    high: highTopics.length,
-    analyzedTopics: analyzedTopics.length,
-    totalTopics: topics.length,
-    unanalyzedTopics: Math.max(0, topics.length - analyzedTopics.length),
-    highOverdue: {
-      count: highOverdueTopics.length,
-      topicId: highOverdueTopics[0]?.id ?? null,
-    },
-    highUnstarted: {
-      count: highUnstartedTopics.length,
-      topicId: highUnstartedTopics[0]?.id ?? null,
-    },
-    highInReview: {
-      count: highInReviewTopics.length,
-      topicId: highInReviewTopics[0]?.id ?? null,
-    },
-  };
-}
-
-export function getStrategicHighChargeActions(subjects: DashboardCycleSubject[], limit = 2): DashboardAction[] {
-  const coverage = getChargeCoverageState(subjects);
-  if (coverage === 'none') return [];
-
-  return subjects
-    .flatMap((subject) =>
-      subject.topics
-        .filter((topic) => !topic.completed && !isTopicStarted(topic) && topic.incidenceLevel === 'high')
-        .map((topic) => ({
-          subject,
-          topic,
-          volume: topic.totalVolume || 0,
-        })),
-    )
-    .sort((a, b) => b.volume - a.volume)
-    .slice(0, limit)
-    .map(({ subject, topic, volume }) => ({
-      id: `charge:${topic.id}`,
-      kind: 'strategic_high_charge',
-      tone: 'warning',
-      title: `Alta cobrança: ${topic.name}`,
-      description: `${subject.name} • ainda sem primeiro contato`,
-      reason:
-        coverage === 'partial'
-          ? 'Este tópico aparece forte entre os itens já analisados. Use como alerta, sem ignorar a ordem do ciclo.'
-          : 'Este tópico tem sinal de alta cobrança no edital analisado.',
-      scientificBasis: 'Priorizar incidência só é confiável quando existe dado processado; por isso aparece como alerta estratégico.',
-      primaryLabel: 'Ver no ciclo',
-      primaryHref: '/ciclo-estudos',
-      secondaryLabel: 'Abrir tópico',
-      secondaryHref: `/revisoes?topicId=${topic.id}`,
-      target: {
-        subjectId: subject.id,
-        subjectName: subject.name,
-        topicId: topic.id,
-        topicName: topic.name,
-      },
-      priorityScore: 40,
-      metadata: {
-        totalVolume: volume,
-      },
-    }));
 }
 
 const reviewAction = (
@@ -412,23 +351,6 @@ export function buildDashboardPace(params: {
     totalPlannedReviews: params.totalPlannedReviews,
     hasActiveCycle: params.hasActiveCycle,
   });
-}
-
-export function getDifficultySummary(subjects: DashboardCycleSubject[]): DashboardDifficultySummary {
-  return subjects
-    .flatMap((subject) => subject.topics)
-    .reduce<DashboardDifficultySummary>(
-      (acc, topic) => {
-        if (topic.difficultyLevel === 1) acc.easy += 1;
-        else if (topic.difficultyLevel === 2) acc.medium += 1;
-        else if (topic.difficultyLevel === 3) acc.hard += 1;
-        else return acc;
-
-        acc.totalRated += 1;
-        return acc;
-      },
-      { easy: 0, medium: 0, hard: 0, totalRated: 0 },
-    );
 }
 
 export function buildProgressSummary(subjects: DashboardCycleSubject[]): DashboardProgressSummary {

@@ -1,10 +1,11 @@
-import { differenceInCalendarDays, format, subDays } from 'date-fns';
+import { differenceInCalendarDays, format, isValid, parseISO, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getSubjectExamWeightLabel, hasSubjectExamWeight } from '@/utils/examWeight';
 import { determineLearningStatus } from '@/utils/learningStatus';
 import type {
   BuildCycleStatisticsInput,
   CycleStatisticsData,
+  CycleStatisticsDayContactInput,
   CycleStatisticsInsight,
   CycleStatisticsPeriod,
   CycleStatisticsSessionInput,
@@ -13,6 +14,19 @@ import type {
 } from '@/types/cycleStatistics';
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+type TopicSignalSource = {
+  difficultyLevel?: number | null;
+};
+
+export function aggregateCycleTopicDifficulty(sources: TopicSignalSource[]): number | null {
+  const difficultyLevel = sources
+    .map(source => source.difficultyLevel)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 1)
+    .sort((left, right) => right - left)[0] ?? null;
+
+  return difficultyLevel;
+}
 
 export const getCycleStatisticsPeriodStart = (
   period: CycleStatisticsPeriod,
@@ -28,8 +42,23 @@ const toDateKey = (value: Date) => format(value, 'yyyy-MM-dd');
 
 const parseDateKey = (value: string) => {
   if (!DATE_KEY_PATTERN.test(value)) return null;
-  const parsed = new Date(`${value}T12:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const parsed = parseISO(value);
+  return isValid(parsed) && format(parsed, 'yyyy-MM-dd') === value ? parsed : null;
+};
+
+export const resolveStatisticsDateSelection = (
+  value: string | null,
+  now: Date = new Date(),
+): { date: string; period: CycleStatisticsPeriod } | null => {
+  if (!value) return null;
+  const parsed = parseDateKey(value);
+  if (!parsed) return null;
+  const age = differenceInCalendarDays(now, parsed);
+  if (age < 0) return null;
+  if (age < 7) return { date: value, period: 7 };
+  if (age < 14) return { date: value, period: 14 };
+  if (age < 30) return { date: value, period: 30 };
+  return { date: value, period: 'all' };
 };
 
 const isStarted = (topic: CycleStatisticsTopicInput) =>
@@ -188,6 +217,9 @@ export function buildCycleStatistics({
   topics,
   subjects,
   sessions,
+  selectedDate = null,
+  dayContacts = [],
+  dayContactsUnavailable = false,
   now = new Date(),
 }: BuildCycleStatisticsInput): CycleStatisticsData {
   const todayKey = toDateKey(now);
@@ -310,6 +342,7 @@ export function buildCycleStatistics({
     const overdueReviews = subjectTopics.filter(topic => (
       isStarted(topic) && !topic.completed && getDateState(topic.nextReview, todayKey) === 'overdue'
     )).length;
+    const ratedTopics = subjectTopics.filter(topic => typeof topic.difficultyLevel === 'number');
     const weightSource = {
       exam_weight_points: subject.examWeightPoints,
       exam_weight_questions: subject.examWeightQuestions,
@@ -330,12 +363,50 @@ export function buildCycleStatistics({
         : 0,
       weightLabel: getSubjectExamWeightLabel(weightSource),
       hasWeight: hasSubjectExamWeight(weightSource),
+      difficulty: {
+        ratedTopics: ratedTopics.length,
+        easyTopics: ratedTopics.filter(topic => topic.difficultyLevel === 1).length,
+        mediumTopics: ratedTopics.filter(topic => topic.difficultyLevel === 2).length,
+        hardTopics: ratedTopics.filter(topic => Number(topic.difficultyLevel) >= 3).length,
+      },
     };
   }).sort((left, right) => {
     if (right.overdueReviews !== left.overdueReviews) return right.overdueReviews - left.overdueReviews;
     if (right.studyMinutes !== left.studyMinutes) return right.studyMinutes - left.studyMinutes;
     return right.coveragePercentage - left.coveragePercentage;
   });
+
+  const selectedDaySessions = selectedDate
+    ? validSessions.filter(session => session.studyDate === selectedDate)
+    : [];
+  const selectedMinutesBySubject = new Map<string, number>();
+  selectedDaySessions.forEach(session => {
+    if (!session.subjectId) return;
+    selectedMinutesBySubject.set(
+      session.subjectId,
+      (selectedMinutesBySubject.get(session.subjectId) ?? 0) + session.durationMinutes,
+    );
+  });
+  const selectedDay = selectedDate ? {
+    date: selectedDate,
+    label: format(parseDateKey(selectedDate) ?? now, "EEEE, dd 'de' MMMM", { locale: ptBR })
+      .replace('-feira', '')
+      .replace(/^./, character => character.toUpperCase()),
+    sessionMinutes: sumMinutes(selectedDaySessions),
+    subjectMinutes: subjects
+      .map(subject => ({
+        subjectId: subject.id,
+        subjectName: subject.name,
+        color: subject.color,
+        minutes: selectedMinutesBySubject.get(subject.id) ?? 0,
+      }))
+      .filter(subject => subject.minutes > 0)
+      .sort((left, right) => right.minutes - left.minutes),
+    contacts: dayContacts
+      .filter((contact): contact is CycleStatisticsDayContactInput => contact.reviewedAt.length > 0)
+      .sort((left, right) => left.reviewedAt.localeCompare(right.reviewedAt)),
+    contactsUnavailable: dayContactsUnavailable,
+  } : null;
 
   return {
     cycleId: cycle.id,
@@ -349,6 +420,7 @@ export function buildCycleStatistics({
     subjects: subjectStatistics,
     insight: buildInsight(progress, memory, subjectStatistics, time),
     hasStudyTime: currentMinutes > 0,
+    selectedDay,
   };
 }
 

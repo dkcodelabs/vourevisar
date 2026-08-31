@@ -30,6 +30,12 @@ export type StudyCycleTransitionActionKind =
   | 'edital_completed'
   | 'continue_cycle';
 
+export type StudyCycleSubjectMinutes = {
+  subjectId: string;
+  subjectName: string;
+  minutes: number;
+};
+
 export type StudyCycleTransitionSummary = {
   totalSubjects: number;
   firstContactClosedSubjects: number;
@@ -48,11 +54,8 @@ export type StudyCycleTransitionSummary = {
   };
   totalStudyMinutes: number;
   averageMinutesPerStartedTopic: number | null;
-  topSubjectByStudyMinutes: {
-    subjectId: string;
-    subjectName: string;
-    minutes: number;
-  } | null;
+  topSubjectByStudyMinutes: StudyCycleSubjectMinutes | null;
+  lowestSubjectByStudyMinutes: StudyCycleSubjectMinutes | null;
   primaryAction: {
     kind: StudyCycleTransitionActionKind;
     label: string;
@@ -207,9 +210,17 @@ export const getStudyCycleTransitionSummary = ({
       minutes,
     };
   });
-  const topSubjectByStudyMinutes = minutesBySubject
+  const studiedSubjects = minutesBySubject
     .filter(subject => subject.minutes > 0)
-    .sort((a, b) => b.minutes - a.minutes)[0] || null;
+    .sort((a, b) => b.minutes - a.minutes);
+
+  const topSubjectByStudyMinutes = studiedSubjects[0] || null;
+  const lowestCandidate = studiedSubjects.length > 1 ? studiedSubjects[studiedSubjects.length - 1] : null;
+  const lowestSubjectByStudyMinutes =
+    lowestCandidate && topSubjectByStudyMinutes && lowestCandidate.minutes < topSubjectByStudyMinutes.minutes
+      ? lowestCandidate
+      : null;
+
   const totalStudyMinutes = minutesBySubject.reduce((sum, subject) => sum + subject.minutes, 0);
   const hasNoNewTopicsToStart = allTopics.length > 0 && startedTopics.length === allTopics.length;
   const isEditalCompleted = allTopics.length > 0 && completedTopics.length === allTopics.length;
@@ -234,6 +245,7 @@ export const getStudyCycleTransitionSummary = ({
       ? Math.round(totalStudyMinutes / startedTopics.length)
       : null,
     topSubjectByStudyMinutes,
+    lowestSubjectByStudyMinutes,
     primaryAction: getPrimaryAction(reviewCounts, isEditalCompleted, hasNoNewTopicsToStart),
   };
 };

@@ -18,7 +18,11 @@ Configure no projeto da Vercel:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-Nao coloque chaves de IA, Asaas, Resend ou service role em variaveis `VITE_`. Tudo que e segredo pertence ao Supabase Edge Functions ou a outro ambiente server-side.
+Nao coloque chaves de IA, Stripe, Resend ou service role em variaveis `VITE_`.
+Tudo que e segredo pertence ao Supabase Edge Functions ou a outro ambiente
+server-side. `VITE_STRIPE_PUBLISHABLE_KEY` e a unica chave Stripe permitida no
+frontend; ela deve corresponder ao mesmo modo (`test` ou `live`) configurado no
+backend.
 
 ## Secrets do Supabase
 
@@ -26,15 +30,19 @@ Secrets esperados pelas Edge Functions atuais:
 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `GEMINI_API_KEY`
-- `GOOGLE_API_KEY`
-- `GOOGLE_SEARCH_ENGINE_ID`
 - `OPENAI_API_KEY`
-- `ASAAS_API_KEY`
-- `ASAAS_WEBHOOK_TOKEN`
 - `RESEND_API_KEY`
 - `SEND_EMAIL_HOOK_SECRET`
-- `INCIDENCE_WORKER_SECRET`
-- `INCIDENCE_DAILY_GOOGLE_LIMIT`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_LIVEMODE`
+- `STRIPE_MONTHLY_PRICE_ID`
+- `STRIPE_ANNUAL_PRICE_ID`
+
+Antes de trocar para Live, crie Products/Prices e o endpoint de webhook no
+dashboard Stripe Live. Troque os seis valores Stripe acima e
+`VITE_STRIPE_PUBLISHABLE_KEY` como um corte único; nunca misture chave, preço
+ou webhook `test` com `live`.
 
 ## Edge Functions
 
@@ -42,13 +50,21 @@ Quando alterar `supabase/functions/`, faca deploy explicito da funcao afetada:
 
 ```bash
 supabase functions deploy ai-handler
-supabase functions deploy asaas-admin
-supabase functions deploy asaas-checkout
-supabase functions deploy asaas-webhook
 supabase functions deploy extract-edital
-supabase functions deploy generate-questions
-supabase functions deploy process-topic-incidence
-supabase functions deploy send-auth-email
+supabase functions deploy build-practice-session
+supabase functions deploy generate-practice-package
+supabase functions deploy get-practice-overview
+supabase functions deploy user-rpc
+supabase functions deploy stripe-catalog
+supabase functions deploy stripe-create-checkout
+supabase functions deploy stripe-accept-contract
+supabase functions deploy stripe-create-portal
+supabase functions deploy stripe-schedule-plan-change
+supabase functions deploy stripe-invoice-history
+supabase functions deploy stripe-request-withdrawal
+supabase functions deploy stripe-webhook
+supabase functions deploy admin-billing
+supabase functions deploy admin-affiliates
 ```
 
 ## Migrations e RLS

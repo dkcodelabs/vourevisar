@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-worker-secret',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
@@ -14,16 +14,13 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const workerSecret = Deno.env.get('INCIDENCE_WORKER_SECRET')
     const bearer = req.headers.get('authorization')?.replace('Bearer ', '')
-    const providedSecret = req.headers.get('x-worker-secret')
 
     const supabaseClient = createClient(
       supabaseUrl,
       serviceRoleKey
     )
 
-    const isInternalWorker = Boolean(workerSecret && providedSecret === workerSecret)
     let isAuthenticatedUser = false
 
     if (bearer && bearer !== serviceRoleKey) {
@@ -31,7 +28,7 @@ serve(async (req) => {
       isAuthenticatedUser = Boolean(userData?.user?.id)
     }
 
-    if (!isInternalWorker && !isAuthenticatedUser && bearer !== serviceRoleKey) {
+    if (!isAuthenticatedUser && bearer !== serviceRoleKey) {
       return new Response(JSON.stringify({ success: false, error: 'Não autorizado' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -39,8 +36,6 @@ serve(async (req) => {
     }
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
-    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY')
-    const GOOGLE_SEARCH_ENGINE_ID = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID')
 
     if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY não configurada')
 
@@ -140,26 +135,6 @@ serve(async (req) => {
 
       const uploadResult = await uploadRes.json()
       return new Response(JSON.stringify({ success: true, data: uploadResult.file }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    if (action === 'customSearch') {
-      if (!GOOGLE_API_KEY || !GOOGLE_SEARCH_ENGINE_ID) throw new Error('Google Search não configurado')
-      
-      const { query, anosPreferencia } = body
-      let fullQuery = query
-      if (anosPreferencia) {
-          const year = new Date().getFullYear() - anosPreferencia
-          fullQuery += ` after:${year}`
-      }
-
-      console.log(`🔍 Chamando Google Custom Search: ${fullQuery}`)
-      const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_SEARCH_ENGINE_ID}&q=${encodeURIComponent(fullQuery)}`
-      const response = await fetch(searchUrl)
-      const data = await response.json()
-
-      return new Response(JSON.stringify({ success: true, data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }

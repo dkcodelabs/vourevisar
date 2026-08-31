@@ -538,19 +538,15 @@ export const ImportEditalModal: React.FC<ImportEditalModalProps> = ({
                     <div className="space-y-6 w-full pt-0 pb-12">
                         {manualModeChildren || (
                             <ManualEditalForm
-                                origin={manualOrigin}
-                                onOriginChange={setManualOrigin}
-                                position={manualPosition}
-                                onPositionChange={setManualPosition}
-                                year={manualYear}
-                                onYearChange={setManualYear}
-                                banca={manualBanca}
-                                onBancaChange={setManualBanca}
-                                examDate={examDate}
-                                onExamDateChange={setExamDate}
-                                isImporting={importingManual}
-                                onSave={handleSaveManual}
-                                onCancel={handleCloseModal}
+                                initialData={{
+                                    origin: manualOrigin,
+                                    position: manualPosition,
+                                    year: manualYear,
+                                    examBoard: manualBanca,
+                                    examDate,
+                                }}
+                                isLoading={importingManual}
+                                onSubmit={handleSaveManual}
                             />
                         )}
                     </div>

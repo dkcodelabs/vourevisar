@@ -1,6 +1,6 @@
 
 import { Subject, Topic, StudyProgress, TopicNotes } from '@/types';
-import type { Json, Tables } from '@/integrations/supabase/types';
+import type { Tables } from '@/integrations/supabase/types';
 import { isToday, isBefore } from 'date-fns';
 
 type TopicRow = Partial<Tables<'topics'>> & Pick<Tables<'topics'>, 'id' | 'name'> & {
@@ -55,20 +55,13 @@ export const transformTopicData = (topic: TopicRow): Topic => {
     edital_id: topic.edital_id,
     origin_id: topic.origin_id,
     subtopics: Array.isArray(topic.subtopics) ? topic.subtopics as unknown as Topic['subtopics'] : [],
-    last_search_context: topic.last_search_context,
     next_review: topic.next_review,
-    total_volume: topic.total_volume,
-    incidence_score: topic.incidence_score ?? null,
-    incidence_level: topic.incidence_level as Topic['incidence_level'],
-    incidence_context: topic.incidence_context as Record<string, unknown> | null,
     memory_stability: topic.memory_stability,
     current_interval: topic.current_interval,
     is_active: topic.is_active !== false,
     is_hidden: topic.is_hidden === true,
     position: topic.position ?? undefined,
     review_stage: topic.review_stage ?? null,
-    last_used_query: topic.last_used_query,
-    last_audit_log: topic.last_audit_log as Json | null
   };
 };
 

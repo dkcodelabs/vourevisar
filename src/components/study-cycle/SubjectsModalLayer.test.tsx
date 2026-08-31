@@ -74,8 +74,6 @@ describe('SubjectsModalLayer', () => {
           isOpen: true,
           reviewCount: 0,
           reviewStage: null,
-          strategicIncidenceDescription: null,
-          strategicIncidenceLabel: null,
           subjectName: 'Direito Constitucional',
           topicId: 'topic-1',
           topicName: 'Controle',

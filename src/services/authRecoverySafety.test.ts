@@ -12,7 +12,7 @@ const resetPasswordSource = readProjectFile('src/pages/ResetPassword.tsx');
 const sendAuthEmailSource = readProjectFile('supabase/functions/send-auth-email/index.ts');
 const adminRpcSource = readProjectFile('supabase/functions/admin-rpc/index.ts');
 const authMethodsMigration = readProjectFile(
-  'supabase/migrations/20260806160246_expose_safe_auth_method_capabilities.sql',
+  'supabase/migrations_legacy/20260806160246_expose_safe_auth_method_capabilities.sql',
 );
 
 describe('password recovery safety boundaries', () => {

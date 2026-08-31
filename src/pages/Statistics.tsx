@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { RefreshCw, WifiOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { EvolutionDayDetail } from '@/components/statistics/EvolutionDayDetail';
 import { EvolutionFocus } from '@/components/statistics/EvolutionFocus';
 import { EvolutionLoadingState } from '@/components/statistics/EvolutionLoadingState';
 import { EvolutionMemoryCard } from '@/components/statistics/EvolutionMemoryCard';
@@ -13,11 +14,15 @@ import { PremiumStateCard } from '@/components/ui/PremiumStateCard';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useCycleStatistics } from '@/hooks/useCycleStatistics';
 import type { CycleStatisticsPeriod } from '@/types/cycleStatistics';
+import { resolveStatisticsDateSelection } from '@/utils/cycleStatistics';
 
 export default function Statistics() {
   const navigate = useNavigate();
-  const [period, setPeriod] = useState<CycleStatisticsPeriod>(7);
-  const { data, isLoading, isError, refetch, isFetching } = useCycleStatistics(period);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const dateSelection = resolveStatisticsDateSelection(searchParams.get('date'));
+  const [period, setPeriod] = useState<CycleStatisticsPeriod>(() => dateSelection?.period ?? 7);
+  const effectivePeriod = dateSelection?.period ?? period;
+  const { data, isLoading, isError, refetch, isFetching } = useCycleStatistics(effectivePeriod, dateSelection?.date ?? null);
 
   if (isLoading) return <EvolutionLoadingState />;
 
@@ -57,10 +62,15 @@ export default function Statistics() {
       : undefined);
   };
 
+  const handlePeriodChange = (nextPeriod: CycleStatisticsPeriod) => {
+    if (dateSelection) setSearchParams({}, { replace: true });
+    setPeriod(nextPeriod);
+  };
+
   return (
     <TooltipProvider>
       <main className="space-y-4 px-4 py-4 md:px-6 md:py-5">
-        <StatisticsHeader data={data} period={period} onPeriodChange={setPeriod} />
+        <StatisticsHeader data={data} period={effectivePeriod} onPeriodChange={handlePeriodChange} />
         <EvolutionOverview progress={data.progress} time={data.time} />
         <EvolutionFocus insight={data.insight} onAction={handleInsightAction} />
 
@@ -68,6 +78,15 @@ export default function Statistics() {
           <EvolutionMemoryCard memory={data.memory} />
           <EvolutionStudyTimeCard time={data.time} />
         </div>
+
+        {data.selectedDay ? (
+          <EvolutionDayDetail
+            day={data.selectedDay}
+            onClear={() => setSearchParams({}, { replace: true })}
+            onRetryContacts={() => void refetch()}
+            isRetryingContacts={isFetching}
+          />
+        ) : null}
 
         <EvolutionSubjectsCard
           subjects={data.subjects}

@@ -5,10 +5,6 @@ import {
 } from '@/utils/examWeight';
 
 export type StrategicWeightLevel = 'known' | 'none';
-export type StrategicIncidenceLevel = 'high' | 'analyzed' | 'not_analyzed';
-
-const hasFiniteNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);
 
 export const getSubjectStrategicWeight = (subject: Pick<
   StudyCycleSubject,
@@ -26,63 +22,6 @@ export const getSubjectStrategicWeight = (subject: Pick<
     level: 'known' as StrategicWeightLevel,
     label: getSubjectExamWeightLabel(subject),
     hasWeight: true,
-  };
-};
-
-export const getTopicStrategicIncidence = (topic: {
-  totalVolume?: number | null;
-  incidenceLevel?: 'low' | 'medium' | 'high' | string | null;
-}) => {
-  if (topic.incidenceLevel === 'high') {
-    return {
-      level: 'high' as StrategicIncidenceLevel,
-      label: 'Cobrança alta',
-      hasIncidence: true,
-      showToStudent: true,
-    };
-  }
-
-  if (topic.incidenceLevel === 'medium') {
-    return {
-      level: 'analyzed' as StrategicIncidenceLevel,
-      label: 'Cobrança média',
-      hasIncidence: true,
-      showToStudent: true,
-    };
-  }
-
-  if (topic.incidenceLevel === 'low') {
-    return {
-      level: 'analyzed' as StrategicIncidenceLevel,
-      label: 'Cobrança baixa',
-      hasIncidence: true,
-      showToStudent: false,
-    };
-  }
-
-  if (!hasFiniteNumber(topic.totalVolume) || topic.totalVolume <= 0) {
-    return {
-      level: 'not_analyzed' as StrategicIncidenceLevel,
-      label: 'Incidência não analisada',
-      hasIncidence: false,
-      showToStudent: false,
-    };
-  }
-
-  if (topic.totalVolume >= 1000) {
-    return {
-      level: 'high' as StrategicIncidenceLevel,
-      label: 'Cobrança alta',
-      hasIncidence: true,
-      showToStudent: true,
-    };
-  }
-
-  return {
-    level: 'analyzed' as StrategicIncidenceLevel,
-    label: 'Incidência analisada',
-    hasIncidence: true,
-    showToStudent: false,
   };
 };
 
@@ -105,18 +44,12 @@ export const getStudyCycleStrategicSummary = (subjects: StudyCycleSubject[]) => 
     0,
   );
   const subjectsWithoutWeight = subjects.filter(subject => !subject.strategicWeight?.hasWeight).length;
-  const topicsWithoutIncidence = subjects.reduce(
-    (sum, subject) => sum + subject.topics.filter(topic => !topic.strategicIncidence?.hasIncidence).length,
-    0,
-  );
-
   return {
     totalSubjects,
     totalTopics,
     startedTopics,
     completedTopics,
     subjectsWithoutWeight,
-    topicsWithoutIncidence,
     editalCoveragePercentage: totalTopics > 0 ? Math.round((startedTopics / totalTopics) * 100) : 0,
   };
 };

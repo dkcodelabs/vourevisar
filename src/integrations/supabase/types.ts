@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -497,6 +497,192 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_affiliate_conversions: {
+        Row: {
+          affiliate_id: string
+          billing_subscription_id: string | null
+          commission_amount_cents: number
+          commission_percent: number
+          created_at: string
+          currency: string
+          discount_amount_cents: number
+          eligible_at: string
+          gross_amount_cents: number
+          id: string
+          paid_amount_cents: number
+          paid_at: string
+          payout_id: string | null
+          plan_code: string
+          provider_updated_at: string
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_invoice_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          affiliate_id: string
+          billing_subscription_id?: string | null
+          commission_amount_cents: number
+          commission_percent: number
+          created_at?: string
+          currency: string
+          discount_amount_cents: number
+          eligible_at: string
+          gross_amount_cents: number
+          id?: string
+          paid_amount_cents: number
+          paid_at: string
+          payout_id?: string | null
+          plan_code: string
+          provider_updated_at: string
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_invoice_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          affiliate_id?: string
+          billing_subscription_id?: string | null
+          commission_amount_cents?: number
+          commission_percent?: number
+          created_at?: string
+          currency?: string
+          discount_amount_cents?: number
+          eligible_at?: string
+          gross_amount_cents?: number
+          id?: string
+          paid_amount_cents?: number
+          paid_at?: string
+          payout_id?: string | null
+          plan_code?: string
+          provider_updated_at?: string
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_invoice_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_affiliate_conversions_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "billing_affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_affiliate_conversions_billing_subscription_id_fkey"
+            columns: ["billing_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "billing_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_affiliate_conversions_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "billing_affiliate_payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_affiliate_payouts: {
+        Row: {
+          affiliate_id: string
+          amount_cents: number
+          conversion_count: number
+          created_at: string
+          created_by: string | null
+          id: string
+          livemode: boolean
+          paid_at: string
+          payment_reference: string | null
+          period_end: string
+          period_start: string
+        }
+        Insert: {
+          affiliate_id: string
+          amount_cents: number
+          conversion_count: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          livemode: boolean
+          paid_at?: string
+          payment_reference?: string | null
+          period_end: string
+          period_start: string
+        }
+        Update: {
+          affiliate_id?: string
+          amount_cents?: number
+          conversion_count?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          livemode?: boolean
+          paid_at?: string
+          payment_reference?: string | null
+          period_end?: string
+          period_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_affiliate_payouts_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "billing_affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_affiliates: {
+        Row: {
+          active: boolean
+          code: string
+          commission_percent: number
+          created_at: string
+          created_by: string | null
+          discount_percent: number
+          id: string
+          livemode: boolean
+          name: string
+          stripe_coupon_id: string
+          stripe_promotion_code_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          commission_percent?: number
+          created_at?: string
+          created_by?: string | null
+          discount_percent?: number
+          id?: string
+          livemode: boolean
+          name: string
+          stripe_coupon_id: string
+          stripe_promotion_code_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          commission_percent?: number
+          created_at?: string
+          created_by?: string | null
+          discount_percent?: number
+          id?: string
+          livemode?: boolean
+          name?: string
+          stripe_coupon_id?: string
+          stripe_promotion_code_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       billing_checkout_attempts: {
         Row: {
           completed_at: string | null
@@ -649,6 +835,92 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      billing_plan_change_requests: {
+        Row: {
+          accepted_at: string
+          applied_at: string | null
+          billing_subscription_id: string
+          canceled_at: string | null
+          confirmation_email_sent_at: string | null
+          created_at: string
+          effective_at: string
+          error_code: string | null
+          from_plan_code: string
+          id: string
+          livemode: boolean
+          privacy_version: string
+          refund_policy_sha256: string
+          refund_policy_version: string
+          request_id: string
+          scheduled_at: string | null
+          status: string
+          stripe_schedule_id: string | null
+          terms_sha256: string
+          terms_version: string
+          to_plan_code: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          applied_at?: string | null
+          billing_subscription_id: string
+          canceled_at?: string | null
+          confirmation_email_sent_at?: string | null
+          created_at?: string
+          effective_at: string
+          error_code?: string | null
+          from_plan_code: string
+          id?: string
+          livemode: boolean
+          privacy_version: string
+          refund_policy_sha256: string
+          refund_policy_version: string
+          request_id: string
+          scheduled_at?: string | null
+          status?: string
+          stripe_schedule_id?: string | null
+          terms_sha256: string
+          terms_version: string
+          to_plan_code: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          applied_at?: string | null
+          billing_subscription_id?: string
+          canceled_at?: string | null
+          confirmation_email_sent_at?: string | null
+          created_at?: string
+          effective_at?: string
+          error_code?: string | null
+          from_plan_code?: string
+          id?: string
+          livemode?: boolean
+          privacy_version?: string
+          refund_policy_sha256?: string
+          refund_policy_version?: string
+          request_id?: string
+          scheduled_at?: string | null
+          status?: string
+          stripe_schedule_id?: string | null
+          terms_sha256?: string
+          terms_version?: string
+          to_plan_code?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_plan_change_requests_billing_subscription_id_fkey"
+            columns: ["billing_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "billing_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       billing_refund_admin_actions: {
         Row: {
@@ -1331,93 +1603,6 @@ export type Database = {
           },
         ]
       }
-      edital_incidence_maps: {
-        Row: {
-          ai_count: number
-          catalog_count: number
-          completed_at: string | null
-          created_at: string
-          edital_id: string
-          error_count: number
-          id: string
-          last_error: string | null
-          last_processed_at: string | null
-          metadata: Json
-          no_signal_count: number
-          notification_sent_at: string | null
-          pending_count: number
-          skipped_count: number
-          started_at: string | null
-          status: string
-          total_topics: number
-          updated_at: string
-          user_cycle_id: string | null
-          user_id: string
-          with_signal_count: number
-        }
-        Insert: {
-          ai_count?: number
-          catalog_count?: number
-          completed_at?: string | null
-          created_at?: string
-          edital_id: string
-          error_count?: number
-          id?: string
-          last_error?: string | null
-          last_processed_at?: string | null
-          metadata?: Json
-          no_signal_count?: number
-          notification_sent_at?: string | null
-          pending_count?: number
-          skipped_count?: number
-          started_at?: string | null
-          status?: string
-          total_topics?: number
-          updated_at?: string
-          user_cycle_id?: string | null
-          user_id: string
-          with_signal_count?: number
-        }
-        Update: {
-          ai_count?: number
-          catalog_count?: number
-          completed_at?: string | null
-          created_at?: string
-          edital_id?: string
-          error_count?: number
-          id?: string
-          last_error?: string | null
-          last_processed_at?: string | null
-          metadata?: Json
-          no_signal_count?: number
-          notification_sent_at?: string | null
-          pending_count?: number
-          skipped_count?: number
-          started_at?: string | null
-          status?: string
-          total_topics?: number
-          updated_at?: string
-          user_cycle_id?: string | null
-          user_id?: string
-          with_signal_count?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "edital_incidence_maps_edital_id_fkey"
-            columns: ["edital_id"]
-            isOneToOne: false
-            referencedRelation: "user_editais"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "edital_incidence_maps_user_cycle_id_fkey"
-            columns: ["user_cycle_id"]
-            isOneToOne: false
-            referencedRelation: "user_cycles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       edital_suggestions: {
         Row: {
           concurso: string
@@ -1447,6 +1632,56 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      flashcard_schedules: {
+        Row: {
+          algorithm_version: string
+          due_at: string
+          item_id: string
+          lapses: number
+          last_rating:
+            | Database["public"]["Enums"]["practice_attempt_result"]
+            | null
+          repetitions: number
+          state: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          algorithm_version?: string
+          due_at: string
+          item_id: string
+          lapses?: number
+          last_rating?:
+            | Database["public"]["Enums"]["practice_attempt_result"]
+            | null
+          repetitions?: number
+          state?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          algorithm_version?: string
+          due_at?: string
+          item_id?: string
+          lapses?: number
+          last_rating?:
+            | Database["public"]["Enums"]["practice_attempt_result"]
+            | null
+          repetitions?: number
+          state?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcard_schedules_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "practice_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       general_notes: {
         Row: {
@@ -1502,48 +1737,6 @@ export type Database = {
           text?: string
           updated_at?: string | null
           user_id?: string
-        }
-        Relationships: []
-      }
-      incident_action_log: {
-        Row: {
-          action_type: string
-          actor_email: string | null
-          actor_role: string | null
-          actor_user_id: string
-          created_at: string
-          id: string
-          incident_id: string
-          incident_type: string
-          new_value: string | null
-          note: string | null
-          old_value: string | null
-        }
-        Insert: {
-          action_type: string
-          actor_email?: string | null
-          actor_role?: string | null
-          actor_user_id: string
-          created_at?: string
-          id?: string
-          incident_id: string
-          incident_type: string
-          new_value?: string | null
-          note?: string | null
-          old_value?: string | null
-        }
-        Update: {
-          action_type?: string
-          actor_email?: string | null
-          actor_role?: string | null
-          actor_user_id?: string
-          created_at?: string
-          id?: string
-          incident_id?: string
-          incident_type?: string
-          new_value?: string | null
-          note?: string | null
-          old_value?: string | null
         }
         Relationships: []
       }
@@ -1930,6 +2123,506 @@ export type Database = {
           visibility?: string | null
         }
         Relationships: []
+      }
+      practice_attempts: {
+        Row: {
+          algorithm_version: string
+          answer_payload: Json
+          attempt_kind: Database["public"]["Enums"]["practice_attempt_kind"]
+          client_attempt_id: string
+          created_at: string
+          id: string
+          invalidated_at: string | null
+          item_id: string
+          mistake_tag: string | null
+          response_time_ms: number | null
+          result: Database["public"]["Enums"]["practice_attempt_result"]
+          session_id: string
+          topic_id: string | null
+          user_id: string
+        }
+        Insert: {
+          algorithm_version?: string
+          answer_payload?: Json
+          attempt_kind: Database["public"]["Enums"]["practice_attempt_kind"]
+          client_attempt_id: string
+          created_at?: string
+          id?: string
+          invalidated_at?: string | null
+          item_id: string
+          mistake_tag?: string | null
+          response_time_ms?: number | null
+          result: Database["public"]["Enums"]["practice_attempt_result"]
+          session_id: string
+          topic_id?: string | null
+          user_id: string
+        }
+        Update: {
+          algorithm_version?: string
+          answer_payload?: Json
+          attempt_kind?: Database["public"]["Enums"]["practice_attempt_kind"]
+          client_attempt_id?: string
+          created_at?: string
+          id?: string
+          invalidated_at?: string | null
+          item_id?: string
+          mistake_tag?: string | null
+          response_time_ms?: number | null
+          result?: Database["public"]["Enums"]["practice_attempt_result"]
+          session_id?: string
+          topic_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_attempts_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_attempts_user_id_session_id_item_id_fkey"
+            columns: ["user_id", "session_id", "item_id"]
+            isOneToOne: false
+            referencedRelation: "practice_session_items"
+            referencedColumns: ["user_id", "session_id", "item_id"]
+          },
+        ]
+      }
+      practice_generation_runs: {
+        Row: {
+          accepted_count: number
+          candidate_count: number
+          context_fingerprint: string
+          created_at: string
+          estimated_cost: number | null
+          failure_code: string | null
+          failure_message: string | null
+          finished_at: string | null
+          id: string
+          idempotency_key: string
+          input_tokens: number | null
+          model_id: string
+          output_tokens: number | null
+          package_id: string | null
+          prompt_version: string
+          provider_attempt_count: number
+          rejected_count: number
+          rejection_summary: Json
+          request_context: Json
+          schema_version: string
+          started_at: string
+          status: Database["public"]["Enums"]["practice_generation_status"]
+          topic_id: string
+          total_tokens: number | null
+          trigger: Database["public"]["Enums"]["practice_generation_trigger"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_count?: number
+          candidate_count?: number
+          context_fingerprint: string
+          created_at?: string
+          estimated_cost?: number | null
+          failure_code?: string | null
+          failure_message?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key: string
+          input_tokens?: number | null
+          model_id: string
+          output_tokens?: number | null
+          package_id?: string | null
+          prompt_version: string
+          provider_attempt_count?: number
+          rejected_count?: number
+          rejection_summary?: Json
+          request_context?: Json
+          schema_version: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["practice_generation_status"]
+          topic_id: string
+          total_tokens?: number | null
+          trigger: Database["public"]["Enums"]["practice_generation_trigger"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_count?: number
+          candidate_count?: number
+          context_fingerprint?: string
+          created_at?: string
+          estimated_cost?: number | null
+          failure_code?: string | null
+          failure_message?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string
+          input_tokens?: number | null
+          model_id?: string
+          output_tokens?: number | null
+          package_id?: string | null
+          prompt_version?: string
+          provider_attempt_count?: number
+          rejected_count?: number
+          rejection_summary?: Json
+          request_context?: Json
+          schema_version?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["practice_generation_status"]
+          topic_id?: string
+          total_tokens?: number | null
+          trigger?: Database["public"]["Enums"]["practice_generation_trigger"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_generation_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "practice_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_generation_runs_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_item_feedback: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          rating: number
+          reason: Database["public"]["Enums"]["practice_feedback_reason"] | null
+          session_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          rating: number
+          reason?:
+            | Database["public"]["Enums"]["practice_feedback_reason"]
+            | null
+          session_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          rating?: number
+          reason?:
+            | Database["public"]["Enums"]["practice_feedback_reason"]
+            | null
+          session_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_item_feedback_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "practice_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_item_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_item_reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          item_id: string
+          reason: Database["public"]["Enums"]["practice_feedback_reason"]
+          status: Database["public"]["Enums"]["practice_report_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          item_id: string
+          reason: Database["public"]["Enums"]["practice_feedback_reason"]
+          status?: Database["public"]["Enums"]["practice_report_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          item_id?: string
+          reason?: Database["public"]["Enums"]["practice_feedback_reason"]
+          status?: Database["public"]["Enums"]["practice_report_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_item_reports_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "practice_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_items: {
+        Row: {
+          content_version: number
+          created_at: string
+          depth: string | null
+          expires_at: string | null
+          id: string
+          item_type: Database["public"]["Enums"]["practice_item_type"]
+          learning_objective: string | null
+          legal_as_of: string | null
+          options: Json
+          package_id: string
+          prompt: string
+          quality_score: number | null
+          scope_fingerprint: string | null
+          source_hash: string | null
+          source_kind: string
+          status: Database["public"]["Enums"]["practice_item_status"]
+          target_difficulty: string | null
+          updated_at: string
+        }
+        Insert: {
+          content_version?: number
+          created_at?: string
+          depth?: string | null
+          expires_at?: string | null
+          id?: string
+          item_type: Database["public"]["Enums"]["practice_item_type"]
+          learning_objective?: string | null
+          legal_as_of?: string | null
+          options?: Json
+          package_id: string
+          prompt: string
+          quality_score?: number | null
+          scope_fingerprint?: string | null
+          source_hash?: string | null
+          source_kind?: string
+          status?: Database["public"]["Enums"]["practice_item_status"]
+          target_difficulty?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content_version?: number
+          created_at?: string
+          depth?: string | null
+          expires_at?: string | null
+          id?: string
+          item_type?: Database["public"]["Enums"]["practice_item_type"]
+          learning_objective?: string | null
+          legal_as_of?: string | null
+          options?: Json
+          package_id?: string
+          prompt?: string
+          quality_score?: number | null
+          scope_fingerprint?: string | null
+          source_hash?: string | null
+          source_kind?: string
+          status?: Database["public"]["Enums"]["practice_item_status"]
+          target_difficulty?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_items_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "practice_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_packages: {
+        Row: {
+          bank_profile_version: string | null
+          content_version: number
+          context_snapshot: Json
+          created_at: string
+          id: string
+          quick_recap: Json | null
+          source_hash: string | null
+          status: Database["public"]["Enums"]["practice_package_status"]
+          topic_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank_profile_version?: string | null
+          content_version?: number
+          context_snapshot?: Json
+          created_at?: string
+          id?: string
+          quick_recap?: Json | null
+          source_hash?: string | null
+          status?: Database["public"]["Enums"]["practice_package_status"]
+          topic_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank_profile_version?: string | null
+          content_version?: number
+          context_snapshot?: Json
+          created_at?: string
+          id?: string
+          quick_recap?: Json | null
+          source_hash?: string | null
+          status?: Database["public"]["Enums"]["practice_package_status"]
+          topic_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_packages_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_session_items: {
+        Row: {
+          created_at: string
+          item_id: string
+          position: number
+          served_reason: string
+          session_id: string
+          topic_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          item_id: string
+          position: number
+          served_reason: string
+          session_id: string
+          topic_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          item_id?: string
+          position?: number
+          served_reason?: string
+          session_id?: string
+          topic_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_session_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "practice_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_session_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_session_items_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_sessions: {
+        Row: {
+          algorithm_version: string
+          completed_at: string | null
+          created_at: string
+          cycle_id: string | null
+          id: string
+          idempotency_key: string
+          mode: Database["public"]["Enums"]["practice_session_mode"]
+          signal_snapshot: Json
+          started_at: string
+          status: Database["public"]["Enums"]["practice_session_status"]
+          topic_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          algorithm_version?: string
+          completed_at?: string | null
+          created_at?: string
+          cycle_id?: string | null
+          id?: string
+          idempotency_key: string
+          mode: Database["public"]["Enums"]["practice_session_mode"]
+          signal_snapshot?: Json
+          started_at?: string
+          status?: Database["public"]["Enums"]["practice_session_status"]
+          topic_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          algorithm_version?: string
+          completed_at?: string | null
+          created_at?: string
+          cycle_id?: string | null
+          id?: string
+          idempotency_key?: string
+          mode?: Database["public"]["Enums"]["practice_session_mode"]
+          signal_snapshot?: Json
+          started_at?: string
+          status?: Database["public"]["Enums"]["practice_session_status"]
+          topic_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_sessions_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "user_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_sessions_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -2402,89 +3095,58 @@ export type Database = {
         }
         Relationships: []
       }
-      topic_incidence_catalog: {
+      topic_learning_signals: {
         Row: {
-          analysis_metadata: Json
-          audit_log: Json
-          career_key: string | null
-          career_name: string | null
-          confidence_status: string
-          context_hash: string
-          created_at: string
-          created_by: string | null
-          exam_board_key: string | null
-          exam_board_name: string | null
-          id: string
-          importance_score: number | null
-          last_analyzed_at: string
-          organization_key: string | null
-          organization_name: string | null
-          sample_count: number
-          search_context: string | null
-          source: string
-          subject_key: string
-          subject_name: string
-          topic_key: string
-          topic_name: string
-          total_volume: number
+          accuracy_smoothed: number | null
+          evidence_count: number
+          evidence_level: string
+          flashcard_attempt_count: number
+          last_practiced_at: string | null
+          objective_attempt_count: number
+          recall_score: number | null
+          score_version: string
+          topic_id: string
           updated_at: string
-          winner_query: string | null
+          user_id: string
+          weakness_score: number | null
         }
         Insert: {
-          analysis_metadata?: Json
-          audit_log?: Json
-          career_key?: string | null
-          career_name?: string | null
-          confidence_status?: string
-          context_hash: string
-          created_at?: string
-          created_by?: string | null
-          exam_board_key?: string | null
-          exam_board_name?: string | null
-          id?: string
-          importance_score?: number | null
-          last_analyzed_at?: string
-          organization_key?: string | null
-          organization_name?: string | null
-          sample_count?: number
-          search_context?: string | null
-          source?: string
-          subject_key: string
-          subject_name: string
-          topic_key: string
-          topic_name: string
-          total_volume?: number
+          accuracy_smoothed?: number | null
+          evidence_count?: number
+          evidence_level?: string
+          flashcard_attempt_count?: number
+          last_practiced_at?: string | null
+          objective_attempt_count?: number
+          recall_score?: number | null
+          score_version?: string
+          topic_id: string
           updated_at?: string
-          winner_query?: string | null
+          user_id: string
+          weakness_score?: number | null
         }
         Update: {
-          analysis_metadata?: Json
-          audit_log?: Json
-          career_key?: string | null
-          career_name?: string | null
-          confidence_status?: string
-          context_hash?: string
-          created_at?: string
-          created_by?: string | null
-          exam_board_key?: string | null
-          exam_board_name?: string | null
-          id?: string
-          importance_score?: number | null
-          last_analyzed_at?: string
-          organization_key?: string | null
-          organization_name?: string | null
-          sample_count?: number
-          search_context?: string | null
-          source?: string
-          subject_key?: string
-          subject_name?: string
-          topic_key?: string
-          topic_name?: string
-          total_volume?: number
+          accuracy_smoothed?: number | null
+          evidence_count?: number
+          evidence_level?: string
+          flashcard_attempt_count?: number
+          last_practiced_at?: string | null
+          objective_attempt_count?: number
+          recall_score?: number | null
+          score_version?: string
+          topic_id?: string
           updated_at?: string
-          winner_query?: string | null
+          user_id?: string
+          weakness_score?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "topic_learning_signals_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       topic_merges: {
         Row: {
@@ -2639,22 +3301,12 @@ export type Database = {
           edital_id: string | null
           first_studied_at: string | null
           id: string
-          incidence_applied_at: string | null
-          incidence_catalog_id: string | null
-          incidence_context: Json
-          incidence_level: string | null
-          incidence_score: number | null
-          incidence_source: string | null
           is_active: boolean | null
           is_hidden: boolean | null
           is_marked_for_review: boolean | null
           is_skipped: boolean | null
-          last_audit_log: Json | null
           last_reviewed_at: string | null
-          last_search_context: string | null
           last_session_duration: number | null
-          last_trend_check_at: string | null
-          last_used_query: string | null
           marked_for_review_at: string | null
           memory_stability: number | null
           merged_with_ia: boolean | null
@@ -2671,7 +3323,6 @@ export type Database = {
           subject_id: string
           subtopics: Json | null
           total_reviews: number | null
-          total_volume: number | null
           updated_at: string
         }
         Insert: {
@@ -2683,22 +3334,12 @@ export type Database = {
           edital_id?: string | null
           first_studied_at?: string | null
           id?: string
-          incidence_applied_at?: string | null
-          incidence_catalog_id?: string | null
-          incidence_context?: Json
-          incidence_level?: string | null
-          incidence_score?: number | null
-          incidence_source?: string | null
           is_active?: boolean | null
           is_hidden?: boolean | null
           is_marked_for_review?: boolean | null
           is_skipped?: boolean | null
-          last_audit_log?: Json | null
           last_reviewed_at?: string | null
-          last_search_context?: string | null
           last_session_duration?: number | null
-          last_trend_check_at?: string | null
-          last_used_query?: string | null
           marked_for_review_at?: string | null
           memory_stability?: number | null
           merged_with_ia?: boolean | null
@@ -2715,7 +3356,6 @@ export type Database = {
           subject_id: string
           subtopics?: Json | null
           total_reviews?: number | null
-          total_volume?: number | null
           updated_at?: string
         }
         Update: {
@@ -2727,22 +3367,12 @@ export type Database = {
           edital_id?: string | null
           first_studied_at?: string | null
           id?: string
-          incidence_applied_at?: string | null
-          incidence_catalog_id?: string | null
-          incidence_context?: Json
-          incidence_level?: string | null
-          incidence_score?: number | null
-          incidence_source?: string | null
           is_active?: boolean | null
           is_hidden?: boolean | null
           is_marked_for_review?: boolean | null
           is_skipped?: boolean | null
-          last_audit_log?: Json | null
           last_reviewed_at?: string | null
-          last_search_context?: string | null
           last_session_duration?: number | null
-          last_trend_check_at?: string | null
-          last_used_query?: string | null
           marked_for_review_at?: string | null
           memory_stability?: number | null
           merged_with_ia?: boolean | null
@@ -2759,7 +3389,6 @@ export type Database = {
           subject_id?: string
           subtopics?: Json | null
           total_reviews?: number | null
-          total_volume?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -2768,13 +3397,6 @@ export type Database = {
             columns: ["edital_id"]
             isOneToOne: false
             referencedRelation: "user_editais"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "topics_incidence_catalog_id_fkey"
-            columns: ["incidence_catalog_id"]
-            isOneToOne: false
-            referencedRelation: "topic_incidence_catalog"
             referencedColumns: ["id"]
           },
           {
@@ -3416,20 +4038,43 @@ export type Database = {
         Args: { _days_to_keep?: number }
         Returns: number
       }
-      get_all_topics_admin: {
-        Args: { page_number: number; page_size: number }
-        Returns: {
-          created_at: string
-          id: string
-          is_skipped: boolean
-          last_trend_check_at: string
-          name: string
-          skip_reason: string
-          subject_name: string
-          total_count: number
-          total_volume: number
-          user_email: string
-        }[]
+      complete_practice_generation_internal: {
+        Args: {
+          p_estimated_cost: number
+          p_generation_id: string
+          p_input_tokens: number
+          p_items: Json
+          p_output_tokens: number
+          p_provider_attempt_count: number
+          p_quick_recap: Json
+          p_rejection_summary: Json
+          p_total_tokens: number
+          p_user_id: string
+        }
+        Returns: string
+      }
+      create_practice_session_internal: {
+        Args: {
+          p_idempotency_key: string
+          p_items: Json
+          p_mode: Database["public"]["Enums"]["practice_session_mode"]
+          p_signal_snapshot: Json
+          p_topic_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      fail_practice_generation_internal: {
+        Args: {
+          p_failure_code: string
+          p_failure_message: string
+          p_generation_id: string
+          p_provider_attempt_count: number
+          p_rejection_summary?: Json
+          p_status: Database["public"]["Enums"]["practice_generation_status"]
+          p_user_id: string
+        }
+        Returns: undefined
       }
       get_all_user_roles_admin: {
         Args: never
@@ -3491,6 +4136,15 @@ export type Database = {
       get_points_by_difficulty: {
         Args: { p_difficulty: number }
         Returns: number
+      }
+      get_practice_item_answer_internal: {
+        Args: {
+          p_flashcard_only?: boolean
+          p_item_id: string
+          p_session_id: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       get_role_audit_log: {
         Args: { _limit?: number }
@@ -3681,6 +4335,17 @@ export type Database = {
         }
         Returns: Json
       }
+      record_billing_affiliate_payout: {
+        Args: {
+          p_affiliate_id: string
+          p_created_by: string
+          p_livemode: boolean
+          p_payment_reference: string
+          p_period_end: string
+          p_period_start: string
+        }
+        Returns: Json
+      }
       remove_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3694,6 +4359,25 @@ export type Database = {
           target_user_id: string
         }
         Returns: boolean
+      }
+      reserve_practice_generation_internal: {
+        Args: {
+          p_context_fingerprint: string
+          p_idempotency_key: string
+          p_model_id: string
+          p_prompt_version: string
+          p_request_context: Json
+          p_schema_version: string
+          p_topic_id: string
+          p_trigger: Database["public"]["Enums"]["practice_generation_trigger"]
+          p_user_id: string
+        }
+        Returns: {
+          generation_id: string
+          package_id: string
+          should_generate: boolean
+          status: Database["public"]["Enums"]["practice_generation_status"]
+        }[]
       }
       reset_daily_progress: { Args: never; Returns: undefined }
       reset_edital_study_progress: {
@@ -3713,6 +4397,18 @@ export type Database = {
           _target_user_id: string
         }
         Returns: undefined
+      }
+      submit_practice_attempt_internal: {
+        Args: {
+          p_algorithm_version?: string
+          p_answer_payload: Json
+          p_client_attempt_id: string
+          p_item_id: string
+          p_response_time_ms: number
+          p_session_id: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       suggest_topics_by_time: {
         Args: { p_available_minutes?: number; p_user_id: string }
@@ -3752,6 +4448,43 @@ export type Database = {
     }
     Enums: {
       app_role: "owner" | "admin" | "moderator" | "user"
+      practice_attempt_kind: "objective_answer" | "flashcard_recall"
+      practice_attempt_result:
+        | "correct"
+        | "incorrect"
+        | "skipped"
+        | "recalled"
+        | "effortful"
+        | "forgotten"
+      practice_feedback_reason:
+        | "wrong_answer"
+        | "ambiguous"
+        | "off_topic"
+        | "repetitive"
+        | "too_easy"
+        | "bad_explanation"
+        | "other"
+      practice_generation_status:
+        | "generating"
+        | "succeeded"
+        | "failed"
+        | "rejected"
+      practice_generation_trigger: "explicit" | "replacement"
+      practice_item_status:
+        | "draft"
+        | "private_ready"
+        | "quarantined"
+        | "retired"
+      practice_item_type: "flashcard" | "multiple_choice" | "true_false"
+      practice_package_status:
+        | "draft"
+        | "ready"
+        | "partial"
+        | "failed"
+        | "retired"
+      practice_report_status: "open" | "reviewed" | "dismissed"
+      practice_session_mode: "questions" | "flashcards_due" | "quick"
+      practice_session_status: "active" | "completed" | "abandoned"
       subscription_plan: "free_trial" | "monthly" | "annual"
       subscription_status:
         | "trial"
@@ -3890,6 +4623,48 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["owner", "admin", "moderator", "user"],
+      practice_attempt_kind: ["objective_answer", "flashcard_recall"],
+      practice_attempt_result: [
+        "correct",
+        "incorrect",
+        "skipped",
+        "recalled",
+        "effortful",
+        "forgotten",
+      ],
+      practice_feedback_reason: [
+        "wrong_answer",
+        "ambiguous",
+        "off_topic",
+        "repetitive",
+        "too_easy",
+        "bad_explanation",
+        "other",
+      ],
+      practice_generation_status: [
+        "generating",
+        "succeeded",
+        "failed",
+        "rejected",
+      ],
+      practice_generation_trigger: ["explicit", "replacement"],
+      practice_item_status: [
+        "draft",
+        "private_ready",
+        "quarantined",
+        "retired",
+      ],
+      practice_item_type: ["flashcard", "multiple_choice", "true_false"],
+      practice_package_status: [
+        "draft",
+        "ready",
+        "partial",
+        "failed",
+        "retired",
+      ],
+      practice_report_status: ["open", "reviewed", "dismissed"],
+      practice_session_mode: ["questions", "flashcards_due", "quick"],
+      practice_session_status: ["active", "completed", "abandoned"],
       subscription_plan: ["free_trial", "monthly", "annual"],
       subscription_status: [
         "trial",

@@ -40,8 +40,6 @@ type CycleVerticalWorkspaceSectionProps = {
   expandedSubjectIds: string[];
   getCycleTopicStatusVisual: (topic: Topic, hasStarted: boolean) => CycleTopicStatusVisual;
   getStartedTopicCta: (topicName: string) => StartedTopicCta;
-  getStrategicTopicIncidenceDisplay: (topic: Topic) => string | null;
-  getStrategicTopicIncidenceTitle: (topic: Topic) => string;
   getSubjectTopicSummaryLabel: ComponentProps<typeof VerticalEditalView>['getSubjectTopicSummaryLabel'];
   getTopicContactCount: (topic: Topic) => number;
   getUnifiedSubjectName: (subjectId: string, fallbackName: string) => string;
@@ -84,8 +82,6 @@ export function CycleVerticalWorkspaceSection({
   expandedSubjectIds,
   getCycleTopicStatusVisual,
   getStartedTopicCta,
-  getStrategicTopicIncidenceDisplay,
-  getStrategicTopicIncidenceTitle,
   getSubjectTopicSummaryLabel,
   getTopicContactCount,
   getUnifiedSubjectName,
@@ -118,8 +114,6 @@ export function CycleVerticalWorkspaceSection({
         expandedSubjectIds={expandedSubjectIds}
         getCycleTopicStatusVisual={getCycleTopicStatusVisual}
         getStartedTopicCta={getStartedTopicCta}
-        getStrategicTopicIncidenceDisplay={getStrategicTopicIncidenceDisplay}
-        getStrategicTopicIncidenceTitle={getStrategicTopicIncidenceTitle}
         getSubjectTopicSummaryLabel={getSubjectTopicSummaryLabel}
         getTopicContactCount={getTopicContactCount}
         getTopicStudySessionStatus={(topicId) => activeTimer?.topicId === topicId ? activeTimer.status : null}

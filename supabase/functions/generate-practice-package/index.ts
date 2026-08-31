@@ -19,6 +19,11 @@ import {
   noActivePracticeScopeMessage,
   outsidePracticeScopeMessage,
 } from "../_shared/practiceScope.ts";
+import {
+  estimatePracticeGenerationCost,
+  getPracticeGenerationRates,
+  type PracticeGenerationRates,
+} from "../_shared/practiceGenerationCost.ts";
 
 type GenerationReservation = {
   generation_id: string;
@@ -45,6 +50,7 @@ type GeminiResponse = {
   usageMetadata?: {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
+    thoughtsTokenCount?: number;
     totalTokenCount?: number;
   };
   error?: { message?: string };
@@ -110,6 +116,21 @@ const isAllowedOrigin = (request: Request) => {
 };
 
 const textEncoder = new TextEncoder();
+
+const readOptionalRate = (name: string) => {
+  const rawValue = Deno.env.get(name);
+  if (rawValue === undefined) return undefined;
+  const value = Number(rawValue);
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+};
+
+const getGenerationRates = (modelId: string) => {
+  const overrides: Partial<PracticeGenerationRates> = {
+    inputUsdPerMillion: readOptionalRate("PRACTICE_INPUT_USD_PER_MILLION"),
+    outputUsdPerMillion: readOptionalRate("PRACTICE_OUTPUT_USD_PER_MILLION"),
+  };
+  return getPracticeGenerationRates(modelId, overrides);
+};
 
 const sha256 = async (value: string) => {
   const digest = await crypto.subtle.digest(
@@ -554,14 +575,28 @@ serve(async (request) => {
       }, 422);
     }
 
-    const usage = providerResponses.reduce((total, response) => ({
-      inputTokens: total.inputTokens +
-        (response.usageMetadata?.promptTokenCount ?? 0),
-      outputTokens: total.outputTokens +
-        (response.usageMetadata?.candidatesTokenCount ?? 0),
-      totalTokens: total.totalTokens +
-        (response.usageMetadata?.totalTokenCount ?? 0),
-    }), { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
+    const usage = providerResponses.reduce((total, response) => {
+      const inputTokens = response.usageMetadata?.promptTokenCount ?? 0;
+      const explicitOutputTokens =
+        (response.usageMetadata?.candidatesTokenCount ?? 0) +
+        (response.usageMetadata?.thoughtsTokenCount ?? 0);
+      const totalTokens = response.usageMetadata?.totalTokenCount ?? 0;
+      const billableOutputTokens = Math.max(
+        explicitOutputTokens,
+        totalTokens - inputTokens,
+      );
+
+      return {
+        inputTokens: total.inputTokens + inputTokens,
+        outputTokens: total.outputTokens + billableOutputTokens,
+        totalTokens: total.totalTokens + totalTokens,
+      };
+    }, { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
+    const estimatedCost = estimatePracticeGenerationCost({
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      rates: getGenerationRates(modelId),
+    });
     generationStage = "persistence";
     const { data: packageId, error: completeError } = await supabase
       .rpc("complete_practice_generation_internal", {
@@ -572,7 +607,7 @@ serve(async (request) => {
         p_input_tokens: usage.inputTokens || null,
         p_output_tokens: usage.outputTokens || null,
         p_total_tokens: usage.totalTokens || null,
-        p_estimated_cost: null,
+        p_estimated_cost: estimatedCost,
         p_provider_attempt_count: providerAttemptCount,
         p_rejection_summary: [],
       });

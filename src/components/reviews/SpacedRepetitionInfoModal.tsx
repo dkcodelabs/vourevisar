@@ -95,7 +95,7 @@ export const SpacedRepetitionInfoModal: React.FC<SpacedRepetitionInfoModalProps>
                             </div>
                             <p className="mt-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                                 <strong>Fácil, Médio e Difícil sempre avançam a etapa.</strong> A dificuldade, a estabilidade,
-                                o intervalo anterior, a tendência, o atraso e a cobrança do tópico escolhem o ponto mais adequado
+                                o intervalo anterior, a tendência e o atraso escolhem o ponto mais adequado
                                 dentro da janela. As próximas datas não são previstas antes da revisão atual acontecer.
                             </p>
                         </div>

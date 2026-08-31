@@ -10,11 +10,11 @@ const PrivacyPolicy = () => (
     <h2>3. Finalidades</h2>
     <p>Os dados são utilizados para fornecer o serviço, autenticar usuários, preservar segurança, cumprir contratos e obrigações legais, prestar suporte e administrar cobrança, cancelamento e reembolso.</p>
     <h2>4. Compartilhamento</h2>
-    <p>Dados podem ser tratados por fornecedores necessários à operação, como Supabase, Vercel, Stripe e serviço transacional de e-mail, dentro da finalidade correspondente.</p>
+    <p>Dados podem ser tratados por fornecedores necessários à operação, como Supabase, Vercel, Stripe e serviço transacional de e-mail, dentro da finalidade correspondente. Esses fornecedores podem processar dados fora do Brasil conforme suas medidas de segurança e instrumentos contratuais aplicáveis.</p>
     <h2>5. Conservação e segurança</h2>
     <p>Registros financeiros, contratuais e de segurança são mantidos pelo período necessário ao cumprimento de obrigações e defesa de direitos. Chaves secretas e números completos de cartão não são expostos no navegador.</p>
     <h2>6. Direitos do titular</h2>
-    <p>O titular pode solicitar informações, correção e demais direitos aplicáveis pelo canal eletrônico indicado nesta página. Pedidos de exclusão não eliminam registros cuja conservação seja obrigatória ou necessária para defesa de direitos.</p>
+    <p>O titular pode solicitar confirmação do tratamento, acesso, correção, informação sobre compartilhamentos, anonimização, bloqueio, eliminação quando cabível e demais direitos aplicáveis pelo contato eletrônico indicado nesta página. Pedidos de exclusão não eliminam registros cuja conservação seja obrigatória ou necessária para defesa de direitos.</p>
   </LegalDocumentLayout>
 );
 

@@ -51,6 +51,7 @@ describe('StrategicPanelSection', () => {
             today: 0,
             unscheduled: 0,
           },
+          lowestSubjectByStudyMinutes: null,
           startedTopics: 0,
           topSubjectByStudyMinutes: null,
           totalStudyMinutes: 0,
@@ -58,7 +59,7 @@ describe('StrategicPanelSection', () => {
           totalTopics: 0,
           unstartedTopics: 0,
         }}
-        cycleVisualStats={{ daysToFinish: 5 }}
+        cycleVisualStats={{ daysToFinish: 5, totalSubjects: 0 }}
         editaisNoCiclo={[]}
         getUnifiedSubjectName={(id, fallback) => fallback}
         handleApplySuggestedQueueOrder={vi.fn()}
@@ -75,9 +76,9 @@ describe('StrategicPanelSection', () => {
         strategicPanelRef={createRef<HTMLElement>()}
         strategicPanelStats={{
           coveragePercentage: 0,
-          highestIncidenceSubject: null,
-          highestIncidenceTopic: null,
           highestPendingWeightSubject: null,
+          startedSubjectsCount: 0,
+          totalSubjects: 0,
         }}
         strategicPanelTitleRef={createRef<HTMLAnchorElement>()}
         userCycle={null}

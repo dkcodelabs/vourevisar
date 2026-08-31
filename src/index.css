@@ -26,8 +26,6 @@
     --primary-foreground: 0 0% 100%;
     --info: 203 92% 56%;
     --info-foreground: 0 0% 100%;
-    --incidence: 251 100% 68%;
-    --incidence-foreground: 0 0% 100%;
     --activity-selected: 271 76% 57%;
 
     --secondary: 216 42% 96%;
@@ -115,8 +113,6 @@
     --primary-foreground: 222 47% 11%;
     --info: 203 92% 62%;
     --info-foreground: 222 47% 11%;
-    --incidence: 251 100% 76%;
-    --incidence-foreground: 222 47% 11%;
     --activity-selected: 271 86% 70%;
 
     --secondary: 0 0% 13%;

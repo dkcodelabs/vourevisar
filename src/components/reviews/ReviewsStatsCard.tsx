@@ -21,13 +21,14 @@ interface ReviewsStatsCardProps {
     totalTopics: number;
     totalScheduledReviews: number;
     startedTopicsCount: number;
-    completedTopicsCount: number;
     completedReviews: number;
-    pendingReviews: number;
+    scheduledReviews: number;
     notStartedReviews: number;
-    overdue: number;
-    today: number;
-    future: number;
+    schedule: {
+        overdue: number;
+        today: number;
+        future: number;
+    };
     protectionMode: ProtectionMode;
     maxReviews: number;
     className?: string;
@@ -55,25 +56,23 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
     totalTopics,
     totalScheduledReviews,
     startedTopicsCount,
-    completedTopicsCount,
     completedReviews,
-    pendingReviews,
+    scheduledReviews,
     notStartedReviews,
-    overdue,
-    today,
-    future,
+    schedule,
     protectionMode,
     maxReviews,
     className
 }) => {
     const modeColors = PROTECTION_COLORS[protectionMode] || PROTECTION_COLORS['Média'];
+    const { overdue, today, future } = schedule;
 
     // Percentuais para barra de 3 cores
     const completedPercentage = totalScheduledReviews > 0
         ? Math.min(100, (completedReviews / totalScheduledReviews) * 100)
         : 0;
-    const pendingPercentage = totalScheduledReviews > 0
-        ? Math.min(100, (pendingReviews / totalScheduledReviews) * 100)
+    const scheduledPercentage = totalScheduledReviews > 0
+        ? Math.min(100, (scheduledReviews / totalScheduledReviews) * 100)
         : 0;
     const notStartedPercentage = totalScheduledReviews > 0
         ? Math.min(100, (notStartedReviews / totalScheduledReviews) * 100)
@@ -131,10 +130,10 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                         {/* Barra de 3 cores empilhadas */}
                         <div className="relative w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
                             {/* Cinza (Não iniciadas) - toda a barra como fundo */}
-                            {/* Azul (Pendentes) - parcial */}
+                            {/* Azul (Agendadas) - parcial */}
                             <div
                                 className="absolute inset-y-0 left-0 bg-blue-400 dark:bg-blue-500 transition-all duration-500"
-                                style={{ width: `${completedPercentage + pendingPercentage}%` }}
+                                style={{ width: `${completedPercentage + scheduledPercentage}%` }}
                             />
                             {/* Verde (Feitas) - por cima */}
                             <div
@@ -148,11 +147,11 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                    <span className="text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Feitas {completedReviews}</span>
+                                    <span className="text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Programas concluídos {completedReviews}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-blue-400" />
-                                    <span className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">Pendentes {pendingReviews}</span>
+                                    <span className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">Agendadas {scheduledReviews}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
@@ -168,11 +167,11 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                             <div className="p-1.5 bg-white dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 shadow-sm">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             </div>
-                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Tópicos Estudados</span>
+                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Tópicos iniciados</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                {completedTopicsCount}
+                                {startedTopicsCount}
                             </span>
                         </div>
                     </div>
@@ -204,11 +203,11 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                             <span className="text-[9px] text-blue-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Futuras</span>
                         </div>
 
-                        {/* Feitas */}
+                        {/* Programas concluídos */}
                         <div className="flex flex-col items-center justify-center py-2.5 px-1 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/20 shadow-sm gap-1.5 min-w-0">
                             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                             <span className="text-xl font-bold text-slate-900 dark:text-white leading-none truncate w-full text-center">{completedReviews}</span>
-                            <span className="text-[9px] text-emerald-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Feitas</span>
+                            <span className="text-[9px] text-emerald-500/90 font-bold uppercase tracking-wide truncate w-full text-center">Concluídos</span>
                         </div>
                     </div>
 
@@ -216,7 +215,7 @@ export const ReviewsStatsCard: React.FC<ReviewsStatsCardProps> = ({
                     <div className="pt-2 text-center border-t border-slate-100 dark:border-slate-800">
                         <div className="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-full">
                             <BookOpen className="w-3.5 h-3.5" />
-                            <span><strong className="text-slate-700 dark:text-slate-200 font-bold">{pendingReviews}</strong> revisões pendentes</span>
+                            <span><strong className="text-slate-700 dark:text-slate-200 font-bold">{scheduledReviews}</strong> revisões agendadas</span>
                         </div>
                     </div>
                 </div>

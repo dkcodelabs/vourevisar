@@ -9,6 +9,7 @@ const mockStats = {
   future: 0,
   completedTopicsCount: 0,
   completedReviews: 0,
+  reviewsDoneToday: 0,
   totalScheduledReviews: 0,
 };
 
@@ -22,6 +23,8 @@ describe('RevisoesHeader', () => {
       unstartedTopics: 103,
       pendingReviews: 0,
       futureReviewsInWindow: 0,
+      totalPlannedReviews: 0,
+      totalDailyWorkload: null,
       newTopicsPerDay: null,
       reviewsPerDay: null,
       recentFirstContact: {
@@ -103,5 +106,40 @@ describe('RevisoesHeader', () => {
     );
 
     expect(screen.getByText('· MAPA + IBAMA (2 editais unificados)')).toBeInTheDocument();
+  });
+
+  it('uses the day queue count instead of scheduled future reviews when the exam date is missing', () => {
+    const paceNeedsDate: StudyCyclePaceMetrics = {
+      state: 'missing_exam_date',
+      explanation: 'Defina uma data de prova para calcular o ritmo necessário.',
+      daysRemaining: null,
+      unstartedTopics: 10,
+      pendingReviews: 3,
+      futureReviewsInWindow: 1,
+      totalPlannedReviews: 12,
+      newTopicsPerDay: null,
+      reviewsPerDay: null,
+      totalDailyWorkload: null,
+      recentFirstContact: {
+        state: 'insufficient_data',
+        topicsStarted: 0,
+        windowDays: 7,
+        topicsPerDay: null,
+        projectedDaysToFirstContact: null,
+        averageStudyMinutes: null,
+      },
+    };
+
+    render(
+      <RevisoesHeader
+        stats={{ ...mockStats, today: 2, future: 1 }}
+        isCollapsed={false}
+        onToggle={() => undefined}
+        pace={paceNeedsDate}
+      />
+    );
+
+    expect(screen.getByText('2 hoje')).toBeInTheDocument();
+    expect(screen.queryByText('3 hoje')).not.toBeInTheDocument();
   });
 });

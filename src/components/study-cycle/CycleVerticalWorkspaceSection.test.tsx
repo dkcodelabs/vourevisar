@@ -61,8 +61,6 @@ describe('CycleVerticalWorkspaceSection', () => {
           label: 'Continuar',
           tooltip: 'Continuar estudo',
         })}
-        getStrategicTopicIncidenceDisplay={() => null}
-        getStrategicTopicIncidenceTitle={() => 'Sem destaque'}
         getSubjectTopicSummaryLabel={() => '1/1 tópicos iniciados'}
         getTopicContactCount={() => 1}
         getUnifiedSubjectName={() => 'Direito Constitucional'}

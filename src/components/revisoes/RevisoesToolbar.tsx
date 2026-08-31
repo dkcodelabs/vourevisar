@@ -6,6 +6,7 @@ interface RevisoesToolbarProps {
         focusCount?: number;
         today: number;
         overdue: number;
+        future?: number;
         totalTopics: number;
     };
     searchTerm: string;
@@ -79,7 +80,7 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                     )}
                 </div>
 
-                {/* 3. Abas Principais (Simplificadas: Hoje vs Todas) */}
+                {/* 3. Abas: pendências do dia, agenda futura e visão completa */}
                 <div className="flex flex-wrap items-center gap-1 sm:gap-2 max-w-full min-w-0">
                     {/* Hoje (antiga Focus) */}
                     <button
@@ -96,6 +97,21 @@ export const RevisoesToolbar: React.FC<RevisoesToolbarProps> = ({
                             {/* If stats.focusCount exists use it, otherwise sum. 
                                 We will add focusCount to stats in Revisoes.tsx next. */}
                             {stats.focusCount ?? (stats.today + stats.overdue)}
+                        </span>
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('FUTURE')}
+                        className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all border shadow-sm ${activeTab === 'FUTURE'
+                            ? 'bg-foreground text-background border-foreground'
+                            : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary'
+                            }`}
+                    >
+                        <span>Futuras</span>
+                        <span className={`text-[10px] font-black px-1.5 h-4 flex items-center justify-center rounded-full min-w-[16px] ${activeTab === 'FUTURE'
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'bg-secondary text-muted-foreground'}`}>
+                            {stats.future ?? 0}
                         </span>
                     </button>
 

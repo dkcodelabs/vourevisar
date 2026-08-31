@@ -64,7 +64,7 @@ export const EditalCard = ({
         : edital.aiExtractionUsed
             ? {
                 label: edital.sourceId ? 'Cópia + IA' : 'Cópia • IA',
-                className: 'border-incidence/20 bg-incidence/10 text-incidence',
+                className: 'border-primary/20 bg-primary/10 text-primary',
                 icon: Sparkles
             }
             : edital.sourceId
@@ -116,7 +116,7 @@ export const EditalCard = ({
                                 )}
                                 {edital.examBoard && (
                                     <p className={`flex min-w-0 items-center gap-1.5 truncate text-content-muted ${editalHeaderExamBoardTypography}`}>
-                                        <GraduationCap size={11} className="shrink-0 text-incidence" />
+                                        <GraduationCap size={11} className="shrink-0 text-primary" />
                                         <span className="truncate">{edital.examBoard}</span>
                                     </p>
                                 )}
@@ -135,7 +135,7 @@ export const EditalCard = ({
                     </div>
                 </div>
 
-                <div className="mx-auto mb-4 grid w-full grid-cols-1 overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.09] via-background/70 to-incidence/[0.08] shadow-[inset_0_1px_0_hsl(var(--foreground)/0.06),0_10px_30px_hsl(var(--primary)/0.05)] min-[360px]:w-[94%] min-[360px]:grid-cols-2 dark:border-primary/20 dark:from-primary/[0.10] dark:via-white/[0.025] dark:to-incidence/[0.08]">
+                <div className="mx-auto mb-4 grid w-full grid-cols-1 overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.09] via-background/70 to-primary/[0.08] shadow-[inset_0_1px_0_hsl(var(--foreground)/0.06),0_10px_30px_hsl(var(--primary)/0.05)] min-[360px]:w-[94%] min-[360px]:grid-cols-2 dark:border-primary/20 dark:from-primary/[0.10] dark:via-white/[0.025] dark:to-primary/[0.08]">
                     <div className="flex min-h-[92px] flex-col px-3 py-3">
                         <div className="mb-2 flex items-center justify-between gap-2">
                             <div className="flex min-w-0 items-center gap-1">
@@ -164,7 +164,7 @@ export const EditalCard = ({
                             <div
                                 className={`h-full rounded-full transition-all duration-500 ${
                                     progress > 0
-                                        ? 'bg-gradient-to-r from-primary via-sky-400 to-incidence'
+                                        ? 'bg-gradient-to-r from-primary via-sky-400 to-primary'
                                         : 'bg-content-muted/25'
                                 }`}
                                 style={{ width: progress > 0 ? `max(${progress}%, 8px)` : '8px' }}
@@ -350,10 +350,10 @@ export const EditalCard = ({
                                 e.stopPropagation();
                                 setShowActions((current) => !current);
                             }}
-                            className={`relative flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-200 after:absolute after:-inset-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-incidence/50 ${
+                            className={`relative flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-200 after:absolute after:-inset-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
                                 showActions
-                                    ? 'border-incidence/35 bg-incidence/15 text-incidence'
-                                    : 'border-incidence/20 bg-incidence/[0.07] text-incidence/80 hover:border-incidence/35 hover:bg-incidence/15 hover:text-incidence'
+                                    ? 'border-primary/35 bg-primary/15 text-primary'
+                                    : 'border-primary/20 bg-primary/[0.07] text-primary/80 hover:border-primary/35 hover:bg-primary/15 hover:text-primary'
                             }`}
                             aria-label={showActions ? 'Ocultar ações do edital' : 'Mostrar ações do edital'}
                             aria-expanded={showActions}

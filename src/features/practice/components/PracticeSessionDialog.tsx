@@ -33,6 +33,7 @@ type PracticeSessionDialogProps = {
   session: PracticeSession | null;
   unavailableReason?:
     "no_package" | "no_eligible_item" | "no_due_flashcard" | null;
+  unavailableScope?: "topic" | "subject";
   preparingAnotherSession?: boolean;
   onOpenChange: (open: boolean) => void;
   onReveal: (sessionId: string, itemId: string) => Promise<PracticeAnswer>;
@@ -54,9 +55,15 @@ type PracticeSessionDialogProps = {
     rating: 1 | -1;
     reason?: PracticeFeedbackReason;
   }) => Promise<unknown>;
-  onStartAnother: () => void;
+  onStartAnother: (prefill?: {
+    goal?: "reinforce" | "subject" | "topic";
+    subjectId?: string;
+    topicId?: string;
+    format?: PracticeFormat;
+  }) => void;
   onGenerateMaterial?: () => void;
   isGeneratingMaterial?: boolean;
+  generateMaterialLabel?: string;
 };
 
 const recallOptions = [
@@ -76,6 +83,7 @@ export const PracticeSessionDialog = ({
   mode,
   session,
   unavailableReason = null,
+  unavailableScope = "topic",
   preparingAnotherSession = false,
   onOpenChange,
   onReveal,
@@ -84,6 +92,7 @@ export const PracticeSessionDialog = ({
   onStartAnother,
   onGenerateMaterial,
   isGeneratingMaterial = false,
+  generateMaterialLabel = "Gerar questões e flashcards",
 }: PracticeSessionDialogProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -99,6 +108,9 @@ export const PracticeSessionDialog = ({
   >(null);
   const [completed, setCompleted] = useState(false);
   const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [questionResults, setQuestionResults] = useState<
+    Record<string, PracticeAttemptResult>
+  >({});
   const [recallHistory, setRecallHistory] = useState<
     Record<string, PracticeAttemptResult>
   >({});
@@ -106,6 +118,8 @@ export const PracticeSessionDialog = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
   const attemptIdsRef = useRef<Record<string, string>>({});
+  const prefetchedAnswersRef = useRef<Record<string, PracticeAnswer>>({});
+  const prefetchingAnswersRef = useRef<Set<string>>(new Set());
   const startedAtRef = useRef(Date.now());
 
   const reset = () => {
@@ -116,11 +130,14 @@ export const PracticeSessionDialog = ({
     setRecallRating(null);
     setCompleted(false);
     setCorrectAnswers(0);
+    setQuestionResults({});
     setRecallHistory({});
     setActionError(null);
     setIsSubmitting(false);
     setIsRevealing(false);
     attemptIdsRef.current = {};
+    prefetchedAnswersRef.current = {};
+    prefetchingAnswersRef.current.clear();
     startedAtRef.current = Date.now();
   };
 
@@ -134,16 +151,51 @@ export const PracticeSessionDialog = ({
     onOpenChange(false);
   };
 
+  const startAnother = (prefill?: {
+    goal?: "reinforce" | "subject" | "topic";
+    subjectId?: string;
+    topicId?: string;
+    format?: PracticeFormat;
+  }) => {
+    reset();
+    onOpenChange(false);
+    onStartAnother(prefill);
+  };
+
   const items = session?.items ?? [];
   const activeItem = items[currentIndex] ?? null;
-  const isQuestions = activeItem ? activeItem.type !== "flashcard" : mode !== "flashcards";
+  const isQuestions = activeItem
+    ? activeItem.type !== "flashcard"
+    : mode !== "flashcards";
   const isMixed = mode === "mixed";
+  useEffect(() => {
+    if (
+      !session ||
+      !activeItem ||
+      isQuestions ||
+      prefetchedAnswersRef.current[activeItem.id] ||
+      prefetchingAnswersRef.current.has(activeItem.id)
+    )
+      return;
+    prefetchingAnswersRef.current.add(activeItem.id);
+    void Promise.resolve(onReveal(session.id, activeItem.id))
+      .then((answer) => {
+        prefetchedAnswersRef.current[activeItem.id] = answer;
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        prefetchingAnswersRef.current.delete(activeItem.id);
+      });
+  }, [activeItem, isQuestions, onReveal, session]);
   const sessionLabel = isMixed
     ? "Treino misto"
     : isQuestions
       ? "Questões rápidas"
       : "Flashcards";
   const total = items.length;
+  const completedItems = completed ? total : currentIndex;
+  const answeredItems = completedItems + (submission ? 1 : 0);
+  const progress = total > 0 ? (answeredItems / total) * 100 : 0;
   const correctOptionId =
     typeof submission?.answer.answerKey.correctOptionId === "string"
       ? submission.answer.answerKey.correctOptionId
@@ -162,6 +214,16 @@ export const PracticeSessionDialog = ({
   const advance = (result: PracticeAttemptResult) => {
     if (!activeItem) return;
     if (result === "correct") setCorrectAnswers((count) => count + 1);
+    if (
+      result === "correct" ||
+      result === "incorrect" ||
+      result === "skipped"
+    ) {
+      setQuestionResults((history) => ({
+        ...history,
+        [activeItem.id]: result,
+      }));
+    }
     if (
       result === "recalled" ||
       result === "effortful" ||
@@ -208,6 +270,11 @@ export const PracticeSessionDialog = ({
 
   const handleReveal = async () => {
     if (!session || !activeItem) return;
+    const prefetchedAnswer = prefetchedAnswersRef.current[activeItem.id];
+    if (prefetchedAnswer) {
+      setRevealedAnswer(prefetchedAnswer);
+      return;
+    }
     setIsRevealing(true);
     setActionError(null);
     try {
@@ -259,7 +326,24 @@ export const PracticeSessionDialog = ({
   const unavailableCopy =
     unavailableReason === "no_due_flashcard"
       ? "Você não tem flashcards pendentes agora. Quando um cartão vencer, ele aparecerá aqui."
-      : "Ainda não há material de prática pronto para este tópico. Não vamos gerar conteúdo automaticamente nesta etapa.";
+      : unavailableScope === "subject"
+        ? "Ainda não há material de prática pronto para esta matéria. Escolha um tópico para gerar questões e flashcards."
+      : "Ainda não há material de prática pronto para este tópico. Gere questões e flashcards se quiser praticá-lo agora.";
+  const hasReinforcementSignal = isQuestions
+    ? correctAnswers < total
+    : Object.values(recallHistory).some(
+        (result) => result === "forgotten" || result === "effortful",
+      );
+  const incorrectAnswers = Object.values(questionResults).filter(
+    (result) => result === "incorrect",
+  ).length;
+  const skippedQuestions = Object.values(questionResults).filter(
+    (result) => result === "skipped",
+  ).length;
+  const answeredQuestions = correctAnswers + incorrectAnswers;
+  const accuracy = answeredQuestions
+    ? Math.round((correctAnswers / answeredQuestions) * 100)
+    : 0;
 
   return (
     <Dialog open={mode !== null} onOpenChange={(open) => !open && close()}>
@@ -275,12 +359,14 @@ export const PracticeSessionDialog = ({
         <DialogHeader className="min-w-0 border-b border-border px-5 py-3 text-left">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <DialogTitle>
-                {sessionLabel}
-              </DialogTitle>
+              <DialogTitle>{sessionLabel}</DialogTitle>
               <DialogDescription className="mt-1 truncate text-xs">
                 {completed
-                  ? `${isMixed ? "Treino" : isQuestions ? "Questões" : "Flashcards"} concluído${isMixed ? "" : "s"}`
+                  ? isMixed
+                    ? "Treino concluído"
+                    : isQuestions
+                      ? "Questões concluídas"
+                      : "Flashcards concluídos"
                   : session
                     ? `${Math.min(currentIndex + 1, total)} de ${total}`
                     : "Preparação de material"}
@@ -301,6 +387,21 @@ export const PracticeSessionDialog = ({
               </Button>
             </div>
           </div>
+          {session && !completed ? (
+            <div
+              className="mt-3 h-1 overflow-hidden rounded-full bg-secondary"
+              role="progressbar"
+              aria-label="Progresso do treino"
+              aria-valuemin={0}
+              aria-valuemax={total}
+              aria-valuenow={Math.min(answeredItems, total)}
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-200"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          ) : null}
         </DialogHeader>
 
         {!session ? (
@@ -325,8 +426,8 @@ export const PracticeSessionDialog = ({
                   onClick={onGenerateMaterial}
                 >
                   {isGeneratingMaterial
-                    ? "Gerando material…"
-                    : "Gerar material de treino"}
+                    ? "Gerando questões e flashcards…"
+                    : generateMaterialLabel}
                 </Button>
               ) : null}
               <Button
@@ -350,12 +451,52 @@ export const PracticeSessionDialog = ({
               </h2>
               {isMixed ? (
                 <p className="mt-2 text-sm text-content-muted">
-                  Você concluiu {total} itens e acertou {correctAnswers} questões.
+                  Você concluiu {total} itens e acertou {correctAnswers}{" "}
+                  questões.
                 </p>
               ) : isQuestions ? (
-                <p className="mt-2 text-sm text-content-muted">
-                  Você respondeu {total} questões e acertou {correctAnswers}.
-                </p>
+                <>
+                  <p className="mt-2 text-sm text-content-muted">
+                    {accuracy >= 70
+                      ? "Bom resultado. Registre a rodada e siga para a próxima ação."
+                      : "Este tópico merece reforço, mas a escolha é sua."}
+                  </p>
+                  <div className="mx-auto mt-5 grid max-w-md grid-cols-3 gap-2 text-left">
+                    <div className="rounded-lg bg-card/70 px-3 py-2">
+                      <span className="block text-[11px] text-content-muted">
+                        Acertos
+                      </span>
+                      <strong className="mt-0.5 block text-base tabular-nums text-success">
+                        {correctAnswers}
+                      </strong>
+                    </div>
+                    <div className="rounded-lg bg-card/70 px-3 py-2">
+                      <span className="block text-[11px] text-content-muted">
+                        Erros
+                      </span>
+                      <strong className="mt-0.5 block text-base tabular-nums text-destructive">
+                        {incorrectAnswers}
+                      </strong>
+                    </div>
+                    <div className="rounded-lg bg-card/70 px-3 py-2">
+                      <span className="block text-[11px] text-content-muted">
+                        Aproveitamento
+                      </span>
+                      <strong className="mt-0.5 block text-base tabular-nums text-foreground">
+                        {accuracy}%
+                      </strong>
+                    </div>
+                  </div>
+                  {skippedQuestions > 0 ? (
+                    <p className="mt-3 text-xs text-content-muted">
+                      {skippedQuestions}{" "}
+                      {skippedQuestions === 1
+                        ? "questão pulada"
+                        : "questões puladas"}{" "}
+                      não entrou no aproveitamento.
+                    </p>
+                  ) : null}
+                </>
               ) : (
                 <div className="mx-auto mt-5 grid max-w-md grid-cols-3 gap-2 text-left">
                   {recallOptions.map((option) => (
@@ -374,21 +515,44 @@ export const PracticeSessionDialog = ({
                 </div>
               )}
             </div>
+            {!isQuestions && activeItem ? (
+              <div className="mx-auto mt-5 max-w-md text-left">
+                <PracticeItemRating
+                  itemLabel="flashcard"
+                  onRate={(rating, reason) =>
+                    onRate({
+                      sessionId: session.id,
+                      itemId: activeItem.id,
+                      rating,
+                      reason,
+                    })
+                  }
+                />
+              </div>
+            ) : null}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 text-xs"
-                disabled={preparingAnotherSession}
-                onClick={onStartAnother}
-              >
-                <Play className="h-3.5 w-3.5" />{" "}
-                {preparingAnotherSession
-                  ? "Montando sessão…"
-                  : "Fazer outro treino"}
-              </Button>
+              {hasReinforcementSignal ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 text-xs"
+                  disabled={preparingAnotherSession}
+                  onClick={() =>
+                    startAnother({
+                      goal: "reinforce",
+                      topicId: session?.topicId ?? undefined,
+                      format: !isQuestions ? "flashcards" : "questions",
+                    })
+                  }
+                >
+                  <Play className="h-3.5 w-3.5" />{" "}
+                  {preparingAnotherSession
+                    ? "Montando sessão…"
+                    : "Reforçar este tópico"}
+                </Button>
+              ) : null}
               <Button type="button" className="h-9 text-xs" onClick={close}>
-                Fechar
+                Concluir e voltar
               </Button>
             </div>
           </div>
@@ -579,11 +743,16 @@ export const PracticeSessionDialog = ({
                   <h2 className="mt-6 text-pretty text-lg font-bold leading-snug tracking-tight text-foreground sm:text-xl">
                     {activeItem.prompt}
                   </h2>
-                  <span className="mb-8 mt-auto self-center inline-flex items-center text-sm text-content-muted transition-colors group-hover:text-foreground">
-                    <Eye className="mr-2 h-4 w-4" />{" "}
-                    {isRevealing
-                      ? "Abrindo resposta salva…"
-                      : "Revelar resposta"}
+                  <span className="mb-7 mt-auto self-center text-center text-content-muted transition-colors group-hover:text-foreground">
+                    <span className="inline-flex items-center text-sm">
+                      <Eye className="mr-2 h-4 w-4" />{" "}
+                      {isRevealing
+                        ? "Abrindo resposta salva…"
+                        : "Revelar resposta"}
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-relaxed text-content-muted">
+                      Busca o verso já salvo. Não usa IA.
+                    </span>
                   </span>
                 </button>
               ) : (

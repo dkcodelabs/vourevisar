@@ -11,7 +11,6 @@ type EventTopic = {
   id: string;
   is_active?: boolean;
   is_hidden?: boolean | null;
-  total_volume?: number | null;
   firstStudiedAt?: Date | string | null;
   first_studied_at?: string | null;
   reviewCount?: number;
@@ -94,22 +93,12 @@ const getStartedRatio = (subject: EventSubject) => {
 const hasUnstartedActiveTopics = (subject: EventSubject) =>
   activeTopics(subject).some(topic => !isTopicStarted(topic));
 
-const subjectIncidenceVolume = (subject: EventSubject) =>
-  activeTopics(subject).reduce((sum, topic) =>
-    sum + (typeof topic.total_volume === 'number' && topic.total_volume > 0 ? topic.total_volume : 0),
-  0);
-
 const getSubjectPriorityEvidence = (
   subject: EventSubject,
   weightPercentage: number | null,
-  volume: number,
 ) => {
   if (typeof weightPercentage === 'number' && Number.isFinite(weightPercentage)) {
     return `${weightPercentage.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% entre as matérias com peso informado.`;
-  }
-
-  if (volume > 0) {
-    return `Volume de cobrança ${volume.toLocaleString('pt-BR')}.`;
   }
 
   const effective = getEffectiveSubjectExamWeight(subject);
@@ -175,9 +164,8 @@ export const getStudyCycleEventInsights = ({
   const prioritizedSubjects = subjects
     .map(subject => {
       const weightPercentage = getSubjectExamWeightPercentage(subject, weightTotals);
-      const volume = subjectIncidenceVolume(subject);
       const effective = getEffectiveSubjectExamWeight(subject);
-      const hasPrioritySignal = hasSubjectExamWeight(subject) || volume > 0;
+      const hasPrioritySignal = hasSubjectExamWeight(subject);
       const eventCount = eventCountsBySubject.get(subject.id) || 0;
       const orderIndex = currentOrder.indexOf(subject.id);
 
@@ -185,9 +173,8 @@ export const getStudyCycleEventInsights = ({
         subject,
         eventCount,
         orderIndex,
-        volume,
         weightPercentage,
-        priorityValue: weightPercentage ?? (effective.source !== 'none' ? effective.value : volume),
+        priorityValue: weightPercentage ?? effective.value,
         hasPrioritySignal,
       };
     })
@@ -208,7 +195,6 @@ export const getStudyCycleEventInsights = ({
       evidence: getSubjectPriorityEvidence(
         neglectedPriority.subject,
         neglectedPriority.weightPercentage,
-        neglectedPriority.volume,
       ),
       subjectId: neglectedPriority.subject.id,
     });
@@ -226,7 +212,7 @@ export const getStudyCycleEventInsights = ({
       id: `priority-late-in-queue:${latePriority.subject.id}`,
       severity: 'info',
       title: 'Matéria estratégica longe na fila',
-      message: `${latePriority.subject.name} tem cobrança ou peso relevante e aparece depois de outras matérias menos urgentes.`,
+      message: `${latePriority.subject.name} tem peso relevante e aparece depois de outras matérias menos urgentes.`,
       evidence: `Posição ${latePriority.orderIndex + 1}/${currentOrder.length}.`,
       subjectId: latePriority.subject.id,
     });

@@ -1,6 +1,6 @@
-export const BILLING_TERMS_VERSION = "2026-08-21.1";
-export const BILLING_PRIVACY_VERSION = "2026-08-21.1";
-export const BILLING_REFUND_POLICY_VERSION = "2026-08-21.1";
+export const BILLING_TERMS_VERSION = "2026-08-31.1";
+export const BILLING_PRIVACY_VERSION = "2026-08-31.1";
+export const BILLING_REFUND_POLICY_VERSION = "2026-08-31.1";
 
 // These canonical summaries are deliberately server-owned. The acceptance
 // endpoint hashes exactly what the application promises at checkout instead

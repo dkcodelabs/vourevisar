@@ -1,6 +1,5 @@
 import type { Topic } from '@/types';
 import { isReviewProgramCompleted } from '@/utils/reviewStage';
-import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 
 export type CycleTopicStatusVisual = {
   label: string;
@@ -102,23 +101,6 @@ export const getCycleTopicStatusVisual = (
     indicatorClassName: 'bg-content-muted/55',
     actionClassName: 'border-transparent bg-transparent text-content-muted hover:border-info/20 hover:bg-info/10 hover:text-info',
   };
-};
-
-const getStrategicTopicIncidence = (topic: Topic) =>
-  getTopicStrategicIncidence({ totalVolume: topic.total_volume ?? null });
-
-export const getStrategicTopicIncidenceTitle = (topic: Topic) => {
-  const incidence = getStrategicTopicIncidence(topic);
-  return incidence.showToStudent && topic.total_volume
-    ? `Cobrança alta detectada por sinal bruto.`
-    : 'Sem destaque de cobrança para exibir.';
-};
-
-export const getStrategicTopicIncidenceDisplay = (topic: Topic) => {
-  const incidence = getStrategicTopicIncidence(topic);
-  return incidence.showToStudent
-    ? incidence.label
-    : null;
 };
 
 export const formatStudyMinutes = (minutes: number) => {

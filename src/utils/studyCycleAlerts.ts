@@ -5,7 +5,6 @@ import {
   hasSubjectExamWeight,
 } from '@/utils/examWeight';
 import { isReviewProgramCompleted } from '@/utils/reviewStage';
-import { getTopicStrategicIncidence } from '@/utils/studyCycleStrategic';
 import { getVisibleCycleTopics } from '@/utils/studyCycleTopicVisibility';
 
 type AlertTopic = {
@@ -19,9 +18,6 @@ type AlertTopic = {
   review_stage?: string | null;
   firstStudiedAt?: Date | string | null;
   first_studied_at?: string | null;
-  total_volume?: number | null;
-  incidence_level?: 'low' | 'medium' | 'high' | string | null;
-  incidenceLevel?: 'low' | 'medium' | 'high' | string | null;
   is_active?: boolean;
   is_hidden?: boolean | null;
 };
@@ -246,59 +242,17 @@ export const getStudyCycleAlerts = ({
     });
   }
 
-  const relevantUnstartedTopics = subjects
-    .flatMap(subject => activeTopics(subject)
-      .flatMap(topic => {
-        if (isTopicStarted(topic)) return [];
-
-        const incidence = getTopicStrategicIncidence({
-          totalVolume: topic.total_volume ?? null,
-          incidenceLevel: topic.incidence_level || topic.incidenceLevel || null,
-        });
-
-        return incidence.showToStudent
-          ? [{
-              subject,
-              topic,
-              incidence,
-              volume: topic.total_volume || (topic.incidence_level === 'high' || topic.incidenceLevel === 'high' ? 1000 : 500),
-            }]
-          : [];
-      }))
-    .sort((a, b) => b.volume - a.volume);
-
-  if (relevantUnstartedTopics.length > 0) {
-    const top = relevantUnstartedTopics[0];
-    alerts.push({
-      id: `high-volume-topic-unstarted:${top.topic.id}`,
-      severity: 'warning',
-      title: 'Tópico forte ainda não iniciado',
-      message: `${top.topic.name} aparece com ${top.incidence.label.toLowerCase()} e ainda não teve primeiro contato.`,
-      evidence: `Matéria: ${top.subject.name}.`,
-      actionLabel: 'Iniciar tópico',
-      actionType: 'start_topic',
-      subjectId: top.subject.id,
-      topicId: top.topic.id,
-    });
-  }
-
   const unreviewedImportantTopics = subjects
     .flatMap(subject => activeTopics(subject)
       .flatMap(topic => {
         if (!isTopicUnreviewedAfterFirstContact(topic, now)) return [];
 
-        const incidence = getTopicStrategicIncidence({
-          totalVolume: topic.total_volume ?? null,
-          incidenceLevel: topic.incidence_level || topic.incidenceLevel || null,
-        });
-
         const isWeightedSubject = hasSubjectExamWeight(subject);
 
-        if (incidence.level === 'high' || isWeightedSubject) {
+        if (isWeightedSubject) {
           return [{
             subject,
             topic,
-            incidence,
           }];
         }
 
@@ -313,38 +267,9 @@ export const getStudyCycleAlerts = ({
       severity: 'warning',
       title: 'Tópico importante sem revisão',
       message: `${top.topic.name} já teve 1º contato, mas ainda não foi revisado.`,
-      evidence: `Matéria: ${top.subject.name}${top.incidence.showToStudent ? ` · ${top.incidence.label.toLowerCase()}` : ''}.`,
+      evidence: `Matéria: ${top.subject.name} · peso informado no edital.`,
       actionLabel: 'Ver revisões',
       actionType: 'open_reviews',
-      subjectId: top.subject.id,
-      topicId: top.topic.id,
-    });
-  }
-
-  const nearestExam = editais
-    .map(edital => ({
-      edital,
-      examDateValue: edital.exam_date || edital.examDate || null,
-      daysUntil: getDaysUntil(edital.exam_date || edital.examDate || null, now),
-    }))
-    .filter((item): item is { edital: AlertEdital; examDateValue: string | null; daysUntil: number } =>
-      item.daysUntil !== null && item.daysUntil >= 0
-    )
-    .sort((a, b) => a.daysUntil - b.daysUntil)[0];
-
-  if (nearestExam && nearestExam.daysUntil <= 60 && relevantUnstartedTopics.length > 0) {
-    const top = relevantUnstartedTopics[0];
-    const examDateLabel = formatExamDate(nearestExam.examDateValue);
-    const examTiming = `Prova ${formatDaysUntilExam(nearestExam.daysUntil)}${examDateLabel ? ` · ${examDateLabel}` : ''}`;
-
-    alerts.push({
-      id: `exam-near-open-relevant-topic:${nearestExam.edital.id}:${top.topic.id}`,
-      severity: nearestExam.daysUntil <= 30 ? 'critical' : 'warning',
-      title: 'Prova chegando com tópico relevante aberto',
-      message: `${examTiming}. Ainda há tópico cobrado sem primeiro contato.`,
-      evidence: `${top.topic.name} · matéria: ${top.subject.name}.`,
-      actionLabel: 'Priorizar agora',
-      actionType: 'start_topic',
       subjectId: top.subject.id,
       topicId: top.topic.id,
     });

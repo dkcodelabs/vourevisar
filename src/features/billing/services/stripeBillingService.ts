@@ -1,4 +1,5 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
+import { invokeUserRpc } from '@/services/userRpcService';
 import { supabase } from '@/integrations/supabase/client';
 import type {
   BillingCatalogPlan,
@@ -171,17 +172,10 @@ export const getConfiguredStripeLivemode = () => {
 export const getStripeBillingOverview = async (): Promise<BillingOverview> => {
   // Keep the client mode explicit so a Live frontend can never read Test
   // billing rows (and vice versa) after the deployment switch.
-  const billingClient = supabase as unknown as {
-    rpc: (
-      name: 'get_stripe_billing_overview',
-      args: { p_livemode: boolean },
-    ) => Promise<{ data: BillingOverview | null; error: { message: string } | null }>;
-  };
-  const { data, error } = await billingClient.rpc('get_stripe_billing_overview', {
+  const data = await invokeUserRpc<BillingOverview>('get_stripe_billing_overview', {
     p_livemode: getConfiguredStripeLivemode(),
   });
 
-  if (error) throw new Error('Não foi possível carregar os dados da assinatura.');
   if (!data) throw new Error('Nenhuma informação de assinatura foi encontrada.');
   return data;
 };

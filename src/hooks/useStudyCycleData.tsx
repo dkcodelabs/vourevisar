@@ -13,7 +13,6 @@ import type { Subject, Topic, UserCycle, UserEdital } from '@/types';
 import {
   getSubjectExplorationPercentage,
   getSubjectStrategicWeight,
-  getTopicStrategicIncidence,
 } from '@/utils/studyCycleStrategic';
 
 import { fetchTopicReviewStats } from '@/services/topicReviewService';
@@ -91,12 +90,6 @@ const mapTopicToStudyCycleTopic = (topic: Topic): StudyCycleTopic => {
     createdAt: topic.created_at,
     position: topic.position,
     reviewCount: topic.reviewCount ?? topic.review_count ?? 0,
-    totalVolume: topic.total_volume ?? null,
-    incidenceLevel: topic.incidence_level ?? null,
-    lastSearchContext: topic.last_search_context ?? null,
-    strategicIncidence: getTopicStrategicIncidence({
-      totalVolume: topic.total_volume ?? null
-    })
   };
 };
 
@@ -130,6 +123,8 @@ export const useStudyCycleData = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [userEditais, setUserEditais] = useState<UserEdital[]>([]);
   const [userCycle, setUserCycle] = useState<UserCycle | null>(null);
+  const [subjectsLoadError, setSubjectsLoadError] = useState<unknown>(null);
+  const [cycleLoadError, setCycleLoadError] = useState<unknown>(null);
 
   const { markTopicAsReviewed } = useTopicReview();
   const { getUnifiedSubjectName, getUnifiedTopicName } = useMergeData();
@@ -140,12 +135,15 @@ export const useStudyCycleData = () => {
     return !(isSubjectsLoaded && isCycleLoaded);
   }, [user, isSubjectsLoaded, isCycleLoaded]);
 
-  // Safety timeout
+  // Safety timeout: loading must stop, but timeout cannot be presented as empty data.
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (!isSubjectsLoaded || !isCycleLoaded) {
-        console.warn('⚠️ Force stopping loading state after timeout', { isSubjectsLoaded, isCycleLoaded });
+      if (!isSubjectsLoaded) {
+        setSubjectsLoadError(current => current ?? new Error('Tempo limite ao carregar matérias do ciclo.'));
         setIsSubjectsLoaded(true);
+      }
+      if (!isCycleLoaded) {
+        setCycleLoadError(current => current ?? new Error('Tempo limite ao carregar o ciclo ativo.'));
         setIsCycleLoaded(true);
       }
     }, 10000);
@@ -154,8 +152,13 @@ export const useStudyCycleData = () => {
   }, [isSubjectsLoaded, isCycleLoaded]);
 
   const loadSubjects = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setSubjectsLoadError(null);
+      setIsSubjectsLoaded(true);
+      return;
+    }
 
+    setSubjectsLoadError(null);
     try {
       const cacheKey = `subjects_cache_${user.id}_v3`;
       const cached = localStorage.getItem(cacheKey);
@@ -175,7 +178,7 @@ export const useStudyCycleData = () => {
       const [subjectsRes, editaisRes] = await Promise.all([
         supabase
           .from('subjects')
-          .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position, total_volume, incidence_level, last_search_context)`)
+          .select(`*, topics (*, difficulty_level, review_stage, completed, notes, updated_at, next_review, last_reviewed_at, position)`)
           .eq('user_id', user.id)
           .eq('topics.is_active', true)
           .order('priority', { ascending: true })
@@ -189,6 +192,8 @@ export const useStudyCycleData = () => {
 
       if (subjectsRes.error) {
         console.error('Erro ao carregar matérias:', subjectsRes.error);
+        setSubjectsLoadError(subjectsRes.error);
+        setIsSubjectsLoaded(true);
         return;
       }
 
@@ -204,6 +209,8 @@ export const useStudyCycleData = () => {
       }
     } catch (error) {
       console.error('Erro ao carregar matérias:', error);
+      setSubjectsLoadError(error);
+      setIsSubjectsLoaded(true);
     }
   }, [user]);
 
@@ -245,11 +252,15 @@ export const useStudyCycleData = () => {
   }, [refreshData]);
 
   // Load user cycle data
-  useEffect(() => {
-    const loadUserCycle = async () => {
+  const loadUserCycle = useCallback(async () => {
+      if (!user) {
+        setCycleLoadError(null);
+        setIsCycleLoaded(true);
+        return;
+      }
       const cycleCacheKey = `user_cycle_cache_${user.id}`;
-      const subjectsCacheKey = `subjects_cache_${user.id}_v2`;
 
+      setCycleLoadError(null);
       try {
         const { data, error } = await supabase
           .from('user_cycles')
@@ -260,6 +271,7 @@ export const useStudyCycleData = () => {
 
         if (error) {
           console.error('Erro ao carregar ciclo:', error);
+          setCycleLoadError(error);
           return;
         }
 
@@ -278,6 +290,7 @@ export const useStudyCycleData = () => {
         setUserCycle(cycleData);
       } catch (error) {
         console.error('Erro ao carregar ciclo:', error);
+        setCycleLoadError(error);
         // Fallback: tentar usar cache apenas se ciclo existir no BD (verificado acima)
         const cycleCached = localStorage.getItem(cycleCacheKey);
         if (cycleCached) {
@@ -293,10 +306,11 @@ export const useStudyCycleData = () => {
       } finally {
         setIsCycleLoaded(true);
       }
-    };
-
-    loadUserCycle();
   }, [user]);
+
+  useEffect(() => {
+    loadUserCycle();
+  }, [loadUserCycle]);
 
   // A re-injeção automática de matérias foi removida para evitar o problema de "matérias fantasmas".
   // A inclusão de matérias no ciclo agora é feita de forma explícita durante a mesclagem de editais
@@ -508,6 +522,12 @@ export const useStudyCycleData = () => {
     }
   }, [user, refreshData]);
 
+  const retryLoad = useCallback(async () => {
+    setIsSubjectsLoaded(false);
+    setIsCycleLoaded(false);
+    await Promise.allSettled([loadSubjects(), loadUserCycle()]);
+  }, [loadSubjects, loadUserCycle]);
+
   return {
     studyCycleSubjects,
     groupedSubjects,
@@ -520,7 +540,9 @@ export const useStudyCycleData = () => {
     handleCompleteSession,
     handleSaveNotes,
     refreshCycleData,
-    isLoading
+    isLoading,
+    error: subjectsLoadError ?? cycleLoadError,
+    retryLoad,
   };
 };
 
