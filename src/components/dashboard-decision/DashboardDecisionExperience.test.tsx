@@ -130,7 +130,7 @@ describe('DashboardDecisionExperience', () => {
             tone: 'info',
             title: 'Crase',
             description: 'PORTUGUES • Primeiro contato',
-            reason: 'Respeita a ordem que você definiu no Ciclo de Estudos.',
+            reason: 'Alterna as matérias pela ordem que você definiu no Ciclo de Estudos.',
             scientificBasis: 'Primeiro contato organizado reduz troca de contexto e mantém progresso incremental.',
             primaryLabel: 'Iniciar estudo',
             primaryHref: '/ciclo-estudos',
@@ -168,7 +168,7 @@ describe('DashboardDecisionExperience', () => {
     expect(screen.getByRole('heading', { name: 'PORTUGUES' })).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Melhor próxima ação' })).getByTitle('Crase')).toBeInTheDocument();
     expect(screen.getByText('Primeiro contato')).toBeInTheDocument();
-    expect(screen.getByText('Respeita a ordem que você definiu no Ciclo de Estudos.')).toBeVisible();
+    expect(screen.getByText('Alterna as matérias pela ordem que você definiu no Ciclo de Estudos.')).toBeVisible();
     expect(screen.queryByText('Primeiro contato organizado reduz troca de contexto e mantém progresso incremental.')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Como foi definida' }));
     expect(screen.getByText('Primeiro contato organizado reduz troca de contexto e mantém progresso incremental.')).toBeVisible();

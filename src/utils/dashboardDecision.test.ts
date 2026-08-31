@@ -294,6 +294,58 @@ describe('getNextCycleActions', () => {
       primaryHref: '/ciclo-estudos',
     });
   });
+
+  it('rotates first contacts to the subject with fewer started topics before repeating a subject', () => {
+    const actions = getNextCycleActions([
+      cycleSubject({
+        id: 'subject-portuguese',
+        name: 'Português',
+        cyclePosition: 1,
+        topics: [
+          {
+            id: 'topic-portuguese-started',
+            name: 'Compreensão de texto',
+            subjectId: 'subject-portuguese',
+            subjectName: 'Português',
+            firstStudiedAt: '2026-06-19T10:00:00.000Z',
+            reviewCount: 0,
+            completed: false,
+          },
+          {
+            id: 'topic-portuguese-next',
+            name: 'Ortografia',
+            subjectId: 'subject-portuguese',
+            subjectName: 'Português',
+            firstStudiedAt: null,
+            reviewCount: 0,
+            completed: false,
+          },
+        ],
+      }),
+      cycleSubject({
+        id: 'subject-mathematics',
+        name: 'Matemática',
+        cyclePosition: 2,
+        topics: [
+          {
+            id: 'topic-mathematics-first',
+            name: 'Sistemas de unidades',
+            subjectId: 'subject-mathematics',
+            subjectName: 'Matemática',
+            firstStudiedAt: null,
+            reviewCount: 0,
+            completed: false,
+          },
+        ],
+      }),
+    ]);
+
+    expect(actions[0]?.target).toMatchObject({
+      subjectName: 'Matemática',
+      topicName: 'Sistemas de unidades',
+    });
+    expect(actions[0]?.reason).toBe('Alterna as matérias pela ordem que você definiu no Ciclo de Estudos.');
+  });
 });
 
 describe('buildNextBestAction', () => {

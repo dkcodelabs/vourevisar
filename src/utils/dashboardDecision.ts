@@ -171,12 +171,20 @@ export function splitReviewsByDueDate(topics: DashboardReviewTopic[], today = ne
 }
 
 export function getNextCycleActions(subjects: DashboardCycleSubject[], limit = 3): DashboardAction[] {
-  const sortedSubjects = [...subjects].sort((a, b) => a.cyclePosition - b.cyclePosition);
+  const sortedSubjects = subjects
+    .filter((subject) => !subject.isCompletedInCycle)
+    .sort((a, b) => {
+      const startedTopicsA = a.topics.filter(isTopicStarted).length;
+      const startedTopicsB = b.topics.filter(isTopicStarted).length;
+
+      // First contacts rotate through the active subjects. Cycle position is
+      // only the tiebreaker, so a student does not exhaust one subject before
+      // seeing the next one in the configured cycle.
+      return startedTopicsA - startedTopicsB || a.cyclePosition - b.cyclePosition;
+    });
   const actions: DashboardAction[] = [];
 
   for (const subject of sortedSubjects) {
-    if (subject.isCompletedInCycle) continue;
-
     const nextTopic = subject.topics.find((topic) => !topic.completed && !isTopicStarted(topic));
     const continueTopic = subject.topics.find((topic) => !topic.completed && isTopicStarted(topic));
     const topic = nextTopic || continueTopic;
@@ -191,7 +199,7 @@ export function getNextCycleActions(subjects: DashboardCycleSubject[], limit = 3
       title: startsNewTopic ? `Iniciar ${topic.name}` : `Continuar ${topic.name}`,
       description: `${subject.name} • ${startsNewTopic ? 'Primeiro contato' : 'Estudo em andamento'}`,
       reason: startsNewTopic
-        ? 'Respeita a ordem que você definiu no Ciclo de Estudos.'
+        ? 'Alterna as matérias pela ordem que você definiu no Ciclo de Estudos.'
         : 'Mantém continuidade no ciclo sem trocar sua ordem.',
       scientificBasis: startsNewTopic
         ? 'Primeiro contato organizado reduz troca de contexto e mantém progresso incremental.'
