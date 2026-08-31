@@ -42,4 +42,16 @@ ALTER POLICY "Owners can manage system settings" ON public.system_settings USING
 ALTER POLICY "Admins can update all feedback" ON public.user_feedback_events USING (EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = (SELECT auth.uid()) AND ur.role = ANY (ARRAY['admin'::app_role, 'owner'::app_role]))) WITH CHECK (EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = (SELECT auth.uid()) AND ur.role = ANY (ARRAY['admin'::app_role, 'owner'::app_role])));
 ALTER POLICY "Admins can view all feedback" ON public.user_feedback_events USING (EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = (SELECT auth.uid()) AND ur.role = ANY (ARRAY['admin'::app_role, 'owner'::app_role])));
 
-ALTER POLICY "Authenticated users can subscribe to own topics" ON realtime.messages USING (((SELECT auth.uid()) IS NOT NULL) AND realtime.topic() ~~ (('%'::text || ((SELECT auth.uid()))::text) || '%'::text));
+-- Fresh Supabase projects can omit `realtime.messages` until Realtime is
+-- configured. Production already has this policy; a clean bootstrap must not
+-- fail merely because the optional internal relation is absent.
+DO $$
+BEGIN
+  IF to_regclass('realtime.messages') IS NOT NULL THEN
+    EXECUTE $policy$
+      ALTER POLICY "Authenticated users can subscribe to own topics"
+      ON realtime.messages
+      USING (((SELECT auth.uid()) IS NOT NULL) AND realtime.topic() ~~ (('%'::text || ((SELECT auth.uid()))::text) || '%'::text))
+    $policy$;
+  END IF;
+END $$;
