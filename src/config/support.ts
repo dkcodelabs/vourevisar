@@ -1,7 +1,6 @@
-const configuredWhatsApp = import.meta.env.VITE_SUPPORT_WHATSAPP?.replace(/\D/g, '');
+const configuredSupportEmail = import.meta.env.VITE_SUPPORT_EMAIL?.trim();
 
-// Temporary fallback until the dedicated support number is configured.
-export const SUPPORT_WHATSAPP_NUMBER = configuredWhatsApp || '5527998984866';
+export const SUPPORT_EMAIL = configuredSupportEmail || 'vourevisar@gmail.com';
 
-export const getSupportWhatsAppUrl = (message: string) =>
-  `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+export const getSupportEmailUrl = (subject: string) =>
+  `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;

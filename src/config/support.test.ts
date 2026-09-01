@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { getSupportWhatsAppUrl } from './support';
+import { getSupportEmailUrl } from './support';
 
 describe('support contact', () => {
-  it('creates a WhatsApp link with an encoded message', () => {
-    expect(getSupportWhatsAppUrl('Minha conta foi desativada.')).toBe(
-      'https://wa.me/5527998984866?text=Minha%20conta%20foi%20desativada.',
+  it('creates an email link with an encoded subject', () => {
+    expect(getSupportEmailUrl('Ajuda para acessar a conta')).toBe(
+      'mailto:vourevisar@gmail.com?subject=Ajuda%20para%20acessar%20a%20conta',
     );
   });
 });

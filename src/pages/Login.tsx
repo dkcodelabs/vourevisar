@@ -16,11 +16,10 @@ import {
   ArrowRight,
   UserPlus,
   CheckCircle,
-  MessageCircle,
 } from 'lucide-react';
 import { TracerLogo } from '@/components/ui/TracerLogo';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { getSupportWhatsAppUrl } from '@/config/support';
+import { getSupportEmailUrl } from '@/config/support';
 import { getPostAuthRedirect } from '@/utils/authRedirect';
 import {
   isBillingContractAcceptanceEnabled,
@@ -49,9 +48,7 @@ const Login = () => {
   const [shakePassword, setShakePassword] = useState(false);
   const passwordInputRef = React.useRef<HTMLInputElement>(null);
   const emailConfirmed = new URLSearchParams(location.search).get('confirmed') === '1';
-  const supportWhatsAppUrl = getSupportWhatsAppUrl(
-    'Olá, preciso de ajuda para acessar o vouRevisar.',
-  );
+  const supportEmailUrl = getSupportEmailUrl('Ajuda para acessar o vouRevisar');
 
   useEffect(() => {
     const confirmedEmail = localStorage.getItem('confirmedEmail');
@@ -504,12 +501,12 @@ const Login = () => {
               {!isRegistering && (
                 <div className="mt-6 pt-4 border-t border-border dark:border-white/5 flex flex-col items-center gap-3">
                   <a
-                    href={supportWhatsAppUrl}
+                    href={supportEmailUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    <MessageCircle size={14} aria-hidden="true" />
+                    <Mail size={14} aria-hidden="true" />
                     Precisa de ajuda? Fale com o suporte
                   </a>
                 </div>

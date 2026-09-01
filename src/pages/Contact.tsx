@@ -1,13 +1,13 @@
 import { LegalDocumentLayout } from '@/components/legal/LegalDocumentLayout';
 import { legalProvider } from '@/config/legalProvider';
-import { getSupportWhatsAppUrl } from '@/config/support';
+import { getSupportEmailUrl, SUPPORT_EMAIL } from '@/config/support';
 
 const Contact = () => (
   <LegalDocumentLayout eyebrow="Atendimento" title="Contato" version="2026-08-21.1">
     <h2>Atendimento eletrônico</h2>
     <p>Use os canais abaixo para dúvidas, reclamações, suspensão, cancelamento, arrependimento ou solicitações relacionadas aos seus dados.</p>
-    <p><a href={getSupportWhatsAppUrl('Olá, preciso de atendimento sobre minha conta no vouRevisar.')}>Falar pelo WhatsApp</a></p>
-    {legalProvider.email && <p><a href={`mailto:${legalProvider.email}`}>{legalProvider.email}</a></p>}
+    <p><a href={getSupportEmailUrl('Atendimento sobre minha conta no vouRevisar')}>Enviar e-mail para {SUPPORT_EMAIL}</a></p>
+    {legalProvider.email && legalProvider.email !== SUPPORT_EMAIL && <p><a href={`mailto:${legalProvider.email}`}>{legalProvider.email}</a></p>}
     <p>O recebimento da solicitação será confirmado pelo mesmo meio utilizado. Pedidos financeiros também ficam registrados na área Minha assinatura quando o fluxo correspondente estiver disponível.</p>
   </LegalDocumentLayout>
 );

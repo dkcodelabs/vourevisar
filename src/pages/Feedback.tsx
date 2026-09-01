@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CircleHelp,
   Clock3,
+  Mail,
   MessageCircle,
   MessageSquarePlus,
   RefreshCw,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react';
 import { FeedbackModal } from '@/components/student-hub/FeedbackModal';
 import { Button } from '@/components/ui/button';
-import { getSupportWhatsAppUrl } from '@/config/support';
+import { getSupportEmailUrl } from '@/config/support';
 import { useUserFeedbacks, type FeedbackStatus, type UserFeedback } from '@/hooks/useUserFeedbacks';
 import { useStudentHubBadge } from '@/hooks/useStudentHubBadge';
 import { getFeedbackStatusLabel } from '@/services/feedbackService';
@@ -90,7 +91,7 @@ const Feedback = () => {
   const { markFeedbackAsRead } = useStudentHubBadge();
   const [filter, setFilter] = useState<Filter>('todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const supportUrl = getSupportWhatsAppUrl('Olá, preciso de ajuda para usar o vouRevisar.');
+  const supportUrl = getSupportEmailUrl('Ajuda para usar o vouRevisar');
 
   const filteredFeedbacks = useMemo(() => feedbacks.filter((feedback) => {
     if (filter === 'em_aberto') return isOpen(feedback);
@@ -140,7 +141,7 @@ const Feedback = () => {
             </span>
           </Button>
           <a href={supportUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-14 items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-emerald-500 transition-colors hover:bg-emerald-500/10">
-            <MessageCircle size={18} aria-hidden="true" />
+            <Mail size={18} aria-hidden="true" />
             <span>
               <span className="block text-sm font-semibold">Falar no WhatsApp</span>
               <span className="mt-0.5 block text-xs text-content-muted">Atendimento direto para casos urgentes</span>

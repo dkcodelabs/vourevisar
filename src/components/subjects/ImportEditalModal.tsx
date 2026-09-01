@@ -348,7 +348,7 @@ export const ImportEditalModal: React.FC<ImportEditalModalProps> = ({
                         </h2>
                         <p className="text-[11px] text-content-muted font-medium italic hidden xl:block max-w-[360px] truncate">
                             {activeTab === 'ready'
-                                ? 'Milhares de concursos já organizados pela nossa equipe.'
+                                ? 'Escolha um edital estruturado para começar com mais rapidez.'
                                 : activeTab === 'ia' && iaStage === 'review'
                                     ? 'Revise os dados antes de importar.'
                                     : activeTab === 'ia'

@@ -1,13 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, CalendarDays, AlertTriangle, Wand2, PlusCircle, RefreshCw, BellOff, MessageSquarePlus, SearchX, MessageCircle } from 'lucide-react';
+import { X, Calendar, TrendingUp, Vibrate, Settings, Plus, Filter, Inbox, CalendarDays, AlertTriangle, Wand2, PlusCircle, RefreshCw, BellOff, MessageSquarePlus, SearchX, Mail, MessageCircle } from 'lucide-react';
 import { FeedbackModal } from './FeedbackModal';
 import { useNotifications, type UserNotification, type NotificationFilter } from '@/hooks/useNotifications';
 import { useUserFeedbacks, type UserFeedback, type FeedbackStatus } from '@/hooks/useUserFeedbacks';
 import { useStudentHubBadge } from '@/hooks/useStudentHubBadge';
 import { getFeedbackStatusLabel } from '@/services/feedbackService';
 import { analytics } from '@/lib/analytics';
-import { getSupportWhatsAppUrl } from '@/config/support';
+import { getSupportEmailUrl } from '@/config/support';
 
 // ─── Status Config ──────────────────────────────────────────
 const STATUS_CONFIG: Record<FeedbackStatus, { label: string; dotClass: string; bgClass: string; textClass: string }> = {
@@ -137,7 +137,7 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = React.useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
-  const supportWhatsAppUrl = getSupportWhatsAppUrl('Olá, preciso de ajuda para usar o vouRevisar.');
+  const supportEmailUrl = getSupportEmailUrl('Ajuda para usar o vouRevisar');
 
   useEffect(() => {
     if (isOpen && initialTab === 'feedbacks' && !notificationsOnly) {
@@ -596,13 +596,13 @@ export const StudentHubPanel: React.FC<StudentHubPanelProps> = ({ isOpen, onClos
                   Nova Solicitação
                 </button>
                 <a
-                  href={supportWhatsAppUrl}
+                  href={supportEmailUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12px] font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-                  title="Falar com o suporte pelo WhatsApp"
+                  title="Enviar e-mail ao suporte"
                 >
-                  <MessageCircle size={14} aria-hidden="true" />
+                  <Mail size={14} aria-hidden="true" />
                   <span className="hidden sm:inline">Suporte</span>
                 </a>
               </div>

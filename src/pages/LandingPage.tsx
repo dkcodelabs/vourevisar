@@ -222,11 +222,11 @@ const LandingPage = () => {
             <div className="absolute -right-4 -bottom-8 bg-white p-4 rounded-lg shadow-xl border border-slate-100 animate-bounce" style={{ animationDuration: '3s' }}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-brand-blue font-bold">
-                  98%
+                  ✓
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-semibold uppercase">Retenção</p>
-                  <p className="text-sm font-bold text-slate-800">Alta Performance</p>
+                  <p className="text-xs text-slate-500 font-semibold uppercase">Próxima ação</p>
+                  <p className="text-sm font-bold text-slate-800">Clara e organizada</p>
                 </div>
               </div>
             </div>
@@ -338,7 +338,7 @@ const LandingPage = () => {
 
         <div className="max-w-4xl mx-auto text-center px-4 relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">Pronto para o seu próximo "check" verde?</h2>
-          <p className="text-slate-300 text-lg mb-8">Junte-se a milhares de estudantes que trocaram a ansiedade pela organização.</p>
+          <p className="text-slate-300 text-lg mb-8">Transforme um edital extenso em um plano claro para estudar, revisar e avançar todos os dias.</p>
           <Link to="/login" className="inline-block bg-brand-green hover:bg-green-600 text-white px-10 py-4 rounded-xl font-bold text-lg shadow-lg shadow-green-900/50 transition transform hover:-translate-y-1">
             Começar Gratuitamente
           </Link>
