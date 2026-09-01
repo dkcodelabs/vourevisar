@@ -30,12 +30,11 @@
 ### Executável agora — não depende de tempo real
 
 1. **Fechar a matriz restante de entrada e acesso.** Validar com contas descartáveis: edital vazio, edital fora do ciclo, ciclo vazio e falha/reconexão. Trial, assinatura vencida e admin já foram comprovados; não alterar o progresso da conta do fundador.
-2. **Validar importação, merge e ordenação com editais reais variados.** Usar editais descartáveis, registrar somente regras estruturais reaproveitáveis e não criar exceções de tela ou de concurso.
-3. **Simular quarta revisão e revisão manual.** Criar agenda/histórico controlados no ambiente de Teste e confirmar que o contato adicional não encerra nem reinicia incorretamente o programa adaptativo.
-4. **Auditar a semântica de conclusão do calendário legado.** Mapear consumidores restantes antes de retirar qualquer motor fixo; não apagar tabela, histórico ou agenda ativa nesta etapa.
-5. **Revisar responsividade e copy dos estados críticos.** Conferir desktop e mobile em onboarding, assinatura, erro/reconexão e estados vazios, mantendo CTAs existentes.
-6. **Reduzir o baseline arquitetural em recortes.** Começar por `Editais.tsx`, depois `Revisoes.tsx` e áreas administrativas, extraindo persistência para hooks/services sem refatoração massiva.
-7. **Conferir o canal de suporte em produção.** Concluído em 2026-09-01: o código usa `vourevisar@gmail.com`; o link foi validado em aluno comum e em conta bloqueada, sem envio de solicitação real.
+2. **Simular quarta revisão e revisão manual.** Criar agenda/histórico controlados no ambiente de Teste e confirmar que o contato adicional não encerra nem reinicia incorretamente o programa adaptativo.
+3. **Revisar responsividade e copy dos estados críticos.** Conferir desktop e mobile em onboarding, assinatura, erro/reconexão e estados vazios, mantendo CTAs existentes.
+4. **Reduzir o baseline arquitetural em recortes.** Começar por `Editais.tsx`, depois `Revisoes.tsx` e áreas administrativas, extraindo persistência para hooks/services sem refatoração massiva.
+
+Importação, merge, ordenação e canal de suporte foram validados e removidos da fila executável em 2026-09-01.
 
 ### Exige ação externa do fundador — não é questão de tempo de uso
 
