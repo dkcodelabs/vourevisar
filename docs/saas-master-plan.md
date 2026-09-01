@@ -1,6 +1,6 @@
 # Plano mestre do vouRevisar
 
-> **Fonte única de prioridade operacional.** Atualizado em 2026-08-31 após inventário do repositório, Supabase remoto, Stripe Live e produção Vercel.
+> **Fonte única de prioridade operacional.** Atualizado em 2026-09-01 após inventário do repositório, Supabase remoto, Stripe Live e produção Vercel.
 >
 > Os documentos anteriores preservam decisões e evidências, mas não são listas de trabalho ativas. Toda pendência nova ou reclassificada deve ser registrada aqui.
 
@@ -25,6 +25,28 @@
 - [x] Release: `main` no commit `12fd4c11`; produção Vercel servindo o bundle que contém a versão legal `2026-08-31.1`.
 - [x] Qualidade do corte: 808 testes, lint, build e auditoria de dependências concluídos sem falha em 2026-08-31.
 
+## Ordem operacional atual
+
+### Executável agora — não depende de tempo real
+
+1. **Fechar a matriz restante de entrada e acesso.** Validar com contas descartáveis: edital vazio, edital fora do ciclo, ciclo vazio e falha/reconexão. Trial, assinatura vencida e admin já foram comprovados; não alterar o progresso da conta do fundador.
+2. **Validar importação, merge e ordenação com editais reais variados.** Usar editais descartáveis, registrar somente regras estruturais reaproveitáveis e não criar exceções de tela ou de concurso.
+3. **Simular quarta revisão e revisão manual.** Criar agenda/histórico controlados no ambiente de Teste e confirmar que o contato adicional não encerra nem reinicia incorretamente o programa adaptativo.
+4. **Auditar a semântica de conclusão do calendário legado.** Mapear consumidores restantes antes de retirar qualquer motor fixo; não apagar tabela, histórico ou agenda ativa nesta etapa.
+5. **Revisar responsividade e copy dos estados críticos.** Conferir desktop e mobile em onboarding, assinatura, erro/reconexão e estados vazios, mantendo CTAs existentes.
+6. **Reduzir o baseline arquitetural em recortes.** Começar por `Editais.tsx`, depois `Revisoes.tsx` e áreas administrativas, extraindo persistência para hooks/services sem refatoração massiva.
+7. **Conferir o canal de suporte em produção.** O código já usa `vourevisar@gmail.com`; testar o link publicado para aluno comum e bloqueado, sem enviar uma solicitação real.
+
+### Exige ação externa do fundador — não é questão de tempo de uso
+
+1. **Revisão jurídica independente.** Confirmar identidade final do fornecedor, canais, documentos e interpretação da janela de arrependimento com profissional jurídico.
+
+### Depende de uso real — pós-venda, não bloqueia o início
+
+1. **Monitorar adoção, recorrência e custo do Treino** após existir uma base relevante de alunos.
+2. **Ativar proteção contra senhas vazadas** quando o plano Supabase contratado disponibilizar o recurso.
+3. **Avaliar índices administrativos e financeiros** somente com volume e planos de consulta observados.
+
 ## Prioridade 0 — proteger a operação comercial
 
 Estes itens não impedem o software de receber alunos hoje, mas não devem ser ignorados ao aumentar aquisição ou volume financeiro.
@@ -34,7 +56,7 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 - [x] **Validação autenticada de acesso.** Em 2026-08-31, o perfil aluno pago foi validado em desktop: acesso ao Painel, assinatura em fim de período e Customer Portal Live abriram corretamente. Em 2026-09-01, o projeto de Teste comprovou `trial` ativo, bloqueio sem concessão, assinatura Stripe vencida (`canceled`) e isolamento entre usuários (tentativa cruzada retorna 403). A conta proprietária também abriu a navegação administrativa no aplicativo. A rota de confirmação foi validada em viewport móvel e o Auth recusou uma conta não confirmada sem emitir sessão.
 - [x] **Conferir retorno completo de Checkout em Safari real.** Em 2026-09-01, Safari abriu a confirmação de e-mail corretamente e preservou a sessão autenticada, redirecionando `/login` ao Painel. O Checkout mensal de Teste foi concluído no Safari com a conta descartável: o retorno exibiu `Assinatura ativada`, a assinatura ficou `active` e os eventos `checkout.session.completed` e `customer.subscription.created` foram processados uma vez no ledger. Não há alteração pendente de código.
 - [x] **Corrigir e retestar o resumo de assinatura Live.** Em 2026-08-31, a migration `20260831210950` removeu a comparação indevida entre `updated_at` da assinatura e do cliente, preservando ownership e `livemode`. Foi publicada no Supabase; o RPC retornou a assinatura mensal ativa e o aluno abriu o Painel em produção com o selo `Plano mensal`.
-- [ ] **Canal de suporte real.** O canal definido é `vourevisar@gmail.com`. Atualizar todos os CTAs internos para e-mail e conferir o envio em produção tanto para conta bloqueada quanto para aluno comum. **Responsável: fundador** mantém a caixa postal; a validação do link será feita nesta rodada.
+- [ ] **Canal de suporte real.** O canal definido é `vourevisar@gmail.com`; CTAs de login, feedback, central do aluno e contato já usam e-mail. Falta confirmar o link publicado para conta bloqueada e aluno comum. **Responsável: fundador** mantém a caixa postal; não é necessário enviar uma solicitação real nesta validação.
 - [x] **Remover claims públicos sem evidência verificável.** Em 2026-09-01, os números “milhares de estudantes” e “98% de retenção” foram substituídos por proposta de valor concreta. A referência semelhante no Catálogo também foi removida.
 
 ## Prioridade 1 — limpeza técnica segura
@@ -61,7 +83,7 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 ## Prioridade 2 — lacunas funcionais já conhecidas
 
 - [x] Concluir a regra e a validação autenticada da transição do primeiro contato. Em produção, em 2026-08-31, o aluno pagante importou pelo Catálogo o edital Casa da Moeda (2 matérias, 18 tópicos), carregou o ciclo, concluiu `I. Compreensão de texto` como Médio e recebeu corretamente 1 revisão futura desse mesmo tópico. O Painel inicialmente expôs que a seleção repetia PORTUGUÊS; a regra foi corrigida para priorizar a matéria ativa com menos tópicos iniciados, usando a ordem do ciclo como desempate. Após o deploy `5c32acb8`, o mesmo Painel passou a recomendar `MATEMÁTICA — I. Conjuntos numéricos`; o ciclo permaneceu em 1/18 iniciados.
-- [ ] Completar a matriz de estados de entrada e acesso: em 2026-08-31, o estado `sem edital` foi validado em produção com CTA para adicionar edital; a conta paga e o Portal também foram validados. Ainda faltam edital vazio/fora do ciclo, ciclo vazio, erro/reconexão, trial, assinatura vencida e admin. A tela deve usar somente dados persistidos e CTAs existentes.
+- [ ] Completar a matriz de estados de entrada e acesso: em 2026-08-31, o estado `sem edital` foi validado em produção com CTA para adicionar edital; a conta paga e o Portal também foram validados. Em 2026-09-01, trial, assinatura vencida e admin também foram comprovados no ambiente de Teste. Restam edital vazio/fora do ciclo, ciclo vazio e erro/reconexão, sempre com dados persistidos e CTAs existentes.
 - [ ] Validar com editais reais variados a extração, o merge e a ordenação, registrando novas variações estruturais nos perfis de banca em vez de criar exceção de tela.
 - [ ] Tratar revisões manuais após a quarta revisão como contato distinto, sem corromper o programa adaptativo já concluído.
 - [ ] Fazer auditoria final da semântica de conclusão em calendários e componentes legados antes de retirar o motor de revisão fixa.
