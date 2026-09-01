@@ -57,6 +57,7 @@ import { shouldBlockCycleConflictClose } from '@/utils/cycleConflictModalClose';
 import { formatRecoveredMergeTimestamp } from '@/utils/recoveredMergeTimestamp';
 import { compareEditaisByCreatedOrder } from '@/utils/editalOrder';
 import { guardActiveTimerOperation } from '@/utils/activeTimerOperationGuard';
+import { fetchEditaisPageData } from '@/services/editaisPageService';
 import { buildConsolidatedTopicProgress, type TopicProgressRow } from '@/utils/topicProgressConsolidation';
 import { buildEditalProgressSummary, type EditalProgressSummary } from '@/utils/editalProgressSummary';
 import {
@@ -570,29 +571,9 @@ const Editais = () => {
     const fetchEditais = useCallback(async (options: { reportError?: boolean } = {}) => {
         if (!user?.id) return;
         try {
-            const [{ data, error }, { data: sessionsData, error: sessionsError }] = await Promise.all([
-                withTimeout(
-                editaisTable()
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false }),
-                10000,
-                'Carregamento de editais'
-                ),
-                withTimeout(
-                    supabase
-                        .from('study_sessions')
-                        .select('edital_id, subject_id, session_duration_minutes')
-                        .eq('user_id', user.id),
-                    10000,
-                    'Carregamento de sessoes de estudo'
-                )
-            ]);
-
-            if (error) throw error;
-            if (sessionsError) throw sessionsError;
-            setEditais((data || []).map(rowToEdital).sort(compareEditaisByCreatedOrder));
-            setStudySessions((sessionsData || []) as StudySessionSummary[]);
+            const { editais: editalRows, sessions } = await fetchEditaisPageData(user.id);
+            setEditais(editalRows.map(rowToEdital).sort(compareEditaisByCreatedOrder));
+            setStudySessions(sessions);
         } catch (err) {
             if (options.reportError === false) throw err;
             errorService.report(err, { module: 'editais', action: 'fetch', userMessage: 'Erro ao carregar editais.' });
