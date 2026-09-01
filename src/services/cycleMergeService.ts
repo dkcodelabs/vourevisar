@@ -28,6 +28,7 @@ import {
 import { mergeService } from './mergeService';
 import { isReviewProgramCompleted } from '@/utils/reviewStage';
 import { buildTopicEquivalenceGroups, getExplicitSiblingTopicIds } from '@/utils/topicEquivalenceGraph';
+import { withTimeout } from '@/utils/withTimeout';
 
 // ============================================
 // HELPERS
@@ -332,13 +333,13 @@ REGRAS OBRIGATÓRIAS:
 3. Unifique apenas matérias de FONTES DIFERENTES (ex: Ciclo Atual vs Novo Edital).
 4. Ignore a similaridade interna de nomes.`;
 
-    const { data, error } = await supabase.functions.invoke('ai-handler', {
+    const { data, error } = await withTimeout(supabase.functions.invoke('ai-handler', {
       body: { 
         action: 'generateContent', 
         prompt: enhancedPrompt.replace('$SUBJECTS$', JSON.stringify(subjectList)),
         model: 'gemini-2.5-flash'
       },
-    });
+    }), 20000, 'Análise semântica de matérias');
 
     if (error || !data?.success) {
       console.error(`[IA] Erro na Edge Function (Módulo 2):`, error || data?.error);
@@ -615,13 +616,13 @@ Retorne um JSON no formato: { "groups": [ { "originalTopicsToMerge": ["ID1", "ID
 
   const fullPrompt = basePrompt.replace('{{subject}}', subjectName) + `\n\nLista de Tópicos:\n${topicList}`;
 
-  const { data, error } = await supabase.functions.invoke('ai-handler', {
+  const { data, error } = await withTimeout(supabase.functions.invoke('ai-handler', {
     body: {
       action: 'generateContent',
       prompt: fullPrompt,
       model: 'gemini-2.5-flash'
     },
-  });
+  }), 20000, `Análise semântica de tópicos (${subjectName})`);
 
   if (error) throw error;
   if (!data?.success) throw new Error(data?.error || 'Erro desconhecido na Edge Function');
@@ -685,6 +686,11 @@ export async function performFullTopicMerge(
   const groups: TopicGroupResult[] = [];
   let overallAiError = false;
   let aiErrorGroupCount = 0;
+  // Evita que um edital grande mantenha o modal preso em uma sequência
+  // ilimitada de chamadas semânticas. O fallback determinístico continua
+  // permitindo concluir a mesclagem e deixa o motivo visível na UI.
+  const aiStartedAt = Date.now();
+  const AI_BUDGET_MS = 45_000;
   
   onPhaseChange?.('exact');
   const pendingAISuggestions: Array<{
@@ -753,7 +759,8 @@ export async function performFullTopicMerge(
     const aiMappings: UnifiedTopicMapping[] = [];
     let aiStatus: 'success' | 'error' | 'skipped' = 'skipped';
 
-    if (useAI && unmatchedTopics.length >= 2) {
+    const aiBudgetAvailable = Date.now() - aiStartedAt < AI_BUDGET_MS;
+    if (useAI && unmatchedTopics.length >= 2 && aiBudgetAvailable) {
       try {
         onPhaseChange?.('ai');
         const aiResults = await performTopicGroupingAI(unified.displayName, unmatchedTopics);
@@ -801,6 +808,11 @@ export async function performFullTopicMerge(
         });
       }
     } else {
+      if (useAI && unmatchedTopics.length >= 2 && !aiBudgetAvailable) {
+        aiStatus = 'error';
+        overallAiError = true;
+        aiErrorGroupCount += 1;
+      }
       unmatchedTopics.forEach(t => {
         aiMappings.push({
           displayName: t.name,
