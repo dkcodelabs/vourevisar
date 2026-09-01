@@ -189,28 +189,3 @@ export function buildTopicReviewHistory(
     rawEntries: historyData.filter(e => e.difficulty_numeric != null)
   };
 }
-
-/**
- * Hook para registrar uma revisão manualmente (caso necessário)
- */
-export const useRegisterReview = () => {
-  const registerReview = async (topicId: string, reviewStage: string) => {
-    try {
-      const { error } = await supabase
-        .from('topic_review_history')
-        .insert({
-          topic_id: topicId,
-          review_stage: reviewStage,
-          reviewed_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao registrar revisão:', error);
-      return { success: false, error };
-    }
-  };
-
-  return { registerReview };
-};
