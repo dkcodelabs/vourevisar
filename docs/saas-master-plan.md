@@ -23,7 +23,7 @@
 - [x] Banco: migrations aplicadas, índices de FKs e políticas RLS revisadas; não há função `SECURITY DEFINER` executável diretamente por aluno.
 - [x] Cobrança Stripe Live: catálogo, webhook, contrato versionado, arrependimento, portal, histórico e funções de billing publicados. O endpoint Live respondeu sem falhas na inspeção realizada em 2026-08-31.
 - [x] Release: `main` no commit `12fd4c11`; produção Vercel servindo o bundle que contém a versão legal `2026-08-31.1`.
-- [x] Qualidade do corte: 832 testes, lint e build concluídos sem falha em 2026-09-01; a suíte registra apenas o aviso conhecido de `Window.scrollTo` não implementado pelo ambiente jsdom.
+- [x] Qualidade do corte: 833 testes, lint e build concluídos sem falha em 2026-09-01; a suíte registra apenas o aviso conhecido de `Window.scrollTo` não implementado pelo ambiente jsdom.
 
 ## Ordem operacional atual
 
