@@ -106,6 +106,29 @@ describe('DashboardDecisionExperience', () => {
     expect(onNavigate).toHaveBeenCalledWith('/meus-editais');
   });
 
+  it('explains when an existing edital has no study content yet', () => {
+    const onNavigate = vi.fn();
+
+    render(
+      <DashboardDecisionExperience
+        model={{ ...missingCycleModel, studyEntryState: 'empty-edital' }}
+        onNavigate={onNavigate}
+        onAddReminder={vi.fn()}
+        onToggleReminder={vi.fn()}
+        onDeleteReminder={vi.fn()}
+        onUpdateCycleName={vi.fn()}
+        isAddingReminder={false}
+        isDeletingReminder={false}
+        isUpdatingCycleName={false}
+      />,
+    );
+
+    expect(screen.getByText('Seu edital ainda não tem matérias ou tópicos.')).toBeVisible();
+    expect(screen.getByText('Abra Meus Editais para importar o conteúdo ou cadastrar a primeira matéria.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Completar edital' }));
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith('/meus-editais');
+  });
+
   it('keeps the subject, topic and reason while deferring the complementary explanation', () => {
     const onNavigate = vi.fn();
     render(
