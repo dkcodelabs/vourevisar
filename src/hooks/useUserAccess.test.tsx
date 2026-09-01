@@ -74,6 +74,43 @@ describe('useUserAccess', () => {
     expect(result.current.blockedReason).toBe('subscription_required');
   });
 
+  it('keeps a valid trial inside protected routes without treating it as a paid plan', () => {
+    mocks.useStripeBillingOverview.mockReturnValue(billingState({
+      data: {
+        is_active: true,
+        source: 'trial',
+        plan: 'free_trial',
+        status: 'trial',
+        access_until: '2026-09-08T00:00:00Z',
+        subscription: null,
+      },
+    }));
+
+    const { result } = renderHook(() => useUserAccess());
+
+    expect(result.current.hasFullAccess).toBe(true);
+    expect(result.current.canAccessPremiumFeatures).toBe(false);
+    expect(result.current.accessLevel).toBe('trial');
+  });
+
+  it('identifies an expired Stripe subscription for the renewal flow', () => {
+    mocks.useStripeBillingOverview.mockReturnValue(billingState({
+      data: {
+        is_active: false,
+        source: 'stripe',
+        plan: 'monthly',
+        status: 'canceled',
+        access_until: '2026-08-31T00:00:00Z',
+        subscription: { status: 'canceled' },
+      },
+    }));
+
+    const { result } = renderHook(() => useUserAccess());
+
+    expect(result.current.hasFullAccess).toBe(false);
+    expect(result.current.blockedReason).toBe('subscription_expired');
+  });
+
   it('does not redirect while the canonical access lookup is failing', () => {
     mocks.useStripeBillingOverview.mockReturnValue(billingState({
       isError: true,

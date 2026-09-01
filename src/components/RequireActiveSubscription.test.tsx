@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequireActiveSubscription } from './RequireActiveSubscription';
 import { useUserAccess } from '@/hooks/useUserAccess';
@@ -29,10 +29,17 @@ function renderGuardedRoute() {
             </RequireActiveSubscription>
           }
         />
-        <Route path="/planos" element={<div>Pagina de planos</div>} />
+        <Route path="/planos" element={<PlansDestination />} />
       </Routes>
     </MemoryRouter>,
   );
+}
+
+function PlansDestination() {
+  const location = useLocation();
+  const reason = (location.state as { reason?: string } | null)?.reason ?? 'sem-motivo';
+
+  return <div>Pagina de planos: {reason}</div>;
 }
 
 describe('RequireActiveSubscription', () => {
@@ -101,6 +108,26 @@ describe('RequireActiveSubscription', () => {
 
     renderGuardedRoute();
 
-    expect(screen.getByText('Pagina de planos')).toBeInTheDocument();
+    expect(screen.getByText('Pagina de planos: subscription_required')).toBeInTheDocument();
+  });
+
+  it('keeps the expired-subscription reason for the renewal message', () => {
+    mockedUseUserAccess.mockReturnValue({
+      loading: false,
+      error: null,
+      roles: {},
+      subscription: {},
+      hasFullAccess: false,
+      canAccessPremiumFeatures: false,
+      canManageUsers: false,
+      accessLevel: 'none',
+      accessMessage: 'Sem acesso',
+      blockedReason: 'subscription_expired',
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useUserAccess>);
+
+    renderGuardedRoute();
+
+    expect(screen.getByText('Pagina de planos: subscription_expired')).toBeInTheDocument();
   });
 });
