@@ -32,7 +32,6 @@
     "src/pages/Login.tsx",
     "src/pages/Profile.tsx",
     "src/pages/ResetPassword.tsx",
-    "src/pages/Revisoes.tsx",
     "src/pages/Settings.tsx",
     "src/pages/admin/AISettings.tsx",
     "src/pages/admin/AdminEditais.tsx",
