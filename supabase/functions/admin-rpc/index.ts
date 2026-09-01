@@ -138,6 +138,39 @@ serve(async (req: Request) => {
       return json({ data });
     }
 
+    // Keep account-state mutations in the edge function. The legacy dispatcher
+    // relies on request.jwt.claims being visible through auth.uid() inside a
+    // SECURITY DEFINER function, which is not guaranteed when the function is
+    // invoked with the service-role client. That caused suspend/reactivate to
+    // appear successful in the UI while the profile row stayed unchanged.
+    if (action === "admin_deactivate_user" || action === "admin_reactivate_user") {
+      const targetUserId = typeof args.target_user_id === "string" ? args.target_user_id : null;
+      if (!targetUserId) return json({ error: "Usuario alvo obrigatorio" }, 400);
+
+      const isActive = action === "admin_reactivate_user";
+      const { data: updatedRows, error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          is_active: isActive,
+          deactivated_at: isActive ? null : new Date().toISOString(),
+          deactivated_by: isActive ? null : user.id,
+        })
+        .eq("id", targetUserId)
+        .select("id");
+
+      if (updateError) return json({ error: updateError.message, code: updateError.code }, 400);
+      if (!updatedRows || updatedRows.length === 0) return json({ error: "Perfil do usuário não encontrado" }, 404);
+
+      const { error: eventError } = await supabase.from("user_events").insert({
+        user_id: targetUserId,
+        event_type: isActive ? "ACCOUNT_REACTIVATED" : "ACCOUNT_DEACTIVATED",
+        metadata: { admin_id: user.id },
+      });
+      if (eventError) return json({ error: eventError.message, code: eventError.code }, 400);
+
+      return json({ data: null });
+    }
+
     const { data, error } = await supabase.rpc("admin_rpc_dispatch", {
       p_action: action,
       p_args: args,
