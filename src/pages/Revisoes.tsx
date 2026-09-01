@@ -5,7 +5,6 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 
@@ -37,6 +36,7 @@ import { CycleExamDateDialog } from '@/components/study-cycle/CycleExamDateDialo
 import { useCycleExamDateEditor } from '@/hooks/useCycleExamDateEditor';
 import { STUDY_SESSION_DISCARDED_MESSAGE } from '@/utils/studySessionFeedback';
 import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
+import { fetchFirstContactDurations, fetchReviewHistory, fetchReviewTrends } from '@/services/reviewsPageDataService';
 
 // Modals are still kept here or inside List/Toolbar depending on usage
 import { SpacedRepetitionInfoModal } from '@/components/reviews/SpacedRepetitionInfoModal';
@@ -215,18 +215,8 @@ export const Revisoes = () => {
         if (!user) throw new Error('User not authenticated');
         if (!activeTopicScope.hasScopedData) return [];
 
-        const response = await supabase
-          .from('topic_review_history')
-          .select(`
-          id, topic_id, review_stage, reviewed_at,
-          topics!inner (id, name, subject_id)
-        `)
-          .eq('user_id', user.id)
-          .in('topic_id', activeTopicScope.activeTopicIds)
-          .order('reviewed_at', { ascending: false });
-
-        if (response.error) throw response.error;
-        return filterHistoryRowsByActiveTopicIds(response.data || [], activeTopicScope.activeTopicIds).map((review): ReviewHistoryItem => {
+        const response = await fetchReviewHistory(user.id, activeTopicScope.activeTopicIds);
+        return filterHistoryRowsByActiveTopicIds(response, activeTopicScope.activeTopicIds).map((review): ReviewHistoryItem => {
           const topic = Array.isArray(review.topics) ? review.topics[0] : review.topics;
           return {
           id: review.id,
@@ -261,17 +251,8 @@ export const Revisoes = () => {
       if (!user?.id) throw new Error('User not authenticated');
       if (!activeTopicScope.hasScopedData) return new Map();
 
-      const { data, error } = await supabase
-        .from('topic_review_history')
-        .select('topic_id, trend_label, trend_delta, reviewed_at')
-        .eq('user_id', user.id)
-        .in('topic_id', activeTopicScope.activeTopicIds)
-        .not('trend_label', 'is', null)
-        .order('reviewed_at', { ascending: false });
-
-      if (error) throw error;
-
-      return buildLatestTrustedReviewTrendByTopic((data || []) as ReviewTrendHistoryRow[]);
+      const data = await fetchReviewTrends(user.id, activeTopicScope.activeTopicIds);
+      return buildLatestTrustedReviewTrendByTopic(data as ReviewTrendHistoryRow[]);
     },
     enabled: Boolean(user?.id && activeTopicScope.hasScopedData),
   });
@@ -281,21 +262,7 @@ export const Revisoes = () => {
     queryFn: async () => {
       if (!user?.id || !userCycle?.id) return [];
 
-      const { data, error } = await supabase
-        .from('study_sessions')
-        .select('session_duration_minutes')
-        .eq('user_id', user.id)
-        .eq('cycle_id', userCycle.id)
-        .eq('contact_type', 'first_contact')
-        .not('session_duration_minutes', 'is', null);
-
-      if (error) throw error;
-
-      return (data || [])
-        .map(session => session.session_duration_minutes)
-        .filter((minutes): minutes is number =>
-          typeof minutes === 'number' && Number.isFinite(minutes) && minutes > 0
-        );
+      return fetchFirstContactDurations(user.id, userCycle.id);
     },
     enabled: Boolean(user?.id && userCycle?.id),
   });
