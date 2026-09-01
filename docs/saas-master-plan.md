@@ -87,7 +87,7 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 - [ ] Validar com editais reais variados a extração, o merge e a ordenação, registrando novas variações estruturais nos perfis de banca em vez de criar exceção de tela. A cobertura unitária de importação, merge, escopo e ordenação passou em 2026-09-01; falta a amostra persistida com editais distintos.
 - [ ] Tratar revisões manuais após a quarta revisão como contato distinto, sem corromper o programa adaptativo já concluído. Cálculo de agenda e contratos de revisão passaram nos testes focados em 2026-09-01; falta a simulação persistida de quatro contatos no ambiente de Teste.
 - [x] Fazer auditoria final da semântica de conclusão em calendários e componentes legados antes de retirar o motor de revisão fixa. Em 2026-09-01, a busca no runtime confirmou que `study_cycles_v2` não é lida por telas, hooks ou services; resta apenas a limpeza explícita de conta em `Settings.tsx` e o histórico de migrations. Nenhum motor foi apagado nesta auditoria.
-- [ ] Revisar responsividade e copy dos estados críticos de onboarding, assinatura e erro após cada recorte funcional, sem redesign decorativo. O Dashboard foi conferido em 1029px e 375px sem overflow; onboarding, assinatura e erro ainda precisam de prova visual equivalente.
+- [ ] Revisar responsividade e copy dos estados críticos de onboarding, assinatura e erro após cada recorte funcional, sem redesign decorativo. O Dashboard foi conferido em 1029px e 375px sem overflow; em 2026-09-01, `/conta/assinatura` e `/confirm-email` também renderizaram em 375px sem overflow (`scrollWidth=369`). Ainda falta a prova visual do estado de erro/reconexão e a revisão final de copy.
 
 ## Pós-venda — monitorar, não bloquear
 
