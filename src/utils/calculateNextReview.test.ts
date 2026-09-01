@@ -73,6 +73,40 @@ describe('calculateNextReview', () => {
     expect(result.newInterval).toBe(0);
   });
 
+  it('mantém a sequência persistível do primeiro contato até o encerramento após R4', () => {
+    let state = { memoryStability: 0, currentInterval: 0, reviewCount: 0 };
+    const contacts = [
+      { day: 22, difficulty: 2 },
+      { day: 29, difficulty: 2 },
+      { day: 51, difficulty: 1 },
+      { day: 126, difficulty: 2 },
+      { day: 201, difficulty: 2 },
+    ];
+
+    const results = contacts.map(({ day, difficulty }) => {
+      const result = calculateNextReview({
+        today: new Date(2026, 5, day, 12, 0, 0),
+        difficulty,
+        metrics: state,
+      });
+      state = {
+        memoryStability: result.newMemoryStability,
+        currentInterval: result.newInterval,
+        reviewCount: state.reviewCount + 1,
+      };
+      return result;
+    });
+
+    expect(results.slice(0, 4).every(result => !result.isProgramCompleted)).toBe(true);
+    expect(results.slice(0, 4).every(result => result.nextReviewDate instanceof Date)).toBe(true);
+    expect(results[4]).toMatchObject({
+      isProgramCompleted: true,
+      nextReviewDate: null,
+      newInterval: 0,
+    });
+    expect(state.reviewCount).toBe(5);
+  });
+
   it('mantém ajustes adaptativos dentro da janela da etapa', () => {
     const worseningTrend = calculateNextReview({
       today,
