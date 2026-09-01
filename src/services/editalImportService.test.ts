@@ -22,6 +22,52 @@ const createRepository = (): EditalImportRepository => ({
 });
 
 describe('importEdital', () => {
+  it('imports multiple subjects and mixed topic hierarchies without coupling to a specific edital', async () => {
+    const repository = createRepository();
+    vi.mocked(repository.createSubject)
+      .mockResolvedValueOnce({ id: 'subject-portugues' })
+      .mockResolvedValueOnce({ id: 'subject-raciocinio' });
+
+    const subjects = [
+      {
+        ...subject,
+        name: 'Língua Portuguesa',
+        topics: [
+          { id: 'p-11', name: '11. Variação linguística', position: 0 },
+          { id: 'p-1', name: '1. Compreensão de texto', position: 1 },
+          { id: 'p-1-1', name: '1.1. Coesão e coerência', position: 2 },
+        ],
+      },
+      {
+        ...subject,
+        name: 'Raciocínio Lógico',
+        topics: [
+          { id: 'r-a', name: 'Proposições', position: 0 },
+          { id: 'r-b', name: 'Equivalências', position: 1 },
+        ],
+      },
+    ] as Subject[];
+
+    const result = await importEdital({
+      editalName: 'Edital variado 2026',
+      extraInfo: { organ: 'Órgão X', position: 'Analista', year: '2026', exam_date: '2026-12-10' },
+      repository,
+      subjects,
+      userId: 'user-1',
+    });
+
+    expect(result).toEqual({ editalId: 'edital-1', subjectIds: ['subject-portugues', 'subject-raciocinio'] });
+    expect(repository.createTopics).toHaveBeenNthCalledWith(1, [
+      expect.objectContaining({ subject_id: 'subject-portugues', name: '11. Variação linguística', position: 0 }),
+      expect.objectContaining({ subject_id: 'subject-portugues', name: '1. Compreensão de texto', position: 1 }),
+      expect.objectContaining({ subject_id: 'subject-portugues', name: '1.1. Coesão e coerência', position: 2 }),
+    ]);
+    expect(repository.createTopics).toHaveBeenNthCalledWith(2, [
+      expect.objectContaining({ subject_id: 'subject-raciocinio', name: 'Proposições', position: 0 }),
+      expect.objectContaining({ subject_id: 'subject-raciocinio', name: 'Equivalências', position: 1 }),
+    ]);
+  });
+
   it('preserves source metadata and links subjects and topics to the created edital', async () => {
     const repository = createRepository();
 

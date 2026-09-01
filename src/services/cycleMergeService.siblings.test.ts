@@ -1,6 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { findSiblingTopicIds } from './cycleMergeService';
+import { findSiblingTopicIds, performExactMerge } from './cycleMergeService';
 import type { CycleUnificationMap } from '@/types/cycleMergeTypes';
+import type { Subject } from '@/types';
+
+const makeSubject = (id: string, name: string, edital_id: string): Subject => ({
+  id,
+  name,
+  edital_id,
+  topics: [],
+} as Subject);
+
+describe('performExactMerge', () => {
+  it('matches equivalent subject names across varied edital labels while keeping same-source entries separate', () => {
+    const result = performExactMerge(
+      [makeSubject('existing', 'Língua Portuguesa', 'edital-a')],
+      [makeSubject('new-equivalent', 'Português', 'edital-b')],
+    );
+
+    expect(result.matched).toHaveLength(1);
+    expect(result.matched[0].subjects.map((subject) => subject.id)).toEqual(['existing', 'new-equivalent']);
+
+    const sameSource = performExactMerge(
+      [makeSubject('existing', 'Língua Portuguesa', 'edital-a')],
+      [makeSubject('new-duplicate-source', 'Língua Portuguesa', 'edital-a')],
+    );
+    expect(sameSource.matched).toHaveLength(0);
+    expect(sameSource.unmatchedNew.map((subject) => subject.id)).toEqual(['new-duplicate-source']);
+  });
+});
 
 describe('findSiblingTopicIds', () => {
   it('returns sibling topic ids from a valid unification map', () => {
