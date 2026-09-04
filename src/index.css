@@ -2131,157 +2131,78 @@ select {
   }
 }
 
-/* --- ANIMATED LOGO KEYFRAMES (GLOBAL) --- */
-@keyframes drawLine {
-  0% {
-    stroke-dashoffset: 100;
-    opacity: 1;
-  }
-
-  100% {
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
+/* --- VOU REVISAR BRAND MOTION --- */
+.brand-mark {
+  filter: drop-shadow(0 7px 10px hsl(var(--foreground) / 0.08));
 }
 
-@keyframes drawGraph {
-
-  0%,
-  39.9% {
-    stroke-dashoffset: 105;
-    opacity: 0;
-  }
-
-  40% {
-    stroke-dashoffset: 105;
-    opacity: 1;
-  }
-
-  100% {
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
+.brand-mark__r-highlight {
+  opacity: 0.2;
 }
 
-@keyframes fadeUpText {
-  0% {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.brand-mark__energy {
+  opacity: 0;
 }
 
-@keyframes pulseText {
-
-  0%,
-  100% {
-    opacity: 0.4;
-  }
-
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes realisticTracer {
-
-  0%,
-  0.99% {
-    stroke-dasharray: 0 1000;
-    stroke-dashoffset: 200;
-    opacity: 0;
-  }
-
-  1% {
-    stroke-dasharray: 0 1000;
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
-
-  30% {
-    stroke-dasharray: 50 1000;
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
-
-  59% {
-    stroke-dasharray: 0 1000;
-    stroke-dashoffset: -100;
-    opacity: 1;
-  }
-
-  59.01%,
-  100% {
-    stroke-dasharray: 0 1000;
-    stroke-dashoffset: -200;
-    opacity: 0;
-  }
-}
-
-/* Base states for tracers */
-.logo-base-line {
+.brand-mark__check,
+.brand-mark__check-shadow {
   stroke-dasharray: 100;
-  stroke-dashoffset: 100;
-  opacity: 0;
+  stroke-dashoffset: 0;
 }
 
-.logo-graph-line {
-  stroke-dasharray: 105;
-  stroke-dashoffset: 105;
-  opacity: 0;
+.brand-mark--entrance .brand-mark__r,
+.brand-mark--entrance .brand-mark__r-highlight {
+  animation: brand-r-reveal 560ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
 }
 
-.logo-text {
-  opacity: 0;
-  transform: translateY(15px);
+.brand-mark--entrance .brand-mark__check,
+.brand-mark--entrance .brand-mark__check-shadow {
+  animation: brand-check-draw 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Animation triggers */
-.logo-animate .logo-base-line {
-  animation: drawLine 1s cubic-bezier(0.4, 0, 0.2, 1) 0s forwards !important;
+.brand-mark--entrance .brand-mark__energy {
+  animation: brand-energy-pass 760ms ease-out 80ms both;
 }
 
-.logo-animate .logo-graph-line {
-  animation: drawGraph 1.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards !important;
+@keyframes brand-check-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
-.logo-animate .logo-text {
-  animation: fadeUpText 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s forwards !important;
+@keyframes brand-r-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.35;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
 }
 
-/* Static state for initial load without animation */
-.logo-static .logo-base-line,
-.logo-static .logo-graph-line {
-  stroke-dashoffset: 0 !important;
-  opacity: 1 !important;
+@keyframes brand-energy-pass {
+  0%, 100% {
+    opacity: 0;
+  }
+  45% {
+    opacity: 0.62;
+  }
 }
 
-.logo-static .logo-text {
-  opacity: 1 !important;
-  transform: translateY(0) !important;
-}
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark--entrance .brand-mark__r,
+  .brand-mark--entrance .brand-mark__r-highlight,
+  .brand-mark--entrance .brand-mark__check,
+  .brand-mark--entrance .brand-mark__check-shadow,
+  .brand-mark--entrance .brand-mark__energy {
+    animation: none;
+  }
 
-/* Repeating states */
-.logo-repeating .logo-base-line {
-  stroke-dasharray: 0 1000;
-  stroke-dashoffset: 200;
-  opacity: 0;
-  animation: realisticTracer 3s infinite cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.logo-repeating .logo-graph-line {
-  stroke-dasharray: 0 1000;
-  stroke-dashoffset: 200;
-  opacity: 0;
-  animation: realisticTracer 3s infinite cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.logo-repeating .logo-text {
-  opacity: 1 !important;
-  transform: translateY(0) !important;
-  animation: pulseText 3s ease-in-out infinite !important;
+  .brand-mark__energy {
+    opacity: 0;
+  }
 }

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { X, Save, MessageSquareText } from 'lucide-react';
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
 import { TopicNotes } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchSubjectNotes, saveSubjectNotes } from '@/services/subjectNotesService';
 import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -46,13 +46,7 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
   const loadSubjectNotes = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('subjects')
-        .select('notes')
-        .eq('id', subjectId)
-        .single();
-
-      if (error) throw error;
+      const data = { notes: await fetchSubjectNotes(subjectId) };
 
       if (data?.notes) {
         setNotes(data.notes as TopicNotes);
@@ -82,12 +76,7 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
-        .from('subjects')
-        .update(updates)
-        .eq('id', subjectId);
-
-      if (error) throw error;
+      await saveSubjectNotes(subjectId, updates.notes);
 
       // 🔄 Propagação profunda v2.2: Replicar anotações da matéria para irmãos (mesclados)
       try {

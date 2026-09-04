@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 import {
     Loader2, Search, Download, Calendar, Filter, ChevronLeft, ChevronRight,
     Activity, LogIn, LogOut, Slash, UserCog, KeyRound, Mail, UserCheck,
     CheckCircle, XCircle, X, Eye, User, RefreshCw, Zap, Sparkles, BarChart3, Clock, TrendingUp
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PageContainer from '@/components/layout/PageContainer';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { withTimeout } from '@/utils/withTimeout';
 import { invokeAdminRpc } from '@/services/adminRpcService';
+import { useAuditLogFilters } from '@/hooks/useAuditLogFilters';
+import { useAuditLogAiUsage } from '@/hooks/useAuditLogAiUsage';
+import { EVENT_ICONS, EVENT_LABELS, EVENT_TYPES, PERIOD_OPTIONS, SEVERITY_COLORS, PAGE_SIZE } from '@/utils/auditLogPresentation';
+import { useAuditLogExport } from '@/hooks/useAuditLogExport';
+import { formatAuditLogDateTime, formatAuditLogFullDateTime } from '@/utils/auditLogDateFormatters';
 
-// Types
 interface AuditLog {
     id: number;
     event_type: string;
@@ -31,205 +34,23 @@ interface AuditLog {
     metadata: Record<string, unknown> | null;
     total_count: number;
 }
-
-// Constants
-const PAGE_SIZE = 25;
-
-const EVENT_TYPES = [
-    'LOGIN', 'LOGOUT', 'SESSION_START',
-    'ACCOUNT_DEACTIVATED', 'ACCOUNT_REACTIVATED',
-    'ROLE_CHANGED', 'PASSWORD_RESET_REQUEST', 'PASSWORD_RESET_SUCCESS',
-    'EMAIL_CHANGED', 'PROFILE_UPDATED', 'EMAIL_CONFIRMED'
-];
-
-const PERIOD_OPTIONS = [
-    { label: 'Hoje', value: 'today' },
-    { label: '7 dias', value: '7days' },
-    { label: '30 dias', value: '30days' },
-    { label: '90 dias', value: '90days' },
-    { label: 'Personalizado', value: 'custom' }
-];
-
-const EVENT_ICONS: Record<string, React.ReactNode> = {
-    'LOGIN': <LogIn className="w-4 h-4" />,
-    'LOGOUT': <LogOut className="w-4 h-4" />,
-    'SESSION_START': <Activity className="w-4 h-4" />,
-    'ACCOUNT_DEACTIVATED': <Slash className="w-4 h-4" />,
-    'ACCOUNT_REACTIVATED': <UserCheck className="w-4 h-4" />,
-    'ROLE_CHANGED': <UserCog className="w-4 h-4" />,
-    'PASSWORD_RESET_REQUEST': <KeyRound className="w-4 h-4" />,
-    'PASSWORD_RESET_SUCCESS': <KeyRound className="w-4 h-4" />,
-    'EMAIL_CHANGED': <Mail className="w-4 h-4" />,
-    'PROFILE_UPDATED': <UserCog className="w-4 h-4" />,
-    'EMAIL_CONFIRMED': <Mail className="w-4 h-4" />
-};
-
-const EVENT_LABELS: Record<string, string> = {
-    'LOGIN': 'Login',
-    'LOGOUT': 'Logout',
-    'SESSION_START': 'Sessão iniciada',
-    'ACCOUNT_DEACTIVATED': 'Conta desativada',
-    'ACCOUNT_REACTIVATED': 'Conta reativada',
-    'ROLE_CHANGED': 'Papel alterado',
-    'PASSWORD_RESET_REQUEST': 'Solicitação reset senha',
-    'PASSWORD_RESET_SUCCESS': 'Senha redefinida',
-    'EMAIL_CHANGED': 'Email alterado',
-    'PROFILE_UPDATED': 'Perfil atualizado',
-    'EMAIL_CONFIRMED': 'Email confirmado'
-};
-
-const SEVERITY_COLORS: Record<string, string> = {
-    'LOGIN': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10',
-    'LOGOUT': 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-500/10',
-    'SESSION_START': 'text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10',
-    'ACCOUNT_DEACTIVATED': 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10',
-    'ACCOUNT_REACTIVATED': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10',
-    'ROLE_CHANGED': 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10',
-    'PASSWORD_RESET_REQUEST': 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10',
-    'PASSWORD_RESET_SUCCESS': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10',
-    'EMAIL_CHANGED': 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10',
-    'PROFILE_UPDATED': 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-500/10',
-    'EMAIL_CONFIRMED': 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10'
-};
-
 export default function AuditLogs() {
-    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
 
-    // State
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
-    const [exporting, setExporting] = useState(false);
-    // IA Usage and Cost Audit States
-    interface AiUsageLog {
-        id: string;
-        user_id: string;
-        user_email?: string;
-        user_name?: string;
-        model_name: string;
-        mode: string;
-        prompt_tokens: number;
-        candidates_tokens: number;
-        cost_estimate: number;
-        status: string;
-        created_at: string;
-    }
-    const [aiLogs, setAiLogs] = useState<AiUsageLog[]>([]);
-    const [loadingAi, setLoadingAi] = useState(false);
-    const [aiError, setAiError] = useState<string | null>(null);
-    const [aiStats, setAiStats] = useState({
-        todayCost: 0,
-        dailyBudget: 5.0,
-        todayCount: 0,
-        failedCount: 0
-    });
-
-    const fetchAiLogs = useCallback(async () => {
-        setLoadingAi(true);
-        setAiError(null);
-        try {
-            const { data: logsData, error: logsError } = await supabase
-                .from('ai_usage_logs' as never)
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (logsError) throw logsError;
-
-            const mappedLogs: AiUsageLog[] = [];
-            const typedLogs = (logsData || []) as unknown as AiUsageLog[];
-            if (typedLogs.length > 0) {
-                const userIds = Array.from(new Set(typedLogs.map(log => log.user_id)));
-                
-                const { data: profiles } = await supabase
-                    .from('profiles')
-                    .select('id, name, email')
-                    .in('id', userIds);
-
-                typedLogs.forEach(log => {
-                    const profile = profiles?.find(p => p.id === log.user_id);
-                    mappedLogs.push({
-                        ...log,
-                        user_email: profile?.email || 'N/A',
-                        user_name: profile?.name || 'Unnamed User'
-                    });
-                });
-            }
-            setAiLogs(mappedLogs);
-
-            const todayStr = new Date().toISOString().split("T")[0] + "T00:00:00.000Z";
-            const todayLogs = mappedLogs.filter(log => new Date(log.created_at) >= new Date(todayStr));
-            const todayCost = todayLogs.reduce((acc, log) => acc + Number(log.cost_estimate || 0), 0);
-            const failedCount = todayLogs.filter(log => log.status === 'failed').length;
-
-            const { data: setting } = await supabase
-                .from('system_settings')
-                .select('value')
-                .eq('key', 'ai_edital_config')
-                .maybeSingle();
-
-            const config = (setting?.value || {}) as { daily_budget_usd?: number };
-            const dailyBudget = typeof config.daily_budget_usd === 'number' ? config.daily_budget_usd : 5.0;
-
-            setAiStats({
-                todayCost: todayCost,
-                dailyBudget: dailyBudget,
-                todayCount: todayLogs.length,
-                failedCount: failedCount
-            });
-
-        } catch (error: unknown) {
-            console.error('Error fetching AI usage logs:', error);
-            setAiError(error instanceof Error ? error.message : 'A tabela de logs de IA não foi localizada. Certifique-se de que a migração SQL foi instalada no seu banco.');
-        } finally {
-            setLoadingAi(false);
-            setLoadingAi(false); // Mantem robustez
-        }
-    }, []);
+    const { aiError, aiLogs, aiStats, fetchAiLogs, loadingAi } = useAuditLogAiUsage();
 
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const {
+        actorUserId, customEndDate, customStartDate, eventType, getDateRange, period, searchQuery,
+        resetFilters, setActorUserId, setCustomEndDate, setCustomStartDate, setEventType, setPeriod, setSearchQuery,
+        setStatus, setTargetUserId, status, targetUserId,
+    } = useAuditLogFilters();
 
-    // Filters
-    const [period, setPeriod] = useState(searchParams.get('period') || '7days');
-    const [eventType, setEventType] = useState(searchParams.get('type') || '');
-    const [targetUserId, setTargetUserId] = useState(searchParams.get('target') || '');
-    const [actorUserId, setActorUserId] = useState(searchParams.get('actor') || '');
-    const [status, setStatus] = useState(searchParams.get('status') || '');
-    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-    const [customStartDate, setCustomStartDate] = useState('');
-    const [customEndDate, setCustomEndDate] = useState('');
-
-    // Calculate date range based on period
-    const getDateRange = useCallback(() => {
-        const now = new Date();
-        let startDate: Date | null = null;
-        let endDate: Date | null = endOfDay(now);
-
-        switch (period) {
-            case 'today':
-                startDate = startOfDay(now);
-                break;
-            case '7days':
-                startDate = startOfDay(subDays(now, 7));
-                break;
-            case '30days':
-                startDate = startOfDay(subDays(now, 30));
-                break;
-            case '90days':
-                startDate = startOfDay(subDays(now, 90));
-                break;
-            case 'custom':
-                startDate = customStartDate ? new Date(customStartDate) : null;
-                endDate = customEndDate ? endOfDay(new Date(customEndDate)) : null;
-                break;
-        }
-
-        return { startDate, endDate };
-    }, [period, customStartDate, customEndDate]);
-
-    // Fetch logs
     const fetchLogs = useCallback(async () => {
         setLoading(true);
         setErrorMessage(null);
@@ -268,107 +89,17 @@ export default function AuditLogs() {
             setLoading(false);
         }
     }, [getDateRange, currentPage, eventType, targetUserId, actorUserId, status]);
-
     useEffect(() => {
         fetchLogs();
     }, [fetchLogs]);
+    const { exporting, handleExport } = useAuditLogExport({ eventLabels: EVENT_LABELS, eventType, getDateRange, actorUserId, targetUserId, status });
 
-    // Update URL params
-    useEffect(() => {
-        const params: Record<string, string> = {};
-        if (period !== '7days') params.period = period;
-        if (eventType) params.type = eventType;
-        if (targetUserId) params.target = targetUserId;
-        if (actorUserId) params.actor = actorUserId;
-        if (status) params.status = status;
-        if (searchQuery) params.q = searchQuery;
-        setSearchParams(params, { replace: true });
-    }, [period, eventType, targetUserId, actorUserId, status, searchQuery, setSearchParams]);
-
-    // Export to CSV
-    const handleExport = async () => {
-        setExporting(true);
-        try {
-            const { startDate, endDate } = getDateRange();
-
-            const data = await withTimeout(
-                invokeAdminRpc<AuditLog[]>('get_audit_logs', {
-                    p_limit: 10000, // Max export
-                    p_offset: 0,
-                    p_event_type: eventType || null,
-                    p_target_user_id: targetUserId || null,
-                    p_actor_user_id: actorUserId || null,
-                    p_status: status || null,
-                    p_start_date: startDate?.toISOString() || null,
-                    p_end_date: endDate?.toISOString() || null
-                }),
-                12000,
-                'Exportação da auditoria'
-            );
-            if (!data || data.length === 0) return;
-
-            // Build CSV with status_code and status_label
-            const headers = [
-                'Data/Hora', 'Evento',
-                'Alvo Nome', 'Alvo Email', 'Alvo ID',
-                'Ator Nome', 'Ator Email', 'Ator ID',
-                'Origem', 'status_code', 'status_label'
-            ];
-            const rows = data.map((log: AuditLog) => [
-                format(new Date(log.occurred_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }),
-                EVENT_LABELS[log.event_type] || log.event_type,
-                log.target_user_name || 'N/A',
-                log.target_user_email || 'N/A',
-                log.target_user_id || 'N/A',
-                log.actor_user_id ? (log.actor_user_name || 'N/A') : 'Sistema (automático)',
-                log.actor_user_id ? (log.actor_user_email || 'N/A') : '-',
-                log.actor_user_id || '-',
-                log.origin || 'N/A',
-                log.status, // status_code: SUCCESS|FAIL
-                log.status === 'SUCCESS' ? 'Sucesso' : 'Falha' // status_label: PT-BR
-            ]);
-
-            const csv = [headers, ...rows]
-                .map(row => row.map(cell => `"${cell}"`).join(','))
-                .join('\n');
-
-            // Download
-            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `auditoria_${format(new Date(), 'yyyy-MM-dd_HHmm')}.csv`;
-            link.click();
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Export error:', error);
-        } finally {
-            setExporting(false);
-        }
-    };
-
-    // Reset filters
-    const resetFilters = () => {
-        setPeriod('7days');
-        setEventType('');
-        setTargetUserId('');
-        setActorUserId('');
-        setStatus('');
-        setSearchQuery('');
+    const handleResetFilters = () => {
+        resetFilters();
         setCurrentPage(1);
     };
 
-    // Format date for display
-    const formatDateTime = (dateStr: string) => {
-        return format(new Date(dateStr), "dd/MM/yyyy HH:mm", { locale: ptBR });
-    };
-
-    const formatFullDateTime = (dateStr: string) => {
-        return format(new Date(dateStr), "EEEE, d 'de' MMMM 'de' yyyy 'às' HH:mm:ss", { locale: ptBR });
-    };
-
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-
     if (loading) {
         return <LoadingSpinner size="large" showText fullPage />;
     }
@@ -425,7 +156,6 @@ export default function AuditLogs() {
                 </div>
 
                 <TabsContent value="system" className="space-y-6 outline-none border-none p-0 mt-2">
-                    {/* Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div>
                             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Eventos do Sistema</h2>
@@ -455,7 +185,6 @@ export default function AuditLogs() {
                         </div>
                     </div>
 
-                    {/* Filters */}
                     <div className="bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 p-4 space-y-4">
                         <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
                             <Filter className="w-4 h-4" />
@@ -463,7 +192,6 @@ export default function AuditLogs() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                            {/* Period */}
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Período</label>
                                 <select
@@ -477,7 +205,6 @@ export default function AuditLogs() {
                                 </select>
                             </div>
 
-                            {/* Event Type */}
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Tipo de Evento</label>
                                 <select
@@ -492,7 +219,6 @@ export default function AuditLogs() {
                                 </select>
                             </div>
 
-                            {/* Status */}
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Status</label>
                                 <select
@@ -506,7 +232,6 @@ export default function AuditLogs() {
                                 </select>
                             </div>
 
-                            {/* Search */}
                             <div className="lg:col-span-2">
                                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Buscar (ID ou Email)</label>
                                 <div className="relative">
@@ -521,10 +246,9 @@ export default function AuditLogs() {
                                 </div>
                             </div>
 
-                            {/* Reset */}
                             <div className="flex items-end">
                                 <button
-                                    onClick={resetFilters}
+                                    onClick={handleResetFilters}
                                     className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"
                                 >
                                     Limpar filtros
@@ -532,7 +256,6 @@ export default function AuditLogs() {
                             </div>
                         </div>
 
-                        {/* Custom date range */}
                         {period === 'custom' && (
                             <div className="flex items-center gap-4 pt-2 border-t border-slate-100 dark:border-white/10">
                                 <div className="flex items-center gap-2">
@@ -555,7 +278,6 @@ export default function AuditLogs() {
                         )}
                     </div>
 
-                    {/* Results count */}
                     <div className="text-sm text-slate-500 dark:text-slate-400">
                         {totalCount > 0 ? (
                             <span>{totalCount.toLocaleString('pt-BR')} registro(s) encontrado(s)</span>
@@ -564,7 +286,6 @@ export default function AuditLogs() {
                         )}
                     </div>
 
-                    {/* Table */}
                     <div className="bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden">
                         {logs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-slate-500">
@@ -592,9 +313,9 @@ export default function AuditLogs() {
                                                 <td className="px-4 py-3 whitespace-nowrap">
                                                     <span
                                                         className="text-slate-900 dark:text-slate-200 cursor-help"
-                                                        title={formatFullDateTime(log.occurred_at)}
+                                                        title={formatAuditLogFullDateTime(log.occurred_at)}
                                                     >
-                                                        {formatDateTime(log.occurred_at)}
+                                                        {formatAuditLogDateTime(log.occurred_at)}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3">
@@ -664,7 +385,6 @@ export default function AuditLogs() {
                             </div>
                         )}
 
-                        {/* Pagination */}
                         {totalPages > 1 && (
                             <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
                                 <div className="text-sm text-slate-500 dark:text-slate-400">
@@ -690,7 +410,6 @@ export default function AuditLogs() {
                         )}
                     </div>
 
-                    {/* Details Modal */}
                     {selectedLog && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden">
@@ -725,7 +444,7 @@ export default function AuditLogs() {
                                         </div>
                                         <div className="col-span-2">
                                             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Data/Hora</p>
-                                            <p className="text-sm text-slate-900 dark:text-slate-200">{formatFullDateTime(selectedLog.occurred_at)}</p>
+                                            <p className="text-sm text-slate-900 dark:text-slate-200">{formatAuditLogFullDateTime(selectedLog.occurred_at)}</p>
                                         </div>
                                     </div>
 
@@ -850,9 +569,7 @@ export default function AuditLogs() {
                         </div>
                     ) : (
                         <>
-                            {/* Métricas */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-                                {/* Orçamento */}
                                 <div className="glow-card p-5 rounded-2xl border border-black/5 dark:border-white/5 bg-card flex flex-col justify-between min-h-[130px]">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-[10px] font-bold text-content-muted uppercase tracking-[0.16em]">Orçamento IA Hoje</span>
@@ -872,7 +589,6 @@ export default function AuditLogs() {
                                     </div>
                                 </div>
 
-                                {/* Chamadas */}
                                 <div className="glow-card p-5 rounded-2xl border border-black/5 dark:border-white/5 bg-card flex flex-col justify-between min-h-[130px]">
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
@@ -886,7 +602,6 @@ export default function AuditLogs() {
                                     <span className="text-[9px] text-content-muted mt-3 block">Total de extrações IA executadas hoje (UTC).</span>
                                 </div>
 
-                                {/* Falhas */}
                                 <div className="glow-card p-5 rounded-2xl border border-black/5 dark:border-white/5 bg-card flex flex-col justify-between min-h-[130px]">
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
@@ -900,7 +615,6 @@ export default function AuditLogs() {
                                     <span className="text-[9px] text-content-muted mt-3 block">Processamentos falhos, rate limits ou abusos recusados.</span>
                                 </div>
 
-                                {/* Modelo Gemini */}
                                 <div className="glow-card p-5 rounded-2xl border border-black/5 dark:border-white/5 bg-card flex flex-col justify-between min-h-[130px]">
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
@@ -915,7 +629,6 @@ export default function AuditLogs() {
                                 </div>
                             </div>
 
-                            {/* Tabela IA */}
                             <div className="glass-card rounded-2xl overflow-hidden border border-black/5 dark:border-white/5 mt-6">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse">

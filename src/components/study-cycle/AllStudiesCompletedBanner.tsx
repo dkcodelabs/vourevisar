@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { resetCycleStudyData } from '@/services/cycleResetService';
 import { errorService } from '@/lib/errors/errorService';
 import { Loader2, RefreshCw, Trophy, Sparkles } from 'lucide-react';
 import { useCycleState } from '@/hooks/useCycleState';
@@ -64,39 +64,7 @@ export const AllStudiesCompletedBanner: React.FC<AllStudiesCompletedBannerProps>
       console.log('✅ Ciclo arquivado e novo criado');
 
       // 2. Buscar todas as matérias do usuário para resetar status
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('id')
-        .eq('user_id', user?.id || '');
-      
-      if (subjectsError) throw subjectsError;
-      const subjectIds = (subjectsData || []).map(subject => subject.id);
-      
-      if (subjectIds.length > 0) {
-        const { error: topicsError } = await supabase
-          .from('topics')
-          .update({
-            review_stage: null,
-            review_count: 0,
-            next_review: null,
-            last_reviewed_at: null,
-            completed: false,
-            updated_at: new Date().toISOString()
-          })
-          .in('subject_id', subjectIds);
-        
-        if (topicsError) throw topicsError;
-        
-        const { error: subjectsUpdateError } = await supabase
-          .from('subjects')
-          .update({ 
-            status: 'Nova',
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user?.id || '');
-        
-        if (subjectsUpdateError) throw subjectsUpdateError;
-      }
+      await resetCycleStudyData(user?.id || '');
       
       window.dispatchEvent(new CustomEvent('cycleUpdated', {
         detail: { 

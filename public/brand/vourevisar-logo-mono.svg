@@ -1,20 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 180" role="img" aria-labelledby="title desc">
-  <title id="title">vouRevisar monocromatico</title>
-  <desc id="desc">Logo monocromático do vouRevisar para fundos simples.</desc>
-  <g transform="translate(28 22)">
-    <rect x="0" y="0" width="136" height="136" rx="32" fill="#172033"/>
-    <path d="M31 102H105" fill="none" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" opacity="0.78"/>
-    <path d="M32 87L61 52L84 79L107 38" fill="none" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="61" cy="52" r="7.5" fill="#172033" stroke="#FFFFFF" stroke-width="5"/>
-    <circle cx="84" cy="79" r="7.5" fill="#172033" stroke="#FFFFFF" stroke-width="5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 128" role="img" aria-labelledby="title desc">
+  <title id="title">vouRevisar monocromático</title>
+  <desc id="desc">Versão monocromática da marca vouRevisar.</desc>
+  <g transform="translate(0 8)" fill="#172033" stroke="#172033">
+    <path d="M67 35H92c17 0 28 10 28 25 0 11-6 19-16 23l18 23h-19L87 85h-9l-9 17H50l16-29h26c8 0 12-5 12-12s-5-11-12-11H59l8-15Z" stroke="none"/>
+    <path d="M13 67 35 90 73 24" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>
   </g>
-
-  <g transform="translate(188 51)">
-    <text x="0" y="64" fill="#172033" font-family="Inter, Manrope, Avenir Next, Arial, sans-serif" font-size="66" font-weight="700" letter-spacing="0">
-      <tspan font-weight="500">vou</tspan><tspan font-weight="800">Revisar</tspan>
-    </text>
-    <text x="5" y="95" fill="#617084" font-family="Inter, Manrope, Avenir Next, Arial, sans-serif" font-size="18" font-weight="600" letter-spacing="2.6">
-      REVISÃO INTELIGENTE PARA CONCURSOS
-    </text>
-  </g>
+  <text x="142" y="80" fill="#172033" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="55" font-weight="800" letter-spacing="-1.6">vouRevisar</text>
 </svg>

@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { Subject } from '@/types';
 import type { UserEdital } from '@/pages/Editais';
 import { toastGate } from '@/lib/errors/toastGate';
-import { supabase } from '@/integrations/supabase/client';
+import { createEditalSuggestion } from '@/services/editalSuggestionService';
 
 import { ImportMethodSelector, type ImportMethod } from './import-edital/ImportMethodSelector';
 import { ImportJourneyProgress } from './import-edital/ImportJourneyProgress';
@@ -135,11 +135,7 @@ export const ImportEditalModal: React.FC<ImportEditalModalProps> = ({
         if (!suggestConcurso.trim() || !user) return;
         setIsSendingSuggestion(true);
         try {
-            const { error } = await supabase.from('edital_suggestions').insert({
-                user_id: user.id,
-                concurso_name: suggestConcurso.trim(),
-            });
-            if (error) throw error;
+            await createEditalSuggestion(user.id, suggestConcurso.trim());
             setSuggestionSent(true);
         } catch (error) {
             console.error('Erro ao enviar sugestão:', error);

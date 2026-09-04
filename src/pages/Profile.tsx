@@ -16,7 +16,7 @@ import { errorService } from '@/lib/errors/errorService';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from '@/integrations/supabase/client';
+import { uploadProfileAvatar } from '@/services/profileAvatarService';
 import { GradientButton } from '@/components/ui';
 import { motion } from 'framer-motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -262,11 +262,7 @@ const Profile = () => {
 
     setIsUploadingAvatar(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `avatars/${user.id}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const publicUrl = await uploadProfileAvatar(user.id, file);
       await updateProfile({ avatar_url: publicUrl });
       setAvatarPreview(publicUrl);
       toast.success('Foto atualizada!');

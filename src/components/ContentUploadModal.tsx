@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from '@/lib/toast';
-import { supabase } from '@/integrations/supabase/client';
+import { persistParsedContent } from '@/services/contentUploadService';
 import { useAuth } from '@/contexts/AuthContext';
 import { ExternalLink, Upload, FileText, CheckCircle2, AlertCircle, Copy, Check } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
@@ -235,112 +235,22 @@ ${content}`;
       let totalSubjects = 0;
       let totalTopics = 0;
 
-      // Buscar a prioridade máxima atual do usuário
-      const { data: priorityData } = await supabase
-        .from('subjects')
-        .select('priority')
-        .eq('user_id', user.id)
-        .order('priority', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      let nextPriority = (priorityData?.priority || 0) + 1;
-
       // Usar a lista de matérias únicas mantendo a ordem original do texto
       const uniqueSubjectsList = [...new Set(parsedData.map(item => item.materia))];
 
       for (const subjectName of uniqueSubjectsList) {
-        const topics = subjectGroups[subjectName];
-
-        // Validate subject name
         try {
           subjectNameSchema.parse(subjectName);
+          subjectGroups[subjectName].forEach((topicName) => topicNameSchema.parse(topicName));
         } catch (error: unknown) {
-          toastGate.notifyError(`Matéria "${subjectName}": ${getValidationMessage(error)}`, 'COMPONENTS-CONTENTUPLOADMODAL-06', { severity: 'medium' });
-          continue;
-        }
-
-        // Verificar se a matéria já existe
-        const { data: existingSubject } = await supabase
-          .from('subjects')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('name', subjectName)
-          .single();
-
-        let subjectId: string;
-
-        if (existingSubject) {
-          subjectId = existingSubject.id;
-        } else {
-          // Criar nova matéria com prioridade incrementada
-          const { data: newSubject, error: subjectError } = await supabase
-            .from('subjects')
-            .insert({
-              user_id: user.id,
-              name: subjectName,
-              status: 'Nova',
-              color: '#3B82F6',
-              priority: nextPriority++
-            })
-            .select('id')
-            .single();
-
-          if (subjectError) throw subjectError;
-          subjectId = newSubject.id;
-          totalSubjects++;
-        }
-
-        // Inserir tópicos (verificar duplicatas)
-        const topicsToInsert = [];
-        for (const topicName of topics) {
-          // Validate topic name
-          try {
-            topicNameSchema.parse(topicName);
-          } catch (error: unknown) {
-            toastGate.notifyError(`Tópico "${topicName}": ${getValidationMessage(error)}`, 'COMPONENTS-CONTENTUPLOADMODAL-07', { severity: 'medium' });
-            continue;
-          }
-
-          // Buscar a última posição registrada para essa matéria
-          const { data: maxPositionData } = await supabase
-            .from('topics')
-            .select('position')
-            .eq('subject_id', subjectId)
-            .order('position', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          let currentPosition = (maxPositionData?.position || 0) + 1;
-
-          const { data: existingTopic } = await supabase
-            .from('topics')
-            .select('id')
-            .eq('subject_id', subjectId)
-            .eq('name', topicName)
-            .single();
-
-          if (!existingTopic) {
-            topicsToInsert.push({
-              subject_id: subjectId,
-              name: topicName,
-              completed: false,
-              review_count: 0,
-              position: currentPosition++
-            });
-          }
-        }
-
-        if (topicsToInsert.length > 0) {
-          const { error: topicsError } = await supabase
-            .from('topics')
-            .insert(topicsToInsert);
-
-          if (topicsError) throw topicsError;
-          totalTopics += topicsToInsert.length;
+          toastGate.notifyError(`Conteúdo inválido em "${subjectName}": ${getValidationMessage(error)}`, "COMPONENTS-CONTENTUPLOADMODAL-06", { severity: "medium" });
+          delete subjectGroups[subjectName];
         }
       }
 
+      const result = await persistParsedContent(user.id, subjectGroups);
+      totalSubjects = result.totalSubjects;
+      totalTopics = result.totalTopics;
       toast.success(`Importação concluída! ${totalSubjects} matérias e ${totalTopics} tópicos foram adicionados.`);
       onSuccess();
       onOpenChange(false);

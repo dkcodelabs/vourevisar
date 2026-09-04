@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { renameTopic } from '@/services/topicMutationService';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 
@@ -92,12 +92,7 @@ export const EditableTopicName: React.FC<EditableTopicNameProps> = ({
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('topics')
-        .update({ name: name.trim() })
-        .eq('id', topicId);
-
-      if (error) throw error;
+      await renameTopic(topicId, name.trim());
 
       setInternalEditing(false);
       onEditChange?.(false);

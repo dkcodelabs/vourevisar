@@ -1,6 +1,6 @@
 
 import { Subject, type Topic } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
+import { markSubjectCompleted } from '@/services/subjectStatusService';
 
 export const checkAllStudiesCompleted = (subjects: Subject[]): boolean => {
   console.log('🔍 checkAllStudiesCompleted chamado com:', {
@@ -100,18 +100,7 @@ export const syncSubjectStatus = async (subjects: Subject[]): Promise<void> => {
         console.log(`🔄 Atualizando status da matéria "${subject.name}" para Concluída`);
         
         try {
-          const { error } = await supabase
-            .from('subjects')
-            .update({
-              status: 'Concluída',
-              completed_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', subject.id);
-
-          if (error) {
-            console.error('Erro ao atualizar status da matéria:', error);
-          }
+          await markSubjectCompleted(subject.id);
         } catch (error) {
           console.error('Erro na sincronização:', error);
         }

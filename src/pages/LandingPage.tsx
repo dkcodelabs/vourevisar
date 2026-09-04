@@ -59,7 +59,7 @@ const LandingPage = () => {
           <div className="flex justify-between items-center h-20">
             {/* LOGO APLICADO */}
             <div className="flex-shrink-0 flex items-center h-10 cursor-pointer">
-              <AnimatedLogo collapsed={false} className="h-full [&_.text-sidebar-foreground]:!text-slate-900" />
+              <AnimatedLogo collapsed={false} className="h-full !text-slate-900" />
             </div>
 
             {/* MENU DESKTOP */}
@@ -352,7 +352,7 @@ const LandingPage = () => {
 
           {/* Logo Pequeno (Rodapé) */}
           <div className="opacity-90 hover:opacity-100 transition duration-300 h-8">
-            <AnimatedLogo collapsed={false} className="h-full [&_.text-sidebar-foreground]:!text-slate-900" />
+            <AnimatedLogo collapsed={false} className="h-full !text-slate-900" />
           </div>
 
           <div className="flex gap-6 text-slate-500 text-sm font-medium">

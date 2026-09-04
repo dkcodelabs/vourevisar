@@ -8,7 +8,7 @@ import { X, Save, ThumbsUp, Minus, ThumbsDown, Plus, MessageSquareText } from 'l
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
 import { TopicNotes, TopicSubtopic } from '@/types';
 // import { DifficultyLevel } from '@/types'; // Removido - usando sistema de estrelas
-import { supabase } from '@/integrations/supabase/client';
+import { fetchReviewSubjectNotes, fetchReviewTopicNotes, updateReviewSubjectNotes, updateReviewTopicNotes } from '@/services/reviewNotesService';
 import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useApp } from '@/contexts/AppContext';
@@ -69,13 +69,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
     setIsLoading(true);
     try {
       // Carregar anotações do tópico
-      const { data: topicData, error: topicError } = await supabase
-        .from('topics')
-        .select('notes, subtopics, subject_id')
-        .eq('id', topicId)
-        .single();
-
-      if (topicError) throw topicError;
+      const topicData = await fetchReviewTopicNotes(topicId);
 
       if (topicData?.notes) {
         const topicNotesData = topicData.notes as TopicNotes;
@@ -92,19 +86,14 @@ const NotesModal: React.FC<NotesModalProps> = ({
       // Carregar anotações da matéria apenas se showSubjectNotes for true
       if (showSubjectNotes && topicData?.subject_id) {
         setSubjectId(topicData.subject_id);
-        const { data: subjectData, error: subjectError } = await supabase
-          .from('subjects')
-          .select('notes')
-          .eq('id', topicData.subject_id)
-          .single();
-
-        if (subjectError) {
-          console.warn('Erro ao carregar anotações da matéria:', subjectError);
-          setSubjectNotes(undefined);
-        } else {
+        try {
+          const subjectData = await fetchReviewSubjectNotes(topicData.subject_id);
           const subjectNotesData = subjectData?.notes as TopicNotes || undefined;
           setSubjectNotes(subjectNotesData);
           setCurrentSubjectContent(subjectNotesData?.content || '');
+        } catch (subjectError) {
+          console.warn('Erro ao carregar anotações da matéria:', subjectError);
+          setSubjectNotes(undefined);
         }
       }
     } catch (error) {
@@ -160,12 +149,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
 
       // Log removido para otimização
 
-      const { error } = await supabase
-        .from('topics')
-        .update(updates)
-        .eq('id', topicId);
-
-      if (error) throw error;
+      await updateReviewTopicNotes(topicId, updates as unknown as Json);
 
       // 🔄 Propagação profunda v2.2: Replicar anotações do tópico para irmãos
       if (!topicId.startsWith('temp-')) {
@@ -225,12 +209,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
           updated_at: new Date().toISOString()
         };
 
-        const { error } = await supabase
-          .from('topics')
-          .update(updates)
-          .eq('id', topicId);
-
-        if (error) throw error;
+        await updateReviewTopicNotes(topicId, updates as unknown as Json);
       }
 
       toast.success('Dados salvos com sucesso!');
@@ -257,12 +236,7 @@ const NotesModal: React.FC<NotesModalProps> = ({
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
-        .from('subjects')
-        .update(updates)
-        .eq('id', subjectId);
-
-      if (error) throw error;
+      await updateReviewSubjectNotes(subjectId, updates as unknown as Json);
 
       // 🔄 Propagação profunda v2.2: Replicar anotações da matéria para irmãos (mesclados)
       try {

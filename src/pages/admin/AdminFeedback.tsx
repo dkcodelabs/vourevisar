@@ -1,21 +1,19 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState } from 'react';
 import {
-    Search, Filter, MessageSquare, ChevronDown, X, Eye, Clock,
-    CheckCircle2, AlertTriangle, Wand2, PlusCircle, Loader2, RefreshCw,
+    Search, Filter, MessageSquare, ChevronDown, RefreshCw, X, Clock, Loader2,
+    CheckCircle2, AlertTriangle, Eye, Wand2,
     ArrowRight, Save, Inbox, BarChart3
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
-import { isValidTransition, getFeedbackStatusLabel, normalizeFeedbackStatus, FeedbackStatus, FEEDBACK_LABELS, calculateSLADueDates, checkSLABreach } from '@/services/feedbackService';
-import { differenceInHours, parseISO } from 'date-fns';
+import { isValidTransition, getFeedbackStatusLabel, type FeedbackStatus, calculateSLADueDates, checkSLABreach } from '@/services/feedbackService';
+import { deleteAdminFeedback, updateAdminFeedback } from '@/services/adminFeedbackService';
+import { parseISO } from 'date-fns';
 import { SLAAnalyticsDashboard } from '@/components/admin/sla/SLAAnalyticsDashboard';
-import { Trash2 } from 'lucide-react'; // Added Trash2 icon
+import { Trash2 } from 'lucide-react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -27,136 +25,21 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// ─── Tipos ──────────────────────────────────────────────────
-// Removida definição duplicada de FeedbackStatus em favor do service
-type FeedbackType = 'melhoria' | 'nova_funcionalidade' | 'problema' | 'improvement' | 'feature_request' | 'ux_issue';
-
-interface FeedbackRecord {
-    id: string;
-    protocol_code: string;
-    feedback_id: string;
-    type: FeedbackType;
-    title: string;
-    description: string;
-    status: FeedbackStatus;
-    impact: string;
-    actor_user_id: string;
-    actor_email: string | null;
-    route_path: string | null;
-    feature_area: string | null;
-    session_id: string | null;
-    metadata: Record<string, unknown> | null;
-    admin_notes: string | null;
-    admin_reply: string | null;
-    admin_reply_at: string | null;
-    admin_reason: string | null;
-    assigned_to: string | null;
-    first_response_at: string | null;
-    resolved_at: string | null;
-    created_at: string;
-    updated_at: string;
-    // SLA Fields
-    sla_first_response_due_at: string | null;
-    sla_resolution_due_at: string | null;
-    sla_breached_first_response: boolean | null;
-    sla_breached_resolution: boolean | null;
-}
-
-// ─── Config ─────────────────────────────────────────────────
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-    nova: { label: FEEDBACK_LABELS.nova, color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30', icon: <Clock size={12} /> },
-    planejada: { label: FEEDBACK_LABELS.planejada, color: 'text-purple-600', bg: 'bg-purple-100 dark:bg-purple-900/30', icon: <Eye size={12} /> },
-    em_desenvolvimento: { label: FEEDBACK_LABELS.em_desenvolvimento, color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30', icon: <Loader2 size={12} /> },
-    concluida: { label: FEEDBACK_LABELS.concluida, color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30', icon: <CheckCircle2 size={12} /> },
-    nao_planejada: { label: FEEDBACK_LABELS.nao_planejada, color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', icon: <X size={12} /> },
-};
-
-const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode }> = {
-    melhoria: { label: 'Melhoria', icon: <Wand2 size={12} /> },
-    nova_funcionalidade: { label: 'Nova Funcionalidade', icon: <PlusCircle size={12} /> },
-    problema: { label: 'Problema', icon: <AlertTriangle size={12} /> },
-    improvement: { label: 'Melhoria', icon: <Wand2 size={12} /> },
-    feature_request: { label: 'Nova Funcionalidade', icon: <PlusCircle size={12} /> },
-    ux_issue: { label: 'Problema', icon: <AlertTriangle size={12} /> },
-};
-
-
-const IMPACT_MAP: Record<string, string> = {
-    low: 'Baixo',
-    medium: 'Médio',
-    high: 'Alto',
-    critical: 'Crítico',
-};
-
-const PIPELINE_STATUSES: FeedbackStatus[] = ['nova', 'planejada', 'em_desenvolvimento', 'concluida', 'nao_planejada'];
-
-// ─── Helpers ────────────────────────────────────────────────
-function formatDate(d: string) {
-    if (!d) return '-';
-    return format(new Date(d), "dd/MM/yy HH:mm", { locale: ptBR });
-}
-
-function getSLAStatusBadge(dueAt: string | null, actualAt: string | null, breached: boolean | null, type: 'response' | 'resolution') {
-    if (!dueAt) return { label: '-', color: 'text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' };
-
-    // Se já foi atendido
-    if (actualAt) {
-        if (breached) return { label: 'Atrasado', color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20' };
-        return { label: 'No Prazo', color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' };
-    }
-
-    // Se ainda não foi atendido
-    const now = new Date();
-    const due = new Date(dueAt);
-    const timeLeftHours = differenceInHours(due, now);
-
-    if (now > due) return { label: 'Estourado', color: 'text-red-600 font-bold', bg: 'bg-red-100 dark:bg-red-900/30' };
-
-    // Risco: Menos de 4h (Resposta) ou 24h (Resolução) -> simplificado para < 20%
-    // Vamos usar hardcoded: < 4h = Risco Alto
-    if (timeLeftHours < 4) return { label: 'Em Risco', color: 'text-amber-600 font-bold', bg: 'bg-amber-100 dark:bg-amber-900/30' };
-
-    return { label: 'Em dia', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' };
-}
-
-// ─── Componente Principal ───────────────────────────────────
-// ─── Componente Principal ───────────────────────────────────
-// [ADM-02] Templates por Status (Source of Truth)
-const RESPONSE_TEMPLATES: Record<string, { label: string; text: string }[]> = {
-    nova: [
-        { label: 'Recebido padrão', text: 'Olá! Recebemos seu feedback e ele será analisado em breve pela nossa equipe de produto. Obrigado por contribuir!' },
-        { label: 'Em Análise', text: 'Olá! Sua sugestão está em análise técnica para avaliarmos a viabilidade. Te avisaremos assim que tivermos novidades.' }
-    ],
-    planejada: [
-        { label: 'Planejada', text: 'Ótima notícia! Sua sugestão foi aceita e entrou para o nosso backlog de desenvolvimento. Em breve estará disponível.' },
-        { label: 'Já existe', text: 'Olá! Analisamos sua sugestão e percebemos que essa funcionalidade já existe ou será atendida por uma melhoria planejada.' }
-    ],
-    em_desenvolvimento: [
-        { label: 'Em Desenvolvimento', text: 'Olá! Sua sugestão já está sendo desenvolvida por nossa equipe. Avisaremos assim que for lançada.' }
-    ],
-    concluida: [
-        { label: 'Concluída', text: 'Olá! Temos o prazer de informar que sua solicitação foi atendida na nova atualização. Confira e nos diga o que achou!' },
-        { label: 'Não Planejada / Recusada', text: 'Olá! Agradecemos a sugestão. No momento, decidimos não seguir com essa implementação por fugir do escopo atual, mas manteremos o registro para o futuro.' }
-    ],
-    nao_planejada: [
-        { label: 'Não planejada', text: 'Olá! Agradecemos a sugestão. No momento, decidimos não seguir com essa implementação por fugir do escopo atual, mas manteremos o registro para o futuro.' }
-    ],
-};
-
-const DEFAULT_TEMPLATE_BY_STATUS: Record<string, string> = {
-    nova: RESPONSE_TEMPLATES.nova[0].text,
-    planejada: RESPONSE_TEMPLATES.planejada[0].text,
-    em_desenvolvimento: RESPONSE_TEMPLATES.em_desenvolvimento[0].text,
-    concluida: RESPONSE_TEMPLATES.concluida[0].text,
-    nao_planejada: RESPONSE_TEMPLATES.nao_planejada[0].text,
-};
+import {
+    DEFAULT_TEMPLATE_BY_STATUS,
+    IMPACT_MAP,
+    PIPELINE_STATUSES,
+    RESPONSE_TEMPLATES,
+    STATUS_CONFIG,
+    TYPE_CONFIG,
+    formatDate,
+    getSLAStatusBadge,
+    type FeedbackRecord,
+} from '@/components/admin/adminFeedbackConfig';
+import { useAdminFeedbackData } from '@/hooks/useAdminFeedbackData';
 
 const AdminFeedback: React.FC = () => {
     // URL Sync (Simulado via window.history por enquanto se não tiver router hook fácil, mas usaremos state local por simplicidade na v1.1 Sprint 1)
-    const [feedbacks, setFeedbacks] = useState<FeedbackRecord[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
     // Filtros
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('todas');
@@ -179,81 +62,9 @@ const AdminFeedback: React.FC = () => {
     const [feedbackToDelete, setFeedbackToDelete] = useState<FeedbackRecord | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // ── Fetch com Filtros Server-Side ────────────────────────
-    const fetchFeedbacks = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            let query = supabase
-                .from('user_feedback_events')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            // Filtros Server-Side
-            if (statusFilter !== 'todas') {
-                query = query.eq('status', statusFilter);
-            }
-            if (typeFilter !== 'todos') {
-                query = query.eq('type', typeFilter);
-            }
-            if (startDate) {
-                query = query.gte('created_at', new Date(startDate).toISOString());
-            }
-            if (endDate) {
-                // Ajuste para final do dia
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                query = query.lte('created_at', end.toISOString());
-            }
-            if (search.trim()) {
-                // Busca textual simples (ilike)
-                // Nota: Supabase não suporta OR através de colunas facilmente sem RPC ou syntax específica
-                // Para Sprint 1, faremos filtro Client-Side da busca textual se o volume for baixo (top 200 filtered), 
-                // OU tentaremos 'or' se a policy permitir. Vamos tentar filtrar os resultados retornados por segurança.
-            }
-
-            const { data, error: fetchError } = await query.limit(200);
-
-            if (fetchError) throw fetchError;
-
-            const resultRaw = (data ?? []) as unknown as FeedbackRecord[];
-            // Normalizar status
-            let result = resultRaw.map(fb => ({
-                ...fb,
-                status: normalizeFeedbackStatus(fb.status),
-            }));
-
-            // Busca Textual Client-Side (pós-filtro server)
-            if (search.trim()) {
-                const q = search.toLowerCase();
-                result = result.filter(fb =>
-                    fb.protocol_code?.toLowerCase().includes(q) ||
-                    fb.title.toLowerCase().includes(q) ||
-                    fb.actor_email?.toLowerCase().includes(q)
-                );
-            }
-
-            setFeedbacks(result);
-
-            // Sync URL (Visual apenas para Sprint 1)
-            const params = new URLSearchParams();
-            if (statusFilter !== 'todas') params.set('status', statusFilter);
-            if (typeFilter !== 'todos') params.set('type', typeFilter);
-            if (startDate) params.set('start', startDate);
-            if (endDate) params.set('end', endDate);
-            if (search) params.set('q', search);
-            window.history.replaceState(null, '', `?${params.toString()}`);
-
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Erro ao carregar feedbacks';
-            setError(msg);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [statusFilter, typeFilter, startDate, endDate, search]);
-
-    // Carregar inicial (ler URL se fosse v1.2, por hora carrega default)
-    useEffect(() => { fetchFeedbacks(); }, [fetchFeedbacks]);
+    const { error, feedbacks, fetchFeedbacks, isLoading, kpis } = useAdminFeedbackData({
+        endDate, search, startDate, statusFilter, typeFilter,
+    });
 
     const clearFilters = () => {
         setSearch('');
@@ -263,17 +74,6 @@ const AdminFeedback: React.FC = () => {
         setEndDate('');
     };
 
-    // ── KPIs (baseado nos dados filtrados ou totais? Requisito: Operacional) 
-    // Vamos manter KPIs estáticos (count total fast) ou baseados na view atual?
-    // Sprint 1: KPIs baseados na view atual é mais útil para "triagem de hoje".
-    const kpis = useMemo(() => {
-        const total = feedbacks.length;
-        const novos = feedbacks.filter((f) => f.status === 'nova').length;
-        const emDev = feedbacks.filter((f) => f.status === 'em_desenvolvimento').length;
-        const concluidos = feedbacks.filter((f) => f.status === 'concluida').length;
-        const naoPlanejadas = feedbacks.filter((f) => f.status === 'nao_planejada').length;
-        return { total, novos, emDev, concluidos, naoPlanejadas };
-    }, [feedbacks]);
 
     // ── Abrir detalhe ─────────────────────────────────────────
     const openDetail = (fb: FeedbackRecord) => {
@@ -356,43 +156,24 @@ const AdminFeedback: React.FC = () => {
                 }
             }
 
-            const { error: updateError } = await supabase
-                .from('user_feedback_events')
-                .update(updates as never)
-                .eq('id', selectedFeedback.id);
+            await updateAdminFeedback(selectedFeedback.id, updates, {
+                description: `Status do feedback ${selectedFeedback.protocol_code} alterado de "${selectedFeedback.status}" para "${editStatus}"`,
+                feedback_id: selectedFeedback.id,
+                protocol_code: selectedFeedback.protocol_code,
+                old_status: selectedFeedback.status,
+                new_status: editStatus,
+                has_reply: !!editReply.trim(),
+            });
 
-            if (updateError) throw updateError;
-
-            // Audit
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                await supabase.from('audit_logs').insert({
-                    actor_user_id: user.id,
-                    event_type: 'feedback_status_change',
-                    event_category: 'admin_action',
-                    description: `Status do feedback ${selectedFeedback.protocol_code} alterado de "${selectedFeedback.status}" para "${editStatus}"`,
-                    metadata: {
-                        feedback_id: selectedFeedback.id,
-                        protocol_code: selectedFeedback.protocol_code,
-                        old_status: selectedFeedback.status,
-                        new_status: editStatus,
-                        has_reply: !!editReply.trim(),
-                    },
-                } as never);
-
-                // Observability: Analytics (Client-side)
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                if (window.analytics) {
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                    // @ts-ignore
-                    window.analytics.sendEvent('admin_feedback_updated', {
-                        feedback_id: selectedFeedback.id,
-                        old_status: selectedFeedback.status,
-                        new_status: editStatus,
-                        has_reply: !!editReply.trim()
-                    });
-                }
+            // Observability: Analytics (Client-side)
+            const analytics = (window as Window & { analytics?: { sendEvent: (event: string, payload: Record<string, unknown>) => void } }).analytics;
+            if (analytics) {
+                analytics.sendEvent('admin_feedback_updated', {
+                    feedback_id: selectedFeedback.id,
+                    old_status: selectedFeedback.status,
+                    new_status: editStatus,
+                    has_reply: !!editReply.trim(),
+                });
             }
 
             toast.success('Feedback atualizado com sucesso');
@@ -410,28 +191,12 @@ const AdminFeedback: React.FC = () => {
         if (!feedbackToDelete) return;
         setIsDeleting(true);
         try {
-            const { error: deleteError } = await supabase
-                .from('user_feedback_events')
-                .delete()
-                .eq('id', feedbackToDelete.id);
-
-            if (deleteError) throw deleteError;
-
-            // Audit
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                await supabase.from('audit_logs').insert({
-                    actor_user_id: user.id,
-                    event_type: 'feedback_deleted',
-                    event_category: 'admin_action',
-                    description: `Feedback ${feedbackToDelete.protocol_code} excluído`,
-                    metadata: {
-                        feedback_id: feedbackToDelete.id,
-                        protocol_code: feedbackToDelete.protocol_code,
-                        title: feedbackToDelete.title,
-                    },
-                } as never);
-            }
+            await deleteAdminFeedback(feedbackToDelete.id, {
+                description: `Feedback ${feedbackToDelete.protocol_code} excluído`,
+                feedback_id: feedbackToDelete.id,
+                protocol_code: feedbackToDelete.protocol_code,
+                title: feedbackToDelete.title,
+            });
 
             toast.success('Feedback excluído com sucesso');
             setFeedbackToDelete(null);

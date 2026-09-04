@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { createTopic } from '@/services/topicMutationService';
 import { useApp } from '@/contexts/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -50,15 +50,7 @@ export const InlineTopicCreator: React.FC<InlineTopicCreatorProps> = ({ isOpen, 
             // Fetch the subject to get its edital_id
             const selectedSubject = subjects.find(s => s.id === selectedSubjectId);
 
-            const { error } = await supabase.from('topics').insert({
-                subject_id: selectedSubjectId,
-                edital_id: selectedSubject?.edital_id, // Link to edital for persistence
-                name: topicName.trim(),
-                completed: false,
-                review_count: 0
-            }).select().single();
-
-            if (error) throw error;
+            await createTopic({ subjectId: selectedSubjectId, editalId: selectedSubject?.edital_id, name: topicName.trim() });
 
             toast.success('Tópico adicionado com sucesso!');
             setTopicName('');

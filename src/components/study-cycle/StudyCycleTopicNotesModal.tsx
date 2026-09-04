@@ -11,7 +11,7 @@ import { toast } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { sanitizeHtml } from '@/lib/sanitize';
 // import { Difficulty } from '@/types/study-cycle'; // Removido - usando sistema de estrelas
-import { supabase } from '@/integrations/supabase/client';
+import { fetchTopicNotesData, saveTopicNotes, saveTopicNotesAndSubtopics } from '@/services/topicNotesService';
 import { toastGate } from '@/lib/errors/toastGate';
 import type { Json } from '@/integrations/supabase/types';
 import type { SubTopic } from '@/types/study-cycle';
@@ -68,16 +68,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
       console.log('📖 Carregando dados do tópico:', { subjectId, topicId });
 
       // Buscar dados do tópico via API
-      const { data: topicData, error } = await supabase
-        .from('topics')
-        .select('notes, subtopics')
-        .eq('id', topicId)
-        .single();
-
-      if (error) {
-        console.error('Erro ao buscar tópico:', error);
-        throw error;
-      }
+      const topicData = await fetchTopicNotesData(topicId);
 
       // Configurar dados carregados
       if (topicData?.notes) {
@@ -115,18 +106,7 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
       console.log('💾 Salvando anotações:', { subjectId, topicId, notes: updatedNotes });
 
       // Salvar no banco de dados
-      const { error } = await supabase
-        .from('topics')
-        .update({
-          notes: updatedNotes as unknown as Json,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', topicId);
-
-      if (error) {
-        console.error('Erro ao salvar no banco:', error);
-        throw error;
-      }
+      await saveTopicNotes(topicId, updatedNotes as unknown as Json);
 
       setNotes(updatedNotes);
       setHasUnsavedChanges(false);
@@ -150,23 +130,9 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
       const content = sanitizeHtml(rawContent);
 
       // Salvar tudo no banco
-      const { error } = await supabase
-        .from('topics')
-        .update({
-          notes: {
-            content: content.trim(),
-            updatedAt: new Date().toISOString(),
-            createdAt: notes?.createdAt || new Date().toISOString()
-          } as unknown as Json,
-          subtopics: subTopics as unknown as Json,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', topicId);
-
-      if (error) {
-        console.error('Erro ao salvar dados completos:', error);
-        throw error;
-      }
+      await saveTopicNotesAndSubtopics(topicId, {
+        content: content.trim(), updatedAt: new Date().toISOString(), createdAt: notes?.createdAt || new Date().toISOString()
+      } as unknown as Json, subTopics as unknown as Json);
 
       toast.success('Dados salvos com sucesso!');
 
@@ -357,24 +323,15 @@ const StudyCycleTopicNotesModal: React.FC<StudyCycleTopicNotesModalProps> = ({
                   const rawContent = editorElement ? editorElement.innerHTML : notes?.content || '';
                   const content = sanitizeHtml(rawContent);
 
-                  // Salvar apenas as anotações e subtópicos
-                  const { error } = await supabase
-                    .from('topics')
-                    .update({
-                      notes: {
-                        content: content.trim(),
-                        updatedAt: new Date().toISOString(),
-                        createdAt: notes?.createdAt || new Date().toISOString()
-                      } as unknown as Json,
-                      subtopics: subTopics as unknown as Json,
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq('id', topicId);
-
-                  if (error) {
-                    console.error('Erro ao salvar:', error);
-                    throw error;
-                  }
+                  await saveTopicNotesAndSubtopics(
+                    topicId,
+                    {
+                      content: content.trim(),
+                      updatedAt: new Date().toISOString(),
+                      createdAt: notes?.createdAt || new Date().toISOString()
+                    } as unknown as Json,
+                    subTopics as unknown as Json
+                  );
 
                   setHasUnsavedChanges(false);
                   toast.success('Anotações salvas!');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { exchangeAuthCode, getAuthSession, setAuthSession, signOutAuth, updateAuthPassword, verifyAuthOtp } from '@/services/authFlowService';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { errorService } from '@/lib/errors/errorService';
@@ -51,7 +51,7 @@ const ResetPassword = () => {
         const acceptRecoverySession = async (session: Session) => {
           const authMethods = await getMyAuthMethods();
           if (!authMethods.hasPassword) {
-            await supabase.auth.signOut({ scope: 'local' });
+            await signOutAuth('local');
             toastManager.warning('Esta conta usa o acesso pelo Google e não possui senha no vouRevisar. Continue com Google.');
             navigate('/login', { replace: true });
             return false;
@@ -67,14 +67,14 @@ const ResetPassword = () => {
         // Validate an explicit recovery credential before considering any browser session.
         // An existing session must never make an invalid or unrelated reset link valid.
         if (accessToken && refreshToken) {
-          const { data, error } = await supabase.auth.setSession({
+          const { data, error } = await setAuthSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
 
           if (error || !data.session) {
             toastGate.notifyError('Link inválido ou expirado.', 'AUTH-HASH-INV', { severity: 'low' });
-            await supabase.auth.signOut({ scope: 'local' });
+            await signOutAuth('local');
             navigate('/login');
             return;
           }
@@ -85,7 +85,7 @@ const ResetPassword = () => {
 
         if (token_hash && type === 'recovery') {
           console.log('Token hash found, verifying OTP manually...');
-          const { data, error } = await supabase.auth.verifyOtp({
+          const { data, error } = await verifyAuthOtp({
             type: 'recovery',
             token_hash,
           });
@@ -93,7 +93,7 @@ const ResetPassword = () => {
           if (error) {
             console.error('Error verifying OTP:', error);
             toastGate.notifyError('Link inválido ou expirado.', 'AUTH-OTP-INV', { severity: 'low' });
-            await supabase.auth.signOut({ scope: 'local' });
+            await signOutAuth('local');
             navigate('/login');
             return;
           }
@@ -109,12 +109,12 @@ const ResetPassword = () => {
         if (code) {
           console.log('Recovery code found, exchanging for session');
           try {
-            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            const { data, error } = await exchangeAuthCode(code);
 
             if (error) {
               console.error('Error exchanging code:', error);
               toastGate.notifyError('Link inválido ou expirado', 'AUTH-CODE-INV', { severity: 'low' });
-              await supabase.auth.signOut({ scope: 'local' });
+              await signOutAuth('local');
               navigate('/login');
               return;
             }
@@ -137,7 +137,7 @@ const ResetPassword = () => {
             } else {
               toastGate.notifyError('Link inválido ou expirado.', 'AUTH-LINK-INV', { severity: 'low' });
             }
-            await supabase.auth.signOut({ scope: 'local' });
+            await signOutAuth('local');
             navigate('/login');
             return;
           }
@@ -147,7 +147,7 @@ const ResetPassword = () => {
         // A raw token without token_hash cannot be validated client-side in this flow.
         if (token || !code) {
           toastGate.notifyError('Link inválido ou expirado. Solicite um novo email.', 'AUTH-PARAM-MISS', { severity: 'low' });
-          await supabase.auth.signOut({ scope: 'local' });
+          await signOutAuth('local');
           navigate('/login');
           return;
         }
@@ -181,7 +181,7 @@ const ResetPassword = () => {
     setIsLoading(true);
     try {
       // Check if we have a valid session before updating password
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await getAuthSession();
 
       if (!sessionData.session) {
         console.error('No valid session found for password update');
@@ -190,9 +190,7 @@ const ResetPassword = () => {
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: password
-      });
+      const { error } = await updateAuthPassword(password);
 
       if (error) {
         console.error('Error updating password:', error);

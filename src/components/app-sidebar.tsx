@@ -6,8 +6,8 @@ import {
   CreditCard,
   LayoutDashboard,
   Library,
+  Layers,
   MessageSquare,
-  NotebookTabs,
   RotateCcw,
   Target,
   Users,
@@ -26,6 +26,7 @@ import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { BrandMark } from "@/components/brand/BrandLogo"
 import { useAIStatus } from "@/hooks/useAIStatus"
 import { useUserRole } from "@/hooks/useUserRole"
 import {
@@ -62,7 +63,6 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
     { title: "Ciclo de Estudos", url: "/ciclo-estudos", icon: RotateCcw },
     { title: "Revisões", url: "/revisoes", icon: Clock },
     { title: "Treino", url: "/treino", icon: BrainCircuit },
-    { title: "Cadernos", url: "/cadernos", icon: NotebookTabs },
     { title: "Evolução", url: "/estatisticas", icon: BarChart3 },
   ]
 
@@ -91,13 +91,15 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
                 : "idle",
         },
         { name: "Feedback", url: "/admin/feedback", icon: MessageSquare },
+        { name: "Componentes UI", url: "/reveal-cards", icon: Layers },
+        { name: "Modelos de Componentes", url: "/reveal-card-demo", icon: Sparkles },
       ]
     : []
 
   const teams = [
     {
       name: "vouRevisar",
-      logo: <Sparkles />,
+      logo: <BrandMark className="size-7 text-sidebar-foreground" />,
       plan: "Estudos inteligentes",
     },
   ]

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchAiSetting, saveAiSetting } from '@/services/adminAiSettingsService';
 import { Save, Loader2, Bot, Terminal, AlertCircle, RefreshCw, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Merge, ChevronDown } from 'lucide-react';
 import { toastGate } from '@/lib/errors/toastGate';
 import { toast } from '@/lib/toast';
 import { useAIStatus, getAIErrorLogs } from '@/hooks/useAIStatus';
-import { withTimeout } from '@/utils/withTimeout';
+import { mergeAIConfig } from '@/services/aiSettingsConfig';
+import { TopicGroupingPromptSection } from '@/components/admin/TopicGroupingPromptSection';
+import { AIErrorLogsSection } from '@/components/admin/AIErrorLogsSection';
 
 const DEFAULT_CONFIG = {
   model: 'gemini-2.5-flash',
@@ -86,13 +88,6 @@ PROCESSE TODO O TEXTO ABAIXO SEM INTERRUPÇÕES, DO INÍCIO AO FIM:
 [COLE O TEXTO DO EDITAL AQUI]`
 };
 
-function mergeAIConfig(value: unknown): typeof DEFAULT_CONFIG {
-  return {
-    ...DEFAULT_CONFIG,
-    ...(value && typeof value === 'object' ? value as Partial<typeof DEFAULT_CONFIG> : {}),
-  };
-}
-
 export default function AISettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -104,19 +99,8 @@ export default function AISettings() {
     const fetchSettings = async () => {
       try {
         setIsLoading(true);
-        const { data, error } = await withTimeout(
-          supabase
-            .from('system_settings')
-            .select('*')
-            .eq('key', 'ai_edital_config')
-            .maybeSingle(),
-          8000,
-          'Carregamento das configuracoes de IA'
-        );
-
-        if (error) throw error;
-
-        const finalConfig = data?.value ? mergeAIConfig(data.value) : DEFAULT_CONFIG;
+        const value = await fetchAiSetting('ai_edital_config');
+        const finalConfig = value ? mergeAIConfig(DEFAULT_CONFIG, value) : DEFAULT_CONFIG;
 
         setConfig(finalConfig);
         setHasUnsavedChanges(false);
@@ -145,15 +129,7 @@ export default function AISettings() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({
-          key: 'ai_edital_config',
-          value: config,
-          description: 'Configurações do Gemini para extração de editais.'
-        }, { onConflict: 'key' });
-
-      if (error) throw error;
+      await saveAiSetting('ai_edital_config', config, 'Configurações do Gemini para extração de editais.');
       
       localStorage.removeItem('ai_settings_draft');
       setHasUnsavedChanges(false);
@@ -423,122 +399,6 @@ export default function AISettings() {
   );
 }
 
-// Componente de Prompt de Agrupamento de Tópicos (Módulo 2)
-function TopicGroupingPromptSection() {
-  const [topicPrompt, setTopicPrompt] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    const fetchPrompt = async () => {
-      try {
-        const { data } = await supabase
-          .from('system_settings')
-          .select('value')
-          .eq('key', 'ai_topic_grouping_prompt')
-          .maybeSingle();
-        
-        if (data?.value) {
-          setTopicPrompt(String(data.value));
-        } else {
-          // Fallback visual condizente com a nova lógica
-          setTopicPrompt(`Você é uma IA especialista em concursos.
-Sua tarefa é analisar os tópicos da matéria "$SUBJECT_NAME$" e agrupar aqueles que são idênticos, equivalentes ou muito parecidos.
-
-TÓPICOS:
-$TOPICS$
-
-REGRAS:
-1. Agrupe tópicos que tratam do mesmo assunto, mesmo que a redação seja diferente (Ex: "Crase" e "Crases", "Regra de Três" e "Regra de 3").
-2. Ignore plurais, acentos e pontuação.
-3. Para cada grupo identificado, escolha um "suggestedName" claro e conciso que represente todos.
-4. "originalTopicsToMerge" deve conter os nomes EXATOS como aparecem na lista acima para que o sistema possa localizá-los.
-
-Retorne APENAS um JSON no formato:
-{
-  "groups": [
-    {
-      "originalTopicsToMerge": ["Nome Original 1", "Nome Original 2"],
-      "suggestedName": "Nome Limpo Sugerido"
-    }
-  ]
-}`);
-        }
-      } catch (err) {
-        console.error('Erro ao carregar prompt de agrupamento:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchPrompt();
-  }, []);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({
-          key: 'ai_topic_grouping_prompt',
-          value: topicPrompt,
-          description: 'Prompt para agrupamento semântico de tópicos por matéria.',
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'key' });
-      
-      if (error) throw error;
-      toast.success('Prompt de agrupamento salvo com sucesso!');
-    } catch (err) {
-      console.error('Erro ao salvar prompt:', err);
-      toastGate.notifyError('Erro ao salvar prompt de agrupamento.', 'TOPIC_PROMPT_ERR', { severity: 'medium' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (isLoading) return null;
-
-  return (
-    <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl overflow-hidden shadow-sm relative mt-6">
-      <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
-        <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
-          <Terminal className="text-purple-500 w-4 h-4" />
-          Gestão de IA: Agrupamento de Tópicos (Por Matéria)
-        </h2>
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="flex items-center gap-2 px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-        >
-          <Save className="w-3 h-3" />
-          {isSaving ? 'Salvando...' : 'Salvar'}
-        </button>
-      </div>
-      
-      <div className="p-6 space-y-4">
-        <p className="text-xs text-muted-foreground">
-          Este prompt é usado para limpar a "sujeira" do edital agrupando tópicos redundantes. 
-          Use <code className="bg-muted px-1 rounded">$SUBJECT_NAME$</code> e <code className="bg-muted px-1 rounded">$TOPICS$</code> (lista de nomes) como placeholders.
-        </p>
-
-        <textarea 
-          value={topicPrompt}
-          onChange={e => setTopicPrompt(e.target.value)}
-          className="w-full h-[250px] bg-transparent border border-border dark:border-white/10 rounded-xl px-4 py-3 text-[13px] font-mono leading-relaxed focus:outline-none focus:border-purple-500 transition-all resize-none text-foreground placeholder:text-muted-foreground/20"
-          placeholder="Insira as instruções para agrupamento de tópicos..."
-          spellCheck={false}
-        />
-      </div>
-
-      <div className="px-6 py-4 bg-muted/30 dark:bg-zinc-800/40 border-t border-border dark:border-white/5">
-        <p className="text-[11px] text-muted-foreground font-medium leading-relaxed opacity-80">
-          <span className="font-black text-purple-500 uppercase mr-2 tracking-wider">Aviso Técnico:</span> 
-          A IA deve retornar um objeto JSON contendo um array de "groups". Cada grupo deve listar os nomes originais a serem mesclados e o novo nome sugerido.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 // Componente de Diretrizes de Unificação de Matérias
 function MergePromptSection() {
   const [mergePrompt, setMergePrompt] = useState('');
@@ -548,14 +408,9 @@ function MergePromptSection() {
   useEffect(() => {
     const fetchPrompt = async () => {
       try {
-        const { data, error } = await supabase
-          .from('system_settings')
-          .select('value')
-          .eq('key', 'ai_merge_prompt')
-          .maybeSingle();
-        
-        if (data?.value) {
-          setMergePrompt(String(data.value));
+        const value = await fetchAiSetting('ai_merge_prompt');
+        if (value) {
+          setMergePrompt(String(value));
         } else {
           // Fallback visual se estiver vazio no banco
           setMergePrompt(`Você é uma IA especialista em concursos públicos. 
@@ -582,15 +437,7 @@ Retorne APENAS um JSON no formato:
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({
-          key: 'ai_merge_prompt',
-          value: mergePrompt,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'key' });
-      
-      if (error) throw error;
+      await saveAiSetting('ai_merge_prompt', mergePrompt);
       toast.success('Prompt de mesclagem salvo com sucesso!');
     } catch (err) {
       console.error('Erro ao salvar prompt:', err);
@@ -797,95 +644,6 @@ function AIStatusSection() {
           <ExternalLink className="w-4 h-4" />
           Abrir Google AI Studio
         </a>
-      </div>
-    </div>
-  );
-}
-
-// Componente de Histórico de Erros
-function AIErrorLogsSection() {
-  const [errorLogs, setErrorLogs] = useState<Array<{
-    id: string;
-    error_code: string;
-    error_message: string;
-    context: string | null;
-    created_at: string;
-  }>>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const loadLogs = async () => {
-      setIsLoading(true);
-      try {
-        const logs = await getAIErrorLogs(20);
-        setErrorLogs(logs);
-      } catch (err) {
-        console.error('Erro ao carregar logs:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadLogs();
-  }, []);
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  return (
-    <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl overflow-hidden shadow-sm relative mt-6">
-      <div className="px-6 py-4 border-b border-border dark:border-white/5 flex items-center justify-between bg-muted/50 dark:bg-zinc-800/20">
-        <h2 className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-foreground/80">
-          <AlertTriangle className="text-red-500 w-4 h-4" />
-          Histórico de Erros
-        </h2>
-      </div>
-      
-      <div className="p-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : errorLogs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <CheckCircle2 className="w-12 h-12 text-green-500 mb-3" />
-            <p className="text-sm font-bold text-foreground">Nenhum erro registrado</p>
-            <p className="text-xs text-muted-foreground">Os erros da API aparecerão aqui</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border dark:border-white/5">
-                  <th className="text-left py-3 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Data/Hora</th>
-                  <th className="text-left py-3 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Código</th>
-                  <th className="text-left py-3 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Mensagem</th>
-                </tr>
-              </thead>
-              <tbody>
-                {errorLogs.map((log) => (
-                  <tr key={log.id} className="border-b border-border dark:border-white/5 hover:bg-muted/30">
-                    <td className="py-3 px-2 font-mono text-xs">{formatDate(log.created_at)}</td>
-                    <td className="py-3 px-2">
-                      <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded text-xs font-bold">
-                        {log.error_code}
-                      </span>
-                    </td>
-                    <td className="py-3 px-2 text-muted-foreground text-xs max-w-xs truncate">
-                      {log.error_message}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { supabase } from '@/integrations/supabase/client';
+import { reactivateSubjects as persistSubjectReactivation } from '@/services/subjectReactivationService';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
@@ -69,54 +69,7 @@ const SubjectReactivationModal: React.FC<SubjectReactivationModalProps> = ({ isO
     setIsReactivating(true);
     
     try {
-      // Buscar todos os tópicos das matérias selecionadas
-      const { data: topicsData, error: topicsError } = await supabase
-        .from('topics')
-        .select('id, subject_id')
-        .in('subject_id', subjectIds);
-
-      if (topicsError) throw topicsError;
-
-      // Atualizar status das matérias para "Em Estudo"
-      const { error: subjectsError } = await supabase
-        .from('subjects')
-        .update({ 
-          status: 'Em Estudo',
-          completed_at: null
-        })
-        .in('id', subjectIds);
-
-      if (subjectsError) throw subjectsError;
-
-      // Reset dos tópicos para o primeiro estágio de revisão
-      if (topicsData && topicsData.length > 0) {
-        const topicIds = topicsData.map(t => t.id);
-        
-        const { error: topicsUpdateError } = await supabase
-          .from('topics')
-          .update({
-            completed: false,
-            review_stage: '24h',
-            next_review: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-          })
-          .in('id', topicIds);
-
-        if (topicsUpdateError) throw topicsUpdateError;
-      }
-
-      // Reset do ciclo do usuário
-      const { error: cycleError } = await supabase
-        .from('user_cycles')
-        .update({
-          ciclo_atual: [],
-          disciplinas_do_dia: [],
-          data_inicio_ciclo: new Date().toISOString(),
-          data_fim_ciclo: null,
-          atualizado_em: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-
-      if (cycleError) throw cycleError;
+      await persistSubjectReactivation(subjectIds, user.id);
 
       toast.success(`${subjectIds.length} matéria(s) reativada(s) com sucesso!`);
       

@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { exchangeAuthCode, getAuthSession, setAuthSession, signOutAuth, updateAuthPassword, verifyAuthOtp } from '@/services/authFlowService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { isEmailConfirmationPending } from '@/utils/authConfirmation';
@@ -55,13 +55,13 @@ export function AuthCallback() {
         }
 
         if (accessToken && refreshToken) {
-          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+          const { data: sessionData, error: sessionError } = await setAuthSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
 
           if (sessionError || !sessionData.session?.user) {
-            await supabase.auth.signOut({ scope: 'local' });
+            await signOutAuth('local');
             setRedirectPath(getConfirmEmailRedirect('error', pendingConfirmationEmail));
             return;
           }
@@ -80,7 +80,7 @@ export function AuthCallback() {
               localStorage.setItem('confirmedEmail', sessionData.session.user.email);
             }
             clearPendingConfirmationMarkers();
-            await supabase.auth.signOut();
+            await signOutAuth();
             setRedirectPath('/login?confirmed=1');
           } else {
             await completePendingSignupLegalAcceptance();
@@ -93,7 +93,7 @@ export function AuthCallback() {
         if (error) {
           console.warn('AuthCallback: link de autenticação rejeitado:', error, errorCode);
           // Do not let a previous browser session survive an auth-link error.
-          await supabase.auth.signOut();
+          await signOutAuth();
           if (errorCode === 'otp_expired' || errorDescription?.toLowerCase().includes('expired')) {
             setRedirectPath(getConfirmEmailRedirect('expired', pendingConfirmationEmail));
           } else {
@@ -110,15 +110,15 @@ export function AuthCallback() {
             return;
           }
 
-          const { data: exchangedSession, error: exchangeError } = await supabase.auth.exchangeCodeForSession(authCode);
+          const { data: exchangedSession, error: exchangeError } = await exchangeAuthCode(authCode);
 
           if (exchangeError) {
             const message = exchangeError.message.toLowerCase();
             if (exchangeError.code === 'otp_expired' || message.includes('expired') || message.includes('invalid')) {
-              await supabase.auth.signOut();
+              await signOutAuth();
               setRedirectPath(getConfirmEmailRedirect('expired', pendingConfirmationEmail));
             } else {
-              await supabase.auth.signOut();
+              await signOutAuth();
               toastGate.notifyError('Não foi possível concluir a confirmação. Tente reenviar o email.', 'AUTH-CALLBACK-02', { severity: 'low' });
               setRedirectPath(getConfirmEmailRedirect('error', pendingConfirmationEmail));
             }
@@ -127,7 +127,7 @@ export function AuthCallback() {
 
           if (exchangedSession.user && isEmailConfirmationPending(exchangedSession.user)) {
             localStorage.setItem('pendingConfirmationEmail', exchangedSession.user.email || '');
-            await supabase.auth.signOut();
+            await signOutAuth();
             setRedirectPath(getConfirmEmailRedirect('unconfirmed', exchangedSession.user.email));
             return;
           }
@@ -141,7 +141,7 @@ export function AuthCallback() {
 
           if (isSignupConfirmation) {
             clearPendingConfirmationMarkers();
-            await supabase.auth.signOut();
+            await signOutAuth();
             setRedirectPath('/login?confirmed=1');
           } else {
             await completePendingSignupLegalAcceptance();
@@ -154,17 +154,17 @@ export function AuthCallback() {
         // em acesso só porque havia sessão antiga no navegador. Alguns links
         // expirados/malformados podem voltar para o redirect_to sem parâmetros.
         if (pendingConfirmationEmail) {
-          await supabase.auth.signOut();
+          await signOutAuth();
           setRedirectPath(getConfirmEmailRedirect('expired', pendingConfirmationEmail));
           return;
         }
 
         // Sem código, preservar o comportamento normal de uma rota aberta diretamente.
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        const { data: { session: existingSession } } = await getAuthSession();
 
         if (existingSession?.user && isEmailConfirmationPending(existingSession.user)) {
           localStorage.setItem('pendingConfirmationEmail', existingSession.user.email || '');
-          await supabase.auth.signOut();
+          await signOutAuth();
           setRedirectPath(getConfirmEmailRedirect('unconfirmed', existingSession.user.email));
           return;
         }
@@ -179,7 +179,7 @@ export function AuthCallback() {
 
       } catch (err: unknown) {
         console.error('AuthCallback: Erro não tratado:', err);
-        await supabase.auth.signOut();
+        await signOutAuth();
         toastGate.notifyError('Erro na autenticação', 'AUTH-CALLBACK-UNK', { severity: 'low' });
         setRedirectPath('/login');
       } finally {

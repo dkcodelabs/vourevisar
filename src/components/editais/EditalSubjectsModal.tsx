@@ -14,7 +14,7 @@ import {
     Save, BriefcaseBusiness, Gauge, BarChart2, BookPlus, Pencil
 } from 'lucide-react';
 import { Subject, Topic, Status } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchActiveCycleUnificationMap, fetchInactiveTopics, renameEditalTopic, renameEditalSubject, updateEditalSubjectWeight, deleteEditalTopic, restoreEditalTopic, insertEditalTopics, createEditalSubject, createEditalSubjects, deleteEditalSubjectsByIds, updateEditalSubjectIds, updateEditalDetails, updateTopicsProgress, createEditalTopic, deleteEditalSubjectDeep } from '@/services/editalSubjectsDataService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useTimer } from '@/contexts/TimerContext';
@@ -71,7 +71,6 @@ interface EditalSubjectsModalProps {
     initialExpandedSubjectId?: string;
 }
 
-const editaisTable = () => supabase.from('user_editais');
 const tmpId = () => `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
 const parseCycleUnificationMap = (value: unknown): CycleUnificationMap | null => {
@@ -168,13 +167,7 @@ export const EditalSubjectsModal = ({
         let cancelled = false;
 
         const loadCycleUnificationMap = async () => {
-            const { data, error } = await supabase
-                .from('user_cycles')
-                .select('unification_map')
-                .eq('user_id', user.id)
-                .eq('status', 'active')
-                .limit(1)
-                .maybeSingle();
+            const { data, error } = await fetchActiveCycleUnificationMap(user.id);
 
             if (cancelled) return;
 
@@ -460,8 +453,7 @@ export const EditalSubjectsModal = ({
         const updatedAt = new Date().toISOString();
         const updatedName = updates.position ? `${updates.organ} - ${updates.position}` : updates.organ;
 
-        const { error } = await editaisTable()
-            .update({
+        await updateEditalDetails(id, user.id, {
                 organ: updates.organ,
                 position: updates.position,
                 year: updates.year,
@@ -469,11 +461,7 @@ export const EditalSubjectsModal = ({
                 exam_board: updates.exam_board || null,
                 name: updatedName,
                 updated_at: updatedAt
-            })
-            .eq('id', id)
-            .eq('user_id', user.id);
-
-        if (error) throw error;
+            });
 
         const updatedEdital: UserEdital = {
             ...selectedEdital,
@@ -608,15 +596,7 @@ export const EditalSubjectsModal = ({
                         position: existingSubject.topics.length + idx
                     }));
 
-                    const { data: insertedTopics, error: insertErr } = await supabase
-                        .from('topics')
-                        .insert(topicsToInsert)
-                        .select();
-
-                    if (insertErr) throw insertErr;
-                    if (!insertedTopics || insertedTopics.length !== topicsToInsert.length) {
-                        throw new Error('O banco não confirmou todos os tópicos adicionados.');
-                    }
+                    const insertedTopics = await insertEditalTopics(topicsToInsert);
                     persistedTopics = (insertedTopics || []).map(topic => ({
                         ...topic,
                         reviewCount: topic.review_count ?? 0,
@@ -637,18 +617,12 @@ export const EditalSubjectsModal = ({
                 setSyncStatus('saved');
             } else {
                 // Create new subject with (Complemento) suffix
-                const { data: created, error: createErr } = await supabase
-                    .from('subjects')
-                    .insert({
+                const created = await createEditalSubject({
                         user_id: user.id,
                         name: `${iaSubjectName.trim()} (Complemento)`,
                         status: 'Nova',
                         edital_id: selectedEdital.id
-                    })
-                    .select()
-                    .single();
-
-                if (createErr) throw createErr;
+                    });
                 createdSubjectId = created.id;
 
                 // Insert topics into 'topics' table
@@ -664,15 +638,7 @@ export const EditalSubjectsModal = ({
                         position: idx
                     }));
 
-                    const { data: insertedTopics, error: insertErr } = await supabase
-                        .from('topics')
-                        .insert(topicsToInsert)
-                        .select();
-
-                    if (insertErr) throw insertErr;
-                    if (!insertedTopics || insertedTopics.length !== topicsToInsert.length) {
-                        throw new Error('O banco não confirmou todos os tópicos adicionados.');
-                    }
+                    const insertedTopics = await insertEditalTopics(topicsToInsert);
                     persistedTopics = (insertedTopics || []).map(topic => ({
                         ...topic,
                         reviewCount: topic.review_count ?? 0,
@@ -686,14 +652,7 @@ export const EditalSubjectsModal = ({
                 setLocalEditalIds(newSubjectIds);
                 targetSubjectId = created.id;
 
-                const { error: editalUpdateError } = await editaisTable()
-                    .update({
-                        subject_ids: newSubjectIds,
-                        active_subject_ids: newSubjectIds,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', edital.id);
-                if (editalUpdateError) throw editalUpdateError;
+                await updateEditalSubjectIds(edital.id, newSubjectIds, newSubjectIds);
                 editalLinked = true;
 
                 hasPendingSync.current = true;
@@ -714,11 +673,8 @@ export const EditalSubjectsModal = ({
 
         } catch (error: unknown) {
             if (createdSubjectId && !editalLinked) {
-                const { error: rollbackError } = await supabase
-                    .from('subjects')
-                    .delete()
-                    .eq('id', createdSubjectId);
-                if (rollbackError) console.error('Erro ao desfazer matéria do lote:', rollbackError);
+                try { await deleteEditalSubjectsByIds([createdSubjectId]); }
+                catch (rollbackError) { console.error('Erro ao desfazer matéria do lote:', rollbackError); }
             }
             console.error('Erro ao salvar:', error);
             errorService.report(error instanceof Error ? error : new Error(String(error)), {
@@ -778,12 +734,8 @@ export const EditalSubjectsModal = ({
                 const patch = toTopicProgressDatabasePatch(entry.patch);
                 if (Object.keys(patch).length === 0) continue;
 
-                const { error } = await supabase
-                    .from('topics')
-                    .update(patch)
-                    .in('id', entry.targetTopicIds);
-
-                if (error) {
+                try { await updateTopicsProgress(entry.targetTopicIds, patch); }
+                catch (error) {
                     failedGroups.push(entry.groupKey);
                     void errorService.report(error, {
                         module: 'EditalSubjectsModal',
@@ -883,24 +835,17 @@ export const EditalSubjectsModal = ({
         let persistedSubjectIds: string[] = [];
 
         try {
-            const { data: createdSubjects, error: subjErr } = await supabase
-                .from('subjects').insert(namesToCreate.map(name => ({
+            const createdSubjects = await createEditalSubjects(namesToCreate.map(name => ({
                     user_id: user.id,
                     name,
                     status: 'Nova',
                     edital_id: edital.id
-                })))
-                .select('id, name');
-            if (subjErr) throw subjErr;
+                })));
             persistedSubjectIds = createdSubjects?.map(subject => subject.id) || [];
-            if (!createdSubjects || createdSubjects.length !== namesToCreate.length) {
-                throw new Error('O banco não retornou todas as matérias criadas.');
-            }
 
             const createdIds = createdSubjects.map(subject => subject.id);
             const updatedIds = [...localEditalIds, ...createdIds];
-            const { error: edErr } = await editaisTable().update({ subject_ids: updatedIds }).eq('id', edital.id);
-            if (edErr) throw edErr;
+            await updateEditalSubjectIds(edital.id, updatedIds);
 
             const createdByName = new Map(createdSubjects.map(subject => [subject.name.trim().toUpperCase(), subject.id]));
             setLocalSubjects(prev => prev.map(subject => {
@@ -924,11 +869,8 @@ export const EditalSubjectsModal = ({
             toast.success(`${createdMessage}${ignoredMessage}`);
         } catch (err) {
             if (persistedSubjectIds.length > 0) {
-                const { error: rollbackError } = await supabase
-                    .from('subjects')
-                    .delete()
-                    .in('id', persistedSubjectIds);
-                if (rollbackError) console.error('Erro ao desfazer matérias não vinculadas:', rollbackError);
+                try { await deleteEditalSubjectsByIds(persistedSubjectIds); }
+                catch (rollbackError) { console.error('Erro ao desfazer matérias não vinculadas:', rollbackError); }
             }
             setLocalSubjects(prev => prev.filter(subject => !placeholderIds.has(subject.id)));
             setExpandedIds(prev => prev.filter(id => !placeholderIds.has(id)));
@@ -953,55 +895,8 @@ export const EditalSubjectsModal = ({
         setSyncStatus('saving');
 
         try {
-            // 0. Remove histórico de revisões dos tópicos desta matéria ANTES (limpeza profunda)
-            const subjectToDelete = localSubjects.find(s => s.id === subjectId);
-            const topicIds = subjectToDelete?.topics.map(t => t.id) || [];
-
-            if (topicIds.length > 0) {
-                const { error: histErr } = await supabase
-                    .from('topic_review_history')
-                    .delete()
-                    .in('topic_id', topicIds);
-                if (histErr) {
-                    console.error('Erro ao excluir histórico da matéria:', histErr);
-                    // Não travamos o fluxo principal, mas registramos
-                }
-            }
-
-            // 1. Remove tópicos ANTES da matéria (FK constraint)
-            const { error: topicsErr } = await supabase
-                .from('topics').delete().eq('subject_id', subjectId);
-            if (topicsErr) throw topicsErr;
-
-            // 2. Remove a matéria
-            const { error: subjErr } = await supabase
-                .from('subjects').delete().eq('id', subjectId);
-            if (subjErr) throw subjErr;
-
-            // 3. Remover do Ciclo de Estudos (user_cycles) — Evita dados órfãos na página de Revisões
-            const { data: currentCycle } = await supabase
-                .from('user_cycles')
-                .select('id, ciclo_atual')
-                .eq('user_id', user!.id)
-                .maybeSingle();
-
-            if (currentCycle && currentCycle.ciclo_atual) {
-                const currentIds = (currentCycle.ciclo_atual as string[]) || [];
-                const newCycleIds = currentIds.filter(id => id !== subjectId);
-
-                if (newCycleIds.length !== currentIds.length) {
-                    await supabase
-                        .from('user_cycles')
-                        .update({ ciclo_atual: newCycleIds, atualizado_em: new Date().toISOString() })
-                        .eq('id', currentCycle.id);
-                    window.dispatchEvent(new CustomEvent('cycleUpdated'));
-                }
-            }
-
-            // 4. Atualiza o edital (retira de subject_ids e active_subject_ids)
-            const { error: edErr } = await editaisTable()
-                .update({ subject_ids: updatedIds, active_subject_ids: updatedActiveIds }).eq('id', edital.id);
-            if (edErr) throw edErr;
+            const { cycleChanged } = await deleteEditalSubjectDeep(user!.id, subjectId, edital.id, updatedIds, updatedActiveIds);
+            if (cycleChanged) window.dispatchEvent(new CustomEvent('cycleUpdated'));
 
             onUpdate({ ...edital, subjectIds: updatedIds, activeSubjectIds: updatedActiveIds });
             hasPendingSync.current = true;
@@ -1015,7 +910,7 @@ export const EditalSubjectsModal = ({
             setSyncStatus('error');
             errorService.report(err, { module: 'EditalSubjectsModal', action: 'deleteSubject', userMessage: 'Erro ao excluir matéria.' });
         }
-    }, [canRunStructuralOperation, localEditalIds, localActiveIds, edital, allSubjects, onUpdate, localSubjects, user]);
+    }, [canRunStructuralOperation, localEditalIds, localActiveIds, edital, allSubjects, onUpdate, user]);
 
     // ── Salvar novo tópico inline ──────────────────────────────────────────
     const handleSaveNewTopic = useCallback(async (subjectId: string) => {
@@ -1039,15 +934,14 @@ export const EditalSubjectsModal = ({
         setSyncStatus('saving');
 
         try {
-            const { data: newTopic, error } = await supabase.from('topics').insert({
+            const newTopic = await createEditalTopic({
                 subject_id: subjectId,
                 edital_id: selectedEdital.id,
                 name: text,
                 completed: false,
                 review_count: 0,
                 review_stage: null,
-            }).select('id').single();
-            if (error) throw error;
+            });
 
             setLocalSubjects(prev => prev.map(s =>
                 s.id === subjectId
@@ -1079,8 +973,7 @@ export const EditalSubjectsModal = ({
         setEditingTopicName('');
         setSyncStatus('saving');
         try {
-            const { error } = await supabase.from('topics').update({ name: newName }).eq('id', editingTopicId);
-            if (error) throw error;
+            await renameEditalTopic(editingTopicId, newName);
             hasPendingSync.current = true;
             setSyncStatus('saved');
         } catch (err) {
@@ -1101,8 +994,7 @@ export const EditalSubjectsModal = ({
         setSyncStatus('saving');
 
         try {
-            const { error } = await supabase.from('subjects').update({ name: newName }).eq('id', editingSubjectId);
-            if (error) throw error;
+            await renameEditalSubject(editingSubjectId, newName);
             hasPendingSync.current = true;
             setSyncStatus('saved');
             toast.success('Matéria renomeada!');
@@ -1147,17 +1039,12 @@ export const EditalSubjectsModal = ({
                         : null
             };
             const hasWeight = hasSubjectExamWeight(nextSubject);
-            const { error } = await supabase
-                .from('subjects')
-                .update({
-                    exam_weight_questions: nextSubject.exam_weight_questions,
-                    exam_weight_points: nextSubject.exam_weight_points,
-                    exam_weight_percentage: nextSubject.exam_weight_percentage,
-                    exam_weight_raw: hasWeight ? nextSubject.exam_weight_raw : null
-                })
-                .eq('id', subjectId);
-
-            if (error) throw error;
+            await updateEditalSubjectWeight(subjectId, {
+                exam_weight_questions: nextSubject.exam_weight_questions,
+                exam_weight_points: nextSubject.exam_weight_points,
+                exam_weight_percentage: nextSubject.exam_weight_percentage,
+                exam_weight_raw: hasWeight ? nextSubject.exam_weight_raw : null
+            });
             setLocalSubjects(prev => prev.map(item => item.id === subjectId ? nextSubject : item));
             setEditingWeightSubjectId(null);
             setWeightSavedSubjectId(subjectId);
@@ -1188,21 +1075,7 @@ export const EditalSubjectsModal = ({
         setSyncStatus('saving');
         try {
             // 1. Limpeza profunda: remover histórico de revisão
-            const { error: histErr } = await supabase
-                .from('topic_review_history')
-                .delete()
-                .eq('topic_id', topicId);
-
-            if (histErr) {
-                console.error('Erro ao excluir histórico do tópico:', histErr);
-            }
-
-            // 2. Delete: excluir permanentemente (hard delete)
-            const { error } = await supabase
-                .from('topics')
-                .delete()
-                .eq('id', topicId);
-            if (error) throw error;
+            await deleteEditalTopic(topicId);
             hasPendingSync.current = true;
             setSyncStatus('saved');
             toast.success(`Tópico "${topicToDeactivate?.name || 'selecionado'}" excluído permanentemente.`, { duration: 3000 });
@@ -1234,11 +1107,7 @@ export const EditalSubjectsModal = ({
         ));
         setSyncStatus('saving');
         try {
-            const { error } = await supabase
-                .from('topics')
-                .update({ is_active: true })
-                .eq('id', topicId);
-            if (error) throw error;
+            await restoreEditalTopic(topicId);
             hasPendingSync.current = true;
             setSyncStatus('saved');
             toast.success('Tópico restaurado!', { duration: 2000 });
@@ -1260,12 +1129,7 @@ export const EditalSubjectsModal = ({
     const loadInactiveTopics = useCallback(async (subjectId: string) => {
         if (inactiveTopics[subjectId]) return; // Já carregados
         try {
-            const { data, error } = await supabase
-                .from('topics')
-                .select('id, name, completed, review_count, subject_id')
-                .eq('subject_id', subjectId)
-                .eq('is_active', false);
-            if (error) throw error;
+            const data = await fetchInactiveTopics(subjectId);
             setInactiveTopics(prev => ({
                 ...prev,
                 [subjectId]: (data || []).map((t) => ({

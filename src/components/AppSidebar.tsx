@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Calendar, Users, Clock,
   Trophy, LucideIcon, Shield, RotateCcw, Target, LayoutGrid,
   ChevronLeft, ChevronRight, Key, CreditCard, FileUp, Monitor, FileSearch,
-  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Bot, NotebookTabs, AlertTriangle, Crown, LogOut, User
+  MessageSquare, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronUp, BarChart3, ClipboardList, Library, Bot, AlertTriangle, Crown, LogOut, User
 } from "lucide-react";
 
 import { AnimatedLogo } from './AnimatedLogo';
@@ -91,7 +91,6 @@ const getNavItems = (isAdmin: boolean, isOwner: boolean) => {
     { to: "/meus-editais", label: "Meus Editais", icon: Library },
     { to: "/ciclo-estudos", label: "Ciclo de Estudos", icon: RotateCcw },
     { to: "/revisoes", label: "Revisões", icon: Clock },
-    { to: "/cadernos", label: "Cadernos", icon: NotebookTabs },
     { to: "/estatisticas", label: "Evolução", icon: BarChart3 },
   ];
 

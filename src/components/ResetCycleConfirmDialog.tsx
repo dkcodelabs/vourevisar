@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchCycleResetStats } from '@/services/cycleResetService';
 
 interface ResetStats {
   totalTopics: number;
@@ -47,12 +47,7 @@ export function ResetCycleConfirmDialog({
     setLoading(true);
     try {
       // Fetch subjects
-      const { data: subjects, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('id, status, updated_at')
-        .eq('user_id', userId);
-
-      if (subjectsError) throw subjectsError;
+      const { subjects, topics, cycle } = await fetchCycleResetStats(userId);
 
       const subjectIds = subjects?.map(s => s.id) || [];
       const subjectsInProgress = subjects?.filter(
@@ -60,25 +55,12 @@ export function ResetCycleConfirmDialog({
       ).length || 0;
 
       // Fetch topics
-      const { data: topics, error: topicsError } = await supabase
-        .from('topics')
-        .select('id, review_count, notes, updated_at')
-        .in('subject_id', subjectIds);
-
-      if (topicsError) throw topicsError;
-
       const topicsWithReviews = topics?.filter(t => (t.review_count || 0) > 0).length || 0;
       const topicsWithNotes = topics?.filter(
         t => t.notes && Object.keys(t.notes).length > 0
       ).length || 0;
 
       // Fetch cycle info
-      const { data: cycle } = await supabase
-        .from('user_cycles')
-        .select('ciclos_realizados, atualizado_em')
-        .eq('user_id', userId)
-        .maybeSingle();
-
       // Get most recent activity
       const allDates = [
         ...(subjects?.map(s => s.updated_at) || []),

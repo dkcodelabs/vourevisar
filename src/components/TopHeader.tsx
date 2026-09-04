@@ -94,7 +94,7 @@ export const TopHeader = () => {
               </div>
 
               <img
-                src="/logo.png"
+                src="/brand/vourevisar-logo-horizontal.svg"
                 alt="vouRevisar"
                 className="h-10 w-auto" // Increased size
               />

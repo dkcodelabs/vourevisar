@@ -1,10 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { format, startOfDay } from 'date-fns';
 import { AlertCircle, Loader2, Target, BookOpen } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
-import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 
@@ -18,13 +16,13 @@ import { getCanonicalSubjectName, getCanonicalTopicName } from '@/services/cycle
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
 import { getStudyCycleMetrics } from '@/utils/studyCycleMetrics';
-import { buildReviewOriginMetadata } from '@/utils/reviewOriginLabels';
 import { buildLatestTrustedReviewTrendByTopic, type ReviewTrendHistoryRow } from '@/utils/reviewTrend';
 
 
-import { ReviewHistoryItem, RevisionItem, RevisionStatus } from '@/types/revision';
+import { RevisionStatus } from '@/types/revision';
 import { PROGRAMMED_REVIEW_COUNT } from '@/utils/calculateNextReview';
-import { getProgrammedReviewsCompleted, isReviewProgramCompleted } from '@/utils/reviewStage';
+import { buildReviewItems } from '@/utils/reviewsPageItems';
+import { buildReviewStats, groupReviewItems } from '@/utils/reviewsPageDerived';
 import { getReviewScheduleBucket } from '@/utils/reviewSchedule';
 
 import { RevisoesHeader } from '@/components/revisoes/RevisoesHeader';
@@ -36,7 +34,7 @@ import { CycleExamDateDialog } from '@/components/study-cycle/CycleExamDateDialo
 import { useCycleExamDateEditor } from '@/hooks/useCycleExamDateEditor';
 import { STUDY_SESSION_DISCARDED_MESSAGE } from '@/utils/studySessionFeedback';
 import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
-import { fetchFirstContactDurations, fetchReviewHistory, fetchReviewTrends } from '@/services/reviewsPageDataService';
+import { useReviewsPageAnalytics } from '@/hooks/useReviewsPageAnalytics';
 
 // Modals are still kept here or inside List/Toolbar depending on usage
 import { SpacedRepetitionInfoModal } from '@/components/reviews/SpacedRepetitionInfoModal';
@@ -61,67 +59,6 @@ const getErrorMessage = (error: unknown): string =>
 
 const normalizeRevisionKeyPart = (value: string) =>
   value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
-const getRevisionItemKey = (item: RevisionItem) =>
-  `${normalizeRevisionKeyPart(item.subject)}::${normalizeRevisionKeyPart(item.topic)}`;
-
-const getRevisionStatusPriority = (status: RevisionStatus) => {
-  switch (status) {
-    case RevisionStatus.CONSOLIDATED:
-      return 6;
-    case RevisionStatus.COMPLETED:
-      return 5;
-    case RevisionStatus.OVERDUE:
-      return 4;
-    case RevisionStatus.TODAY:
-      return 3;
-    case RevisionStatus.FUTURE:
-      return 2;
-    case RevisionStatus.UNSTARTED:
-      return 1;
-    default:
-      return 0;
-  }
-};
-
-const chooseRevisionItemRepresentative = (current: RevisionItem, candidate: RevisionItem) => {
-  const currentPriority = getRevisionStatusPriority(current.status);
-  const candidatePriority = getRevisionStatusPriority(candidate.status);
-
-  if (currentPriority !== candidatePriority) {
-    return candidatePriority > currentPriority ? candidate : current;
-  }
-
-  const currentReviewCount = current.reviewCount || 0;
-  const candidateReviewCount = candidate.reviewCount || 0;
-  if (currentReviewCount !== candidateReviewCount) {
-    return candidateReviewCount > currentReviewCount ? candidate : current;
-  }
-
-  const currentDueTime = current.dueDate ? new Date(current.dueDate).getTime() : Number.POSITIVE_INFINITY;
-  const candidateDueTime = candidate.dueDate ? new Date(candidate.dueDate).getTime() : Number.POSITIVE_INFINITY;
-  return candidateDueTime < currentDueTime ? candidate : current;
-};
-
-const dedupeRevisionItemsByCanonicalName = (items: RevisionItem[]) => {
-  const order: string[] = [];
-  const itemByKey = new Map<string, RevisionItem>();
-
-  for (const item of items) {
-    const key = getRevisionItemKey(item);
-    const current = itemByKey.get(key);
-
-    if (!current) {
-      order.push(key);
-      itemByKey.set(key, item);
-      continue;
-    }
-
-    itemByKey.set(key, chooseRevisionItemRepresentative(current, item));
-  }
-
-  return order.map(key => itemByKey.get(key)).filter((item): item is RevisionItem => Boolean(item));
-};
 
 export const Revisoes = () => {
   const navigate = useNavigate();
@@ -208,64 +145,13 @@ export const Revisoes = () => {
     [allTopics],
   );
 
-  const { data: reviewData, refetch: refetchHistory } = useQuery({
-    queryKey: ['reviews-page-history', user?.id, activeTopicScope.scopeKey],
-    queryFn: async () => {
-      try {
-        if (!user) throw new Error('User not authenticated');
-        if (!activeTopicScope.hasScopedData) return [];
-
-        const response = await fetchReviewHistory(user.id, activeTopicScope.activeTopicIds);
-        return filterHistoryRowsByActiveTopicIds(response, activeTopicScope.activeTopicIds).map((review): ReviewHistoryItem => {
-          const topic = Array.isArray(review.topics) ? review.topics[0] : review.topics;
-          return {
-          id: review.id,
-          topic_id: review.topic_id,
-          review_stage: review.review_stage,
-          reviewed_at: review.reviewed_at,
-          topic_name: topic?.name,
-          subject_id: topic?.subject_id
-        }});
-      } catch (error) {
-        // Log the error but rethrow so react-query handles the state
-        await errorService.report(
-          error,
-          {
-            module: 'Revisoes',
-            action: 'fetchHistory',
-            userMessage: 'Erro ao carregar histórico de revisões.',
-            severity: 'low',
-            scope: 'core',
-            userId: user?.id
-          }
-        );
-        throw error;
-      }
-    },
-    enabled: !!user
-  });
-
-  const { data: reviewTrendByTopic = new Map(), refetch: refetchReviewTrends } = useQuery({
-    queryKey: ['reviews-page-trends', user?.id, activeTopicScope.scopeKey],
-    queryFn: async () => {
-      if (!user?.id) throw new Error('User not authenticated');
-      if (!activeTopicScope.hasScopedData) return new Map();
-
-      const data = await fetchReviewTrends(user.id, activeTopicScope.activeTopicIds);
-      return buildLatestTrustedReviewTrendByTopic(data as ReviewTrendHistoryRow[]);
-    },
-    enabled: Boolean(user?.id && activeTopicScope.hasScopedData),
-  });
-
-  const { data: firstContactStudyDurationsMinutes = [] } = useQuery({
-    queryKey: ['reviews-first-contact-durations', user?.id, userCycle?.id],
-    queryFn: async () => {
-      if (!user?.id || !userCycle?.id) return [];
-
-      return fetchFirstContactDurations(user.id, userCycle.id);
-    },
-    enabled: Boolean(user?.id && userCycle?.id),
-  });
+  const {
+    reviewData,
+    refetchHistory,
+    reviewTrendByTopic,
+    refetchReviewTrends,
+    firstContactStudyDurationsMinutes,
+  } = useReviewsPageAnalytics(activeTopicScope);
 
   useEffect(() => {
     const handleTopicUpdate = () => {
@@ -300,9 +186,6 @@ export const Revisoes = () => {
     };
   }, [refetchHistory, refetchReviewTrends, difficultyModalData, closeDifficultyModal, refetch, refreshData]);
 
-
-
-  // State
   const [activeTab, setActiveTab] = useState<ViewTab>('FOCUS');
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [reviewStageFilter, setReviewStageFilter] = useState<string>('all');
@@ -314,7 +197,6 @@ export const Revisoes = () => {
   const [highlightedTopicId, setHighlightedTopicId] = useState<string | null>(null);
   const lastReviewFocusPulseRef = useRef<{ key: string; topicId: string; at: number } | null>(null);
 
-  // Header State
   const [headerCardsCollapsed, setHeaderCardsCollapsed] = useState<boolean>(false);
 
   const { activeTimer, resumeTimer, stopTimer, resetTimer, setProcessedUpdate } = useTimer();
@@ -328,7 +210,6 @@ export const Revisoes = () => {
     return `${normalizeRevisionKeyPart(canonicalSubjectName)}::${normalizeRevisionKeyPart(canonicalTopicName)}`;
   }, [dynamicUnificationMap, subjects]);
 
-  // Modals Data State
   const [notesModalData, setNotesModalData] = useState<{ isOpen: boolean; topicId: string; topicName: string; subjectName: string; }>({
     isOpen: false, topicId: '', topicName: '', subjectName: ''
   });
@@ -336,119 +217,20 @@ export const Revisoes = () => {
     isOpen: false, subjectId: '', subjectName: ''
   });
 
-  // Data processing
-  const items: RevisionItem[] = useMemo(() => {
-    // Determine Source List
-    const sourceList = activeTab === 'FOCUS' ? focusTopics : topics;
-    const allItems: RevisionItem[] = [];
+  const items = useMemo(() => buildReviewItems({
+    sourceList: activeTab === 'FOCUS' ? focusTopics : topics,
+    subjects,
+    searchTerm,
+    reviewStageFilter,
+    activeTab,
+    maxReviews,
+    dynamicUnificationMap,
+    editais: editaisData,
+    getOriginsForTopic,
+    hasCompositeCycle,
+  }), [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews, dynamicUnificationMap, editaisData, getOriginsForTopic, hasCompositeCycle]);
 
-    const mapTopicToItem = (topic: ReviewTopic): RevisionItem => {
-      const subject = subjects.find(s => s.id === topic.subject_id);
-      const rawCount = topic.review_count || 0;
-      const programCompleted = isReviewProgramCompleted(topic);
-      const reviewCount = getProgrammedReviewsCompleted(
-        rawCount,
-        programCompleted,
-      );
-
-      const rawSubjectName = subject?.name || 'Desconhecida';
-      const canonicalSubjectName = getCanonicalSubjectName(topic.subject_id, rawSubjectName, dynamicUnificationMap);
-      const canonicalTopicName = getCanonicalTopicName(topic.id, topic.name, dynamicUnificationMap);
-      const originMetadata = buildReviewOriginMetadata({
-        editais: editaisData,
-        sourceEditalIds: topic.source_edital_ids,
-        fallbackOrigins: getOriginsForTopic(topic.id, topic.subject_id, topic.edital_id || undefined),
-        showInCompositeCycle: hasCompositeCycle,
-      });
-
-      const statusByBucket: Record<string, RevisionStatus> = {
-        overdue: RevisionStatus.OVERDUE,
-        today: RevisionStatus.TODAY,
-        future: RevisionStatus.FUTURE,
-        completed: RevisionStatus.CONSOLIDATED,
-        unstarted: RevisionStatus.UNSTARTED,
-        unscheduled: RevisionStatus.UNSTARTED,
-      };
-      const status = statusByBucket[getReviewScheduleBucket(topic)];
-
-      return {
-        id: topic.id,
-        topic: canonicalTopicName,
-        subject: canonicalSubjectName,
-        subjectId: topic.subject_id,
-        difficulty: topic.difficulty_level || 0,
-        dueDate: topic.next_review || new Date().toISOString(),
-        notes: typeof topic.notes === 'string'
-          ? topic.notes
-          : (topic.notes && typeof topic.notes === 'object' && 'content' in topic.notes
-              ? String(topic.notes.content || '')
-              : ''),
-        status: status,
-        ownerImage: '',
-        reviewCount,
-        maxReviews,
-        learningStatus: topic.learningStatus,
-        memoryStability: topic.memory_stability,
-        originSummary: originMetadata.summary,
-        originLabels: originMetadata.labels,
-        isMergedOrigin: originMetadata.isMergedOrigin,
-        showOrigin: originMetadata.shouldShow,
-      };
-    };
-
-    sourceList.forEach(t => allItems.push(mapTopicToItem(t)));
-
-    let result = dedupeRevisionItemsByCanonicalName(allItems);
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      result = result.filter(i => i.topic.toLowerCase().includes(lower) || i.subject.toLowerCase().includes(lower));
-    }
-    if (reviewStageFilter !== 'all') {
-      const target = parseInt(reviewStageFilter);
-      result = result.filter(i => i.reviewCount === target);
-    }
-
-    // Filter logic for sections (Tab Focus / Today)
-    if (activeTab === 'FOCUS') {
-      // Show only started reviews that are Today or Overdue
-      result = result.filter(item => 
-        (item.status === RevisionStatus.TODAY || item.status === RevisionStatus.OVERDUE)
-      );
-    }
-    
-    if (activeTab === 'COMPLETED') {
-      result = result.filter(i => i.status === RevisionStatus.CONSOLIDATED);
-    }
-
-    return result;
-  }, [topics, focusTopics, subjects, searchTerm, reviewStageFilter, activeTab, maxReviews, dynamicUnificationMap, editaisData, getOriginsForTopic, hasCompositeCycle]);
-
-
-  const stats = useMemo(() => {
-    const allTopics = [...delayedTopics, ...todayTopics, ...futureTopics, ...completedTopics, ...consolidatedTopics];
-    const totalTopics = new Set(topics.map(getCanonicalReviewTopicKey)).size;
-    const totalSubjects = subjects.length; // Added
-    const completedReviews = completedTopics.length + consolidatedTopics.length;
-    const todayDate = format(startOfDay(new Date()), 'yyyy-MM-dd');
-    const reviewsDoneToday = (reviewData || []).filter((review) =>
-      format(startOfDay(new Date(review.reviewed_at)), 'yyyy-MM-dd') === todayDate,
-    ).length;
-    const totalScheduledReviews = delayedTopics.length + todayTopics.length + futureTopics.length + completedReviews;
-    const focusCount = new Set(focusTopics.map(getCanonicalReviewTopicKey)).size;
-    return {
-      today: todayTopics.length,
-      overdue: delayedTopics.length,
-      future: futureTopics.length,
-      completedTopicsCount: consolidatedTopics.length,
-      completedReviews,
-      reviewsDoneToday,
-      totalScheduledReviews,
-      startedTopicsCount: allTopics.length,
-      focusCount,
-      totalTopics,
-      totalSubjects,
-    };
-  }, [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, subjects, topics, reviewData, getCanonicalReviewTopicKey]);
+  const stats = useMemo(() => buildReviewStats({ delayedTopics, todayTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, topics, subjects, reviewData, getCanonicalReviewTopicKey }), [todayTopics, delayedTopics, futureTopics, completedTopics, consolidatedTopics, focusTopics, subjects, topics, reviewData, getCanonicalReviewTopicKey]);
 
   const reviewPace = useMemo(() => {
     return getStudyCycleMetrics({
@@ -468,36 +250,12 @@ export const Revisoes = () => {
     }).pace;
   }, [allTopics, examDate, firstContactStudyDurationsMinutes, hasActiveCycle]);
 
-  const groupedItems = useMemo(() => {
-    const groups: { [key: string]: RevisionItem[] } = {};
-    if (activeTab === 'SUBJECTS') {
-      items.forEach(i => {
-        if (!groups[i.subject]) groups[i.subject] = [];
-        groups[i.subject].push(i);
-      });
-    } else if (activeTab === 'FOCUS') {
-      // Focus Tab -> Single Group
-      if (items.length > 0) groups['FOCUS_MERGED'] = items;
-    } else {
-      if (activeTab === 'ALL') {
-        Object.values(RevisionStatus).forEach(s => groups[s] = []);
-        items.forEach(i => { if (!groups[i.status]) groups[i.status] = []; groups[i.status].push(i); });
-      } else {
-        const targets: string[] = [];
-        if (activeTab === 'FUTURE') targets.push(RevisionStatus.FUTURE);
-        else if (activeTab === 'COMPLETED') targets.push(RevisionStatus.CONSOLIDATED);
-        targets.forEach(s => groups[s] = []);
-        items.forEach(i => { if (targets.includes(i.status)) groups[i.status].push(i); });
-      }
-    }
-    return groups;
-  }, [items, activeTab]);
+  const groupedItems = useMemo(() => groupReviewItems(items, activeTab), [items, activeTab]);
 
   const location = useLocation();
   const focusedTopicId = getFocusTopicId(location.state) || searchParams.get('topicId');
   const focusPulseKey = focusedTopicId ? `${focusedTopicId}:${location.key}` : null;
 
-  // Effects (URL params, Smart Nav, Highlight) - preserved largely
   useEffect(() => {
     const subjectId = searchParams.get('subject');
     if (subjectId) {
@@ -556,15 +314,12 @@ export const Revisoes = () => {
     topics
   ]);
 
-  // When coming from "Parar e Avaliar" in FocusModal: auto-open the review modal
   useEffect(() => {
     const evaluationTopicId = (location.state as { openEvaluationForTopic?: string } | null)?.openEvaluationForTopic;
     if (!evaluationTopicId) return;
 
-    // Small delay to ensure data is loaded
     const timer = setTimeout(() => {
       handleMarkCompleted(evaluationTopicId);
-      // Clear state so it doesn't re-trigger on re-renders
       window.history.replaceState({}, '');
     }, 400);
 

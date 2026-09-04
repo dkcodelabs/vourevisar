@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Prancha do conceito harmonizado do símbolo vouRevisar</title>
+  <desc id="desc">Versões para fundos claro e escuro e testes em tamanhos pequenos.</desc>
+  <defs>
+    <linearGradient id="lime-light" x1="9" y1="91" x2="78" y2="17" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#63DF16"/><stop offset=".58" stop-color="#A8F900"/><stop offset="1" stop-color="#D5FF45"/>
+    </linearGradient>
+    <linearGradient id="lime-dark" x1="9" y1="91" x2="78" y2="17" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#63DF16"/><stop offset=".58" stop-color="#A8F900"/><stop offset="1" stop-color="#D5FF45"/>
+    </linearGradient>
+    <path id="r-shape" d="M67 34H91C109 34 120 44.5 120 60C120 71 114.5 79 104.5 83L121.5 105.5Q122.5 107 120.7 107H103Q102 107 101.3 106.1L86.2 85.5H78.3L68.8 102Q68.2 103 67 103H50Q48.2 103 49.2 101.3L64.8 73.2Q65.4 72 67 72H91.5C99.5 72 104 67.7 104 60.8C104 54.2 99.3 50 92 50H59Q57.1 50 58 48.4L65.4 35.2Q66 34 67 34Z"/>
+    <path id="check-shape" d="M9.2 60.7L15.5 56.2Q17.3 54.9 18.9 56.5L35.2 72.8L67.2 18.6Q68.3 16.8 70.2 17.8L76.8 21.7Q78.7 22.8 77.6 24.8L42.3 85Q39.6 89.7 34.6 90.3Q30.2 90.8 27 87.5L8.6 68.7Q4.5 64.4 9.2 60.7Z"/>
+    <symbol id="mark-light" viewBox="0 0 128 112">
+      <use href="#r-shape" fill="#172033"/>
+      <use href="#check-shape" fill="#FFFFFF" stroke="#FFFFFF" stroke-linejoin="round" stroke-width="5" opacity=".78"/>
+      <use href="#check-shape" fill="url(#lime-light)"/>
+    </symbol>
+    <symbol id="mark-dark" viewBox="0 0 128 112">
+      <use href="#r-shape" fill="#F8FAFC"/>
+      <use href="#check-shape" fill="#0B1120" stroke="#0B1120" stroke-linejoin="round" stroke-width="5" opacity=".86"/>
+      <use href="#check-shape" fill="url(#lime-dark)"/>
+    </symbol>
+  </defs>
+
+  <rect width="1400" height="900" fill="#E9EDF3"/>
+  <text x="700" y="74" text-anchor="middle" fill="#101827" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">Proposta de harmonização</text>
+  <text x="700" y="111" text-anchor="middle" fill="#657086" font-family="Inter, Arial, sans-serif" font-size="17">check mais geométrico · R com transições suavizadas · mesma identidade</text>
+
+  <rect x="70" y="155" width="610" height="540" rx="28" fill="#F8FAFC"/>
+  <rect x="720" y="155" width="610" height="540" rx="28" fill="#0B1120"/>
+  <text x="115" y="213" fill="#788398" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2.5">FUNDO CLARO</text>
+  <text x="765" y="213" fill="#9AA6B9" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2.5">FUNDO ESCURO</text>
+  <use href="#mark-light" x="180" y="260" width="390" height="341"/>
+  <use href="#mark-dark" x="830" y="260" width="390" height="341"/>
+
+  <text x="70" y="760" fill="#657086" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2.5">LEITURA EM TAMANHOS MENORES</text>
+  <use href="#mark-light" x="70" y="793" width="58" height="51"/>
+  <use href="#mark-light" x="160" y="784" width="78" height="68"/>
+  <use href="#mark-light" x="275" y="772" width="104" height="91"/>
+  <line x1="420" y1="770" x2="420" y2="860" stroke="#CBD2DD"/>
+  <text x="462" y="813" fill="#101827" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Conceito isolado</text>
+  <text x="462" y="841" fill="#657086" font-family="Inter, Arial, sans-serif" font-size="16">Ainda não aplicado no sistema.</text>
+</svg>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useUserLogger } from '@/hooks/useUserLogger';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { requestPasswordReset, signOutAuth } from '@/services/authFlowService';
 import { toastManager } from '@/utils/toastManager';
 import { isEmailConfirmationPending, isExpectedPasswordSignInError } from '@/utils/authConfirmation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,7 +63,7 @@ const Login = () => {
       if (user) {
         if (isEmailConfirmationPending(user)) {
           localStorage.setItem('pendingConfirmationEmail', user.email || '');
-          await supabase.auth.signOut();
+          await signOutAuth();
           toastManager.error('Email não confirmado. Verifique sua caixa de entrada.');
           navigate('/confirm-email', { replace: true });
           return;
@@ -210,9 +210,7 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`
-      });
+      const { error } = await requestPasswordReset(email.trim(), `${window.location.origin}/reset-password`);
 
       if (error) {
         if (error.message.includes('Email not confirmed')) {

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { ErrorLogRecord, ErrorSeverity, ErrorStatus, SLOMetrics, AlertEvent } from '@/lib/errors/types';
+import { acknowledgeAdminAlert, fetchAdminErrors, updateAdminErrorClassification, updateAdminErrorStatus } from '@/services/adminSystemErrorsService';
+import { ErrorLogRecord, ErrorStatus, SLOMetrics, AlertEvent } from '@/lib/errors/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,207 +42,36 @@ import {
     Globe,
     ArrowLeft
 } from 'lucide-react';
-import { format, differenceInMinutes } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { useNavigate } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import {
+    calculateSystemErrorUsageMetrics,
+    formatSystemErrorDate,
+    getSystemErrorPlaybook,
+    getSystemErrorScopeClassName,
+    getSystemErrorSeverityColor,
+    getSystemErrorStatusLabel,
+} from '@/utils/systemErrorsPresentation';
+import { useSystemErrorsFilters } from '@/hooks/useSystemErrorsFilters';
+import { useSystemErrorsSelection } from '@/hooks/useSystemErrorsSelection';
+import { useSystemErrorsOperations } from '@/hooks/useSystemErrorsOperations';
+import { SystemErrorDetailsDialog } from '@/components/admin/system/SystemErrorDetailsDialog';
 
 export default function SystemErrors() {
     const navigate = useNavigate();
-    const [searchParams, setSearchParams] = useSearchParams();
     const [errors, setErrors] = useState<ErrorLogRecord[]>([]);
     const [loading, setLoading] = useState(true);
-
-    // Initialize filters from URL or defaults
-    const [filters, setFilters] = useState({
-        status: searchParams.get('status') || 'all',
-        severity: searchParams.get('severity') || 'all',
-        scope: searchParams.get('scope') || 'all',
-        category: searchParams.get('category') || 'all',
-        recoverability: searchParams.get('recoverability') || 'all',
-        search: searchParams.get('search') || '',
-        environment: searchParams.get('environment') || 'production',
-    });
-
-    // Sync filters to URL
-    useEffect(() => {
-        const params = new URLSearchParams();
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value && value !== 'all') {
-                params.set(key, value);
-            }
-        });
-        setSearchParams(params, { replace: true });
-    }, [filters, setSearchParams]);
-
-    // Derived: Active Filters for Chips
-    const activeFilters = useMemo(() => {
-        return Object.entries(filters).filter(([key, value]) =>
-            value && value !== 'all' && key !== 'search' && key !== 'environment' // Environment is a global toggle often kept
-        );
-    }, [filters]);
-
-    const clearFilters = () => {
-        setFilters(prev => ({
-            ...prev,
-            status: 'all',
-            severity: 'all',
-            scope: 'all',
-            category: 'all',
-            recoverability: 'all',
-            search: ''
-        }));
-    };
-
-    const removeFilter = (key: string) => {
-        setFilters(prev => ({ ...prev, [key]: 'all' }));
-    };
+    const { activeFilters, clearFilters, filters, removeFilter, setFilters } = useSystemErrorsFilters();
     const [selectedError, setSelectedError] = useState<ErrorLogRecord | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    // SLO & Alert States
-    // SLO & Alert States
-    const [sloMetrics, setSloMetrics] = useState<SLOMetrics | null>(null);
-    const [activeAlerts, setActiveAlerts] = useState<AlertEvent[]>([]);
+    const { selectedIds, setSelectedIds, toggleSelectAll, toggleSelectOne } = useSystemErrorsSelection(errors, filters);
 
-    // Batch Actions State
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        setSelectedIds(new Set());
-    }, [filters]);
-
-    const toggleSelectAll = () => {
-        if (selectedIds.size === errors.length && errors.length > 0) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(errors.map(e => e.id)));
-        }
-    };
-
-    const toggleSelectOne = (id: string) => {
-        const newSet = new Set(selectedIds);
-        if (newSet.has(id)) {
-            newSet.delete(id);
-        } else {
-            newSet.add(id);
-        }
-        setSelectedIds(newSet);
-    };
-
-    const executeBatchAction = async (action: 'resolve' | 'investigate' | 'ignore') => {
-        if (!window.confirm(`Aplicar ação "${action}" em ${selectedIds.size} itens?`)) return;
-
-        let newStatus: ErrorStatus = 'new'; // default
-        if (action === 'resolve') newStatus = 'resolved';
-        if (action === 'investigate') newStatus = 'investigating';
-        if (action === 'ignore') newStatus = 'ignored';
-
-        const ids = Array.from(selectedIds);
-
-        const { error } = await supabase
-            .from('admin_error_events')
-            .update({ status: newStatus })
-            .in('id', ids);
-
-        if (error) {
-            toastGate.notifyError("Falha na ação em lote.", "SYS-BATCH-ERR", { severity: 'medium', flowKey: 'sys-batch' });
-        } else {
-            toast.success(`${ids.length} itens atualizados para ${newStatus}.`);
-            setSelectedIds(new Set());
-            fetchErrors();
-        }
-    };
-
-    const fetchOperationalData = React.useCallback(async () => {
-        // Fetch SLO Metrics
-        const sloData = await invokeAdminRpc<SLOMetrics>('calculate_slo_metrics', { p_days_window: 7 });
-        if (sloData) setSloMetrics(sloData as unknown as SLOMetrics);
-
-        // Fetch Active Alerts (check for new ones first)
-        await invokeAdminRpc('check_error_alerts'); // Trigger check
-        const { data: alertsData } = await supabase
-            .from('admin_alert_events')
-            .select('*')
-            .eq('status', 'active')
-            .order('created_at', { ascending: false });
-
-        if (alertsData) setActiveAlerts(alertsData as unknown as AlertEvent[]);
-    }, []);
-
-    // Derived Metrics
-    const usageMetrics = React.useMemo(() => {
-        if (errors.length === 0) return { topModule: null, mttr: null, criticalCount: 0, highRecurrenceCount: 0 };
-
-        const moduleCounts: Record<string, number> = {};
-        let totalResolutionTimeMinutes = 0;
-        let resolvedCount = 0;
-        let criticalCount = 0;
-        let highRecurrenceCount = 0;
-
-        errors.forEach(err => {
-            moduleCounts[err.module] = (moduleCounts[err.module] || 0) + 1;
-
-            if (err.severity === 'critical' && err.status !== 'resolved') {
-                criticalCount++;
-            }
-
-            if (err.occurrence_count > 5 && err.status !== 'resolved') {
-                highRecurrenceCount++;
-            }
-
-            if (err.status === 'resolved' && err.updated_at) {
-                const diff = differenceInMinutes(new Date(err.updated_at), new Date(err.created_at));
-                totalResolutionTimeMinutes += diff;
-                resolvedCount++;
-            }
-        });
-
-        const topModule = Object.entries(moduleCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
-        const mttr = resolvedCount > 0 ? Math.round(totalResolutionTimeMinutes / resolvedCount) : 0;
-
-        return { topModule, mttr, criticalCount, highRecurrenceCount };
-    }, [errors]);
-
-    const getPlaybook = (error: ErrorLogRecord) => {
-        let title = 'Investigação Geral';
-        let steps = ['Verificar logs detalhados', 'Tentar reproduzir o erro'];
-        let color = 'bg-slate-50 border-slate-200 text-slate-700';
-
-        switch (error.category) {
-            case 'auth':
-            case 'permission':
-                title = 'Problema de Autenticação / Segurança';
-                steps = ['Verificar se o token de sessão é válido', 'Checar políticas RLS da tabela', 'Confirmar permissões (role) do usuário'];
-                color = 'bg-red-50 border-red-200 text-red-800';
-                break;
-            case 'validation':
-                title = 'Erro de Validação de Dados';
-                steps = ['Verificar payload enviado pelo cliente', 'Validar tipos e obrigatoriedade de campos', 'Reproduzir com JSON mínimo'];
-                color = 'bg-orange-50 border-orange-200 text-orange-800';
-                break;
-            case 'network':
-            case 'integration':
-                title = 'Conectividade e Integração';
-                steps = ['Testar conectividade com serviços externos', 'Verificar status do Supabase', 'Avaliar latência de rede'];
-                color = 'bg-blue-50 border-blue-200 text-blue-800';
-                break;
-            case 'database':
-                title = 'Integridade de Dados / SQL';
-                steps = ['Verificar performance da query', 'Checar constraints e chaves estrangeiras', 'Analisar locks no banco'];
-                color = 'bg-purple-50 border-purple-200 text-purple-800';
-                break;
-        }
-
-        if (error.recommended_action) {
-            steps.unshift(error.recommended_action);
-        }
-
-        return { title, steps, color };
-    };
+    const usageMetrics = React.useMemo(() => calculateSystemErrorUsageMetrics(errors), [errors]);
+    const getPlaybook = getSystemErrorPlaybook;
 
     const handleCleanupLogs = async () => {
         if (!window.confirm("Isso apagará logs com mais de 30 dias. Confirmar?")) return;
@@ -260,54 +88,21 @@ export default function SystemErrors() {
 
     const fetchErrors = React.useCallback(async () => {
         setLoading(true);
-        let query = supabase
-            .from('admin_error_events')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(50); // Pagination in next phase
-
-        if (filters.status !== 'all') {
-            if (filters.status === 'active') {
-                query = query.neq('status', 'resolved');
-            } else {
-                query = query.eq('status', filters.status);
-            }
-        }
-
-        if (filters.severity !== 'all') {
-            query = query.eq('severity', filters.severity);
-        }
-
-        if (filters.scope !== 'all') {
-            query = query.eq('scope', filters.scope);
-        }
-
-        if (filters.category !== 'all') {
-            query = query.eq('category', filters.category);
-        }
-
-        if (filters.recoverability !== 'all') {
-            query = query.eq('recoverability', filters.recoverability);
-        }
-
-        if (filters.search) {
-            query = query.or(`error_id.ilike.%${filters.search}%,user_message.ilike.%${filters.search}%,technical_message.ilike.%${filters.search}%`);
-        }
-
-        if (filters.environment !== 'all') {
-            query = query.eq('environment', filters.environment);
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
+        try {
+            const data = await fetchAdminErrors(filters);
+            setErrors(data);
+        } catch (error) {
             toastGate.notifyError('Erro ao carregar logs de erro', 'SYS-FETCH-ERR', { severity: 'medium', flowKey: 'sys-fetch' });
             console.error(error);
-        } else {
-            setErrors(data as ErrorLogRecord[]);
         }
         setLoading(false);
     }, [filters]);
+
+    const { activeAlerts, executeBatchAction, fetchOperationalData, sloMetrics } = useSystemErrorsOperations({
+        clearSelection: () => setSelectedIds(new Set()),
+        fetchErrors: () => { void fetchErrors(); },
+        selectedIds,
+    });
 
     useEffect(() => {
         fetchErrors();
@@ -315,14 +110,14 @@ export default function SystemErrors() {
     }, [fetchErrors, fetchOperationalData]);
 
     const updateStatus = async (id: string, newStatus: ErrorStatus) => {
-        const { error } = await supabase
-            .from('admin_error_events')
-            .update({ status: newStatus })
-            .eq('id', id);
-
-        if (error) {
+        let updated = false;
+        try {
+            await updateAdminErrorStatus([id], newStatus);
+            updated = true;
+        } catch {
             toastGate.notifyError('Erro ao atualizar status', 'SYS-UPDATE-ERR', { severity: 'low', flowKey: 'sys-update' });
-        } else {
+        }
+        if (updated) {
             toast.success(`Status atualizado para ${newStatus}`);
             fetchErrors();
             if (selectedError && selectedError.id === id) {
@@ -331,40 +126,12 @@ export default function SystemErrors() {
         }
     };
 
-    const getSeverityColor = (severity: ErrorSeverity) => {
-        switch (severity) {
-            case 'critical': return 'bg-red-500 hover:bg-red-600';
-            case 'high': return 'bg-orange-500 hover:bg-orange-600';
-            case 'medium': return 'bg-yellow-500 hover:bg-yellow-600';
-            case 'low': return 'bg-blue-500 hover:bg-blue-600';
-            default: return 'bg-gray-500';
-        }
-    };
-
     const getStatusBadge = (status: ErrorStatus) => {
-        switch (status) {
-            case 'new': return <Badge variant="destructive">Novo</Badge>;
-            case 'investigating': return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Investigando</Badge>;
-            case 'resolved': return <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200">Resolvido</Badge>;
-            case 'ignored': return <Badge variant="outline">Ignorado</Badge>;
-            default: return null;
-        }
-    };
-
-    const getScopeBadge = (scope: string) => {
-        switch (scope) {
-            case 'admin': return <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200">Admin</Badge>;
-            case 'core': return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Core</Badge>;
-            default: return <Badge variant="outline">{scope}</Badge>;
-        }
-    };
-
-    const formatDate = (dateString: string) => {
-        try {
-            return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: ptBR });
-        } catch (e) {
-            return dateString;
-        }
+        const label = getSystemErrorStatusLabel(status);
+        if (status === 'new') return <Badge variant="destructive">{label}</Badge>;
+        if (status === 'investigating') return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">{label}</Badge>;
+        if (status === 'resolved') return <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200">{label}</Badge>;
+        return <Badge variant="outline">{label}</Badge>;
     };
 
     if (loading) {
@@ -451,7 +218,7 @@ export default function SystemErrors() {
                                 size="sm"
                                 className="bg-white/50 hover:bg-white border-red-200 text-red-800"
                                 onClick={async () => {
-                                    await supabase.from('admin_alert_events').update({ status: 'acknowledged', acknowledged_at: new Date().toISOString() }).eq('id', alert.id);
+                                    await acknowledgeAdminAlert(alert.id);
                                     fetchOperationalData();
                                     toast.success('Alerta reconhecido.');
                                 }}
@@ -742,7 +509,7 @@ export default function SystemErrors() {
                                                 />
                                             </TableCell>
                                             <TableCell className="font-medium text-xs">
-                                                {formatDate(error.created_at)}
+                                                {formatSystemErrorDate(error.created_at)}
                                                 <div className="text-[10px] text-slate-400">
                                                     {((new Date().getTime() - new Date(error.created_at).getTime()) / 60000).toFixed(0)} min atrás
                                                 </div>
@@ -798,7 +565,7 @@ export default function SystemErrors() {
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={`${getSeverityColor(error.severity)} text-white border-0 text-[10px] uppercase`}>
+                                                    <Badge className={`${getSystemErrorSeverityColor(error.severity)} text-white border-0 text-[10px] uppercase`}>
                                                     {error.severity === 'critical' ? 'Crítico' : 
                                                      error.severity === 'high' ? 'Alto' :
                                                      error.severity === 'medium' ? 'Médio' : 'Baixo'}
@@ -831,187 +598,28 @@ export default function SystemErrors() {
                 </CardContent>
             </Card>
 
-            <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-xl">
-                            Detalhes do Erro
-                            <Badge variant={selectedError?.status === 'resolved' ? 'default' : 'destructive'} className="ml-2">
-                                {selectedError?.status === 'new' ? 'NOVO' : 
-                                 selectedError?.status === 'investigating' ? 'INVESTIGANDO' :
-                                 selectedError?.status === 'resolved' ? 'RESOLVIDO' : 'IGNORADO'}
-                            </Badge>
-                        </DialogTitle>
-                        <DialogDescription className="flex items-center gap-2">
-                            <Clock size={12} />
-                            Ocorrido em {selectedError ? formatDate(selectedError.created_at) : '-'}
-                            {selectedError && selectedError.environment && (
-                                <Badge variant="outline" className="ml-2 text-[10px]">{selectedError.environment.toUpperCase()}</Badge>
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    {selectedError && (
-                        <div className="space-y-6">
-                            {/* Diagnóstico Rápido */}
-                            <div className="bg-slate-900 text-slate-50 p-4 rounded-lg font-mono text-xs grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-slate-400 uppercase text-[10px] mb-1">ID do Erro</p>
-                                    <p className="select-all">{selectedError.error_id}</p>
-                                </div>
-                                <div>
-                                    <p className="text-slate-400 uppercase text-[10px] mb-1">Request / Session</p>
-                                    <p title="Session ID">{selectedError.session_id || '-'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-slate-400 uppercase text-[10px] mb-1">Ator (User ID)</p>
-                                    <p className="select-all">{selectedError.actor_user_id || '-'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-slate-400 uppercase text-[10px] mb-1">Email</p>
-                                    <p>{selectedError.actor_email || '-'}</p>
-                                </div>
-                                <div className="col-span-2 border-t border-slate-700 pt-2 mt-2">
-                                    <p className="text-slate-400 uppercase text-[10px] mb-1">Rota / Origem</p>
-                                    <p className="break-all text-yellow-400">{selectedError.route_path || 'N/A'}</p>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase">Módulo</label>
-                                    <p className="text-sm font-medium">{selectedError.module}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase">Escopo</label>
-                                    <div>{getScopeBadge(selectedError.scope || 'admin')}</div>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase">Ação</label>
-                                    <p className="text-sm font-medium">{selectedError.action}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase">Severidade</label>
-                                    <div>
-                                        <Badge className={`${getSeverityColor(selectedError.severity)} text-white`}>
-                                            {selectedError.severity}
-                                        </Badge>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase">Status Atual</label>
-                                    <div className="flex gap-2">
-                                        {getStatusBadge(selectedError.status)}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Auditoria de Classificação */}
-                            <div className="bg-slate-50 p-3 rounded border border-slate-100 flex items-center justify-between text-xs">
-                                <span className="text-slate-500 font-medium">Classificação Automática Correta?</span>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant={selectedError.classification_feedback === true ? "default" : "outline"}
-                                        size="sm"
-                                        className={`h-7 px-2 ${selectedError.classification_feedback === true ? 'bg-green-600 text-white' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
-                                        onClick={async () => {
-                                            await supabase.from('admin_error_events').update({ classification_feedback: true }).eq('id', selectedError.id);
-                                            setSelectedError({ ...selectedError, classification_feedback: true });
-                                            fetchErrors();
-                                            toast.success('Feedback registrado: Correto');
-                                        }}
-                                    >
-                                        <CheckCircle2 size={12} className="mr-1" /> Sim
-                                    </Button>
-                                    <Button
-                                        variant={selectedError.classification_feedback === false ? "default" : "outline"}
-                                        size="sm"
-                                        className={`h-7 px-2 ${selectedError.classification_feedback === false ? 'bg-red-600 text-white' : 'text-red-600 border-red-200 hover:bg-red-50'}`}
-                                        onClick={async () => {
-                                            await supabase.from('admin_error_events').update({ classification_feedback: false }).eq('id', selectedError.id);
-                                            setSelectedError({ ...selectedError, classification_feedback: false });
-                                            fetchErrors();
-                                            toast.success('Feedback registrado: Incorreto');
-                                        }}
-                                    >
-                                        <XCircle size={12} className="mr-1" /> Não
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {/* Playbook Operacional */}
-                            {(() => {
-                                const playbook = getPlaybook(selectedError);
-                                return (
-                                    <div className={`p-4 rounded-md border ${playbook.color}`}>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <CheckCircle2 size={16} />
-                                            <h4 className="font-semibold text-sm uppercase tracking-wide">Guia de Resolução: {playbook.title}</h4>
-                                        </div>
-                                        <ul className="list-disc list-inside text-sm space-y-1 ml-1">
-                                            {playbook.steps.map((step, i) => (
-                                                <li key={i}>{step}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                );
-                            })()}
-
-                            <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-md border border-slate-200 dark:border-slate-800">
-                                <label className="text-xs font-semibold text-slate-500 uppercase block mb-1">Mensagem Técnica</label>
-                                <code className="text-xs text-red-600 dark:text-red-400 break-words whitespace-pre-wrap font-mono">
-                                    {selectedError.technical_message}
-                                </code>
-                            </div>
-
-                            {selectedError.metadata && Object.keys(selectedError.metadata).length > 0 && (
-                                <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase">Metadata</label>
-                                    <pre className="bg-slate-950 text-slate-50 p-3 rounded text-xs overflow-auto max-h-[200px]">
-                                        {JSON.stringify(selectedError.metadata, null, 2)}
-                                    </pre>
-                                </div>
-                            )}
-
-                            <div className="pt-4 border-t flex justify-end gap-2">
-                                {selectedError.status !== 'resolved' && (
-                                    <Button
-                                        onClick={() => {
-                                            updateStatus(selectedError.id, 'resolved');
-                                            setIsDetailsOpen(false);
-                                        }}
-                                        className="bg-green-600 hover:bg-green-700 text-white"
-                                    >
-                                        <CheckCircle2 size={16} className="mr-2" />
-                                        Marcar como Resolvido
-                                    </Button>
-                                )}
-                                {selectedError.status !== 'investigating' && selectedError.status !== 'resolved' && (
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => {
-                                            updateStatus(selectedError.id, 'investigating');
-                                        }}
-                                    >
-                                        <Search size={16} className="mr-2" />
-                                        Investigar
-                                    </Button>
-                                )}
-                                {selectedError.status !== 'ignored' && (
-                                    <Button
-                                        variant="ghost"
-                                        onClick={() => {
-                                            updateStatus(selectedError.id, 'ignored');
-                                            setIsDetailsOpen(false);
-                                        }}
-                                    >
-                                        Ignorar
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog >
+            <SystemErrorDetailsDialog
+                error={selectedError}
+                open={isDetailsOpen}
+                onOpenChange={setIsDetailsOpen}
+                formatDate={formatSystemErrorDate}
+                severityColor={getSystemErrorSeverityColor}
+                statusBadge={getStatusBadge}
+                scopeClassName={getSystemErrorScopeClassName}
+                getPlaybook={getPlaybook}
+                onClassificationFeedback={async (correct) => {
+                    if (!selectedError) return;
+                    await updateAdminErrorClassification(selectedError.id, correct);
+                    setSelectedError({ ...selectedError, classification_feedback: correct });
+                    fetchErrors();
+                    toast.success(`Feedback registrado: ${correct ? 'Correto' : 'Incorreto'}`);
+                }}
+                onStatusChange={(status) => {
+                    if (!selectedError) return;
+                    void updateStatus(selectedError.id, status);
+                    if (status === 'resolved' || status === 'ignored') setIsDetailsOpen(false);
+                }}
+            />
 
             {/* Floating Action Bar */}
             {selectedIds.size > 0 && (

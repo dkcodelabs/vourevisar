@@ -54,16 +54,17 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { useAdminUsers, AdminUser } from '@/hooks/useAdminUsers';
+import { PROTECTED_ADMIN_EMAILS, useUserAccountActions } from '@/hooks/useUserAccountActions';
+import { type UserLifecycleRequest, useUserLifecycleActions } from '@/hooks/useUserLifecycleActions';
 import { toast } from '@/lib/toast';
-import { supabase } from '@/integrations/supabase/client';
 import { EditRoleModal } from '@/components/admin/EditRoleModal';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserRole } from '@/hooks/useUserRole';
 import { UserActivityList } from '@/components/admin/UserActivityList';
-import { errorService } from '@/lib/errors/errorService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { UserAvatar } from '@/components/ui/UserAvatar';
+import { filterAdminUsers, getAdminRoleBadge } from '@/components/admin/UserManagementPresentation';
 
 type AdminAiLimits = {
     limit: number;
@@ -191,283 +192,34 @@ const UserManagement = () => {
     // Role check
     const { isOwner } = useUserRole();
 
-    const [userToObject, setUserToObject] = useState<{ id: string, name: string, email?: string, action: 'archive' | 'restore' | 'delete' | 'purge' } | null>(null);
+    const [userToObject, setUserToObject] = useState<UserLifecycleRequest | null>(null);
     const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
     const [purgeConfirmText, setPurgeConfirmText] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Filter users based on viewMode and search
-    const filteredUsers = users.filter(user => {
-        const matchesSearch = (user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+    const { handleResetPassword, handleToggleStatus } = useUserAccountActions({ setUsers });
+    const { handleArchiveUser, handleRestoreUser, handleHardDeleteUser, handlePurgeUser } = useUserLifecycleActions({
+        request: userToObject,
+        selectedUser,
+        purgeConfirmText,
+        setUsers,
+        setRequest: setUserToObject,
+        setPurgeConfirmText,
+        protectedEmails: PROTECTED_ADMIN_EMAILS,
+    });
 
-        const isArchived = !!user.deleted_at;
-        const matchesMode = viewMode === 'archived' ? isArchived : !isArchived;
+    const filteredUsers = filterAdminUsers(users, viewMode, searchTerm);
 
-        return matchesSearch && matchesMode;
-    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    // Helper to render role badge
-    const renderRoleBadge = (role: string) => {
-        // Validation: Only owners see detailed roles. Others see only 'Admin' (if configured) or nothing.
-        // For now, adhering to: "somente propietario ve essa flag"
-        if (!isOwner && role !== 'admin') return null;
-
-        switch (role) {
-            case 'owner':
-                return (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 border border-purple-200">
-                        Proprietário
-                    </span>
-                );
-            case 'admin':
-                return (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-600 border border-blue-200">
-                        Admin
-                    </span>
-                );
-            case 'moderator':
-                return (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-600 border border-indigo-200">
-                        Moderador
-                    </span>
-                );
-            default:
-                return null;
-        }
-    };
-
-
-
-    const handleArchiveUser = async () => {
-
-        if (!userToObject || userToObject.action !== 'archive') return;
-
-        // Hardcoded protection
-        if (selectedUser?.email && PROTECTED_EMAILS.includes(selectedUser.email)) {
-            toastGate.notifyError("Este usuário é protegido e não pode ser arquivado.", "USER-PROT-01", { severity: 'low' });
-            return;
-        }
-
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ deleted_at: new Date().toISOString() })
-                .eq('id', userToObject.id);
-
-            if (error) throw error;
-
-            // Optimistic Update
-            setUsers(users.map(u => u.id === userToObject.id ? { ...u, deleted_at: new Date().toISOString(), status: 'Archived' } : u));
-            toast.success(`Usuário arquivado com sucesso`);
-        } catch (error: unknown) {
-            console.error('Error archiving user:', error);
-            await errorService.report(error, {
-                module: 'users',
-                action: 'archive_user',
-                severity: 'medium',
-                metadata: {
-                    userId: userToObject.id,
-                    userName: userToObject.name
-                },
-            });
-        } finally {
-            setUserToObject(null);
-        }
-    };
-
-    const handleRestoreUser = async () => {
-        if (!userToObject || userToObject.action !== 'restore') return;
-
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ deleted_at: null })
-                .eq('id', userToObject.id);
-
-            if (error) throw error;
-
-            // Optimistic Update
-            setUsers(users.map(u => u.id === userToObject.id ? { ...u, deleted_at: null, status: 'Active' } : u));
-            toast.success(`Usuário restaurado com sucesso`);
-        } catch (error: unknown) {
-            console.error('Error restoring user:', error);
-            await errorService.report(error, {
-                module: 'users',
-                action: 'restore_user',
-                severity: 'medium',
-                metadata: {
-                    userId: userToObject.id,
-                    userName: userToObject.name
-                },
-            });
-        } finally {
-            setUserToObject(null);
-        }
-    };
-
-    const handleHardDeleteUser = async () => {
-        if (!userToObject || userToObject.action !== 'delete') return;
-
-        try {
-            // Permanent deletion must remove auth.users and every dependent row.
-            // Deleting only profiles leaves the JWT valid and the app can recreate the profile.
-            await invokeAdminRpc('admin_purge_user', {
-                p_target_user_id: userToObject.id
-            });
-
-            setUsers(users.filter(u => u.id !== userToObject.id));
-            toast.success(`Usuário excluído permanentemente`);
-        } catch (error: unknown) {
-            console.error('Error deleting user:', error);
-            await errorService.report(error, {
-                module: 'users',
-                action: 'delete_user',
-                severity: 'high',
-                metadata: {
-                    userId: userToObject.id,
-                    userName: userToObject.name
-                },
-            });
-        } finally {
-            setUserToObject(null);
-        }
-    };
-
-    const handlePurgeUser = async () => {
-        if (!userToObject || userToObject.action !== 'purge') return;
-        if (purgeConfirmText !== 'EXCLUIR') return;
-
-        try {
-            await invokeAdminRpc('admin_purge_user', {
-                p_target_user_id: userToObject.id
-            });
-
-            setUsers(users.filter(u => u.id !== userToObject.id));
-            toast.success(`Usuário ${userToObject.name} excluído completamente do sistema.`);
-        } catch (error: unknown) {
-            console.error('Error purging user:', error);
-            const message = error instanceof Error ? error.message : 'Erro desconhecido ao excluir usuário.';
-            toastGate.notifyError(message, 'USER-PURGE-ERR', { severity: 'critical' });
-            await errorService.report(error, {
-                module: 'users',
-                action: 'purge_user',
-                severity: 'critical',
-                metadata: {
-                    userId: userToObject.id,
-                    userName: userToObject.name,
-                    userEmail: userToObject.email
-                },
-            });
-        } finally {
-            setUserToObject(null);
-            setPurgeConfirmText('');
-        }
-    };
-
+    const renderRoleBadge = (role: string) => getAdminRoleBadge(role, isOwner);
     const isPurgeConfirmed = useMemo(() => purgeConfirmText === 'EXCLUIR', [purgeConfirmText]);
-
-    // List of emails that cannot be deleted, archived, or modified
-    const PROTECTED_EMAILS = ['vourevisar@gmail.com', 'darciliok@gmail.com'];
-
-    const handleToggleStatus = async (user: AdminUser) => {
-        if (PROTECTED_EMAILS.includes(user.email || '')) {
-            toastGate.notifyError("Este usuário é protegido e seu acesso não pode ser alterado.", "USER-PROT-02", { severity: 'low' });
-            return;
-        }
-
-        // Determine current active state (default true if undefined/null)
-        const isCurrentlyActive = user.is_active !== false;
-        const newActiveState = !isCurrentlyActive;
-        const rpcFunction = newActiveState ? 'admin_reactivate_user' : 'admin_deactivate_user';
-        const actionLabel = newActiveState ? 'reativar' : 'suspender';
-
-        const confirmed = window.confirm(
-            newActiveState
-                ? `Reativar a conta de ${user.email}? Isso restabelece o acesso à conta, mas não cria nem altera uma assinatura ou cobrança.`
-                : `Suspender a conta de ${user.email}? O usuário perderá acesso ao produto. Esta ação não cancela nem altera assinatura Stripe, faturas ou concessões de cortesia.`,
-        );
-
-        if (!confirmed) return;
-
-        try {
-            // Security/account state only. Billing and product entitlements are managed
-            // exclusively by the isolated Stripe billing module.
-            await invokeAdminRpc(rpcFunction, { target_user_id: user.id });
-
-            // Optimistic account-state update. Financial status is deliberately untouched.
-            setUsers(users.map(u => u.id === user.id ? {
-                ...u,
-                status: newActiveState ? 'Active' : 'Inactive',
-                is_active: newActiveState
-            } : u));
-
-            toast.success(`Conta ${actionLabel === 'suspender' ? 'suspensa' : 'reativada'} com sucesso`);
-
-        } catch (error: unknown) {
-            console.error('Error updating status:', error);
-            await errorService.report(error, {
-                module: 'users',
-                action: 'toggle_user_status',
-                severity: 'medium',
-                metadata: {
-                    userId: user.id,
-                    userName: user.name,
-                    targetStatus: newActiveState ? 'active' : 'inactive'
-                },
-            });
-        }
-    };
-
-    const handleResetPassword = async (user: AdminUser) => {
-        if (!user.email || user.email.includes('No email')) {
-            toastGate.notifyError('Usuário sem email válido para recuperação.', "USER-NO-EMAIL", { severity: 'low' });
-            return;
-        }
-
-        if (PROTECTED_EMAILS.includes(user.email)) {
-            toastGate.notifyError("Este usuário é protegido e a senha não pode ser redefinida por aqui.", "USER-PROT-03", { severity: 'low' });
-            return;
-        }
-
-        if (!user.has_password) {
-            toastGate.notifyError('Esta conta não possui senha no vouRevisar. O acesso é gerenciado pelo provedor conectado.', 'USER-NO-PASSWORD', { severity: 'low' });
-            return;
-        }
-
-        try {
-            const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-                redirectTo: `${window.location.origin}/reset-password`,
-            });
-
-            if (error) throw error;
-            toast.success(`Email de redefinição de senha enviado para ${user.email}`);
-        } catch (error: unknown) {
-            console.error('Error sending reset email:', error);
-            await errorService.report(error, {
-                module: 'users',
-                action: 'reset_password',
-                severity: 'low',
-                metadata: {
-                    userId: user.id,
-                    userName: user.name,
-                    userEmail: user.email
-                },
-            });
-        }
-    };
 
     const handleEditPermissions = (user: AdminUser) => {
         setUserToEditRole(user);
         setIsRoleModalOpen(true);
     };
-
-
-
     if (loading) {
         return <LoadingSpinner size="large" showText fullPage />;
     }
-
     return (
         <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-900 dark:text-slate-100">
 
@@ -628,7 +380,7 @@ const UserManagement = () => {
 
                                                         {viewMode === 'active' && (
                                                             <>
-                                                                {PROTECTED_EMAILS.includes(user.email || '') ? (
+                                                                {PROTECTED_ADMIN_EMAILS.includes(user.email || '') ? (
                                                                     <DropdownMenuItem disabled className="gap-2.5 cursor-not-allowed opacity-70 text-slate-500 text-xs py-2 px-3 rounded-sm">
                                                                         <Shield className="w-3.5 h-3.5" />
                                                                         Usuário Protegido

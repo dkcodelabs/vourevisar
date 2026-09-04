@@ -3,7 +3,7 @@
  * de dificuldade agregada de todas as revisões do usuário no ciclo atual.
  */
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchDifficultyEvolution } from '@/services/difficultyEvolutionService';
 import { useAuth } from '@/contexts/AuthContext';
 import { TrendingUp } from 'lucide-react';
 import { TopicEvolutionChart } from '@/components/topics/TopicEvolutionChart';
@@ -19,20 +19,7 @@ export function DifficultyEvolutionWidget({ cycleId }: DifficultyEvolutionWidget
     queryKey: ['dashboard-difficulty-evolution', user?.id, cycleId],
     queryFn: async () => {
       if (!user) return [];
-      let query = supabase
-        .from('topic_review_history')
-        .select('reviewed_at, difficulty_numeric, trend_label')
-        .eq('user_id', user.id)
-        .not('difficulty_numeric', 'is', null)
-        .order('reviewed_at', { ascending: true });
-
-      if (cycleId) {
-        query = query.eq('cycle_id', cycleId);
-      }
-
-      const { data, error } = await query.limit(60);
-      if (error) throw error;
-      return data || [];
+      return fetchDifficultyEvolution(user.id, cycleId);
     },
     enabled: !!user,
   });

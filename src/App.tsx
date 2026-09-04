@@ -31,7 +31,6 @@ const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const ConfirmEmail = lazy(() => import("@/pages/ConfirmEmail"));
 const Revisoes = lazy(() => import("@/pages/Revisoes"));
 const Editais = lazy(() => import("@/pages/Editais"));
-const Cadernos = lazy(() => import("@/pages/Cadernos"));
 const PracticeHome = lazy(() => import("@/features/practice/pages/PracticeHome"));
 const Planos = lazy(() => import("@/pages/Planos"));
 const StripeCheckout = lazy(() => import("@/pages/StripeCheckout"));
@@ -51,6 +50,7 @@ const AdminEditais = lazy(() => import("@/pages/admin/AdminEditais"));
 const AffiliateReferralManagement = lazy(() => import("@/pages/admin/AffiliateReferralManagement"));
 const AISettings = lazy(() => import("@/pages/admin/AISettings"));
 const RevealCards = lazy(() => import("@/pages/RevealCards"));
+const RevealCardDemo = lazy(() => import("@/components/ui/RevealCardDemo"));
 const SimpleRoleTest = import.meta.env.DEV
   ? lazy(() => import("@/components/SimpleRoleTest").then(module => ({ default: module.SimpleRoleTest })))
   : null;
@@ -68,8 +68,12 @@ const queryClient = new QueryClient({
 });
 
 const PageFallback = () => (
-  <div className="flex min-h-screen items-center justify-center bg-background text-sm font-semibold text-content-muted">
-    Carregando...
+  <div
+    className="fixed inset-x-0 top-0 z-[100] h-0.5 overflow-hidden bg-primary/15"
+    role="status"
+    aria-label="Carregando página"
+  >
+    <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
   </div>
 );
 
@@ -102,8 +106,19 @@ const App = () => {
                         <Route path="/*" element={<ProtectedRoute />}>
                           <Route path="checkout" element={<StripeCheckout />} />
                           <Route path="checkout/retorno" element={<StripeCheckoutReturn />} />
+                          <Route
+                            path="dashboard"
+                            element={
+                              <RequireActiveSubscription>
+                                <StudentHubProvider>
+                                  <AppLayout />
+                                </StudentHubProvider>
+                              </RequireActiveSubscription>
+                            }
+                          >
+                            <Route index element={<Dashboard />} />
+                          </Route>
                           <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
-                            <Route path="dashboard" element={<RequireActiveSubscription><Dashboard /></RequireActiveSubscription>} />
                             <Route path="meus-editais" element={<RequireActiveSubscription><Editais /></RequireActiveSubscription>} />
                             <Route path="estatisticas" element={<RequireActiveSubscription><Statistics /></RequireActiveSubscription>} />
                             <Route path="materias" element={<Navigate to="/ciclo-estudos" replace />} />
@@ -115,7 +130,7 @@ const App = () => {
                             <Route path="estatisticas/tendencia" element={<Navigate to="/estatisticas" replace />} />
                             <Route path="revisoes" element={<RequireActiveSubscription><Revisoes /></RequireActiveSubscription>} />
                             <Route path="ciclo-estudos" element={<RequireActiveSubscription><Subjects /></RequireActiveSubscription>} />
-                            <Route path="cadernos" element={<RequireActiveSubscription><Cadernos /></RequireActiveSubscription>} />
+                            <Route path="cadernos" element={<Navigate to="/ciclo-estudos" replace />} />
                             <Route path="treino" element={<RequireActiveSubscription><PracticeHome /></RequireActiveSubscription>} />
                             <Route path="pratica/:sessionId" element={<Navigate to="/treino" replace />} />
 
@@ -127,6 +142,8 @@ const App = () => {
                               <Route path="admin/audit" element={<AuditLogs />} />
                               <Route path="admin/system/errors" element={<SystemErrors />} />
                               <Route path="admin/feedback" element={<AdminFeedback />} />
+                              <Route path="reveal-cards" element={<RevealCards />} />
+                              <Route path="reveal-card-demo" element={<RevealCardDemo />} />
                               <Route path="admin/editais" element={<AdminEditais />} />
                               {exposeDebugRoutes && ToastSpamTest && (
                                 <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
@@ -138,7 +155,6 @@ const App = () => {
 
                             {exposeDebugRoutes && SimpleRoleTest && <Route path="test-roles" element={<SimpleRoleTest />} />}
                             <Route path="planos" element={<Planos />} />
-                            <Route path="reveal-cards" element={<RevealCards />} />
                             <Route path="conta" element={<Account />} />
                             <Route path="conta/assinatura" element={<AccountSubscription />} />
                             <Route path="perfil" element={<Navigate to="/conta?tab=perfil" replace />} />

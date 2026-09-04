@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { getCurrentAuthUser, resendConfirmationEmail } from '@/services/authFlowService';
 import { toastGate } from '@/lib/errors/toastGate';
 import { toast } from '@/lib/toast';
 import { Mail, RefreshCw, ArrowLeft } from 'lucide-react';
@@ -86,7 +86,7 @@ const ConfirmEmail = () => {
       // Check the local Supabase session before asking the provider to resend;
       // the provider may intentionally return a generic success for confirmed
       // emails to avoid revealing account state.
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await getCurrentAuthUser();
       if (!userError && userData.user && hasConfirmedEmail(userData.user)) {
         localStorage.removeItem('pendingConfirmationCooldownUntil');
         setResendFeedback({
@@ -97,13 +97,7 @@ const ConfirmEmail = () => {
         return;
       }
 
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email,
-        options: {
-          emailRedirectTo: getAuthCallbackUrl()
-        }
-      });
+      const { error } = await resendConfirmationEmail(email, getAuthCallbackUrl());
 
       if (error) {
         const normalizedMessage = error.message.toLowerCase();

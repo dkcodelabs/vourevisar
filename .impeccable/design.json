@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-03T15:16:27-03:00",
+  "title": "Design System: vouRevisar",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Azul de Direção",
+        "canonical": "hsl(215 100% 59%)",
+        "tonalRamp": ["hsl(215 100% 15%)", "hsl(215 100% 25%)", "hsl(215 100% 35%)", "hsl(215 100% 45%)", "hsl(215 100% 59%)", "hsl(215 100% 70%)", "hsl(215 100% 82%)", "hsl(215 100% 94%)"]
+      },
+      "primary-foreground": {
+        "role": "neutral",
+        "displayName": "Branco de Comando",
+        "canonical": "hsl(0 0% 100%)",
+        "tonalRamp": ["hsl(0 0% 15%)", "hsl(0 0% 28%)", "hsl(0 0% 42%)", "hsl(0 0% 58%)", "hsl(0 0% 72%)", "hsl(0 0% 84%)", "hsl(0 0% 94%)", "hsl(0 0% 100%)"]
+      },
+      "info": {
+        "role": "secondary",
+        "displayName": "Ciano de Movimento",
+        "canonical": "hsl(203 92% 56%)",
+        "tonalRamp": ["hsl(203 92% 15%)", "hsl(203 92% 25%)", "hsl(203 92% 35%)", "hsl(203 92% 45%)", "hsl(203 92% 56%)", "hsl(203 92% 68%)", "hsl(203 92% 80%)", "hsl(203 92% 94%)"]
+      },
+      "strategy-violet": {
+        "role": "tertiary",
+        "displayName": "Violeta de Estratégia",
+        "canonical": "hsl(271 76% 57%)",
+        "tonalRamp": ["hsl(271 76% 15%)", "hsl(271 76% 25%)", "hsl(271 76% 35%)", "hsl(271 76% 45%)", "hsl(271 76% 57%)", "hsl(271 76% 68%)", "hsl(271 76% 80%)", "hsl(271 76% 94%)"]
+      },
+      "progress": {
+        "role": "tertiary",
+        "displayName": "Verde de Conquista",
+        "canonical": "hsl(145 54% 36%)",
+        "tonalRamp": ["hsl(145 54% 15%)", "hsl(145 54% 23%)", "hsl(145 54% 30%)", "hsl(145 54% 36%)", "hsl(145 54% 48%)", "hsl(145 54% 60%)", "hsl(145 54% 75%)", "hsl(145 54% 92%)"]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Âmbar de Atenção",
+        "canonical": "hsl(31 91% 54%)",
+        "tonalRamp": ["hsl(31 91% 15%)", "hsl(31 91% 24%)", "hsl(31 91% 33%)", "hsl(31 91% 43%)", "hsl(31 91% 54%)", "hsl(31 91% 66%)", "hsl(31 91% 80%)", "hsl(31 91% 94%)"]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Vermelho de Risco",
+        "canonical": "hsl(0 84.2% 60.2%)",
+        "tonalRamp": ["hsl(0 84.2% 15%)", "hsl(0 84.2% 25%)", "hsl(0 84.2% 35%)", "hsl(0 84.2% 46%)", "hsl(0 84.2% 60.2%)", "hsl(0 84.2% 71%)", "hsl(0 84.2% 82%)", "hsl(0 84.2% 94%)"]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Papel de Trabalho",
+        "canonical": "hsl(0 0% 98.4%)",
+        "tonalRamp": ["hsl(0 0% 15%)", "hsl(0 0% 28%)", "hsl(0 0% 42%)", "hsl(0 0% 58%)", "hsl(0 0% 72%)", "hsl(0 0% 84%)", "hsl(0 0% 93%)", "hsl(0 0% 98.4%)"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Superfície Clara",
+        "canonical": "hsl(0 0% 100%)",
+        "tonalRamp": ["hsl(0 0% 15%)", "hsl(0 0% 28%)", "hsl(0 0% 42%)", "hsl(0 0% 58%)", "hsl(0 0% 72%)", "hsl(0 0% 84%)", "hsl(0 0% 94%)", "hsl(0 0% 100%)"]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "Superfície Elevada",
+        "canonical": "hsl(210 27% 98%)",
+        "tonalRamp": ["hsl(210 27% 15%)", "hsl(210 27% 28%)", "hsl(210 27% 42%)", "hsl(210 27% 58%)", "hsl(210 27% 72%)", "hsl(210 27% 84%)", "hsl(210 27% 92%)", "hsl(210 27% 98%)"]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Tinta de Estudo",
+        "canonical": "hsl(222 47% 11%)",
+        "tonalRamp": ["hsl(222 47% 11%)", "hsl(222 47% 22%)", "hsl(222 47% 34%)", "hsl(222 47% 46%)", "hsl(222 47% 58%)", "hsl(222 47% 70%)", "hsl(222 47% 82%)", "hsl(222 47% 94%)"]
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Cinza de Contexto",
+        "canonical": "hsl(218 18% 48%)",
+        "tonalRamp": ["hsl(218 18% 15%)", "hsl(218 18% 25%)", "hsl(218 18% 35%)", "hsl(218 18% 48%)", "hsl(218 18% 59%)", "hsl(218 18% 70%)", "hsl(218 18% 82%)", "hsl(218 18% 94%)"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Linha Estrutural",
+        "canonical": "hsl(218 42% 91%)",
+        "tonalRamp": ["hsl(218 42% 15%)", "hsl(218 42% 28%)", "hsl(218 42% 42%)", "hsl(218 42% 56%)", "hsl(218 42% 69%)", "hsl(218 42% 80%)", "hsl(218 42% 91%)", "hsl(218 42% 96%)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Campanhas e momentos públicos de alta ênfase." },
+      "title": { "displayName": "Título", "purpose": "Seções, cards e decisões operacionais." },
+      "body": { "displayName": "Texto de estudo", "purpose": "Instruções e contexto legível em sessões recorrentes." },
+      "label": { "displayName": "Rótulo", "purpose": "Metadados e categorias curtas." }
+    },
+    "shadows": [
+      { "name": "surface-lift", "value": "0 18px 42px rgba(15, 23, 42, 0.055)", "purpose": "Painel elevado em modo claro." },
+      { "name": "raised-surface", "value": "0 16px 42px rgba(15, 23, 42, 0.08)", "purpose": "Bloco com hierarquia acima do conteúdo-base." },
+      { "name": "glass-overlay", "value": "inset 0 1px 0 rgb(255 255 255 / 0.1), 0 18px 45px rgba(15, 23, 42, 0.08)", "purpose": "Camada temporária com blur, nunca card genérico." },
+      { "name": "focus-ring", "value": "0 0 0 2px hsl(var(--ring) / 0.28)", "purpose": "Foco explícito de campos e controles interativos." }
+    ],
+    "motion": [
+      { "name": "standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Transições gerais de cor e estado." },
+      { "name": "field", "value": "background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease", "purpose": "Campos e controles." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "0-639px" },
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação prioritária de uma decisão do aluno.",
+      "html": "<button class=\"ds-btn-primary\">Continuar estudos <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:1px solid hsl(var(--primary,215 100% 59%) / .72);border-radius:var(--radius-button,.75rem);background:hsl(var(--primary,215 100% 59%));color:hsl(var(--primary-foreground,0 0% 100%));font:600 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:background-color .2s cubic-bezier(.4,0,.2,1),border-color .2s cubic-bezier(.4,0,.2,1)}.ds-btn-primary svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-btn-primary:hover{background:color-mix(in srgb,hsl(var(--primary,215 100% 59%)) 88%,white)}.ds-btn-primary:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring,221 83% 53%) / .35)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ação auxiliar que não compete com a decisão prioritária.",
+      "html": "<button class=\"ds-btn-secondary\">Ver detalhes</button>",
+      "css": ".ds-btn-secondary{height:40px;padding:0 16px;border:1px solid hsl(var(--border-strong,218 30% 84%) / .72);border-radius:var(--radius-button,.75rem);background:hsl(var(--control-background-hover,216 30% 96%));color:hsl(var(--control-foreground,222 47% 18%));font:600 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:background-color .2s cubic-bezier(.4,0,.2,1),border-color .2s cubic-bezier(.4,0,.2,1)}.ds-btn-secondary:hover{background:hsl(var(--surface-raised,210 27% 98%));border-color:hsl(var(--border-strong,218 30% 84%))}.ds-btn-secondary:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring,221 83% 53%) / .35)}"
+    },
+    {
+      "name": "Study Card",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "Container sólido para uma decisão ou bloco de estudo.",
+      "html": "<article class=\"ds-card\"><h3>Revisar interpretação de texto</h3><p>Uma etapa clara, com o contexto necessário para agir.</p></article>",
+      "css": ".ds-card{padding:24px;border:1px solid var(--card-border-color,rgba(15,23,42,.08));border-radius:var(--radius-card,.75rem);background:hsl(var(--card,0 0% 100%));color:hsl(var(--card-foreground,222 47% 11%));font-family:'Plus Jakarta Sans',sans-serif}.ds-card h3{margin:0;font-size:18px;line-height:1.1;font-weight:600;letter-spacing:-.025em}.ds-card p{margin:10px 0 0;color:hsl(var(--content-muted,218 18% 48%));font-size:14px;line-height:1.5}"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Campo compacto com foco explícito e superfície elevada.",
+      "html": "<label class=\"ds-field\"><span>Nome do ciclo</span><input placeholder=\"Ex.: Polícia Federal\" /></label>",
+      "css": ".ds-field{display:grid;gap:6px;color:hsl(var(--content-muted,218 18% 48%));font:700 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em}.ds-field input{box-sizing:border-box;width:100%;height:40px;padding:0 12px;border:1px solid hsl(var(--input,216 36% 92%));border-radius:var(--radius-control,.5rem);background:hsl(var(--control-background,210 27% 98%));color:hsl(var(--control-foreground,222 47% 18%));font:500 14px 'Plus Jakarta Sans',sans-serif;letter-spacing:normal;transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease}.ds-field input::placeholder{color:hsl(var(--muted-foreground,218 18% 48%) / .7)}.ds-field input:focus{outline:none;border-color:hsl(var(--primary,215 100% 59%) / .45);box-shadow:0 0 0 2px hsl(var(--ring,221 83% 53%) / .28)}"
+    },
+    {
+      "name": "Sidebar Navigation Item",
+      "kind": "nav",
+      "refersTo": "sidebar-active",
+      "description": "Destino principal da jornada de estudo, com estado ativo inequívoco.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\" class=\"ds-nav-item ds-nav-item-active\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6v-9h-6v9Zm0-16v5h6V4h-6Z\"/></svg><span>Painel</span></a><a href=\"#\" class=\"ds-nav-item\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 5h18M3 12h18M3 19h18\"/></svg><span>Revisões</span></a></nav>",
+      "css": ".ds-nav{display:grid;gap:4px;padding:8px;border:1px solid hsl(var(--sidebar-border,218 42% 91%));border-radius:12px;background:hsl(var(--sidebar-background,210 27% 98%));font:600 14px 'Plus Jakarta Sans',sans-serif}.ds-nav-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;color:hsl(var(--sidebar-foreground,220 31% 24%));text-decoration:none}.ds-nav-item svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-nav-item:hover{background:hsl(var(--primary,215 100% 59%) / .08);color:hsl(var(--primary,215 100% 59%))}.ds-nav-item-active{background:hsl(var(--primary,215 100% 59%) / .12);color:hsl(var(--primary,215 100% 59%))}.ds-nav-item:focus-visible{outline:2px solid hsl(var(--ring,221 83% 53%));outline-offset:2px}"
+    },
+    {
+      "name": "Action Alert",
+      "kind": "custom",
+      "refersTo": "warning",
+      "description": "Aviso persistente para decisões importantes, com ação opcional e prioridade semântica.",
+      "html": "<aside class=\"ds-action-alert\" role=\"status\"><span class=\"ds-action-alert-icon\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 8v4M12 16h.01\"/></svg></span><strong>Depois de configurar o local, não será possível fazer mudanças</strong><a href=\"#\">Saiba mais <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M7 17 17 7M7 7h10v10\"/></svg></a></aside>",
+      "css": ".ds-action-alert{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid hsl(var(--warning,31 91% 54%) / .45);border-radius:12px;background:hsl(var(--warning,31 91% 54%) / .09);color:hsl(31 72% 24%);font:600 14px/1.4 'Plus Jakarta Sans',sans-serif}.ds-action-alert-icon{display:flex;flex:0 0 32px;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:hsl(var(--warning,31 91% 54%));color:hsl(var(--warning-foreground,210 40% 98%))}.ds-action-alert svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}.ds-action-alert strong{flex:1}.ds-action-alert a{display:inline-flex;min-height:40px;align-items:center;gap:6px;padding:0 8px;border-radius:8px;color:hsl(31 72% 34%);font-weight:700;text-decoration:none}.ds-action-alert a:hover{text-decoration:underline;text-underline-offset:4px}.ds-action-alert a:focus-visible{outline:2px solid currentColor;outline-offset:2px}@media(max-width:639px){.ds-action-alert{align-items:flex-start;flex-wrap:wrap}.ds-action-alert strong{flex:1 1 calc(100% - 44px)}.ds-action-alert a{margin-left:44px}}"
+    },
+    {
+      "name": "Progress Signal",
+      "kind": "custom",
+      "refersTo": "progress-energy",
+      "description": "Energia visual temporária para avanço e conclusão, não para superfícies permanentes.",
+      "html": "<section class=\"ds-progress\"><div><span>Progresso do ciclo</span><strong>12 de 18 tópicos</strong></div><div class=\"ds-progress-track\"><i></i></div></section>",
+      "css": ".ds-progress{display:grid;gap:12px;padding:16px;border:1px solid hsl(var(--primary,215 100% 59%) / .16);border-radius:var(--radius-card,.75rem);background:hsl(var(--surface,0 0% 100%));font-family:'Plus Jakarta Sans',sans-serif}.ds-progress div:first-child{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.ds-progress span{color:hsl(var(--content-muted,218 18% 48%));font-size:12px;font-weight:700}.ds-progress strong{color:hsl(var(--text,222 47% 11%));font-size:14px}.ds-progress-track{height:8px;overflow:hidden;border-radius:999px;background:hsl(var(--muted,216 42% 96%))}.ds-progress-track i{display:block;width:67%;height:100%;border-radius:inherit;background:linear-gradient(90deg,hsl(var(--primary,215 100% 59%)),hsl(var(--info,203 92% 56%)));box-shadow:0 4px 14px hsl(var(--primary,215 100% 59%) / .24)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Central de Progresso Energética",
+    "overview": "vouRevisar é uma interface de estudo que combina ordem calma com energia direcionada. A base visual é clara, estrutural e legível para sustentar sessões recorrentes de leitura e decisão; o impulso aparece quando o aluno avança, conclui, entra em foco ou recebe uma recomendação importante.\n\nA energia nunca deve transformar a superfície inteira em espetáculo. Neon, brilho, gradientes de progresso e movimento servem como sinais de estado e recompensa — não como acabamento padrão de cards, formulários, navegação ou tabelas. A sensação é moderna, elegante, motivadora e orientada à ação real.",
+    "keyCharacteristics": [
+      "Superfícies sólidas e hierarquia por espaço, contraste e tipografia.",
+      "Azul como comando visual; verde como confirmação de progresso.",
+      "Energia concentrada em momentos de foco, transição, conclusão e conquista.",
+      "Densidade compacta, organizada e escaneável para uso diário."
+    ],
+    "rules": [
+      { "name": "The One Priority Rule", "body": "Em cada decisão, existe no máximo uma ação primária azul; ações secundárias permanecem neutras.", "section": "colors" },
+      { "name": "The Earned Neon Rule", "body": "Neon, brilho e gradiente só aparecem para progresso, foco, conclusão, marca em transição ou celebração. Nunca são o fundo permanente da interface.", "section": "colors" },
+      { "name": "The Contained Type Rule", "body": "Títulos grandes pertencem a transições, campanhas e decisões de alto impacto. No produto operacional, a hierarquia vem da ordem e do peso, não de tipografia superdimensionada.", "section": "typography" },
+      { "name": "The Structural Depth Rule", "body": "Se uma sombra não explica estado, interação ou nível de conteúdo, ela não deve existir.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do manter a maioria das superfícies sólida, clara e estrutural; use vidro e blur quando eles indicarem camada ou estado.",
+      "Do reservar o azul para a ação prioritária e o verde para progresso ou conclusão confirmada.",
+      "Do usar energia visual em progressos, marcos, foco ativo e animações de marca com começo e fim claros.",
+      "Do preservar informação escaneável, controles reconhecíveis e composição vertical segura em mobile.",
+      "Do usar tokens semânticos e componentes existentes antes de criar uma variação visual local."
+    ],
+    "donts": [
+      "Don't usar neon, glow ou gradientes como preenchimento padrão de cards, tabelas ou formulários.",
+      "Don't criar múltiplos CTAs azuis de mesma prioridade no mesmo contexto.",
+      "Don't substituir hierarquia por títulos enormes, cards em excesso ou textos em caixa alta por toda a tela.",
+      "Don't usar sombra decorativa quando uma borda, espaçamento ou mudança de superfície já resolve a separação.",
+      "Don't apresentar métricas, urgência ou prova social como fato sem dados reais que as sustentem."
+    ]
+  }
+}

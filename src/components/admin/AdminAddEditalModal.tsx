@@ -4,7 +4,7 @@ import {
     X, Sparkles, Plus, ArrowLeft, Save, Globe, Info, Loader2,
     ChevronDown
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { createPublicEdital } from '@/services/adminEditalCreateService';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
@@ -100,8 +100,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
             created_by: user.id,
         };
 
-        const { error } = await supabase.from('public_editais').insert([payload]);
-        if (error) throw error;
+        await createPublicEdital(payload);
 
         toast.success('Edital importado pela IA e adicionado ao catálogo!');
         setShowIaModal(false);
@@ -130,8 +129,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
                 created_by: user?.id ?? null,
             };
 
-            const { error } = await supabase.from('public_editais').insert([payload]);
-            if (error) throw error;
+            await createPublicEdital(payload);
 
             toast.success('Edital cadastrado com sucesso!');
             onSuccess();

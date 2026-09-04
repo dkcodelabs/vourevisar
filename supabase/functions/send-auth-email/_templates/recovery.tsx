@@ -42,7 +42,7 @@ export const RecoveryEmail = ({
           <Section style={logoSection}>
             <Img
               src={logo_url}
-              width="280"
+              width="96"
               height="auto"
               alt="vouRevisar"
               style={logo}
@@ -129,7 +129,7 @@ const logoSection = {
 
 const logo = {
   margin: '0 auto',
-  maxWidth: '280px',
+  maxWidth: '96px',
 }
 
 const contentSection = {

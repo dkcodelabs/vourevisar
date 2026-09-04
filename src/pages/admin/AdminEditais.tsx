@@ -5,13 +5,14 @@ import {
     ChevronDown, ChevronUp, AlertTriangle, Send, CheckSquare, XCircle, MessageSquare, Clock,
     GraduationCap, BookOpen, List, Info, Loader2, FileText
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { deleteAdminEdital, fetchAdminEditais, fetchAdminEditalSuggestions, respondToAdminEditalSuggestion, saveAdminEdital, type AdminEditalSuggestion, type AdminPublicEdital } from '@/services/adminEditaisService';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { errorService } from '@/lib/errors/errorService';
 import { AdminEditalSubjectsModal } from '@/components/admin/AdminEditalSubjectsModal';
 import { AdminAddEditalModal } from '@/components/admin/AdminAddEditalModal';
+import { EMPTY_FORM, PRESET_CATEGORIES, RESPONSE_TEMPLATES, STATUS_BADGE } from '@/components/admin/adminEditaisConfig';
 
 
 interface Topic {
@@ -25,54 +26,8 @@ interface Subject {
     topics: Topic[];
 }
 
-interface PublicEdital {
-    id: string;
-    organ: string;
-    position: string;
-    year: string;
-    category: string;
-    exam_date?: string;
-    exam_board?: string | null;
-    is_public?: boolean;
-    status?: string;
-    created_at?: string;
-    subjects?: Subject[];
-}
-
-interface EditalSuggestion {
-    id: string;
-    user_id: string;
-    concurso: string;
-    status: 'pending' | 'cadastrado' | 'ja_cadastrado' | 'nao_cadastrado';
-    response_message?: string;
-    responded_at?: string;
-    created_at: string;
-}
-
-const PRESET_CATEGORIES = ['Carreiras Policiais', 'Judiciário', 'Administrativo', 'Bancárias', 'Educação', 'Saúde', 'Militar', 'Outros'];
-
-const RESPONSE_TEMPLATES = {
-    cadastrado: '✅ Analisamos sua sugestão e o edital foi inserido no catálogo! Bons estudos!',
-    ja_cadastrado: 'ℹ️ Já disponível no catálogo. Utilize a busca em "Editais Prontos".',
-    nao_cadastrado: '❌ Analisamos sua sugestão, mas não foi possível cadastrar este edital no catálogo no momento. Agradecemos pelo interesse!',
-};
-
-const STATUS_BADGE = {
-    pending: { label: 'Pendente', cls: 'bg-amber-500/10 text-amber-500' },
-    cadastrado: { label: 'Atendida', cls: 'bg-emerald-500/10 text-emerald-500' },
-    ja_cadastrado: { label: 'Já Existia', cls: 'bg-blue-500/10 text-blue-500' },
-    nao_cadastrado: { label: 'Recusada', cls: 'bg-zinc-500/10 text-zinc-400' },
-};
-
-const EMPTY_FORM = {
-    organ: '',
-    position: '',
-    year: new Date().getFullYear().toString(),
-    category: 'Carreiras Policiais',
-    exam_date: '',
-    exam_board: '',
-    is_public: true,
-};
+type PublicEdital = AdminPublicEdital & { subjects?: Subject[] };
+type EditalSuggestion = AdminEditalSuggestion;
 
 const AdminEditais = () => {
     const [activeTab, setActiveTab] = useState<'editais' | 'solicitacoes'>('editais');
@@ -105,12 +60,7 @@ const AdminEditais = () => {
     const fetchEditais = useCallback(async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('public_editais')
-                .select('*')
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            setEditais(data || []);
+            setEditais(await fetchAdminEditais());
         } catch (err) {
             errorService.report(err, { module: 'AdminEditais', action: 'fetch', userMessage: 'Erro ao carregar editais.' });
         } finally {
@@ -121,11 +71,7 @@ const AdminEditais = () => {
     const fetchSuggestions = useCallback(async () => {
         setLoadingSuggestions(true);
         try {
-            const { data } = await supabase
-                .from('edital_suggestions')
-                .select('*')
-                .order('created_at', { ascending: false });
-            setSuggestions(data || []);
+            setSuggestions(await fetchAdminEditalSuggestions());
         } finally {
             setLoadingSuggestions(false);
         }
@@ -175,15 +121,7 @@ const AdminEditais = () => {
 
         setSavingEdital(true);
         try {
-            let error;
-            if (editingId) {
-                const { error: err } = await supabase.from('public_editais').update(payload).eq('id', editingId);
-                error = err;
-            } else {
-                const { error: err } = await supabase.from('public_editais').insert([payload]);
-                error = err;
-            }
-            if (error) throw error;
+            await saveAdminEdital(editingId, payload);
             
             toast.success(editingId ? 'Edital atualizado!' : 'Edital cadastrado!');
             setEditingId(null);
@@ -197,8 +135,7 @@ const AdminEditais = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            const { error } = await supabase.from('public_editais').delete().eq('id', id);
-            if (error) throw error;
+            await deleteAdminEdital(id);
             toast.success('Edital removido.');
             setConfirmDeleteId(null);
             fetchEditais();
@@ -212,22 +149,7 @@ const AdminEditais = () => {
         setSendingResponse(true);
         const msg = customMessage.trim() || RESPONSE_TEMPLATES[selectedTemplate];
         try {
-            const { error: suggErr } = await supabase.from('edital_suggestions').update({
-                status: selectedTemplate,
-                response_message: msg,
-                responded_at: new Date().toISOString(),
-            }).eq('id', suggestion.id);
-            if (suggErr) throw suggErr;
-
-            await supabase.from('user_notifications').insert({
-                user_id: suggestion.user_id,
-                title: `Resposta sobre "${suggestion.concurso}"`,
-                message: msg,
-                type: selectedTemplate === 'cadastrado' ? 'success' : selectedTemplate === 'nao_cadastrado' ? 'warning' : 'info',
-                read: false,
-                data: { reference_type: 'edital_suggestion', reference_id: suggestion.id },
-                // Omit category to prevent violations of user_notifications_category_check if 'sistema' is not supported
-            });
+            await respondToAdminEditalSuggestion(suggestion, selectedTemplate, msg);
 
             toast.success('Resposta enviada com sucesso!');
             setRespondingId(null);

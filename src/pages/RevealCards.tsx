@@ -6,7 +6,8 @@ import {
   StatsRevealCard,
   SubjectRevealCard,
 } from '@/components/ui/reveal-card';
-import { BookOpen, Sparkles, Trophy, Flame } from 'lucide-react';
+import { ActionAlert } from '@/components/ui/action-alert';
+import { BookOpen, Sparkles, Trophy, Flame, BellRing } from 'lucide-react';
 
 export default function RevealCardsPage() {
   return (
@@ -18,8 +19,56 @@ export default function RevealCardsPage() {
         </p>
       </div>
 
+      <section className="space-y-6" aria-labelledby="action-alert-heading">
+        <div>
+          <h2 id="action-alert-heading" className="flex items-center gap-2 text-lg font-semibold text-foreground">
+            <BellRing className="size-5 text-warning" aria-hidden="true" />
+            1. Alerta com ação
+          </h2>
+          <p className="mt-1 text-sm text-content-muted">
+            Aviso persistente para decisões importantes, com ação opcional e prioridade semântica.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <ActionAlert
+            title="Depois de configurar o local, não será possível fazer mudanças"
+            actionLabel="Saiba mais"
+            actionHref="#action-alert-usage"
+          />
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ActionAlert
+              variant="info"
+              title="Seu próximo ciclo já está pronto"
+              description="Confira as matérias antes de iniciar a primeira sessão."
+              actionLabel="Ver ciclo"
+              actionHref="/ciclo-estudos"
+            />
+            <ActionAlert
+              variant="success"
+              title="Alterações salvas com segurança"
+              description="O novo planejamento já está disponível em todos os seus dispositivos."
+            />
+          </div>
+        </div>
+
+        <div id="action-alert-usage" className="rounded-xl border border-border bg-muted/40 p-4">
+          <h3 className="font-semibold text-foreground">Importar e usar</h3>
+          <pre className="mt-3 overflow-x-auto rounded-lg bg-background p-4 text-sm text-foreground">
+            <code>{`import { ActionAlert } from "@/components/ui";
+
+<ActionAlert
+  title="Depois de configurar o local, não será possível fazer mudanças"
+  actionLabel="Saiba mais"
+  actionHref="/ajuda"
+/>`}</code>
+          </pre>
+        </div>
+      </section>
+
       <div className="space-y-6">
-        <h2 className="text-lg font-semibold text-foreground">1. Stats Reveal Card</h2>
+        <h2 className="text-lg font-semibold text-foreground">2. Stats Reveal Card</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <StatsRevealCard
             title="Sequência de Estudos"
@@ -49,7 +98,7 @@ export default function RevealCardsPage() {
       </div>
 
       <div className="space-y-6">
-        <h2 className="text-lg font-semibold text-foreground">2. Subject Reveal Card</h2>
+        <h2 className="text-lg font-semibold text-foreground">3. Subject Reveal Card</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <SubjectRevealCard
             name="Direito Administrativo"
@@ -71,7 +120,7 @@ export default function RevealCardsPage() {
       </div>
 
       <div className="space-y-6">
-        <h2 className="text-lg font-semibold text-foreground">3. Hover Reveal Card</h2>
+        <h2 className="text-lg font-semibold text-foreground">4. Hover Reveal Card</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <HoverRevealCard
             front={

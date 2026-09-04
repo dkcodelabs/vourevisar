@@ -26,7 +26,7 @@ export function TeamSwitcher({
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton size="lg" className="cursor-default hover:bg-transparent active:bg-transparent">
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+          <div className="flex aspect-square size-8 items-center justify-center text-sidebar-foreground">
             {activeTeam.logo}
           </div>
           <div className="grid flex-1 text-left text-sm leading-tight">

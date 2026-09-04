@@ -1,20 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-labelledby="title desc">
-  <title id="title">Simbolo vouRevisar</title>
-  <desc id="desc">Símbolo quadrado do vouRevisar com trilha de revisão e progresso.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 112" role="img" aria-labelledby="title desc">
+  <title id="title">Símbolo vouRevisar</title>
+  <desc id="desc">Monograma VR com gesto de conclusão e progresso.</desc>
   <defs>
-    <linearGradient id="vr-mark-gradient" x1="38" y1="128" x2="140" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2F80FF"/>
-      <stop offset="0.52" stop-color="#28B8D8"/>
-      <stop offset="1" stop-color="#5E9F3E"/>
+    <linearGradient id="lime" x1="12" y1="91" x2="77" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#63DF16"/>
+      <stop offset="0.58" stop-color="#A8F900"/>
+      <stop offset="1" stop-color="#D5FF45"/>
     </linearGradient>
-    <filter id="vr-soft-shadow" x="-20%" y="-25%" width="140%" height="150%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="12" stdDeviation="13" flood-color="#0F172A" flood-opacity="0.16"/>
-    </filter>
   </defs>
-
-  <rect x="18" y="18" width="144" height="144" rx="34" fill="#FFFFFF" filter="url(#vr-soft-shadow)"/>
-  <path d="M51 124H129" fill="none" stroke="#2F80FF" stroke-width="14" stroke-linecap="round"/>
-  <path d="M51 108L79 72L101 99L129 55" fill="none" stroke="url(#vr-mark-gradient)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="79" cy="72" r="8" fill="#FFFFFF" stroke="#28B8D8" stroke-width="5"/>
-  <circle cx="101" cy="99" r="8" fill="#FFFFFF" stroke="#5E9F3E" stroke-width="5"/>
+  <path d="M67 35H92c17 0 28 10 28 25 0 11-6 19-16 23l18 23h-19L87 85h-9l-9 17H50l16-29h26c8 0 12-5 12-12s-5-11-12-11H59l8-15Z" fill="#172033"/>
+  <path d="M13 67 35 90 73 24" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" stroke-width="20" opacity=".52"/>
+  <path d="M13 67 35 90 73 24" fill="none" stroke="url(#lime)" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>
 </svg>

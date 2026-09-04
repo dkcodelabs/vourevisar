@@ -1,7 +1,7 @@
 
-import { supabase } from '@/integrations/supabase/client';
 import { Subject, UserCycle } from '@/types';
 import type { TablesUpdate } from '@/integrations/supabase/types';
+import { completeUserCycle, fetchActiveUserCycle, fetchUserSubjectsPerDay, updateUserCycle } from '@/services/cyclePersistenceService';
 
 export const generateNextDay = async (
   userId: string,
@@ -18,11 +18,7 @@ export const generateNextDay = async (
   });
 
   // Get user settings for subjects_per_day
-  const { data: userSettings } = await supabase
-    .from('user_settings')
-    .select('subjects_per_day')
-    .eq('user_id', userId)
-    .single();
+  const { data: userSettings } = await fetchUserSubjectsPerDay(userId);
 
   const subjectsPerDay = userSettings?.subjects_per_day || 3;
   console.log('📋 Matérias por dia configuradas:', subjectsPerDay);
@@ -47,14 +43,7 @@ export const generateNextDay = async (
     console.log('🏁 Nenhuma matéria disponível - fim do ciclo');
 
     // Incrementar ciclos_realizados quando ciclo é concluído
-    await supabase
-      .from('user_cycles')
-      .update({
-        ciclos_realizados: (userCycle.ciclos_realizados || 0) + 1,
-        data_fim_ciclo: new Date().toISOString(),
-        atualizado_em: new Date().toISOString()
-      })
-      .eq('user_id', userId);
+    await completeUserCycle(userId, (userCycle.ciclos_realizados || 0) + 1);
 
     console.log('🎉 Ciclo concluído! ciclos_realizados incrementado');
     return { shouldShowNewCycleMessage: true };
@@ -135,15 +124,7 @@ export const generateNextDay = async (
     atualizado_em: new Date().toISOString()
   };
 
-  const { error } = await supabase
-    .from('user_cycles')
-    .update(updateData)
-    .eq('user_id', userId);
-
-  if (error) {
-    console.error('Error updating user cycle:', error);
-    throw error;
-  }
+  await updateUserCycle(userId, updateData);
 
   console.log('✅ Ciclo atualizado no banco de dados');
 
@@ -156,33 +137,19 @@ export const generateNextDay = async (
 export const loadUserCycle = async (userId: string) => {
   console.log('📋 Carregando ciclo do usuário:', userId);
 
-  const { data, error } = await supabase
-    .from('user_cycles')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .limit(1);
-
-  if (error) {
+  let data;
+  try {
+    data = await fetchActiveUserCycle(userId);
+  } catch (error) {
     console.error('Error loading user cycle:', error);
     return {
-      id: '',
-      user_id: userId,
-      ciclo_atual: [],
-      disciplinas_do_dia: [],
-      materias_pendentes: [],
-      ciclos_realizados: 0,
-      indice_atual: 0,
-      data_inicio_ciclo: new Date().toISOString(),
-      data_fim_ciclo: null,
-      atualizado_em: new Date().toISOString(),
-      created_at: new Date().toISOString()
+      id: '', user_id: userId, ciclo_atual: [], disciplinas_do_dia: [], materias_pendentes: [],
+      ciclos_realizados: 0, indice_atual: 0, data_inicio_ciclo: new Date().toISOString(),
+      data_fim_ciclo: null, atualizado_em: new Date().toISOString(), created_at: new Date().toISOString()
     };
   }
 
-  const cycleData = data?.[0] || null;
-
-  if (!cycleData) {
+  if (!data) {
     return {
       id: '',
       user_id: userId,
@@ -198,9 +165,10 @@ export const loadUserCycle = async (userId: string) => {
     };
   }
 
-  console.log('📋 Ciclo carregado:', cycleData);
-  return cycleData;
+  console.log('📋 Ciclo carregado:', data);
+  return data;
 };
+
 
 export const cleanCycle = (
   currentCycle: string[],

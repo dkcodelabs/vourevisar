@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getUnifiedSubjectId } from '@/services/cycleMergeService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,14 +7,10 @@ import { useTimer } from '@/contexts/TimerContext';
 import { renderCycleTooltip } from '@/components/study-cycle/CycleTooltip';
 import { StudyCycleLoadError } from '@/components/study-cycle/StudyCycleLoadError';
 import { StudyCycleWorkspace } from '@/components/study-cycle/StudyCycleWorkspace';
-import { CycleEmptyState } from '@/components/study-cycle/CycleEmptyState';
-import { SubjectsModalLayer } from '@/components/study-cycle/SubjectsModalLayer';
-
+import { SubjectsPageView } from '@/components/study-cycle/SubjectsPageView';
 import { errorService } from '@/lib/errors/errorService';
 import { toast } from '@/lib/toast';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
-import { useStudyCycleStrategicData } from '@/hooks/useStudyCycleStrategicData';
-
 import { useMergeData } from '@/hooks/useMergeData';
 import { useCycleQueueOrderActions } from '@/hooks/useCycleQueueOrderActions';
 import { useCycleSubjectCompletionActions } from '@/hooks/useCycleSubjectCompletionActions';
@@ -32,7 +27,6 @@ import { useSubjectsCycleRuntime } from '@/hooks/useSubjectsCycleRuntime';
 import { useCycleQueueDisplayState } from '@/hooks/useCycleQueueDisplayState';
 import { useCycleReorderControls } from '@/hooks/useCycleReorderControls';
 import { useCycleSubjectListState } from '@/hooks/useCycleSubjectListState';
-import { useCycleTopicNotesState } from '@/hooks/useCycleTopicNotesState';
 import { useSubjectMergeReversion } from '@/hooks/useSubjectMergeReversion';
 import { useSubjectWeightEditor } from '@/hooks/useSubjectWeightEditor';
 import { useTopicReview } from '@/hooks/useTopicReview';
@@ -40,52 +34,26 @@ import { useTopicStudySessionFlow } from '@/hooks/useTopicStudySessionFlow';
 import { useCycleExpansionState } from '@/hooks/useCycleExpansionState';
 import { useCycleSearch } from '@/hooks/useCycleSearch';
 import { useCycleUnloadConfirmation } from '@/hooks/useCycleUnloadConfirmation';
-import { useCycleVerticalViewData } from '@/hooks/useCycleVerticalViewData';
-import { useCycleViewMode } from '@/hooks/useCycleViewMode';
 import { useCycleStrategicAlertActions } from '@/hooks/useCycleStrategicAlertActions';
 import { useCycleTopicFocus } from '@/hooks/useCycleTopicFocus';
-import { useStrategicDockVisibility } from '@/hooks/useStrategicDockVisibility';
-import {
-  formatStudyMinutes,
-  getCycleTopicStatusVisual,
-  getTopicContactCount,
-  isTopicCompleted,
-  isTopicNewlyStartedInCycle,
-  isTopicStarted,
-} from '@/utils/cycleTopicPresentation';
+import { useSubjectsTimerGuards } from '@/hooks/useSubjectsTimerGuards';
+import { useSubjectsCycleEntryState } from '@/hooks/useSubjectsCycleEntryState';
+import { useSubjectsPresentationState } from '@/hooks/useSubjectsPresentationState';
+import { useSubjectsFocusState } from '@/hooks/useSubjectsFocusState';
+import { formatStudyMinutes, getCycleTopicStatusVisual, getTopicContactCount, isTopicCompleted, isTopicNewlyStartedInCycle, isTopicStarted } from '@/utils/cycleTopicPresentation';
 import { getStartedTopicCycleCta } from '@/utils/studyCycleSubjectState';
-import {
-  isVisibleCycleTopic,
-} from '@/utils/studyCycleTopicVisibility';
-import { guardActiveTimerOperation } from '@/utils/activeTimerOperationGuard';
-import { focusCycleSubject } from '@/utils/focusCycleSubject';
-import { fetchActiveTopicContext } from '@/services/activeTopicContextService';
-import { updateActiveCycleName } from '@/services/cycleNameService';
-import { mergeService } from '@/services/mergeService';
-import { getCycleEntryState } from '@/utils/cycleEntryState';
+import { isVisibleCycleTopic } from '@/utils/studyCycleTopicVisibility';
+import { useSubjectsCycleName } from '@/hooks/useSubjectsCycleName';
+import { useUnifiedSubjectNameSave } from '@/hooks/useUnifiedSubjectNameSave';
+import { useSubjectsNavigationActions } from '@/hooks/useSubjectsNavigationActions';
 
 type SubjectTab = 'all' | 'vertical';
 
 const Subjects = () => {
   const { user } = useAuth();
   const { resetTimer, resumeTimer, setProcessedUpdate, stopTimer } = useTimer();
-  const {
-    originsMap,
-    subjectIndividualOriginsMap,
-    editaisData,
-    editaisNoCiclo,
-    activeSubjectIdsSet,
-    refresh,
-    isLoading: isOriginsLoading,
-  } = useEditalOriginsWithMerge();
-  const {
-    getUnifiedSubjectName,
-    isSubjectMerged,
-    revertSubjectMerge,
-    getSubjectMergeInfo,
-    dynamicUnificationMap,
-    refresh: refreshMergeData,
-  } = useMergeData();
+  const { originsMap, subjectIndividualOriginsMap, editaisData, editaisNoCiclo, activeSubjectIdsSet, refresh, isLoading: isOriginsLoading } = useEditalOriginsWithMerge();
+  const { getUnifiedSubjectName, isSubjectMerged, revertSubjectMerge, getSubjectMergeInfo, dynamicUnificationMap, refresh: refreshMergeData } = useMergeData();
   const navigate = useNavigate();
   const {
     dataLoaded,
@@ -109,15 +77,7 @@ const Subjects = () => {
     focusSubjectId?: string;
     focusTopicId?: string;
   } | null;
-  const {
-    closeImportEditalModal,
-    inputRef,
-    isImportEditalModalOpen,
-    modalInitialTab,
-    openCycleSearch,
-    setIsCycleSearchOpen,
-    setIsImportEditalModalOpen,
-  } = useSubjectsNavigationState({
+  const { closeImportEditalModal, inputRef, isImportEditalModalOpen, modalInitialTab, openCycleSearch, setIsCycleSearchOpen, setIsImportEditalModalOpen } = useSubjectsNavigationState({
     locationState: subjectsLocationState,
   });
   const {
@@ -192,17 +152,12 @@ const Subjects = () => {
 
   const { openReviewModal, difficultyModalData, closeDifficultyModal, markTopicAsReviewed, isLoading: isSavingTopicReview } = useTopicReview();
   const { activeTimer, handleTopicStudyAction } = useTopicStudySessionFlow({ openReviewModal });
-  const handleSaveUnifiedSubjectName = useCallback(async (originalSubjectIds: string[], displayName: string) => {
-    if (!user?.id) throw new Error('Sessão expirada. Entre novamente para salvar.');
-    const merge = originalSubjectIds
-      .map(subjectId => getSubjectMergeInfo(subjectId))
-      .find(Boolean);
-    if (!merge) throw new Error('Não encontrei a mesclagem desta matéria para salvar o nome.');
-
-    await mergeService.updateSubjectMergeDisplayName(merge.id, user.id, displayName);
-    await refreshMergeData();
-    await refreshData();
-  }, [getSubjectMergeInfo, refreshData, refreshMergeData, user?.id]);
+  const { handleSaveUnifiedSubjectName } = useUnifiedSubjectNameSave({
+    getSubjectMergeInfo,
+    refreshData,
+    refreshMergeData,
+    userId: user?.id,
+  });
   const {
     editaisNoCicloModalData,
     handleCloseSubjectsModal,
@@ -243,7 +198,6 @@ const Subjects = () => {
   const [completeCycleConfirmOpen, setCompleteCycleConfirmOpen] = useState(false);
   const [pendingCompleteSubjectId, setPendingCompleteSubjectId] = useState<string | null>(null);
 
-  // View mode: ciclo padrão ou visualização verticalizada do edital
   const [activeTab, setActiveTab] = useState<SubjectTab>('all');
 
   const {
@@ -262,26 +216,11 @@ const Subjects = () => {
     localSubjects,
     userCycle,
   });
-  const activeTimerFocusedSubjectId = useMemo(() => {
-    if (!activeTimer?.topicId) return null;
-
-    return expandedSubjectList.find(item =>
-      item.subject.topics.some(topic => topic.id === activeTimer.topicId)
-    )?.subject.id || null;
-  }, [activeTimer?.topicId, expandedSubjectList]);
-  const navigationFocusedSubjectId = useMemo(() => {
-    if (!subjectsLocationState?.focusTopicId) return subjectsLocationState?.focusSubjectId || null;
-
-    return expandedSubjectList.find(item =>
-      item.subject.topics.some(topic => topic.id === subjectsLocationState.focusTopicId)
-    )?.subject.id || subjectsLocationState.focusSubjectId || null;
-  }, [expandedSubjectList, subjectsLocationState?.focusSubjectId, subjectsLocationState?.focusTopicId]);
-  const preserveExpandedSubjectIdSet = useMemo(() => {
-    const ids = new Set<string>();
-    if (navigationFocusedSubjectId) ids.add(navigationFocusedSubjectId);
-    if (activeTimerFocusedSubjectId) ids.add(activeTimerFocusedSubjectId);
-    return ids;
-  }, [activeTimerFocusedSubjectId, navigationFocusedSubjectId]);
+  const { activeTimerFocusedSubjectId, preserveExpandedSubjectIdSet } = useSubjectsFocusState({
+    activeTimerTopicId: activeTimer?.topicId,
+    expandedSubjectList,
+    locationState: subjectsLocationState,
+  });
 
   const {
     cycleExpandedSubjectIds,
@@ -317,9 +256,6 @@ const Subjects = () => {
     setHighlightedSubjectId,
   });
 
-  // Sincronização redundante de localSubjects removida para evitar flicker.
-  // localSubjects agora é gerenciado diretamente no loadSubjects.
-
   const {
     cycleSnapshots,
     cycleStudyEvents,
@@ -337,23 +273,13 @@ const Subjects = () => {
     visibleCycleTopicIds,
   });
 
-  const handleCycleTopicStudyAction = useCallback(async (topicId: string) => {
-    try {
-      await handleTopicStudyAction(topicId);
-    } catch (error) {
-      await errorService.report(
-        error,
-        {
-          module: 'Subjects',
-          action: 'handleCycleTopicStudyAction',
-          userMessage: 'Erro ao abrir sessão de estudo do tópico.',
-          severity: 'medium',
-          scope: 'core',
-          userId: user?.id,
-        },
-      );
-    }
-  }, [handleTopicStudyAction, user?.id]);
+  const { focusSubjectFromStrategicAction, handleCycleTopicStudyAction, handleOpenImport } = useSubjectsNavigationActions({
+    handleTopicStudyAction,
+    setActiveTab,
+    setCycleExpandedSubjectIds,
+    setHighlightedSubjectId,
+    userId: user?.id,
+  });
 
   const {
     executeMarcarMateriaComoEstudada,
@@ -375,11 +301,7 @@ const Subjects = () => {
     userCycle,
   });
 
-  const {
-    closeCycleSearch,
-    filteredList,
-    handleCycleSearchChange,
-  } = useCycleSearch({
+  const { closeCycleSearch, filteredList, handleCycleSearchChange } = useCycleSearch({
     activeTab,
     cycleClosedSubjectIdSet,
     cycleExpandedSubjectIds,
@@ -391,68 +313,27 @@ const Subjects = () => {
     setQuery: setCycleSearchQuery,
   });
 
-  const {
-    cycleDisplayName,
-    displayList,
-    handleLoadMore,
-    hasActiveCycle,
-    hasMore,
-    isCycleFullyStudied,
-    orderedCycleDisplayList,
-    showCycleWorkspace,
-    totalDisplayItems,
-    visibleCount,
-  } = useCycleQueueDisplayState({
+  const { cycleDisplayName, displayList, handleLoadMore, hasActiveCycle, hasMore, isCycleFullyStudied, orderedCycleDisplayList, showCycleWorkspace, totalDisplayItems, visibleCount } = useCycleQueueDisplayState({
     cycleClosedSubjectIdSet,
     expandedSubjectList,
     filteredList,
     userCycle,
   });
 
-  const cycleEntryState = useMemo(() => getCycleEntryState({
-    access: { status: 'active' },
-    content: {
-      editalCount: editaisData.length,
-      editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
-      cycleSubjectsCount: expandedSubjectList.length,
-      hasActiveCycle: hasActiveCycle,
-      isLoading: isLoading || loading || isOriginsLoading,
-      hasLoadError: Boolean(loadError),
-      searchQuery: cycleSearchQuery,
-      filteredItemCount: displayList.length,
-    },
-  }), [cycleSearchQuery, displayList.length, editaisData, expandedSubjectList.length, hasActiveCycle, isLoading, isOriginsLoading, loadError, loading]);
+  const cycleEntryState = useSubjectsCycleEntryState({
+    cycleSearchQuery,
+    cycleSubjectsCount: expandedSubjectList.length,
+    editalCount: editaisData.length,
+    editaisWithContentCount: editaisData.filter(edital => edital.subject_ids.length > 0).length,
+    filteredItemCount: displayList.length,
+    hasActiveCycle,
+    isLoading,
+    isOriginsLoading,
+    loadError,
+    loading,
+  });
 
-  const handleOpenImport = useCallback((tab: 'ready' | 'ia' | 'manual') => {
-    navigate('/meus-editais', {
-      state: { openImportModal: true, importTab: tab },
-    });
-  }, [navigate]);
-
-  const handleRenameCycle = useCallback(async (name: string) => {
-    if (!user?.id || !userCycle) throw new Error('Ciclo ativo não encontrado');
-
-    try {
-      const updatedCycle = await updateActiveCycleName({ name, userId: user.id });
-      const nextCycle = { ...userCycle, name: updatedCycle.name };
-      setUserCycle(nextCycle);
-      localStorage.setItem(`user_cycle_cache_${user.id}`, JSON.stringify(nextCycle));
-      window.dispatchEvent(new CustomEvent('cycleUpdated', {
-        detail: { source: 'Subjects', action: 'updateCycleName' },
-      }));
-      toast.success('Nome do ciclo atualizado.');
-    } catch (error) {
-      await errorService.report(error, {
-        module: 'Subjects',
-        action: 'updateCycleName',
-        userMessage: 'Não foi possível atualizar o nome do ciclo.',
-        severity: 'medium',
-        scope: 'core',
-        userId: user.id,
-      });
-      throw error;
-    }
-  }, [setUserCycle, user?.id, userCycle]);
+  const { handleRenameCycle } = useSubjectsCycleName({ setUserCycle, user, userCycle });
 
   const {
     handleApplySuggestedQueueOrder,
@@ -467,200 +348,112 @@ const Subjects = () => {
     user,
     userCycle,
   });
-  const activeTimerTopicName = useMemo(() => {
-    if (!activeTimer?.topicId) return null;
-
-    for (const item of expandedSubjectList) {
-      const topic = item.subject.topics.find(subjectTopic => subjectTopic.id === activeTimer.topicId);
-      if (topic?.name) return topic.name;
-    }
-
-    return null;
-  }, [activeTimer?.topicId, expandedSubjectList]);
-  const focusActiveTimerTopic = useCallback(() => {
-    if (!activeTimer?.topicId) return;
-
-    void (async () => {
-      try {
-        const topicContext = await fetchActiveTopicContext(activeTimer.topicId);
-        if (topicContext.destination === 'reviews') {
-          navigate(`/revisoes?topicId=${activeTimer.topicId}`, {
-            state: { focusTopicId: activeTimer.topicId },
-          });
-          return;
-        }
-      } catch {
-        navigate(`/revisoes?topicId=${activeTimer.topicId}`, {
-          state: { focusTopicId: activeTimer.topicId },
-        });
-        return;
-      }
-
-      if (!activeTimerFocusedSubjectId) return;
-
-      focusCycleSubject({
-        focusSubjectId: activeTimerFocusedSubjectId,
-        focusTopicId: activeTimer.topicId,
-        setActiveTab,
-        setCycleExpandedSubjectIds,
-        setHighlightedSubjectId,
-      });
-    })();
-  }, [
-    activeTimer?.topicId,
+  const activeTimerTopicName = useMemo(() => expandedSubjectList
+    .flatMap(item => item.subject.topics)
+    .find(topic => topic.id === activeTimer?.topicId)?.name || null, [activeTimer?.topicId, expandedSubjectList]);
+  const {
+    executeMarkSubjectStudiedWithTimerGuard,
+    handleApplySuggestedQueueOrderWithTimerGuard,
+    handleDeletePermanentWithTimerGuard,
+    handleDragEndWithTimerGuard,
+    handleMarkSubjectStudiedWithTimerGuard,
+    handleOpenResetCycleConfirmWithTimerGuard,
+    handleResetCycleWithTimerGuard,
+    handleReturnSubjectToQueueWithTimerGuard,
+    handleStartNextCycleWithTimerGuard,
+    handleToggleCycleReorderWithTimerGuard,
+    handleUnloadConfirmWithTimerGuard,
+  } = useSubjectsTimerGuards({
+    activeTimer,
     activeTimerFocusedSubjectId,
+    activeTimerTopicName,
+    applySuggestedQueueOrder: handleApplySuggestedQueueOrder,
+    executeMarcarMateriaComoEstudada,
+    handleDeletePermanent,
+    handleDragEnd,
+    handleResetCycle,
+    handleStartNextCycle: startNextCycle,
+    handleToggleCycleReorder,
+    handleUnloadConfirm,
+    handleVoltarMateriaParaFila,
+    markMateriaComoEstudada: handleMarcarMateriaComoEstudada,
     navigate,
     setActiveTab,
     setCycleExpandedSubjectIds,
     setHighlightedSubjectId,
-  ]);
-  const canRunCycleStructuralOperation = useCallback(
-    () => {
-      const message = activeTimerTopicName
-        ? `Finalize, retome ou descarte a sessão em "${activeTimerTopicName}" antes de alterar o ciclo.`
-        : undefined;
-      const canRun = guardActiveTimerOperation(activeTimer, message);
-      if (!canRun) focusActiveTimerTopic();
-      return canRun;
-    },
-    [activeTimer, activeTimerTopicName, focusActiveTimerTopic],
-  );
-  const handleMarkSubjectStudiedWithTimerGuard = useCallback((subjectId: string) => {
-    if (!canRunCycleStructuralOperation()) return;
-    handleMarcarMateriaComoEstudada(subjectId);
-  }, [canRunCycleStructuralOperation, handleMarcarMateriaComoEstudada]);
-  const executeMarkSubjectStudiedWithTimerGuard = useCallback(async (subjectId: string) => {
-    if (!canRunCycleStructuralOperation()) return;
-    await executeMarcarMateriaComoEstudada(subjectId);
-    setPendingCompleteSubjectId(null);
-  }, [canRunCycleStructuralOperation, executeMarcarMateriaComoEstudada]);
-  const handleReturnSubjectToQueueWithTimerGuard = useCallback((subjectId: string) => {
-    if (!canRunCycleStructuralOperation()) return;
-    handleVoltarMateriaParaFila(subjectId);
-  }, [canRunCycleStructuralOperation, handleVoltarMateriaParaFila]);
-  const handleStartNextCycleWithTimerGuard = useCallback(() => {
-    if (!canRunCycleStructuralOperation()) return;
-    void startNextCycle();
-  }, [canRunCycleStructuralOperation, startNextCycle]);
-  const handleOpenResetCycleConfirmWithTimerGuard = useCallback((open: boolean) => {
-    if (open && !canRunCycleStructuralOperation()) return;
-    setResetCycleConfirmOpen(open);
-  }, [canRunCycleStructuralOperation, setResetCycleConfirmOpen]);
-  const handleResetCycleWithTimerGuard = useCallback(async () => {
-    if (!canRunCycleStructuralOperation()) return;
-    await handleResetCycle();
-  }, [canRunCycleStructuralOperation, handleResetCycle]);
-  const handleUnloadConfirmWithTimerGuard = useCallback(async () => {
-    if (!canRunCycleStructuralOperation()) return;
-    await handleUnloadConfirm();
-  }, [canRunCycleStructuralOperation, handleUnloadConfirm]);
-  const handleDeletePermanentWithTimerGuard = useCallback(async (subjectId: string, editalIdToRemove?: string) => {
-    if (!canRunCycleStructuralOperation()) return;
-    await handleDeletePermanent(subjectId, editalIdToRemove);
-  }, [canRunCycleStructuralOperation, handleDeletePermanent]);
-  const handleToggleCycleReorderWithTimerGuard = useCallback(() => {
-    if (!canRunCycleStructuralOperation()) return;
-    handleToggleCycleReorder();
-  }, [canRunCycleStructuralOperation, handleToggleCycleReorder]);
-  const handleDragEndWithTimerGuard = useCallback((event: Parameters<typeof handleDragEnd>[0]) => {
-    if (!canRunCycleStructuralOperation()) return;
-    void handleDragEnd(event);
-  }, [canRunCycleStructuralOperation, handleDragEnd]);
-  const handleApplySuggestedQueueOrderWithTimerGuard = useCallback((suggestedOrder: string[]) => {
-    if (!canRunCycleStructuralOperation()) return;
-    void handleApplySuggestedQueueOrder(suggestedOrder);
-  }, [canRunCycleStructuralOperation, handleApplySuggestedQueueOrder]);
-
-  const {
-    getSubjectTopicSummaryLabel,
-    verticalSubjectList,
-    verticalSummaryEdital,
-  } = useCycleVerticalViewData({
-    completedEditalSubjectIdSet,
-    dynamicUnificationMap,
-    editaisNoCiclo,
-    filteredList,
-    fullyStartedSubjectIdSet,
-    getUnifiedSubjectId,
-    isImportEditalModalOpen,
-    isTopicCompleted,
-    isTopicStarted,
-    isVisibleCycleTopic,
-    query: cycleSearchQuery,
-    studiedCycleIdSet,
-    userCycleStartDate: userCycle?.data_inicio_ciclo,
+    setPendingCompleteSubjectId,
+    setResetCycleConfirmOpen,
   });
+
   const {
     closeTopicNotes,
-    openQueueTopicNotes,
-    openVerticalTopicNotes,
-    selectedTopicForNotes,
-  } = useCycleTopicNotesState({
-    verticalSubjectList,
-  });
-
-  useEffect(() => {
-    if (activeTab !== 'vertical') return;
-    setVerticalExpandedSubjectIds(verticalSubjectList.map(item => item.id));
-  }, [activeTab, setVerticalExpandedSubjectIds, verticalSubjectList]);
-
-  const {
-    handleViewModeToggle,
-    toggleAllCycleSubjects,
-    toggleExpand,
-  } = useCycleViewMode({
-    activeTab,
-    expandedSubjectIds,
-    filteredSubjectIds: filteredList.map(item => item.id),
-    setActiveTab,
-    setCycleExpandedSubjectIds,
-    setVerticalExpandedSubjectIds,
-    verticalSubjectIds: verticalSubjectList.map(item => item.id),
-  });
-
-  const {
     cycleEventInsights,
     cycleMaturity,
     cycleMetrics,
     cycleTransitionSummary,
     cycleVisualStats,
-    queueSuggestion,
-    strategicAlerts,
-    strategicPanelStats,
-  } = useStudyCycleStrategicData({
-    cycleClosedSubjectIdSet,
-    cycleSnapshots,
-    cycleStudyEvents,
-    dynamicUnificationMap,
-    editaisNoCiclo,
-    expandedSubjectList,
-    getUnifiedSubjectName,
-    topicStudyMinutes,
-    userCycle,
-  });
-  const {
+    getSubjectTopicSummaryLabel,
+    handleViewModeToggle,
     isStrategicDockVisible,
+    openQueueTopicNotes,
+    openVerticalTopicNotes,
+    queueSuggestion,
+    selectedTopicForNotes,
+    strategicAlerts,
     strategicDockLayout,
     strategicDockRef,
     strategicPanelRef,
+    strategicPanelStats,
     strategicPanelTitleRef,
-  } = useStrategicDockVisibility({
+    toggleAllCycleSubjects,
+    toggleExpand,
+    verticalSubjectList,
+    verticalSummaryEdital,
+  } = useSubjectsPresentationState({
     activeTab,
-    isLoading,
-    isOriginsLoading,
-    loading,
-    queueSuggestion,
-    showCycleWorkspace,
-    strategicAlertsLength: strategicAlerts.length,
-  });
-
-  const focusSubjectFromStrategicAction = useCallback((subjectId: string) => {
-    focusCycleSubject({
-      focusSubjectId: subjectId,
+    dockVisibility: {
+      activeTab,
+      isLoading,
+      isOriginsLoading,
+      loading,
+      showCycleWorkspace,
+    },
+    setVerticalExpandedSubjectIds,
+    strategicData: {
+      cycleClosedSubjectIdSet,
+      cycleSnapshots,
+      cycleStudyEvents,
+      dynamicUnificationMap,
+      editaisNoCiclo,
+      expandedSubjectList,
+      getUnifiedSubjectName,
+      topicStudyMinutes,
+      userCycle,
+    },
+    verticalView: {
+      completedEditalSubjectIdSet,
+      dynamicUnificationMap,
+      editaisNoCiclo,
+      filteredList,
+      fullyStartedSubjectIdSet,
+      getUnifiedSubjectId,
+      isImportEditalModalOpen,
+      isTopicCompleted,
+      isTopicStarted,
+      isVisibleCycleTopic,
+      query: cycleSearchQuery,
+      studiedCycleIdSet,
+      userCycleStartDate: userCycle?.data_inicio_ciclo,
+    },
+    viewMode: {
+      activeTab,
+      expandedSubjectIds,
+      filteredSubjectIds: filteredList.map(item => item.id),
+      setActiveTab,
       setCycleExpandedSubjectIds,
-      setHighlightedSubjectId,
-    });
-  }, [setCycleExpandedSubjectIds, setHighlightedSubjectId]);
+      setVerticalExpandedSubjectIds,
+    },
+  });
 
   const { handleStrategicAlertAction } = useCycleStrategicAlertActions({
     expandedSubjectList,
@@ -820,10 +613,10 @@ const Subjects = () => {
         filteredSubjectIds: filteredList.map((item) => item.id),
         inputRef,
         isReorderingCycle,
-	        onActivateSearch: openCycleSearch,
-	        onClearSearch: closeCycleSearch,
-	        onRenameCycle: handleRenameCycle,
-	        onSearchChange: handleCycleSearchChange,
+        onActivateSearch: openCycleSearch,
+        onClearSearch: closeCycleSearch,
+        onRenameCycle: handleRenameCycle,
+        onSearchChange: handleCycleSearchChange,
         onToggleAll: toggleAllCycleSubjects,
         onToggleReorder: handleToggleCycleReorderWithTimerGuard,
         onToggleViewMode: handleViewModeToggle,
@@ -833,87 +626,69 @@ const Subjects = () => {
   );
 
   return (
-    <div className="flex w-full font-sans text-foreground">
-      <div className="flex-1 flex flex-col relative w-full">
-
-        {/* Header Outside Card */}
-        <main className="flex-1 px-0 pb-8 pt-0 flex flex-col gap-6">
-          <div className="flex-1 min-w-0 w-full">
-            {!isImportEditalModalOpen && (
-              showCycleWorkspace ? (
-                mainSubjectUI
-              ) : (
-                <div className="flex min-h-[520px] w-full items-center justify-center text-center">
-                  <div className="w-full max-w-3xl">
-                    <CycleEmptyState
-                      state={cycleEntryState}
-                      onGoToEditais={() => navigate('/meus-editais', { state: { filterCycle: hasActiveCycle } })}
-                      onOpenImport={handleOpenImport}
-                    />
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-        </main>
-
-        {/* Modals positioned within the layout */}
-        <SubjectsModalLayer
-          closeDifficultyModal={closeDifficultyModal}
-          completeCycleConfirmOpen={completeCycleConfirmOpen}
-          cycleExamDateDraft={cycleExamDateDraft}
-          cycleExamDateEditorOpen={cycleExamDateEditorOpen}
-          cycleExamDateError={cycleExamDateError}
-          deletePermanentConfirm={deletePermanentConfirm}
-          difficultyModalData={difficultyModalData}
-          editaisNoCiclo={editaisNoCicloModalData}
-          executeMarcarMateriaComoEstudada={executeMarkSubjectStudiedWithTimerGuard}
-          handleDeletePermanent={handleDeletePermanentWithTimerGuard}
-          handleDifficultyConfirmReview={handleDifficultyConfirmReview}
-          handleDifficultyDiscard={handleDifficultyDiscard}
-          handleDifficultyResume={handleDifficultyResume}
-          handleDifficultySubmit={handleDifficultySubmit}
-          handleResetCycle={handleResetCycleWithTimerGuard}
-          isImportEditalModalOpen={isImportEditalModalOpen}
-          isResettingCycle={isResettingCycle}
-          isRevertModalOpen={isRevertModalOpen}
-          isReverting={isReverting}
-          isSavingCycleExamDate={isSavingCycleExamDate}
-          isSavingTopicReview={isSavingTopicReview}
-          mainSubjectUI={mainSubjectUI}
-          modalInitialTab={modalInitialTab}
-          onCloseImportEditalModal={() => setIsImportEditalModalOpen(false)}
-          onCloseNotesModal={closeTopicNotes}
-          onCloseRevertModal={handleCloseRevertModal}
-          onCloseSubjectOriginChooser={handleCloseSubjectOriginChooser}
-          onCloseSubjectsModal={handleCloseSubjectsModal}
-          onCycleExamDateOpenChange={handleCycleExamDateEditorOpenChange}
-          onDeletePermanentConfirmOpenChange={(open) => !open && setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, editais: [] })}
-          onImportSubjects={handleImportSubjects}
-          onResetCycleConfirmOpenChange={handleOpenResetCycleConfirmWithTimerGuard}
-          onRevertMergeConfirm={handleRevertMergeConfirm}
-          onSaveCycleExamDate={saveCycleExamDate}
-          onSaveSubjectOriginName={handleSaveSubjectOriginName}
-          onSetCycleExamDateDraft={setCycleExamDateDraft}
-          onSetUnloadConfirmOpen={handleUnloadConfirmOpenChange}
-          onSelectSubjectOrigin={handleSelectSubjectOrigin}
-          onSubjectOriginNameDraftChange={handleSubjectOriginNameDraftChange}
-          onSubjectsModalUpdate={handleSubjectsModalUpdate}
-          onUnloadConfirm={handleUnloadConfirmWithTimerGuard}
-          pendingCompleteSubjectId={pendingCompleteSubjectId}
-          resetCycleConfirmOpen={resetCycleConfirmOpen}
-          selectedMergeName={selectedMergeName}
-          selectedMergeOriginals={selectedMergeOriginals}
-          selectedTopicForNotes={selectedTopicForNotes}
-          setCompleteCycleConfirmOpen={setCompleteCycleConfirmOpen}
-          subjectOriginChooser={subjectOriginChooser}
-          subjects={subjects}
-          subjectsModal={subjectsModal}
-          unloadConfirm={unloadConfirm}
-          unloadingEditalId={unloadingEditalId}
-        />
-      </div>
-    </div>
+    <SubjectsPageView
+      cycleEntryState={cycleEntryState}
+      hasActiveCycle={hasActiveCycle}
+      isImportEditalModalOpen={isImportEditalModalOpen}
+      modalLayerProps={{
+        closeDifficultyModal,
+        completeCycleConfirmOpen,
+        cycleExamDateDraft,
+        cycleExamDateEditorOpen,
+        cycleExamDateError,
+        deletePermanentConfirm,
+        difficultyModalData,
+        editaisNoCiclo: editaisNoCicloModalData,
+        executeMarcarMateriaComoEstudada: executeMarkSubjectStudiedWithTimerGuard,
+        handleDeletePermanent: handleDeletePermanentWithTimerGuard,
+        handleDifficultyConfirmReview,
+        handleDifficultyDiscard,
+        handleDifficultyResume,
+        handleDifficultySubmit,
+        handleResetCycle: handleResetCycleWithTimerGuard,
+        isImportEditalModalOpen,
+        isResettingCycle,
+        isRevertModalOpen,
+        isReverting,
+        isSavingCycleExamDate,
+        isSavingTopicReview,
+        mainSubjectUI,
+        modalInitialTab,
+        onCloseImportEditalModal: () => setIsImportEditalModalOpen(false),
+        onCloseNotesModal: closeTopicNotes,
+        onCloseRevertModal: handleCloseRevertModal,
+        onCloseSubjectOriginChooser: handleCloseSubjectOriginChooser,
+        onCloseSubjectsModal: handleCloseSubjectsModal,
+        onCycleExamDateOpenChange: handleCycleExamDateEditorOpenChange,
+        onDeletePermanentConfirmOpenChange: (open) => !open && setDeletePermanentConfirm({ isOpen: false, subjectId: null, subjectName: null, editais: [] }),
+        onImportSubjects: handleImportSubjects,
+        onResetCycleConfirmOpenChange: handleOpenResetCycleConfirmWithTimerGuard,
+        onRevertMergeConfirm: handleRevertMergeConfirm,
+        onSaveCycleExamDate: saveCycleExamDate,
+        onSaveSubjectOriginName: handleSaveSubjectOriginName,
+        onSetCycleExamDateDraft: setCycleExamDateDraft,
+        onSetUnloadConfirmOpen: handleUnloadConfirmOpenChange,
+        onSelectSubjectOrigin: handleSelectSubjectOrigin,
+        onSubjectOriginNameDraftChange: handleSubjectOriginNameDraftChange,
+        onSubjectsModalUpdate: handleSubjectsModalUpdate,
+        onUnloadConfirm: handleUnloadConfirmWithTimerGuard,
+        pendingCompleteSubjectId,
+        resetCycleConfirmOpen,
+        selectedMergeName,
+        selectedMergeOriginals,
+        selectedTopicForNotes,
+        setCompleteCycleConfirmOpen,
+        subjectOriginChooser,
+        subjects,
+        subjectsModal,
+        unloadConfirm,
+        unloadingEditalId,
+      }}
+      onGoToEditais={() => navigate('/meus-editais', { state: { filterCycle: hasActiveCycle } })}
+      onOpenImport={handleOpenImport}
+      showCycleWorkspace={showCycleWorkspace}
+      workspace={mainSubjectUI}
+    />
   );
 };
 

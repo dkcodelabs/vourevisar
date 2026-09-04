@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Shield, AlertTriangle, User } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { getCurrentAuthUser } from '@/services/authFlowService';
 import { toast } from '@/lib/toast';
 import { AdminUser } from '@/hooks/useAdminUsers';
 import { toastGate } from '@/lib/errors/toastGate';
@@ -51,7 +51,7 @@ export function EditRoleModal({ isOpen, onClose, user, onRoleUpdated }: EditRole
             // 1. Audit Log Stub
             const auditPayload = {
                 action: "user.role_updated",
-                actor_id: (await supabase.auth.getUser()).data.user?.id,
+                actor_id: (await getCurrentAuthUser()).data.user?.id,
                 target_id: user.id,
                 metadata: { from: user.role, to: selectedRole },
                 created_at: new Date().toISOString()

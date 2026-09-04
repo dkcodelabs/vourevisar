@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchUserActivity } from '@/services/adminUserActivityService';
 import {
     Loader2, Activity, LogIn, LogOut, Slash,
     UserCog, KeyRound, Mail, UserCheck, ExternalLink,
@@ -71,14 +71,8 @@ export const UserActivityList: React.FC<UserActivityListProps> = ({ userId, show
             setLoading(true);
 
             // Fetch events for this user (as target)
-            const { data, error } = await supabase
-                .from('user_events')
-                .select('*')
-                .or(`target_user_id.eq.${userId},user_id.eq.${userId}`)
-                .order('occurred_at', { ascending: false })
-                .limit(20);
-
-            if (!error && data) {
+            try {
+                const { events: data, profiles } = await fetchUserActivity(userId);
                 setEvents(data);
 
                 // Fetch actor profiles for events with different actors
@@ -89,18 +83,13 @@ export const UserActivityList: React.FC<UserActivityListProps> = ({ userId, show
                 )];
 
                 if (actorIds.length > 0) {
-                    const { data: profiles } = await supabase
-                        .from('profiles')
-                        .select('id, name, email')
-                        .in('id', actorIds);
-
-                    if (profiles) {
+                    if (profiles.length) {
                         const profileMap: Record<string, ActorProfile> = {};
                         profiles.forEach(p => { profileMap[p.id] = p; });
                         setActorProfiles(profileMap);
                     }
                 }
-            }
+            } catch { /* activity is supplementary and may be unavailable */ }
             setLoading(false);
         };
 

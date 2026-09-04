@@ -22,7 +22,7 @@ import { DifficultyRatingModal } from '@/components/modals/DifficultyRatingModal
 import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
 import { Loader2, AlertCircle, X, Target, BookOpen, Database, RefreshCw, Search, BarChart2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { unloadEditalFromCycle } from '@/services/studyCycleContentService';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { mergeService } from '@/services/mergeService';
 import { useMentorInsights } from '@/hooks/useMentorInsights';
@@ -97,34 +97,7 @@ export const StudyCycleContent: React.FC = () => {
     if (!user) return;
     setUnloadingEditalId(editalId);
     try {
-      const { data: existingCycle } = await supabase
-        .from('user_cycles')
-        .select('id, ciclo_atual')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (existingCycle) {
-        const currentIds = (existingCycle.ciclo_atual as string[]) || [];
-        const newIds = currentIds.filter(id => !subjectIds.includes(id));
-
-        const { error } = await supabase
-          .from('user_cycles')
-          .update({
-            ciclo_atual: newIds,
-            atualizado_em: new Date().toISOString(),
-          })
-          .eq('id', existingCycle.id);
-
-        if (error) throw error;
-      }
-
-      const { error: editalErr } = await supabase
-        .from('user_editais')
-        .update({ merged_into_cycle: false, active_subject_ids: [] })
-        .eq('id', editalId);
-
-      if (editalErr) throw editalErr;
+      await unloadEditalFromCycle(user.id, editalId, subjectIds);
 
       // NOVO: Limpar mesclagens e sincronizar ciclo
       console.log(`[StudyCycle] Iniciando limpeza de mesclagens para ${editalName}...`);

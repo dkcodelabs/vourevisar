@@ -137,8 +137,8 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
   const userName = user.user_metadata?.name || 'Usuário'
 
-  // Logo URL from storage bucket - usando v=4 para forçar atualização no cache dos clientes de email
-  const logoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/logoEmail.png?v=4`
+  // Versioned path avoids stale email-client and CDN caches when the brand changes.
+  const logoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/vourevisar-mark-dark-v1.png`
 
   let html: string
   let subject: string

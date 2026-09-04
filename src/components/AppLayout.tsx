@@ -19,7 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useApp } from "@/contexts/AppContext";
 import { useStudentHubBadge } from "@/hooks/useStudentHubBadge";
 import { useUserLogger } from "@/hooks/useUserLogger";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchAccountActiveStatus } from '@/services/accountStatusService';
 import { features } from "@/lib/features";
 import { toastManager } from "@/utils/toastManager";
 
@@ -28,7 +28,6 @@ const routeTitles: Record<string, string> = {
   "/meus-editais": "Meus Editais",
   "/ciclo-estudos": "Ciclo de Estudos",
   "/revisoes": "Revisões",
-  "/cadernos": "Cadernos",
   "/treino": "Treino inteligente",
   "/pratica": "Prática",
   "/estatisticas": "Evolução",
@@ -44,6 +43,8 @@ const routeTitles: Record<string, string> = {
   "/admin/users": "Gerenciar Usuários",
   "/admin/editais": "Gerenciar Editais",
   "/admin/feedback": "Feedback",
+  "/reveal-cards": "Componentes UI",
+  "/reveal-card-demo": "Modelos de Componentes",
   "/admin/system/errors": "Erros do Sistema",
 };
 
@@ -67,7 +68,6 @@ const appDataOverlayRoutes = [
   "/meus-editais",
   "/ciclo-estudos",
   "/revisoes",
-  "/cadernos",
   "/treino",
   "/pratica",
   "/estatisticas",
@@ -115,15 +115,9 @@ export const AppLayout = () => {
     logSessionStart(user);
 
     const checkActiveStatus = async () => {
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("is_active")
-        .eq("id", user.id)
-        .single();
-
-      if (error) return;
-
-      if (profile && profile.is_active === false) {
+      try {
+        const isActive = await fetchAccountActiveStatus(user.id);
+        if (!isActive) {
         console.warn("[AppLayout] USUÁRIO DESATIVADO - Logout forçado");
         await signOut();
         navigate("/login?reason=deactivated");
@@ -131,6 +125,9 @@ export const AppLayout = () => {
           "Sua conta foi desativada. Entre em contato com o suporte.",
           { id: "account-deactivated" },
         );
+        }
+      } catch {
+        // Falhas transitórias não devem desconectar o aluno.
       }
     };
 

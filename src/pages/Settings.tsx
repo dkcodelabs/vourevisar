@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchSettings, createSettings, saveSettings, clearUserStudyData } from '@/services/settingsService';
 import { Bell, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -101,11 +101,7 @@ const Settings = () => {
     setError(null);
     try {
       const { data, error } = await withTimeout(
-        supabase
-          .from('user_settings')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(),
+        fetchSettings(user.id),
         12000,
         'Carregamento de configuracoes'
       );
@@ -123,22 +119,11 @@ const Settings = () => {
           updated_at: data.updated_at || ''
         } as UserSettings);
       } else {
-        const { error: insertError } = await withTimeout(
-          supabase
-            .from('user_settings')
-            .insert({
-              id: '',
-              user_id: user.id,
-              subjects_per_day: settings.subjects_per_day,
-              notifications_enabled: settings.notifications_enabled,
-              notification_time: settings.notification_time,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }),
+        await withTimeout(
+          createSettings(user.id, { subjects_per_day: settings.subjects_per_day, notifications_enabled: settings.notifications_enabled, notification_time: settings.notification_time, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
           12000,
           'Criacao de configuracoes'
         );
-        if (insertError) throw insertError;
       }
     } catch (err: unknown) {
       console.error('Erro ao buscar configurações:', err);
@@ -168,16 +153,7 @@ const Settings = () => {
     if (!user) return;
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('user_settings')
-        .upsert({
-          user_id: user.id,
-          subjects_per_day: settings.subjects_per_day,
-          notifications_enabled: settings.notifications_enabled,
-          notification_time: settings.notification_time,
-          updated_at: new Date().toISOString()
-        });
-      if (error) throw error;
+      await saveSettings(user.id, { subjects_per_day: settings.subjects_per_day, notifications_enabled: settings.notifications_enabled, notification_time: settings.notification_time });
       await fetchUserSettingsContext();
       toast.success("Notificações salvas!");
     } catch (err: unknown) {
@@ -194,36 +170,8 @@ const Settings = () => {
       return;
     }
     try {
-      const { data: userSubjects, error: subjectsError } = await supabase.from('subjects').select('id').eq('user_id', user.id);
-      if (subjectsError) throw subjectsError;
-      const subjectIds = (userSubjects || [])
-        .map(s => s.id)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0);
+      await clearUserStudyData(user.id);
 
-      if (subjectIds.length > 0) {
-        const { data: userTopics } = await supabase
-          .from('topics')
-          .select('id')
-          .in('subject_id', subjectIds);
-          
-        const topicIds = (userTopics || [])
-          .map(t => t.id)
-          .filter((id): id is string => typeof id === 'string' && id.length > 0);
-          
-        if (topicIds.length > 0) {
-          await supabase.from('topic_review_history').delete().in('topic_id', topicIds);
-        }
-        await supabase.from('topics').delete().in('subject_id', subjectIds);
-      }
-
-      await supabase.from('subjects').delete().eq('user_id', user.id);
-      await supabase.from('user_cycles').delete().eq('user_id', user.id);
-      await supabase.from('study_sessions').delete().eq('user_id', user.id);
-      await supabase.from('study_cycles_v2').delete().eq('user_id', user.id);
-      await supabase.from('general_notes').delete().eq('user_id', user.id);
-      
-      // Também excluir user_editais (Agrupamentos/Editais importados)
-      await supabase.from('user_editais').delete().eq('user_id', user.id);
 
       // Limpar os caches locais para não exibir dados "fantasmas" na montagem
       localStorage.removeItem(`subjects_${user.id} `);

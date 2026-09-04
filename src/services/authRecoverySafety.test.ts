@@ -32,7 +32,7 @@ describe('password recovery safety boundaries', () => {
   it('does not let recovery create a password for a Google-only account', () => {
     expect(resetPasswordSource).toContain('getMyAuthMethods()');
     expect(resetPasswordSource).toContain("Continue com Google");
-    expect(resetPasswordSource).toContain("signOut({ scope: 'local' })");
+    expect(resetPasswordSource).toContain("signOutAuth('local')");
   });
 
   it('suppresses recovery delivery without exposing the account method publicly', () => {

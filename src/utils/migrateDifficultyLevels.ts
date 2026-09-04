@@ -1,16 +1,11 @@
-import { supabase } from '@/integrations/supabase/client';
+import { DIFFICULTY_NORMALIZATION_KEY, fetchDifficultyMigrationMarker } from '@/services/difficultyMigrationService';
 
-const NORMALIZATION_KEY = 'normalize_difficulty_scale_1_easy_3_hard';
 
 export const migrateDifficultyLevels = async () => {
   try {
     console.log('Iniciando normalizacao da escala de dificuldade...');
 
-    const { data: marker, error: markerError } = await supabase
-      .from('app_data_migrations' as never)
-      .select('migration_key')
-      .eq('migration_key', NORMALIZATION_KEY)
-      .maybeSingle();
+    const { data: marker, error: markerError } = await fetchDifficultyMigrationMarker();
 
     if (markerError) {
       console.error('Tabela app_data_migrations indisponivel. Rode as migrations do Supabase antes.', markerError);

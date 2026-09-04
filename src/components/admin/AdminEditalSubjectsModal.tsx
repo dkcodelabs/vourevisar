@@ -5,7 +5,7 @@ import {
     ChevronDown, ChevronUp, ChevronsUpDown, FileText, Circle, CheckCircle2, Loader2, AlertTriangle,
     Database, Save, Sparkles, Undo2, FileUp, Edit3, Eye, EyeOff, RefreshCw
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { updatePublicEditalSubjects, notifyEditalUsers } from '@/services/adminEditalSubjectsService';
 import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
 import type { Json } from '@/integrations/supabase/types';
@@ -122,15 +122,7 @@ export const AdminEditalSubjectsModal = ({
                 topics: s.topics.map(t => ({ id: t.id, name: t.name }))
             }));
 
-            const { error: updateErr } = await supabase
-                .from('public_editais')
-                .update({ 
-                    subjects: dbSubjects,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', edital?.id);
-
-            if (updateErr) throw updateErr;
+            await updatePublicEditalSubjects(edital.id, dbSubjects);
 
             if (shouldNotify) {
                 try {
@@ -153,7 +145,7 @@ export const AdminEditalSubjectsModal = ({
                             created_at: new Date().toISOString()
                         }));
 
-                        await supabase.from('user_notifications').insert(notificationsToInsert);
+                        await notifyEditalUsers(uniqueUserIds, edital.id, edital.organ || 'que você segue');
                         toast.success(`${uniqueUserIds.length} alunos serão notificados.`);
                     }
                 } catch (notifErr) {

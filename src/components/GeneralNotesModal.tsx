@@ -10,7 +10,7 @@ import { ptBR } from 'date-fns/locale';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchGeneralNotes, fetchGeneralReminders, updateMissingNoteDates, fetchAllNotesData, saveGeneralNotes, createGeneralReminder, deleteGeneralReminder, setGeneralReminderCompleted, updateGeneralReminder } from '@/services/generalNotesService';
 import { toastManager } from '@/utils/toastManager';
 import { TopicNotes } from '@/types';
 
@@ -242,15 +242,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('general_notes')
-                .select('*')
-                .eq('user_id', user.id)
-                .maybeSingle();
-
-            if (error) {
-                throw error;
-            }
+            const data = await fetchGeneralNotes(user.id);
 
             if (data) {
                 const notesData = {
@@ -281,13 +273,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         if (!user) return;
 
         try {
-            const { data, error } = await supabase
-                .from('general_reminders')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            const data = await fetchGeneralReminders(user.id);
 
             if (data) {
                 setReminders(data.map(item => ({
@@ -415,51 +401,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         try {
             console.log('🔄 Atualizando registros sem updated_at...');
 
-            // Gerar data aleatória entre 30 dias atrás e hoje
-            const generateRandomDate = () => {
-                const now = new Date();
-                const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
-                const randomTime = thirtyDaysAgo.getTime() + Math.random() * (now.getTime() - thirtyDaysAgo.getTime());
-                return new Date(randomTime).toISOString();
-            };
-
-            // Atualizar tópicos sem updated_at
-            const { data: topicsWithoutDate } = await supabase
-                .from('topics')
-                .select('id, subjects!inner(user_id)')
-                .eq('subjects.user_id', user.id)
-                .is('updated_at', null);
-
-            if (topicsWithoutDate && topicsWithoutDate.length > 0) {
-                console.log(`📊 Atualizando ${topicsWithoutDate.length} tópicos sem data`);
-
-                for (const topic of topicsWithoutDate) {
-                    await supabase
-                        .from('topics')
-                        .update({ updated_at: generateRandomDate() })
-                        .eq('id', topic.id);
-                }
-            }
-
-            // Atualizar matérias sem updated_at
-            const { data: subjectsWithoutDate } = await supabase
-                .from('subjects')
-                .select('id')
-                .eq('user_id', user.id)
-                .is('updated_at', null);
-
-            if (subjectsWithoutDate && subjectsWithoutDate.length > 0) {
-                console.log(`📚 Atualizando ${subjectsWithoutDate.length} matérias sem data`);
-
-                for (const subject of subjectsWithoutDate) {
-                    await supabase
-                        .from('subjects')
-                        .update({ updated_at: generateRandomDate() })
-                        .eq('id', subject.id);
-                }
-            }
-
-            console.log('✅ Datas atualizadas com sucesso!');
+            await updateMissingNoteDates(user.id);
         } catch (error) {
             console.error('❌ Erro ao atualizar datas:', error);
         }
@@ -473,29 +415,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
             console.log('🔍 Carregando todas as anotações para o usuário:', user.id);
 
             // Buscar tópicos com anotações
-            const { data: topicsData, error: topicsError } = await supabase
-                .from('topics')
-                .select(`
-                    id, 
-                    name, 
-                    notes, 
-                    updated_at, 
-                    created_at, 
-                    subject_id,
-                    subjects!inner(user_id, name)
-                `)
-                .eq('subjects.user_id', user.id)
-                .not('notes', 'is', null);
-
-            // Buscar matérias com anotações (sem tópico específico)
-            const { data: subjectsData, error: subjectsError } = await supabase
-                .from('subjects')
-                .select('id, name, notes, updated_at, created_at')
-                .eq('user_id', user.id)
-                .not('notes', 'is', null);
-
-            if (topicsError) throw topicsError;
-            if (subjectsError) throw subjectsError;
+            const { topics: topicsData, subjects: subjectsData } = await fetchAllNotesData(user.id);
 
             console.log('📊 Tópicos com anotações encontrados:', topicsData?.length || 0);
             console.log('📚 Matérias com anotações encontradas:', subjectsData?.length || 0);
@@ -640,17 +560,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         if (!user) return;
 
         try {
-            const { error } = await supabase
-                .from('general_notes')
-                .upsert({
-                    user_id: user.id,
-                    content: notesToSave.content,
-                    updated_at: new Date().toISOString()
-                }, {
-                    onConflict: 'user_id'
-                });
-
-            if (error) throw error;
+            await saveGeneralNotes(user.id, notesToSave.content);
 
             // Atualizar o estado local após salvar
             setNotes(notesToSave);
@@ -672,18 +582,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         setNewReminderText('');
 
         try {
-            const { data, error } = await supabase
-                .from('general_reminders')
-                .insert({
-                    user_id: user.id,
-                    text: textToSave,
-                    reminder_date: newReminderDate?.toISOString() || null,
-                    completed: false
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
+            const data = await createGeneralReminder(user.id, textToSave, newReminderDate?.toISOString() || null);
 
             setReminders(prev => [{
                 id: data.id,
@@ -703,12 +602,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
     const deleteReminder = async (id: string) => {
         try {
-            const { error } = await supabase
-                .from('general_reminders')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            await deleteGeneralReminder(id);
 
             setReminders(prev => prev.filter(r => r.id !== id));
             toastManager.success('Lembrete removido!');
@@ -720,12 +614,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
 
     const toggleReminderCompleted = async (id: string, completed: boolean) => {
         try {
-            const { error } = await supabase
-                .from('general_reminders')
-                .update({ completed })
-                .eq('id', id);
-
-            if (error) throw error;
+            await setGeneralReminderCompleted(id, completed);
 
             setReminders(prev => prev.map(r =>
                 r.id === id ? { ...r, completed } : r
@@ -756,15 +645,7 @@ const GeneralNotesModal: React.FC<GeneralNotesModalProps> = ({ isOpen, onClose, 
         }
 
         try {
-            const { error } = await supabase
-                .from('general_reminders')
-                .update({
-                    text: editingText.trim(),
-                    reminder_date: editingDate?.toISOString() || null
-                })
-                .eq('id', id);
-
-            if (error) throw error;
+            await updateGeneralReminder(id, editingText.trim(), editingDate?.toISOString() || null);
 
             setReminders(prev => prev.map(r =>
                 r.id === id ? { ...r, text: editingText.trim(), date: editingDate } : r

@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toastGate } from '@/lib/errors/toastGate';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
 import { PlanConfig } from '@/hooks/usePlanConfigs';
-import type { Tables } from '@/integrations/supabase/types';
+import { createAdminCoupon, fetchAdminCoupons, fetchAdminPlans, toggleAdminCoupon, updateAdminPlan, type AdminCoupon } from '@/services/adminPlanCouponService';
 
-type Coupon = Tables<'coupons'>;
+type Coupon = AdminCoupon;
 
 const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'Erro desconhecido';
@@ -62,9 +61,7 @@ export default function PlanCouponManager() {
   const fetchPlans = async () => {
     setLoadingPlans(true);
     try {
-      const { data, error } = await supabase.from('plan_configs').select('*').order('value', { ascending: true });
-      if (error) throw error;
-      setPlans(data as PlanConfig[]);
+      setPlans(await fetchAdminPlans());
     } catch (err: unknown) {
       toastGate.notifyError(getErrorMessage(err), 'FETCH_PLANS');
     } finally {
@@ -75,9 +72,7 @@ export default function PlanCouponManager() {
   const fetchCoupons = async () => {
     setLoadingCoupons(true);
     try {
-      const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      setCoupons(data || []);
+      setCoupons(await fetchAdminCoupons());
     } catch (err: unknown) {
       toastGate.notifyError(getErrorMessage(err), 'FETCH_COUPONS');
     } finally {
@@ -88,19 +83,7 @@ export default function PlanCouponManager() {
   const handleUpdatePlan = async (plan: PlanConfig) => {
     setSavingPlan(plan.id);
     try {
-      const { error } = await supabase
-        .from('plan_configs')
-        .update({
-          name: plan.name,
-          value: plan.value,
-          description: plan.description,
-          features: plan.features,
-          badge: plan.badge,
-          active: plan.active
-        })
-        .eq('id', plan.id);
-
-      if (error) throw error;
+      await updateAdminPlan(plan);
       toast.success('Plano atualizado com sucesso!');
       fetchPlans();
     } catch (err: unknown) {
@@ -128,8 +111,7 @@ export default function PlanCouponManager() {
         active: true
       };
 
-      const { error } = await supabase.from('coupons').insert(payload);
-      if (error) throw error;
+      await createAdminCoupon(payload);
       
       toast.success('Cupom criado com sucesso!');
       setIsCouponModalOpen(false);
@@ -144,8 +126,7 @@ export default function PlanCouponManager() {
 
   const handleToggleCoupon = async (coupon: Coupon) => {
     try {
-      const { error } = await supabase.from('coupons').update({ active: !coupon.active }).eq('id', coupon.id);
-      if (error) throw error;
+      await toggleAdminCoupon(coupon.id, !coupon.active);
       toast.success(`Cupom ${!coupon.active ? 'ativado' : 'desativado'}!`);
       fetchCoupons();
     } catch (err: unknown) {

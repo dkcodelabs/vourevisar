@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">vouRevisar</title>
+  <defs>
+    <linearGradient id="lime" x1="12" y1="99" x2="77" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#63DF16"/>
+      <stop offset="0.58" stop-color="#A8F900"/>
+      <stop offset="1" stop-color="#D5FF45"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="#0B1120"/>
+  <g transform="translate(0 8)">
+    <path d="M67 35H92c17 0 28 10 28 25 0 11-6 19-16 23l18 23h-19L87 85h-9l-9 17H50l16-29h26c8 0 12-5 12-12s-5-11-12-11H59l8-15Z" fill="#F8FAFC"/>
+    <path d="M13 67 35 90 73 24" fill="none" stroke="#0B1120" stroke-linecap="round" stroke-linejoin="round" stroke-width="20" opacity=".45"/>
+    <path d="M13 67 35 90 73 24" fill="none" stroke="url(#lime)" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>
+  </g>
+</svg>
