@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Esboço de velocidade da marca vouRevisar</title>
+  <desc id="desc">R sólido e check inclinados na mesma direção, com topo e bases desencontrados.</desc>
+  <defs>
+    <linearGradient id="lime" x1="8" y1="92" x2="79" y2="13" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#58E000"/><stop offset=".6" stop-color="#A6F900"/><stop offset="1" stop-color="#D5FF45"/>
+    </linearGradient>
+    <path id="r" d="M69 30H95C114 30 126 40 126 56C126 68 118 77 106 81L129 106L108 109L88 85H80L68 103H49L66 71H95C104 71 109 67 109 60C109 53 104 49 95 49H59L69 30Z"/>
+    <path id="v" d="M8 66L33 91L78 13"/>
+    <symbol id="light" viewBox="0 0 144 116"><g transform="translate(12 0) skewX(-9)"><use href="#r" fill="#152036"/><use href="#v" fill="none" stroke="#F8FAFC" stroke-linecap="square" stroke-linejoin="round" stroke-width="21"/><use href="#v" fill="none" stroke="url(#lime)" stroke-linecap="square" stroke-linejoin="round" stroke-width="15"/></g></symbol>
+    <symbol id="dark" viewBox="0 0 144 116"><g transform="translate(12 0) skewX(-9)"><use href="#r" fill="#F8FAFC"/><use href="#v" fill="none" stroke="#0B1120" stroke-linecap="square" stroke-linejoin="round" stroke-width="21"/><use href="#v" fill="none" stroke="url(#lime)" stroke-linecap="square" stroke-linejoin="round" stroke-width="15"/></g></symbol>
+  </defs>
+  <rect width="1400" height="900" fill="#E8EDF4"/>
+  <text x="70" y="82" fill="#111B2D" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="750">Esboço 03 — Aceleração</text>
+  <text x="70" y="120" fill="#637089" font-family="Inter, Arial, sans-serif" font-size="17">R sólido preservado, inclinação compartilhada e bases propositalmente desencontradas.</text>
+  <rect x="70" y="165" width="610" height="545" rx="24" fill="#F8FAFC"/>
+  <rect x="720" y="165" width="610" height="545" rx="24" fill="#0B1120"/>
+  <use href="#light" x="164" y="240" width="422" height="340"/>
+  <use href="#dark" x="814" y="240" width="422" height="340"/>
+  <text x="115" y="660" fill="#758198" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2.4">CLARO</text>
+  <text x="765" y="660" fill="#9DA9BA" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2.4">ESCURO</text>
+  <text x="70" y="780" fill="#637089" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2.2">TESTE REDUZIDO</text>
+  <use href="#light" x="70" y="808" width="57" height="46"/>
+  <use href="#light" x="160" y="799" width="80" height="65"/>
+  <use href="#light" x="280" y="787" width="110" height="89"/>
+  <line x1="438" y1="790" x2="438" y2="866" stroke="#C7CFDC"/>
+  <text x="483" y="820" fill="#111B2D" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700">Movimento conjunto</text>
+  <text x="483" y="849" fill="#637089" font-family="Inter, Arial, sans-serif" font-size="16">O V impulsiona; o R inclina e termina abaixo, como uma passada.</text>
+</svg>

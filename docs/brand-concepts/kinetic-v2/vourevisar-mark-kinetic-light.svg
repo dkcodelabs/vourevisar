@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 136 116" role="img" aria-labelledby="title desc">
+  <title id="title">Esboço cinético do símbolo vouRevisar</title>
+  <desc id="desc">Monograma VR autoral, inclinado e assimétrico, para fundo claro.</desc>
+  <defs>
+    <linearGradient id="lime" x1="8" y1="94" x2="79" y2="15" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#58E000"/>
+      <stop offset="0.6" stop-color="#A6F900"/>
+      <stop offset="1" stop-color="#D5FF45"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(9 0) skewX(-7)">
+    <path d="M94 75L121 105" fill="none" stroke="#152036" stroke-linecap="butt" stroke-width="15"/>
+    <path d="M66 34H91C108 34 119 43 119 57S109 79 93 79H75L64 104" fill="none" stroke="#152036" stroke-linecap="butt" stroke-linejoin="round" stroke-width="15"/>
+    <path d="M8 66L33 91L75 14" fill="none" stroke="#F8FAFC" stroke-linecap="square" stroke-linejoin="round" stroke-width="21"/>
+    <path d="M8 66L33 91L75 14" fill="none" stroke="url(#lime)" stroke-linecap="square" stroke-linejoin="round" stroke-width="15"/>
+  </g>
+</svg>

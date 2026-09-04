@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 116" role="img" aria-labelledby="title desc">
+  <title id="title">Esboço de movimento do símbolo vouRevisar para fundo escuro</title>
+  <desc id="desc">Monograma VR com R sólido inclinado, check ascendente e bases assimétricas, para fundo escuro.</desc>
+  <defs>
+    <linearGradient id="lime" x1="8" y1="92" x2="79" y2="13" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#58E000"/>
+      <stop offset="0.6" stop-color="#A6F900"/>
+      <stop offset="1" stop-color="#D5FF45"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(12 0) skewX(-9)">
+    <path d="M69 30H95C114 30 126 40 126 56C126 68 118 77 106 81L129 106L108 109L88 85H80L68 103H49L66 71H95C104 71 109 67 109 60C109 53 104 49 95 49H59L69 30Z" fill="#F8FAFC"/>
+    <path d="M8 66L33 91L78 13" fill="none" stroke="#0B1120" stroke-linecap="square" stroke-linejoin="round" stroke-width="21"/>
+    <path d="M8 66L33 91L78 13" fill="none" stroke="url(#lime)" stroke-linecap="square" stroke-linejoin="round" stroke-width="15"/>
+  </g>
+</svg>

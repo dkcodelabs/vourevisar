@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+  <title id="title">Esboço cinético da marca vouRevisar</title>
+  <desc id="desc">Um monograma VR inclinado, assimétrico e construído em curvas próprias.</desc>
+  <defs>
+    <linearGradient id="lime" x1="8" y1="94" x2="79" y2="15" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#58E000"/><stop offset=".6" stop-color="#A6F900"/><stop offset="1" stop-color="#D5FF45"/>
+    </linearGradient>
+    <path id="r-leg" d="M94 75L121 105"/>
+    <path id="r-bowl" d="M66 34H91C108 34 119 43 119 57S109 79 93 79H75L64 104"/>
+    <path id="v" d="M8 66L33 91L75 14"/>
+    <symbol id="light" viewBox="0 0 136 116"><g transform="translate(9 0) skewX(-7)"><use href="#r-leg" fill="none" stroke="#152036" stroke-linecap="butt" stroke-width="15"/><use href="#r-bowl" fill="none" stroke="#152036" stroke-linecap="butt" stroke-linejoin="round" stroke-width="15"/><use href="#v" fill="none" stroke="#F8FAFC" stroke-linecap="square" stroke-linejoin="round" stroke-width="21"/><use href="#v" fill="none" stroke="url(#lime)" stroke-linecap="square" stroke-linejoin="round" stroke-width="15"/></g></symbol>
+    <symbol id="dark" viewBox="0 0 136 116"><g transform="translate(9 0) skewX(-7)"><use href="#r-leg" fill="none" stroke="#F8FAFC" stroke-linecap="butt" stroke-width="15"/><use href="#r-bowl" fill="none" stroke="#F8FAFC" stroke-linecap="butt" stroke-linejoin="round" stroke-width="15"/><use href="#v" fill="none" stroke="#0B1120" stroke-linecap="square" stroke-linejoin="round" stroke-width="21"/><use href="#v" fill="none" stroke="url(#lime)" stroke-linecap="square" stroke-linejoin="round" stroke-width="15"/></g></symbol>
+  </defs>
+  <rect width="1400" height="900" fill="#E8EDF4"/>
+  <text x="70" y="82" fill="#111B2D" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="750">Esboço 02 — Movimento assimétrico</text>
+  <text x="70" y="120" fill="#637089" font-family="Inter, Arial, sans-serif" font-size="17">Desenho próprio, sem fonte: check alto, R baixo e conjunto inclinado para a frente.</text>
+  <rect x="70" y="165" width="610" height="545" rx="24" fill="#F8FAFC"/>
+  <rect x="720" y="165" width="610" height="545" rx="24" fill="#0B1120"/>
+  <use href="#light" x="173" y="240" width="405" height="346"/>
+  <use href="#dark" x="823" y="240" width="405" height="346"/>
+  <text x="115" y="660" fill="#758198" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2.4">CLARO</text>
+  <text x="765" y="660" fill="#9DA9BA" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2.4">ESCURO</text>
+  <text x="70" y="780" fill="#637089" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2.2">TESTE REDUZIDO</text>
+  <use href="#light" x="70" y="808" width="54" height="46"/>
+  <use href="#light" x="160" y="799" width="76" height="65"/>
+  <use href="#light" x="278" y="787" width="104" height="89"/>
+  <line x1="430" y1="790" x2="430" y2="866" stroke="#C7CFDC"/>
+  <text x="475" y="820" fill="#111B2D" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700">Tensão intencional</text>
+  <text x="475" y="849" fill="#637089" font-family="Inter, Arial, sans-serif" font-size="16">O V sobe; a perna do R desce. Nenhuma linha fica neutra.</text>
+</svg>
