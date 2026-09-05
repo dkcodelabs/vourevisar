@@ -6,6 +6,7 @@ import { Topic } from '@/types';
 import { updateStudiedSubjects, addStudiedSubject, resetCycle, isSubjectStudiedGlobal } from '@/utils/cycleState';
 import { cleanCycle } from '@/utils/cycleUtils';
 import { toastGate } from '@/lib/errors/toastGate';
+import { advanceCycleRotation } from '@/services/cycleRotationService';
 
 // Tipo estendido para UserCycle com propriedades adicionais
 interface ExtendedUserCycle {
@@ -160,7 +161,7 @@ export const useCycleStatus = () => {
       });
 
       // Verificar se esta é a última matéria ativa (APÓS incluir a atual)
-      const isLastActiveSubject = unstudiedActiveSubjects.length === 0;
+      let isLastActiveSubject = unstudiedActiveSubjects.length === 0;
 
       // Log removido para otimização
 
@@ -248,12 +249,19 @@ export const useCycleStatus = () => {
         removidas: currentCycle.length - cleanedCycle.length
       });
 
-      const { error } = await supabase
-        .from('user_cycles')
-        .update(updateData)
-        .eq('user_id', user.id);
+      const rotationResult = await advanceCycleRotation({
+        userId: user.id,
+        userCycleId: typedFreshCycle.id,
+        subjectId,
+        expectedCycleNumber: (typedFreshCycle.ciclos_realizados || 0) + 1,
+      });
 
-      if (error) throw error;
+      if (!rotationResult?.ok) throw new Error('Não foi possível atualizar o giro do ciclo.');
+
+      // O banco é a autoridade para decidir se o giro terminou. O cálculo local
+      // continua servindo apenas para resposta imediata e apresentação.
+      isLastActiveSubject = rotationResult.rotation_completed;
+      newCycleNumberForEvent = rotationResult.completed_cycle_number ?? undefined;
 
       // Forçar atualização do estado local IMEDIATAMENTE
       const { data: updatedCycle } = await supabase

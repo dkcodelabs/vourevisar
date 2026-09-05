@@ -6,6 +6,7 @@ import type { CycleStatisticsData } from '@/types/cycleStatistics';
 
 const navigate = vi.fn();
 const useCycleStatistics = vi.fn();
+const refetchCycleComparison = vi.fn();
 const setSearchParams = vi.fn();
 let searchParams = new URLSearchParams();
 
@@ -20,6 +21,15 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@/hooks/useCycleStatistics', () => ({
   useCycleStatistics: (period: number | 'all', selectedDate: string | null) => useCycleStatistics(period, selectedDate),
+}));
+
+vi.mock('@/hooks/useCycleComparison', () => ({
+  useCycleComparison: () => ({
+    data: null,
+    isLoading: false,
+    isError: false,
+    refetch: refetchCycleComparison,
+  }),
 }));
 
 vi.mock('recharts', () => ({
@@ -112,6 +122,7 @@ describe('Statistics', () => {
     setSearchParams.mockReset();
     searchParams = new URLSearchParams();
     useCycleStatistics.mockReset();
+    refetchCycleComparison.mockReset();
     useCycleStatistics.mockReturnValue({
       data: statistics,
       isLoading: false,

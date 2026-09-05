@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { RefreshCw, WifiOff } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EvolutionDayDetail } from '@/components/statistics/EvolutionDayDetail';
+import { EvolutionCycleComparison } from '@/components/statistics/EvolutionCycleComparison';
 import { EvolutionFocus } from '@/components/statistics/EvolutionFocus';
 import { EvolutionLoadingState } from '@/components/statistics/EvolutionLoadingState';
 import { EvolutionMemoryCard } from '@/components/statistics/EvolutionMemoryCard';
@@ -13,6 +14,7 @@ import { StudyEmptyState } from '@/components/study/StudyEmptyState';
 import { PremiumStateCard } from '@/components/ui/PremiumStateCard';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useCycleStatistics } from '@/hooks/useCycleStatistics';
+import { useCycleComparison } from '@/hooks/useCycleComparison';
 import type { CycleStatisticsPeriod } from '@/types/cycleStatistics';
 import { resolveStatisticsDateSelection } from '@/utils/cycleStatistics';
 
@@ -23,6 +25,7 @@ export default function Statistics() {
   const [period, setPeriod] = useState<CycleStatisticsPeriod>(() => dateSelection?.period ?? 7);
   const effectivePeriod = dateSelection?.period ?? period;
   const { data, isLoading, isError, refetch, isFetching } = useCycleStatistics(effectivePeriod, dateSelection?.date ?? null);
+  const cycleComparison = useCycleComparison(data?.cycleId);
 
   if (isLoading) return <EvolutionLoadingState />;
 
@@ -72,6 +75,13 @@ export default function Statistics() {
       <main className="space-y-4 px-4 py-4 md:px-6 md:py-5">
         <StatisticsHeader data={data} period={effectivePeriod} onPeriodChange={handlePeriodChange} />
         <EvolutionOverview progress={data.progress} time={data.time} />
+        <EvolutionCycleComparison
+          comparison={cycleComparison.data}
+          isLoading={cycleComparison.isLoading}
+          isError={cycleComparison.isError}
+          isRetrying={cycleComparison.isFetching}
+          onRetry={() => void cycleComparison.refetch()}
+        />
         <EvolutionFocus insight={data.insight} onAction={handleInsightAction} />
 
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]">

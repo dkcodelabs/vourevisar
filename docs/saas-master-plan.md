@@ -80,6 +80,9 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 
 ## Prioridade 2 — lacunas funcionais já conhecidas
 
+- [x] Aplicar localmente a marca premium v4 aprovada: geometria única para React e exportações; versões para temas claro/escuro, favicon SVG/ICO, ícones, imagem social e kit de divulgação com PNGs transparentes 64–4096 px, SVGs e perfis 1080 px. Lint, typecheck, testes do loader e build passaram; login e componente foram conferidos no navegador, incluindo animação única e movimento reduzido.
+- [ ] Publicar a marca premium v4 no próximo envio conjunto: deploy do frontend e atualização do asset remoto usado nos e-mails (`email-assets/vourevisar-mark-dark-v1.png`, ainda com a marca anterior). A entrega local não altera os e-mails nem a produção.
+
 - [x] Unificar a identidade de marca no runtime: a logo antiga, a animação de entrada, o fallback de rota e o loader foram substituídos pelo mesmo símbolo vetorial responsivo aos temas claro/escuro. O kit inclui SVG/PNG, versões transparentes do símbolo com `R` claro/escuro e imagem social 1200×630; o símbolo pode ser usado sem o nome e o wordmark não colore mais “Revisar” de azul. `prefers-reduced-motion` elimina o movimento não essencial. Em 2026-09-01, favicon com URL versionada, ícones 32/180/192/512, manifest e imagem social foram gerados e conferidos; o novo símbolo claro foi publicado no Storage de produção em `email-assets/vourevisar-mark-dark-v1.png`, e `send-auth-email` v99 foi publicado e verificado como `ACTIVE` com `verify_jwt=false`, preservando a autenticação própria do webhook. Os arquivos locais provisórios/duplicados e o objeto remoto antigo `email-assets/logoEmail.png` foram removidos depois da confirmação de que não tinham consumidores. Os carregamentos agora usam somente o símbolo, com traço de entrada único e sem loop; a rota `/dashboard` só monta o `AppLayout` depois de confirmar o acesso, evitando indicador concorrente na lateral.
 - [x] Concluir a regra e a validação autenticada da transição do primeiro contato. Em produção, em 2026-08-31, o aluno pagante importou pelo Catálogo o edital Casa da Moeda (2 matérias, 18 tópicos), carregou o ciclo, concluiu `I. Compreensão de texto` como Médio e recebeu corretamente 1 revisão futura desse mesmo tópico. O Painel inicialmente expôs que a seleção repetia PORTUGUÊS; a regra foi corrigida para priorizar a matéria ativa com menos tópicos iniciados, usando a ordem do ciclo como desempate. Após o deploy `5c32acb8`, o mesmo Painel passou a recomendar `MATEMÁTICA — I. Conjuntos numéricos`; o ciclo permaneceu em 1/18 iniciados.
 - [x] Completar a matriz de estados de entrada e acesso: em 2026-08-31, o estado `sem edital` foi validado em produção com CTA para adicionar edital; a conta paga e o Portal também foram validados. Em 2026-09-01, trial, assinatura vencida, admin, estados vazios e retry/reconexão passaram na cobertura automatizada e o Dashboard autenticado renderizou em desktop/mobile. A cobertura agora classifica explicitamente os quatro estados persistidos (`sem edital`, `edital vazio`, `edital com conteúdo fora do ciclo` e `ciclo carregado`) e cobre o CTA `Completar edital`. Em uma conta de aluno, foi criado e removido o edital manual descartável `VALIDACAO DESCARTAVEL` sem matérias/tópicos, confirmando a persistência do estado vazio; em 2026-09-01, o edital de catálogo `Polícia Federal — Perito Criminal Federal - Área 5: Geologia Forense (2025)` foi persistido com 9 matérias e 309 tópicos, enquanto o ciclo ativo permaneceu `Casa da Moeda do Brasil — Técnico de Segurança (2023)`, confirmando o estado de conteúdo fora do ciclo. Também foi criado e persistido o edital manual `VALIDAÇÃO CICLO VAZIO - Ensaio técnico`, com 0 matérias e 0 tópicos; a UI corretamente não ofereceu `Carregar Ciclo`, impedindo a criação de um ciclo vazio por fluxo suportado. A matriz está encerrada com a proteção existente; não é necessário criar uma rota de teste artificial.
@@ -90,9 +93,58 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 
 ## Pós-venda — monitorar, não bloquear
 
-- [ ] **Monitorar adoção real do Treino.** Executar `supabase/snippets/practice_adoption_report.sql` semanalmente depois de haver base relevante e acompanhar recorrência, tentativa, conclusão, qualidade e custo de geração. Não otimizar recomendação com a amostra atual de três usuários.
-- [ ] **Ativar proteção contra senhas vazadas.** Habilitar a opção de proteção do Supabase quando o plano contratado suportar o recurso. **Responsável: fundador** pela mudança de plano.
+- [ ] **Operar o monitoramento recorrente do Treino.** O relatório comparável, os limiares e a automação semanal estão implementados e o primeiro ciclo foi executado; faltam três ciclos semanais e a revisão dos limiares antes de considerar o monitoramento estabilizado. Não otimizar recomendação com a amostra atual de três usuários.
 - [x] Avaliar índices adicionais de módulos administrativos e financeiros somente após observar volume/planos de consulta reais; não criar índices por suposição. A leitura dos contadores reais no Supabase em 2026-09-04 mostrou uso relevante nos índices de `admin_error_events`, `billing_access_grants`, `billing_checkout_attempts`, `billing_contract_acceptances`, `billing_refund_requests` e `billing_subscriptions`; não há evidência atual para criar índices adicionais. Índices não utilizados não foram removidos sem análise de consultas e janela de observação.
+
+### Plano operacional — monitoramento do Treino
+
+**Objetivo:** detectar falha operacional, perda de qualidade, abandono e custo fora de controle sem reagir a oscilações de uma base pequena. O monitoramento mede o funil real do aluno; não serve, sozinho, para provar eficácia pedagógica.
+
+#### 1. Preparar uma leitura semanal comparável
+
+- [x] Manter a coleta somente leitura, agregada e sem nomes, e-mails, respostas privadas ou prompts em `supabase/snippets/practice_adoption_report.sql`.
+- [x] Manter a automação semanal ativa e silenciosa quando não houver mudança relevante. Em 2026-09-04, o prompt da automação foi alinhado aos limiares, à classificação da decisão e às três janelas do relatório.
+- [x] Evoluir o relatório para comparar três janelas: últimos 7 dias, 7 dias anteriores e tendência móvel de 28 dias. O acumulado iniciado em 2026-08-28 permanece apenas como baseline histórico.
+- [x] Incluir idade das gerações ainda em processamento e taxas calculadas sobre denominadores explícitos, evitando confundir ausência de uso com erro técnico.
+
+#### 2. Acompanhar os indicadores que respondem a decisões de produto
+
+- **Adoção:** usuários que iniciaram, sessões criadas e origem da entrada no Treino.
+- **Ativação:** percentual de sessões com pelo menos uma tentativa.
+- **Conclusão:** percentual de sessões iniciadas que chegaram à conclusão; a taxa sobre todas as sessões fica como indicador secundário.
+- **Recorrência:** alunos ativos em dois ou mais dias dentro da janela de 28 dias.
+- **Qualidade:** avaliações positivas/negativas, itens denunciados, itens aceitos/rejeitados e falhas de geração.
+- **Custo:** custo médio por geração concluída, custo semanal total, tokens e tentativas repetidas.
+
+#### 3. Usar limiares provisórios de alerta
+
+Os limiares abaixo valem por quatro semanas e devem ser recalibrados com a base real. Um único desvio de produto não autoriza mudança automática.
+
+- **Alerta operacional imediato:** geração parada por mais de 15 minutos; três ou mais falhas na semana; ou taxa de falha igual ou superior a 10% com pelo menos 10 gerações.
+- **Alerta de qualidade:** três ou mais denúncias na semana; ou avaliações negativas iguais ou superiores a 20% com pelo menos 10 avaliações.
+- **Alerta de custo:** custo médio por geração concluída acima de US$ 0,05 ou maior que o dobro da média das quatro semanas anteriores.
+- **Alerta de funil:** queda de 15 pontos percentuais na ativação ou na conclusão em relação à semana anterior, desde que existam pelo menos 10 usuários e 30 sessões com tentativa na janela de 28 dias.
+- **Alerta de recorrência:** menos de 25% dos alunos retornando em dois ou mais dias por duas semanas consecutivas, somente com pelo menos 10 usuários na janela de 28 dias.
+
+#### 4. Separar observação de decisão
+
+- **Amostra insuficiente:** com menos de 10 usuários ou 30 sessões com tentativa em 28 dias, registrar os números e agir apenas sobre falhas operacionais, denúncias ou custo anormal.
+- **Sinal inicial:** entre 10 e 29 usuários, investigar quedas repetidas por duas semanas e conversar com alunos antes de alterar fluxo ou recomendação.
+- **Sinal utilizável para otimização:** considerar mudança de produto somente com pelo menos 30 usuários e 100 sessões com tentativa em 28 dias, ou com evidência qualitativa clara e repetida que explique o problema.
+
+#### 5. Responder conforme a causa provável
+
+- **Baixa ativação:** conferir CTA de entrada, disponibilidade de material, carregamento e clareza da primeira ação antes de mexer no algoritmo.
+- **Baixa conclusão:** localizar em que etapa a sessão é abandonada, revisar tamanho da sessão e erros de itens.
+- **Baixa recorrência:** entrevistar alunos e conferir se o Treino aparece no momento certo da jornada; não adicionar notificações por suposição.
+- **Qualidade ruim:** revisar amostra dos itens denunciados com acesso administrativo mínimo, identificar padrão e corrigir fonte, prompt ou validação.
+- **Custo alto:** verificar repetição, tokens, quantidade de itens e modelo; reduzir custo sem degradar a qualidade medida.
+
+#### 6. Critério de estabilização
+
+- [ ] Registrar quatro medições semanais consecutivas no plano, sempre com comparação contra a semana anterior e a tendência de 28 dias. Progresso: 1/4 ciclos comparáveis concluídos.
+- [ ] Confirmar que alertas operacionais e de produto geram uma conclusão explícita: `sem ação`, `investigar` ou `corrigir`, com motivo e evidência.
+- [ ] Depois dos quatro ciclos, revisar os limiares. Se o relatório estiver confiável e a automação estiver executando sem intervenção, encerrar a implantação do monitoramento; a observação semanal continua como operação recorrente, não como nova feature.
 
 ### Evidência incremental do baseline — 2026-09-03
 
@@ -137,18 +189,22 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 - Medição real do Treino executada em 2026-09-04 no projeto Supabase vinculado, em modo somente leitura, para a janela iniciada em 2026-08-28: 3 usuários, 57 sessões, 31 sessões com tentativa (54,4%), 19 concluídas (33,3%), 59 tentativas, 1 usuário ativo em 2+ dias; geração: 7 execuções, todas concluídas, 70 itens aceitos, 7 avaliações positivas, nenhuma negativa, custo estimado total de US$ 0,13881. A amostra continua pequena; a pendência de monitoramento recorrente permanece aberta e nenhuma recomendação foi otimizada com estes dados.
 - Avaliação de índices administrativos/financeiros executada em 2026-09-04 com `pg_stat_user_indexes` e advisor de performance do projeto vinculado. Os índices de maior uso estão concentrados nas consultas já exercitadas; os avisos de índice não utilizado são candidatos a investigação futura, não remoção automática. Nenhuma alteração de schema foi feita.
 - Monitoramento semanal do Treino agendado em 2026-09-04 na automação do task (`monitorar-ado-o-do-treino`), com execução somente leitura, comparação com esta evidência e notificação apenas em mudança relevante, falha ou ação necessária.
+- Ciclo comparável 1/4 executado em 2026-09-04 com o relatório atualizado. Últimos 7 dias versus 7 anteriores: 1 versus 3 usuários; 47 versus 13 sessões; 55,3% versus 46,2% de ativação; 61,5% versus 50,0% de conclusão entre sessões iniciadas. No período atual houve 3 gerações concluídas, nenhuma falha, denúncia, avaliação negativa ou geração travada; custo médio de US$ 0,026496 por geração concluída. A janela de 28 dias tem somente 3 usuários, abaixo do mínimo decisório. Conclusão: `sem ação`; manter coleta e não otimizar o produto. As 6 falhas da janela anterior não se repetiram na atual e, portanto, não configuram incidente ativo.
+- Validação do monitoramento concluída em 2026-09-04 no Supabase de produção, sem escrita: o relatório passou em 20 asserções de contrato sobre duração e continuidade das janelas, limites das taxas, reconciliação de sessões/origens/status de geração, coerência das gerações travadas e ausência de campos sensíveis. O `EXPLAIN ANALYZE` executou em 2,934 ms sobre a base atual. `git diff --check` também passou.
+- Comparação entre giros implementada em 2026-09-04: migration `20260905020728_add_atomic_cycle_rotation_snapshots.sql`, dispatcher `user-rpc`, serviço/hook independente e card responsivo na Evolução. A transação foi ensaiada no banco com rollback e comprovou um único snapshot/incremento, retry idempotente, ownership e bloqueio de escrita direta. Estados completo, escopo alterado, insuficiente, loading e erro possuem cobertura automatizada; a tela foi validada autenticada em desktop e 375 px.
 
 ## Backlog de produto — não faz parte do corte de venda
 
-- [ ] Cadernos com IA: a página Cadernos foi removida do produto ativo por não haver uso definido. Só reabrir este item quando houver caso de uso que não duplique Treino, Revisões ou geração de material.
-- [ ] Radar de concursos/notícias: somente com fonte autorizada, cache, data de coleta e sem alimentar ciclo automaticamente.
-- [ ] Histórico comparativo entre ciclos, somente quando houver dados suficientes para uma comparação honesta.
+- [x] Comparação entre os dois últimos giros completos e consecutivos do ciclo ativo. A Evolução mostra duração, matérias percorridas, tópicos iniciados, tópicos consolidados e ritmos diários sem nota ou julgamento de desempenho. O fechamento do giro passa pela operação atômica e idempotente `advance_cycle_rotation`, que congela um snapshot imutável; escopo alterado, histórico insuficiente e erro de consulta possuem estados explícitos. Não há reconstrução artificial do histórico anterior.
 - [ ] Seleção assistida de matérias no carregamento do ciclo, preservando o padrão simples de carregar todas.
-- [ ] Programa de divulgação/afiliados: a base existe; validar uma primeira venda Live com código antes de ampliar a área.
+- [x] Programa de divulgação/afiliados: códigos Stripe, desconto da primeira cobrança, comissão, ledger privado, carência, reversão por reembolso/disputa e repasse manual estão implementados, homologados em Teste e publicados no Live. A primeira venda com parceiro é métrica comercial pós-lançamento, não pendência de produto.
 
 ## Decisões encerradas
 
 - **Incidência de cobrança via web/IA:** Cancelado. Não recriar processamento diário, fila, base global ou métricas sem uma nova proposta com custo, fonte e retorno comprovados.
+- **Proteção contra senhas vazadas:** Cancelado por decisão de produto. Não alterar o plano Supabase nem reabrir esta frente sem uma revisão explícita de risco e custo.
+- **Cadernos com IA:** Cancelado por decisão de produto. A página Cadernos foi retirada do runtime; não recriar uma superfície que duplique Treino, Revisões ou Ciclo.
+- **Radar de concursos/notícias:** Cancelado por decisão de produto. Não criar coleta, cache ou automação de fontes sem uma nova proposta que comprove fonte autorizada, operação sustentável e retorno para o aluno.
 - **Asaas:** Encerrado. Stripe é o domínio financeiro ativo. Arquivos em `supabase/migrations_legacy/` são histórico de migrations e não devem ser “limpos” com alteração no banco.
 - **Banco global de questões/flashcards:** Adiado. A prática atual usa material privado e geração explícita; não criar catálogo global sem estratégia de qualidade, direitos e custo.
 - **Índices por previsão:** Adiado. Índices novos dependem de volume observado e plano de consulta.

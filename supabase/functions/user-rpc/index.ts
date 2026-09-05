@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const ALLOWED_ACTIONS = new Set([
+  "advance_cycle_rotation",
   "atomic_archive_edital_from_cycle",
   "atomic_cycle_load",
   "reset_edital_study_progress",
@@ -87,6 +88,7 @@ serve(async (req: Request) => {
 
 function isAuthorizedForAction(action: string, args: Record<string, unknown>, userId: string): boolean {
   switch (action) {
+    case "advance_cycle_rotation":
     case "atomic_archive_edital_from_cycle":
     case "atomic_cycle_load":
     case "reset_edital_study_progress":

@@ -3949,6 +3949,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      advance_cycle_rotation: {
+        Args: {
+          p_expected_cycle_number: number
+          p_subject_id: string
+          p_user_cycle_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       atomic_archive_edital_from_cycle: {
         Args: { p_edital_id: string; p_user_id: string }
         Returns: Json
