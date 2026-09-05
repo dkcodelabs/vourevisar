@@ -52,8 +52,8 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
   const displayName = profile?.name || user.user_metadata?.name || user.email?.split("@")[0] || "Estudante"
   const email = user.email || ""
   const initials = getInitials(profile?.name || email)
+  const isAccessLabelLoading = roleLoading || billingOverview.isLoading
   const planLabel = (() => {
-    if (roleLoading || billingOverview.isLoading) return "Carregando..."
     if (isOwner) return "Proprietário"
     if (isAdmin) return "Administrador"
     return getBillingAccessLabel(billingOverview.data)
@@ -83,7 +83,14 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{displayName}</span>
-                <span className="truncate text-xs">{planLabel}</span>
+                {isAccessLabelLoading ? (
+                  <span
+                    aria-label="Carregando assinatura"
+                    className="mt-1 h-3 w-20 animate-pulse rounded bg-sidebar-accent"
+                  />
+                ) : (
+                  <span className="truncate text-xs">{planLabel}</span>
+                )}
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>

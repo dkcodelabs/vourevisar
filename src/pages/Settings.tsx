@@ -186,7 +186,7 @@ const Settings = () => {
   };
 
   if (isLoading || isCycleLoading) {
-    return <LoadingSpinner size="large" message="Carregando configurações..." fullPage />;
+    return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
   }
 
   // ═══════════════════════════════════════════════════════

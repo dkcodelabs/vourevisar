@@ -196,7 +196,7 @@ export function AuthCallback() {
   }, []);
 
   if (loading) {
-    return <LoadingSpinner size="large" message="Autenticando..." fullPage />;
+    return <LoadingSpinner size="large" fullPage />;
   }
 
   return <Navigate to={redirectPath} replace />;

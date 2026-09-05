@@ -107,7 +107,7 @@ const App = () => {
                           <Route path="checkout" element={<StripeCheckout />} />
                           <Route path="checkout/retorno" element={<StripeCheckoutReturn />} />
                           <Route
-                            path="dashboard"
+                            path=""
                             element={
                               <RequireActiveSubscription>
                                 <StudentHubProvider>
@@ -116,11 +116,9 @@ const App = () => {
                               </RequireActiveSubscription>
                             }
                           >
-                            <Route index element={<Dashboard />} />
-                          </Route>
-                          <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
-                            <Route path="meus-editais" element={<RequireActiveSubscription><Editais /></RequireActiveSubscription>} />
-                            <Route path="estatisticas" element={<RequireActiveSubscription><Statistics /></RequireActiveSubscription>} />
+                            <Route path="dashboard" element={<Dashboard />} />
+                            <Route path="meus-editais" element={<Editais />} />
+                            <Route path="estatisticas" element={<Statistics />} />
                             <Route path="materias" element={<Navigate to="/ciclo-estudos" replace />} />
                             <Route path="materias/:subjectId" element={<Navigate to="/ciclo-estudos" replace />} />
                             <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
@@ -128,12 +126,14 @@ const App = () => {
                             <Route path="subjects" element={<Navigate to="/ciclo-estudos" replace />} />
                             <Route path="admin/importancia-prova" element={<Navigate to="/dashboard" replace />} />
                             <Route path="estatisticas/tendencia" element={<Navigate to="/estatisticas" replace />} />
-                            <Route path="revisoes" element={<RequireActiveSubscription><Revisoes /></RequireActiveSubscription>} />
-                            <Route path="ciclo-estudos" element={<RequireActiveSubscription><Subjects /></RequireActiveSubscription>} />
+                            <Route path="revisoes" element={<Revisoes />} />
+                            <Route path="ciclo-estudos" element={<Subjects />} />
                             <Route path="cadernos" element={<Navigate to="/ciclo-estudos" replace />} />
-                            <Route path="treino" element={<RequireActiveSubscription><PracticeHome /></RequireActiveSubscription>} />
+                            <Route path="treino" element={<PracticeHome />} />
                             <Route path="pratica/:sessionId" element={<Navigate to="/treino" replace />} />
+                          </Route>
 
+                          <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
                             {/* Admin Routes - Protected */}
                             <Route element={<AdminRoute />}>
                               <Route path="admin/users" element={<UserManagement />} />

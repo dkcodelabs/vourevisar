@@ -13,7 +13,7 @@ export const ProtectedRoute = () => {
   // direct checkout navigation, where the page can mount before auth storage
   // has finished hydrating.
   if (!authInitialized) {
-    return <LoadingSpinner size="large" showText fullPage />;
+    return <LoadingSpinner size="large" fullPage />;
   }
 
   // If no user authenticated, redirect to login preserving the intended path

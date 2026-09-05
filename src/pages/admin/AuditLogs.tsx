@@ -101,7 +101,7 @@ export default function AuditLogs() {
 
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
     if (loading) {
-        return <LoadingSpinner size="large" showText fullPage />;
+        return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
     }
 
     if (errorMessage) {

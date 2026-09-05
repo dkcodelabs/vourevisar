@@ -4,20 +4,22 @@ import { describe, expect, it } from 'vitest';
 import { LoadingSpinner } from './LoadingSpinner';
 
 describe('LoadingSpinner', () => {
-  it('uses only the brand mark during full-page loading', () => {
+  it('uses a neutral progress indicator during full-page loading', () => {
     const { container } = render(
       <LoadingSpinner fullPage size="large" message="Verificando seu acesso..." />,
     );
 
     expect(screen.getByText('Verificando seu acesso...')).toBeInTheDocument();
-    expect(container.querySelector('svg.brand-mark')).toBeInTheDocument();
-    expect(container.querySelector('.brand-wordmark')).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Verificando seu acesso...' })).toBeInTheDocument();
+    expect(container.querySelector('svg.lucide-loader-circle')).toBeInTheDocument();
+    expect(container.querySelector('svg.brand-mark')).not.toBeInTheDocument();
   });
 
-  it('uses the one-time entrance motion instead of a looping loader motion', () => {
+  it('does not mount the brand animation for local loading states', () => {
     const { container } = render(<LoadingSpinner />);
 
-    expect(container.querySelector('.brand-mark--entrance')).toBeInTheDocument();
-    expect(container.querySelector('.brand-mark--loading')).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Carregando' })).toBeInTheDocument();
+    expect(container.querySelector('.animate-spin')).toBeInTheDocument();
+    expect(container.querySelector('.brand-mark--entrance')).not.toBeInTheDocument();
   });
 });

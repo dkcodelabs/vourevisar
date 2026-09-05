@@ -41,7 +41,9 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 vi.mock('@/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ message }: { message?: string }) => <div>{message}</div>,
+  LoadingSpinner: ({ message }: { message?: string }) => (
+    <div role="status" aria-label={message ?? 'Carregando'}>{message}</div>
+  ),
 }));
 
 vi.mock('@/components/ui/TracerLogo', () => ({
@@ -64,7 +66,7 @@ describe('Login', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Entrando...')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Carregando' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument();
   });

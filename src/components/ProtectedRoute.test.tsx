@@ -47,7 +47,7 @@ describe('ProtectedRoute', () => {
   it('waits for the first Supabase session resolution instead of flashing Login', () => {
     renderProtectedRoute(makeAuthValue({ authInitialized: false }));
 
-    expect(screen.getByText('Carregando...')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Carregando' })).toBeInTheDocument();
     expect(screen.queryByText('Tela de login')).not.toBeInTheDocument();
   });
 

@@ -7,7 +7,11 @@ export const AdminRoute = () => {
     const { isAdmin, loading, error, refetch } = useUserRole();
 
     if (loading) {
-        return <LoadingSpinner size="large" fullPage />;
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <LoadingSpinner size="large" />
+            </div>
+        );
     }
 
     if (error) {

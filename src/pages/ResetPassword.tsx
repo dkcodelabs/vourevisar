@@ -210,7 +210,7 @@ const ResetPassword = () => {
   };
 
   if (isCheckingToken) {
-    return <LoadingSpinner size="large" message="Validando link..." fullPage />;
+    return <LoadingSpinner size="large" fullPage />;
   }
 
   if (!isValidToken) {

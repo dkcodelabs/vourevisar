@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { BrandMark } from "@/components/brand/BrandLogo";
+import { Loader2 } from "lucide-react";
 
 interface LoadingSpinnerProps {
   className?: string;
@@ -18,28 +18,32 @@ export const LoadingSpinner = ({
   fullPage = false
 }: LoadingSpinnerProps & { fullPage?: boolean }) => {
   const sizeClasses = {
-    xs: "size-8",
-    small: "size-10",
-    medium: "size-14",
-    large: "size-20"
+    xs: "size-3.5",
+    small: "size-4",
+    medium: "size-5",
+    large: "size-7"
   };
 
   const displayMessage = message || (showText ? "Carregando..." : null);
 
   const spinnerContent = (
-    <div className={cn("flex flex-col justify-center items-center gap-2", className)}>
-      <div className={cn("relative flex items-center justify-center pointer-events-none", sizeClasses[size])}>
-        <BrandMark
-          motion="entrance"
-          className={cn(
-            "h-full w-full text-foreground",
-            variant !== 'minimal' && "drop-shadow-[0_7px_10px_hsl(var(--foreground)/0.08)]",
-          )}
-        />
-      </div>
+    <div
+      className={cn("flex flex-col items-center justify-center gap-2", className)}
+      role="status"
+      aria-live="polite"
+      aria-label={displayMessage ?? "Carregando"}
+    >
+      <Loader2
+        aria-hidden="true"
+        className={cn(
+          "animate-spin text-primary",
+          sizeClasses[size],
+          variant === 'minimal' && "text-current",
+        )}
+      />
 
       {displayMessage && (
-        <p className="text-xs font-bold text-muted-foreground animate-pulse tracking-[0.2em] uppercase mt-2 text-center">
+        <p className="mt-1 text-xs font-semibold tracking-wide text-muted-foreground text-center">
           {displayMessage}
         </p>
       )}
@@ -48,8 +52,8 @@ export const LoadingSpinner = ({
 
   if (fullPage) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-        <div className="pointer-events-auto bg-background/0 backdrop-blur-[2px] rounded-3xl p-8">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+        <div className="rounded-2xl p-6">
           {spinnerContent}
         </div>
       </div>

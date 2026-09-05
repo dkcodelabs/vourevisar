@@ -41,7 +41,7 @@ export function RequireActiveSubscription({ children }: RequireActiveSubscriptio
   };
 
   if (loading) {
-    return <LoadingSpinner size="large" message="Verificando seu acesso..." fullPage />;
+    return <LoadingSpinner size="large" fullPage />;
   }
 
   if (error) {

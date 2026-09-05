@@ -242,7 +242,7 @@ const Login = () => {
   // Do not expose the empty login form while Supabase is restoring a persisted
   // session or while a successful password sign-in is validating the profile.
   if (authLoading && !user) {
-    return <LoadingSpinner size="large" showText fullPage message="Entrando..." />;
+    return <LoadingSpinner size="large" fullPage />;
   }
 
   return (

@@ -218,7 +218,7 @@ const UserManagement = () => {
         setIsRoleModalOpen(true);
     };
     if (loading) {
-        return <LoadingSpinner size="large" showText fullPage />;
+        return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
     }
     return (
         <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-900 dark:text-slate-100">

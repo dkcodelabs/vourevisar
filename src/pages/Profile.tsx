@@ -290,7 +290,7 @@ const Profile = () => {
     return level ? map[level] || level : '—';
   };
 
-  if (!user) return <LoadingSpinner size="large" fullPage />;
+  if (!user) return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
 
   const academic = ((profile?.preferences as Record<string, unknown>) || {}).academic as AcademicInfo | undefined;
   // ═══════════════════════════════════════════════════════

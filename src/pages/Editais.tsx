@@ -427,7 +427,7 @@ const Editais = () => {
 
     // ── Loading ──
     if ((isLoading || loadingEditais || !dataLoaded) && !keepCycleModalMountedDuringProcessing) {
-        return <LoadingSpinner size="large" showText fullPage />;
+        return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
     }
 
     return (
