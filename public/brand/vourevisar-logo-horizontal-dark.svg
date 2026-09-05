@@ -1,17 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 128" role="img" aria-labelledby="title desc">
-  <title id="title">vouRevisar para fundo escuro</title>
-  <desc id="desc">Logo horizontal do vouRevisar com gesto de conclusão e progresso.</desc>
-  <defs>
-    <linearGradient id="lime" x1="12" y1="99" x2="77" y2="30" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#63DF16"/>
-      <stop offset="0.58" stop-color="#A8F900"/>
-      <stop offset="1" stop-color="#D5FF45"/>
-    </linearGradient>
-  </defs>
-  <g transform="translate(0 8)">
-    <path d="M67 35H92c17 0 28 10 28 25 0 11-6 19-16 23l18 23h-19L87 85h-9l-9 17H50l16-29h26c8 0 12-5 12-12s-5-11-12-11H59l8-15Z" fill="#F8FAFC"/>
-    <path d="M13 67 35 90 73 24" fill="none" stroke="#0B1120" stroke-linecap="round" stroke-linejoin="round" stroke-width="20" opacity=".54"/>
-    <path d="M13 67 35 90 73 24" fill="none" stroke="url(#lime)" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>
-  </g>
-  <text x="142" y="80" fill="#F8FAFC" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="55" font-weight="800" letter-spacing="-1.6"><tspan font-weight="500" opacity=".65">vou</tspan><tspan>Revisar</tspan></text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="128" viewBox="0 0 520 128" role="img" aria-label="vouRevisar"><defs><linearGradient id="lime" x1="25" y1="100" x2="92" y2="11" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#63DF16"/><stop offset="0.6" stop-color="#A8F900"/><stop offset="1" stop-color="#D5FF45"/></linearGradient></defs><g transform="translate(0 4) scale(.88)"><path d="M98 32H119C140 32 150 43 147 61C145 74 137 81 124 84L144 112Q145 114 143 114L122 110L105 88H93L75 117H53L81 72H115C124 72 130 67 131 61C132 54 126 50 117 50H87Z" fill="#F8FAFC"/><path d="M11 63L20 57Q22 56 24 58L42 78L86 12Q87.5 10 89.5 11.3L99 17.2Q101 18.5 99.6 20.8L53 94Q49 100 43 100Q39 100 35 96L10 71Q7 67.5 11 63Z" fill="url(#lime)"/></g><text x="148" y="80" fill="#F8FAFC" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="55" font-weight="800" letter-spacing="-1.6"><tspan font-weight="500" opacity=".65">vou</tspan><tspan>Revisar</tspan></text></svg>

@@ -2136,32 +2136,17 @@ select {
   filter: drop-shadow(0 7px 10px hsl(var(--foreground) / 0.08));
 }
 
-.brand-mark__r-highlight {
-  opacity: 0.2;
-}
-
-.brand-mark__energy {
-  opacity: 0;
-}
-
-.brand-mark__check,
-.brand-mark__check-shadow {
+.brand-mark__check-draw {
   stroke-dasharray: 100;
   stroke-dashoffset: 0;
 }
 
-.brand-mark--entrance .brand-mark__r,
-.brand-mark--entrance .brand-mark__r-highlight {
+.brand-mark--entrance .brand-mark__r {
   animation: brand-r-reveal 560ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
 }
 
-.brand-mark--entrance .brand-mark__check,
-.brand-mark--entrance .brand-mark__check-shadow {
+.brand-mark--entrance .brand-mark__check-draw {
   animation: brand-check-draw 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.brand-mark--entrance .brand-mark__energy {
-  animation: brand-energy-pass 760ms ease-out 80ms both;
 }
 
 @keyframes brand-check-draw {
@@ -2184,25 +2169,9 @@ select {
   }
 }
 
-@keyframes brand-energy-pass {
-  0%, 100% {
-    opacity: 0;
-  }
-  45% {
-    opacity: 0.62;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .brand-mark--entrance .brand-mark__r,
-  .brand-mark--entrance .brand-mark__r-highlight,
-  .brand-mark--entrance .brand-mark__check,
-  .brand-mark--entrance .brand-mark__check-shadow,
-  .brand-mark--entrance .brand-mark__energy {
+  .brand-mark--entrance .brand-mark__check-draw {
     animation: none;
-  }
-
-  .brand-mark__energy {
-    opacity: 0;
   }
 }

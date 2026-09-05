@@ -1,6 +1,6 @@
 # Kit de marca vouRevisar
 
-Arquivos criados para uso no produto, e-mail e Canva:
+Versão premium aprovada. Geometria compartilhada com o aplicativo em `src/components/brand/brand-geometry.json`; exportações em `scripts/generate-brand-assets.mjs` (Node + sharp no caminho de módulos).
 
 - `vourevisar-logo-horizontal.svg`: versão principal para cabeçalho, sidebar aberta, materiais e e-mail.
 - `vourevisar-logo-horizontal-dark.svg`: versão horizontal para fundos escuros.
@@ -13,12 +13,10 @@ Arquivos criados para uso no produto, e-mail e Canva:
 
 ## Direcao visual
 
-A marca combina o gesto de conclusão com a inicial de Revisar. O símbolo funciona sozinho e é a versão recomendada para divulgação. A aplicação normal é plana e transparente; o brilho azul fica reservado à animação de entrada e ao carregamento do produto. Use sempre o SVG ou PNG correto para o fundo, sem incorporar um fundo ao arquivo. Quando o nome aparecer, todo o wordmark permanece neutro; o azul não colore mais “Revisar”.
+A marca combina o gesto de conclusão com a inicial de Revisar. O símbolo funciona sozinho e é recomendado para divulgação. A aplicação é plana e transparente. A entrada desenha o check uma única vez, respeita movimento reduzido e preserva o desenho aprovado, sem brilho azul. Quando o nome aparecer, todo o wordmark permanece neutro.
 
 ## Cores
 
-- Azul principal: `#2F80FF`
-- Azul ciano de apoio: `#28B8D8`
 - Verde progresso: `#63DF16` a `#D5FF45`
 - Texto principal: `#172033`
 - Texto secundario: `#617084`
@@ -26,3 +24,5 @@ A marca combina o gesto de conclusão com a inicial de Revisar. O símbolo funci
 ## Canva
 
 Importe preferencialmente os SVGs no Canva. Para PNG, use `vourevisar-mark-light-bg.png` em superfícies claras e `vourevisar-mark-dark-bg.png` em superfícies escuras. Ambos têm fundo transparente e não incluem o nome.
+
+Kit para salvar: `docs/brand-kit-premium`, com PNGs transparentes 64–4096 px, vetores e imagens de perfil 1080 × 1080 com fundo e margem para recorte circular. A cópia remota usada nos e-mails é publicada separadamente; ver pendência no plano operacional.
