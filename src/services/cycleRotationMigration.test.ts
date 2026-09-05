@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const readProjectFile = (file: string) => readFileSync(resolve(process.cwd(), file), 'utf8');
 const migration = readProjectFile(
-  'supabase/migrations/20260905020728_add_atomic_cycle_rotation_snapshots.sql',
+  'supabase/migrations/20260905021553_add_atomic_cycle_rotation_snapshots.sql',
 ).replace(/\s+/g, ' ').toLowerCase();
 
 describe('atomic cycle rotation snapshots migration', () => {
