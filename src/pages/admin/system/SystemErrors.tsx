@@ -45,7 +45,7 @@ import {
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
 import { useNavigate } from 'react-router-dom';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import {
     calculateSystemErrorUsageMetrics,
     formatSystemErrorDate,
@@ -135,7 +135,7 @@ export default function SystemErrors() {
     };
 
     if (loading) {
-        return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
+        return <PageLoadingState label="Carregando erros do sistema" />;
     }
 
     return (

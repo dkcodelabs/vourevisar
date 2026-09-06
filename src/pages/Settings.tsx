@@ -7,7 +7,7 @@ import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchSettings, createSettings, saveSettings, clearUserStudyData } from '@/services/settingsService';
 import { Bell, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { GradientButton } from '@/components/ui';
 import { useCycleState } from '@/hooks/useCycleState';
@@ -186,7 +186,7 @@ const Settings = () => {
   };
 
   if (isLoading || isCycleLoading) {
-    return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
+    return <PageLoadingState label="Carregando configurações" />;
   }
 
   // ═══════════════════════════════════════════════════════

@@ -6,7 +6,7 @@ import {
   GraduationCap, Target, Clock, BookOpen, Camera, Loader2,
   CheckCircle2, ShieldCheck, Pencil, ExternalLink
 } from 'lucide-react';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { toast } from '@/lib/toast';
 import { z } from 'zod';
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -290,7 +290,7 @@ const Profile = () => {
     return level ? map[level] || level : '—';
   };
 
-  if (!user) return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
+  if (!user) return <PageLoadingState label="Carregando perfil" />;
 
   const academic = ((profile?.preferences as Record<string, unknown>) || {}).academic as AcademicInfo | undefined;
   // ═══════════════════════════════════════════════════════

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { X, Save, MessageSquareText } from 'lucide-react';
 import RichTextNotesEditor from '@/components/RichTextNotesEditor';
 import { TopicNotes } from '@/types';
@@ -180,8 +181,10 @@ const SubjectNotesModal: React.FC<SubjectNotesModalProps> = ({
         {/* Content */}
         <div className={`${isMobile ? 'flex-1 overflow-y-auto p-4' : 'flex-1 min-h-0 overflow-y-auto p-6 pt-2'} bg-background`}>
           {isLoading ? (
-            <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="space-y-3 py-2" aria-busy="true" aria-label="Carregando anotações da matéria">
+              <Skeleton className="h-5 w-2/5" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
             </div>
           ) : (
             <div className="space-y-6">

@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PageContainer from '@/components/layout/PageContainer';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { withTimeout } from '@/utils/withTimeout';
 import { invokeAdminRpc } from '@/services/adminRpcService';
 import { useAuditLogFilters } from '@/hooks/useAuditLogFilters';
@@ -101,7 +101,7 @@ export default function AuditLogs() {
 
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
     if (loading) {
-        return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
+        return <PageLoadingState label="Carregando auditoria" />;
     }
 
     if (errorMessage) {

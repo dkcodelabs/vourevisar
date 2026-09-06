@@ -12,7 +12,7 @@ import {
     AlertCircle, Info, GraduationCap, Database as DatabaseIcon, ChevronDown, ChevronLeft, ChevronUp, ChevronRight, Link, FileText, PencilLine, ArrowRight, CalendarDays
 } from 'lucide-react';
 import { toast } from '@/lib/toast';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { EditaisHeaderActions } from '@/components/editais/EditaisHeaderActions';
 import { EditaisEmptyState } from '@/components/editais/EditaisEmptyState';
 import { CycleConflictFeedbackNotices } from '@/components/editais/CycleConflictFeedbackNotices';
@@ -427,7 +427,7 @@ const Editais = () => {
 
     // ── Loading ──
     if ((isLoading || loadingEditais || !dataLoaded) && !keepCycleModalMountedDuringProcessing) {
-        return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
+        return <PageLoadingState label="Carregando editais" />;
     }
 
     return (

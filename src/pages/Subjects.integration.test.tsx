@@ -344,7 +344,7 @@ describe('Subjects cycle integration', () => {
 
     renderSubjects();
 
-    expect(await screen.findByText('Carregando ciclo')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Carregando ciclo de estudos')).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByText('Seu ciclo ainda não está montado')).not.toBeInTheDocument();
   });
 

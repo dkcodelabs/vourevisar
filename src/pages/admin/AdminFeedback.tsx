@@ -7,7 +7,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 
 import { isValidTransition, getFeedbackStatusLabel, type FeedbackStatus, calculateSLADueDates, checkSLABreach } from '@/services/feedbackService';
 import { deleteAdminFeedback, updateAdminFeedback } from '@/services/adminFeedbackService';
@@ -213,7 +213,7 @@ const AdminFeedback: React.FC = () => {
     };
 
     if (isLoading) {
-        return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
+        return <PageLoadingState label="Carregando feedbacks" />;
     }
 
     return (

@@ -103,6 +103,23 @@ const App = () => {
                         <Route path="/privacidade" element={<PrivacyPolicy />} />
                         <Route path="/cancelamento-e-reembolso" element={<CancellationRefundPolicy />} />
                         <Route path="/contato" element={<Contact />} />
+                        <Route element={<AdminRoute />}>
+                          <Route path="admin/users" element={<UserManagement />} />
+                          <Route path="admin/subscription" element={<SubscriptionManagement />} />
+                          <Route path="admin/security/roles" element={<RolesManagement />} />
+                          <Route path="admin/audit" element={<AuditLogs />} />
+                          <Route path="admin/system/errors" element={<SystemErrors />} />
+                          <Route path="admin/feedback" element={<AdminFeedback />} />
+                          <Route path="reveal-cards" element={<RevealCards />} />
+                          <Route path="reveal-card-demo" element={<RevealCardDemo />} />
+                          <Route path="admin/editais" element={<AdminEditais />} />
+                          {exposeDebugRoutes && ToastSpamTest && (
+                            <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
+                          )}
+                          <Route path="admin/referrals" element={<AffiliateReferralManagement />} />
+                          <Route path="admin/pricing" element={<Navigate to="/admin/referrals" replace />} />
+                          <Route path="admin/ai-settings" element={<AISettings />} />
+                        </Route>
                         <Route path="/*" element={<ProtectedRoute />}>
                           <Route path="checkout" element={<StripeCheckout />} />
                           <Route path="checkout/retorno" element={<StripeCheckoutReturn />} />
@@ -134,25 +151,6 @@ const App = () => {
                           </Route>
 
                           <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
-                            {/* Admin Routes - Protected */}
-                            <Route element={<AdminRoute />}>
-                              <Route path="admin/users" element={<UserManagement />} />
-                              <Route path="admin/subscription" element={<SubscriptionManagement />} />
-                              <Route path="admin/security/roles" element={<RolesManagement />} />
-                              <Route path="admin/audit" element={<AuditLogs />} />
-                              <Route path="admin/system/errors" element={<SystemErrors />} />
-                              <Route path="admin/feedback" element={<AdminFeedback />} />
-                              <Route path="reveal-cards" element={<RevealCards />} />
-                              <Route path="reveal-card-demo" element={<RevealCardDemo />} />
-                              <Route path="admin/editais" element={<AdminEditais />} />
-                              {exposeDebugRoutes && ToastSpamTest && (
-                                <Route path="admin/debug/toasts" element={<ToastSpamTest />} />
-                              )}
-                              <Route path="admin/referrals" element={<AffiliateReferralManagement />} />
-                              <Route path="admin/pricing" element={<Navigate to="/admin/referrals" replace />} />
-                              <Route path="admin/ai-settings" element={<AISettings />} />
-                            </Route>
-
                             {exposeDebugRoutes && SimpleRoleTest && <Route path="test-roles" element={<SimpleRoleTest />} />}
                             <Route path="planos" element={<Planos />} />
                             <Route path="conta" element={<Account />} />

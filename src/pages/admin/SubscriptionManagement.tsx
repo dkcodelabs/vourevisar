@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Calendar, Crown, Loader2, RefreshCw, Search, Shield, User, UserCheck, XCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AdminBillingRefundQueue } from '@/features/billing/components/AdminBillingRefundQueue';
@@ -102,9 +103,8 @@ const SubscriptionManagement = () => {
   if (usersQuery.isLoading) {
     return (
       <div className="w-full max-w-[1600px] space-y-6" aria-busy="true" aria-live="polite">
-        <div className="flex items-center gap-3 px-1 text-sm font-medium text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none text-primary" aria-hidden="true" />
-          Atualizando o panorama de acessos
+        <div className="flex items-center gap-3 px-1 text-sm font-medium text-muted-foreground" aria-label="Carregando panorama de acessos">
+          <Skeleton className="h-4 w-44" />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {Array.from({ length: 5 }, (_, index) => <div key={index} className="h-28 animate-pulse rounded-3xl border border-border/60 bg-card" />)}

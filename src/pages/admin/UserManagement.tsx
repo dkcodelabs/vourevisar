@@ -62,7 +62,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserRole } from '@/hooks/useUserRole';
 import { UserActivityList } from '@/components/admin/UserActivityList';
 import { toastGate } from '@/lib/errors/toastGate';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { filterAdminUsers, getAdminRoleBadge } from '@/components/admin/UserManagementPresentation';
 
@@ -218,7 +218,7 @@ const UserManagement = () => {
         setIsRoleModalOpen(true);
     };
     if (loading) {
-        return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
+        return <PageLoadingState label="Carregando usuários" />;
     }
     return (
         <div className="p-8 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-900 dark:text-slate-100">

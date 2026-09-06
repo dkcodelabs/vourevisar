@@ -8,6 +8,8 @@ import { useAIStatus, getAIErrorLogs } from '@/hooks/useAIStatus';
 import { mergeAIConfig } from '@/services/aiSettingsConfig';
 import { TopicGroupingPromptSection } from '@/components/admin/TopicGroupingPromptSection';
 import { AIErrorLogsSection } from '@/components/admin/AIErrorLogsSection';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const DEFAULT_CONFIG = {
   model: 'gemini-2.5-flash',
@@ -145,11 +147,7 @@ export default function AISettings() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageLoadingState label="Carregando configurações de IA" />;
   }
 
   return (
@@ -450,8 +448,10 @@ Retorne APENAS um JSON no formato:
   if (isLoading) {
     return (
       <div className="glow-card bg-card dark:bg-zinc-900/40 border border-border dark:border-white/5 rounded-3xl overflow-hidden shadow-sm relative mt-6">
-        <div className="p-6 flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <div className="space-y-4 p-6" aria-busy="true" aria-label="Carregando configurações de unificação">
+          <Skeleton className="h-5 w-64" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-9 w-28" />
         </div>
       </div>
     );

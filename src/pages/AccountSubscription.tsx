@@ -428,7 +428,7 @@ const StatePanel = ({
 const SubscriptionLoading = () => (
   <SubscriptionFrame>
     <StatePanel
-      icon={<Loader2 className="h-6 w-6 animate-spin" />}
+      icon={<ShieldCheck className="h-6 w-6" />}
       title="Carregando sua assinatura"
       description="Organizando os dados do seu plano…"
     />

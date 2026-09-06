@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { getUnifiedSubjectId } from '@/services/cycleMergeService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
@@ -483,7 +483,7 @@ const Subjects = () => {
   });
 
 	  if (isLoading || isOriginsLoading || loading) {
-    return <div className="flex min-h-[55vh] items-center justify-center"><LoadingSpinner size="large" /></div>;
+    return <PageLoadingState label="Carregando ciclo de estudos" />;
   }
 
   if (loadError) {

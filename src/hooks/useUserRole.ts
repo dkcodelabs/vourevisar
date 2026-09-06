@@ -29,18 +29,20 @@ export function useUserRole(): UserRoleData & {
   const [highestRole, setHighestRole] = useState<AppRole | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [loadedForUserId, setLoadedForUserId] = useState<string | null>(null)
   const { user } = useAuth()
 
   const fetchRoles = useCallback(async () => {
+    const currentUser = user
+
     try {
       setLoading(true)
       setError(null)
 
-      const currentUser = user
-
       if (!currentUser) {
         setRoles([])
         setHighestRole(null)
+        setLoadedForUserId(null)
         return
       }
 
@@ -82,6 +84,7 @@ export function useUserRole(): UserRoleData & {
       console.error('Error fetching user roles:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
+      setLoadedForUserId(currentUser?.id ?? null)
       setLoading(false)
     }
   }, [user])
@@ -110,10 +113,15 @@ export function useUserRole(): UserRoleData & {
     fetchRoles()
   }, [fetchRoles])
 
+  // Auth can resolve a user between the null-user effect and the next role
+  // effect. Keep access consumers loading until this exact identity has had a
+  // role lookup, otherwise a direct admin route can briefly redirect an owner.
+  const isCurrentUserLoading = Boolean(user) && (loading || loadedForUserId !== user.id)
+
   return {
     roles,
     highestRole,
-    loading,
+    loading: isCurrentUserLoading,
     error,
     user,
     isOwner: hasRole('owner'),

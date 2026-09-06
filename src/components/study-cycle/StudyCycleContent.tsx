@@ -23,7 +23,7 @@ import { toast } from '@/lib/toast';
 import { errorService } from '@/lib/errors/errorService';
 import { Loader2, AlertCircle, X, Target, BookOpen, Database, RefreshCw, Search, BarChart2 } from 'lucide-react';
 import { unloadEditalFromCycle } from '@/services/studyCycleContentService';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { mergeService } from '@/services/mergeService';
 import { useMentorInsights } from '@/hooks/useMentorInsights';
 import { MentorCycleBanner } from '@/components/mentor/MentorCycleBanner';
@@ -550,7 +550,7 @@ export const StudyCycleContent: React.FC = () => {
 
         {isLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 min-h-[400px]">
-            <LoadingSpinner size="large" />
+            <PageLoadingState label="Carregando conteúdo do ciclo" />
           </div>
         ) : subjects.length === 0 ? (
           <main className="flex-1 flex flex-col items-center justify-center p-6 animate-in fade-in slide-in-from-bottom-8 duration-700 overflow-hidden text-center w-full">

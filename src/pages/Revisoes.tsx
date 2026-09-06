@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { AlertCircle, Loader2, Target, BookOpen } from 'lucide-react';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -434,11 +434,7 @@ export const Revisoes = () => {
   };
 
   if (isLoading || isCycleLoading) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh]">
-        <LoadingSpinner size="large" />
-      </div>
-    );
+    return <PageLoadingState label="Carregando revisões" />;
   }
 
   if (!hasActiveCycle) {

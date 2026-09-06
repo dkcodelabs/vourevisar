@@ -20,6 +20,7 @@ import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ReviewData {
   id: string;
@@ -143,8 +144,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   if (isLoading) {
     return (
       <Card className={className}>
-        <CardContent className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <CardContent className="space-y-4 p-6" aria-busy="true" aria-label="Carregando calendário de revisões">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-40" />
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-9 rounded-md" />
+              <Skeleton className="h-9 w-9 rounded-md" />
+            </div>
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {Array.from({ length: 35 }, (_, index) => (
+              <Skeleton key={index} className="h-8 rounded-md" />
+            ))}
+          </div>
         </CardContent>
       </Card>
     );

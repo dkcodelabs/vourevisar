@@ -1,17 +1,30 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { useAuth } from '@/contexts/AuthContext';
+import { StudentHubProvider } from '@/contexts/StudentHubContext';
+import { AppLayout } from '@/components/AppLayout';
+import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 
 export const AdminRoute = () => {
     const { isAdmin, loading, error, refetch } = useUserRole();
+    const { user, authInitialized } = useAuth();
+    const location = useLocation();
 
-    if (loading) {
-        return (
-            <div className="flex min-h-[50vh] items-center justify-center">
-                <LoadingSpinner size="large" />
-            </div>
-        );
+    // Keep one blocking surface from session hydration through role validation.
+    // The application shell only mounts after access is known, so it cannot
+    // compete with this state or start duplicate role-dependent rendering.
+    if (!authInitialized || (user && loading)) {
+        return <LoadingSpinner size="large" fullPage />;
+    }
+
+    if (!user) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    if (isEmailConfirmationPending(user)) {
+        return <Navigate to="/confirm-email" replace />;
     }
 
     if (error) {
@@ -36,5 +49,9 @@ export const AdminRoute = () => {
         return <Navigate to="/dashboard" replace />;
     }
 
-    return <Outlet />;
+    return (
+        <StudentHubProvider>
+            <AppLayout />
+        </StudentHubProvider>
+    );
 };

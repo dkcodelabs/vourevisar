@@ -8,7 +8,7 @@ import {
 import { deleteAdminEdital, fetchAdminEditais, fetchAdminEditalSuggestions, respondToAdminEditalSuggestion, saveAdminEdital, type AdminEditalSuggestion, type AdminPublicEdital } from '@/services/adminEditaisService';
 import { toast } from '@/lib/toast';
 import { toastGate } from '@/lib/errors/toastGate';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { errorService } from '@/lib/errors/errorService';
 import { AdminEditalSubjectsModal } from '@/components/admin/AdminEditalSubjectsModal';
 import { AdminAddEditalModal } from '@/components/admin/AdminAddEditalModal';
@@ -397,7 +397,7 @@ const AdminEditais = () => {
                             {/* Lista de Editais */}
                             <div className="flex flex-col gap-2">
                                 {isLoading ? (
-                                    <div className="py-20 text-center"><LoadingSpinner size="large" /></div>
+                                    <PageLoadingState label="Carregando editais administrativos" />
                                 ) : filteredEditais.length === 0 ? (
                                     <div className="py-20 text-center bg-secondary border border-border rounded-3xl">
                                         <AlertCircle size={48} className="mx-auto text-zinc-800 mb-4" />
@@ -544,7 +544,7 @@ const AdminEditais = () => {
                     {activeTab === 'solicitacoes' && (
                         <motion.div key="sol" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
                             {loadingSuggestions ? (
-                                <div className="py-20 text-center"><LoadingSpinner size="large" /></div>
+                                <PageLoadingState label="Carregando solicitações de edital" />
                             ) : suggestions.length === 0 ? (
                                 <div className="py-20 text-center bg-zinc-900/40 border border-white/5 rounded-3xl">
                                     <MessageSquare size={48} className="mx-auto text-zinc-800 mb-4" />

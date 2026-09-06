@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchUserActivity } from '@/services/adminUserActivityService';
 import {
-    Loader2, Activity, LogIn, LogOut, Slash,
+    Activity, LogIn, LogOut, Slash,
     UserCog, KeyRound, Mail, UserCheck, ExternalLink,
     CheckCircle, XCircle, Clock
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -135,8 +136,13 @@ export const UserActivityList: React.FC<UserActivityListProps> = ({ userId, show
 
     if (loading) {
         return (
-            <div className="flex justify-center py-6">
-                <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+            <div className="space-y-3 py-2" aria-busy="true" aria-label="Carregando atividade recente">
+                <Skeleton className="h-4 w-36" />
+                <div className="space-y-2 rounded-lg border border-slate-100 p-3">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-4/5" />
+                    <Skeleton className="h-4 w-3/5" />
+                </div>
             </div>
         );
     }
