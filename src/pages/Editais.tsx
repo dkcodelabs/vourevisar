@@ -80,6 +80,7 @@ import { useEditalCycleLoad } from '@/hooks/useEditalCycleLoad';
 import { useEditalUpdateAction } from '@/hooks/useEditalUpdateAction';
 import { useCycleConflictClose } from '@/hooks/useCycleConflictClose';
 import { useEditalSelection } from '@/hooks/useEditalSelection';
+import { useCycleSubjectSelection } from '@/hooks/useCycleSubjectSelection';
 import { buildEditalProgressSummary, type EditalProgressSummary } from '@/utils/editalProgressSummary';
 import {
     CycleUnificationMap,
@@ -192,6 +193,7 @@ const Editais = () => {
     const [syncReview, setSyncReview] = useState<SyncReviewState>({ isOpen: false, edital: null, localSubjects: [], sourceSubjects: [] });
     const [editModal, setEditModal] = useState<{ isOpen: boolean; edital: UserEdital | null }>({ isOpen: false, edital: null });
     const [loadedEditalSubjects, setLoadedEditalSubjects] = useState<Subject[]>([]);
+    const cycleSubjectSelection = useCycleSubjectSelection(setCycleConflict);
 
     const cycleConflictStats = useMemo(() => getEditaisConflictStats(cycleConflict, loadedEditalSubjects, subjects), [cycleConflict, loadedEditalSubjects, subjects]);
 
@@ -581,7 +583,6 @@ const Editais = () => {
                                 }}
                                 onClose={() => closeCycleConflictModal('button')}
                             />
-
                             {/* Área de Conteúdo - Lateral 2cm, Vertical 1cm */}
                             <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto custom-scrollbar px-6 pb-4 pt-4 md:px-8">
                                 <CycleConflictFeedbackNotices
@@ -590,13 +591,11 @@ const Editais = () => {
                                     processingId={processingId}
                                     onDiscardRecoveredMerge={() => handleDiscardRecoveredMerge(cycleConflict.edital)}
                                 />
-
                                 <div className="flex flex-col gap-10">
                                 <CycleCurrentSubjectsSection
                                     cycleConflict={cycleConflict}
                                     subjects={subjects}
                                 />
-
                                 <CycleNewEditalSection
                                     cycleConflict={cycleConflict}
                                     subjects={subjects}
@@ -604,6 +603,7 @@ const Editais = () => {
                                     progressChoiceCard={progressChoiceCard}
                                     mergeProgressNoticeCard={mergeProgressNoticeCard}
                                     onToggleDetailedPreview={() => setCycleConflict(prev => ({ ...prev, showDetailedPreview: !prev.showDetailedPreview }))}
+                                    {...cycleSubjectSelection}
                                 />
 
                                 <CycleReplacementPreview

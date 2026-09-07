@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 
 import type { Subject } from '@/types';
 import { buildCycleMergeSources, buildCycleNameCandidates, chooseDefaultCycleExamDate } from '@/components/editais/cycleMergeNaming';
-import { formatCycleSourceName, sanitizeExamDate, type CycleConflictState } from '@/utils/editaisPagePresentation';
+import { formatCycleSourceName, getCycleLoadSubjectIds, sanitizeExamDate, type CycleConflictState } from '@/utils/editaisPagePresentation';
 
 type UseEditaisConflictPreviewInput = {
   cycleConflict: CycleConflictState;
@@ -29,7 +29,7 @@ export function useEditaisConflictPreview({
   const finalPreviewIds = useMemo(() => {
     if (!cycleConflict.edital) return [];
     if (cycleConflict.action === 'merge' && cycleConflict.finalSubjectIds) return cycleConflict.finalSubjectIds;
-    return [...new Set([...cycleConflict.existingIds, ...cycleConflict.edital.subjectIds])];
+    return [...new Set([...cycleConflict.existingIds, ...getCycleLoadSubjectIds(cycleConflict)])];
   }, [cycleConflict]);
   const replacePreviewSubjectIds = useMemo(() => subjects.filter(subject => finalPreviewIds.includes(subject.id)).map(subject => subject.id), [finalPreviewIds, subjects]);
   const areReplacePreviewSubjectsExpanded = useMemo(() => replacePreviewSubjectIds.length > 0 && replacePreviewSubjectIds.every(id => expandedPreviewSubjects.has(id)), [expandedPreviewSubjects, replacePreviewSubjectIds]);
@@ -54,9 +54,10 @@ export function useEditaisConflictPreview({
     setCycleNameDraft(cycleMergeSources.filter(source => nextIds.includes(source.id)).map(source => formatCycleSourceName(source.name)).join(' + '));
   }, [cycleMergeSources, selectedCycleNameSourceIdSet, selectedCycleNameSourceIds, setCycleNameDraft, setSelectedCycleNameSourceIds]);
   const successCycleStats = useMemo(() => {
-    const subjectIds = cycleConflict.action === 'replace' ? (cycleConflict.edital?.subjectIds || []) : (finalPreviewIds.length > 0 ? finalPreviewIds : (cycleConflict.edital?.subjectIds || []));
+    const selectedSubjectIds = getCycleLoadSubjectIds(cycleConflict);
+    const subjectIds = cycleConflict.action === 'replace' ? selectedSubjectIds : (finalPreviewIds.length > 0 ? finalPreviewIds : selectedSubjectIds);
     return { subjects: subjectIds.length, topics: subjectIds.reduce((total, id) => total + ((loadedEditalSubjects.find(subject => subject.id === id) || subjects.find(subject => subject.id === id))?.topics?.length || 0), 0) };
-  }, [cycleConflict.action, cycleConflict.edital?.subjectIds, finalPreviewIds, loadedEditalSubjects, subjects]);
+  }, [cycleConflict, finalPreviewIds, loadedEditalSubjects, subjects]);
   const successCycleSources = useMemo(() => cycleConflict.action === 'replace' && cycleConflict.edital ? [{ id: cycleConflict.edital.id, name: cycleConflict.edital.organ || cycleConflict.edital.name, position: cycleConflict.edital.position }] : cycleMergeSources, [cycleConflict.action, cycleConflict.edital, cycleMergeSources]);
 
   useEffect(() => {

@@ -9,7 +9,7 @@ import { resetEditalStudyProgress } from '@/services/editalStudyProgressResetSer
 import { clearUserExamDateMeta, fetchCycleId } from '@/services/editaisPageService';
 import { performHybridMerge, applyTopicMergeToMap, persistPhysicalSoftMerge, saveUnificationMap } from '@/services/cycleMergeService';
 import { buildIndividualCycleMap } from '@/components/editais/cycleMergeComparisonModel';
-import { formatCycleSourceName, getJsonRecord, sanitizeExamDate, type CycleConflictState, type UserEdital } from '@/utils/editaisPagePresentation';
+import { formatCycleSourceName, getCycleLoadSubjectIds, getJsonRecord, sanitizeExamDate, type CycleConflictState, type UserEdital } from '@/utils/editaisPagePresentation';
 
 // The handler is intentionally isolated behind a dependency bag while the
 // cycle conflict state is being decomposed into smaller domain hooks.
@@ -25,14 +25,19 @@ export const useCycleConflictAction = (deps: Deps) => {
         if (!canRunCycleStructuralOperation()) return;
         if (!cycleConflict.edital || !user) return;
         const edital = cycleConflict.edital;
+        const selectedSubjectIds = getCycleLoadSubjectIds(cycleConflict);
+        if (selectedSubjectIds.length === 0) {
+            toast.warning('Selecione pelo menos uma matéria para carregar no ciclo.');
+            return;
+        }
         setProcessingId(edital.id);
         setIsCycleFinalizationLocked(true);
 
-        const individualSubjectIds = [...new Set([...cycleConflict.existingIds, ...edital.subjectIds])];
+        const individualSubjectIds = [...new Set([...cycleConflict.existingIds, ...selectedSubjectIds])];
         let currentUnificationMap: CycleUnificationMap | undefined = organizationMode === 'individual'
             ? buildIndividualCycleMap(
                 cycleConflict.existingIds,
-                edital.subjectIds,
+                selectedSubjectIds,
                 [
                     ...cycleConflict.currentOrigins.flatMap(origin => ('id' in origin ? [origin.id] : [])),
                     edital.id,
@@ -65,7 +70,7 @@ export const useCycleConflictAction = (deps: Deps) => {
                 // Identificar editais que serão removidos do ciclo
                 const oldMerged = editais.filter(e => e.mergedIntoCycle && e.id !== edital.id);
                 oldEditalIds = oldMerged.map(e => e.id);
-                finalIdsToLoad = edital.subjectIds;
+                finalIdsToLoad = selectedSubjectIds;
 
                 if (cycleConflict.progressMode === 'reset') {
                     setProcessingProgress({ message: 'Reiniciando progresso deste edital...', percentage: 12 });
@@ -89,7 +94,7 @@ export const useCycleConflictAction = (deps: Deps) => {
 
                 if (!unificationMap || !finalSubjectIdsFromMap) {
                     const existingSubs = subjects.filter(s => cycleConflict.existingIds.includes(s.id));
-                    const newSubs = subjects.filter(s => edital.subjectIds.includes(s.id));
+                    const newSubs = subjects.filter(s => selectedSubjectIds.includes(s.id));
                     const existingEditalIds = editais
                         .filter(e => e.mergedIntoCycle && e.id !== edital.id)
                         .map(e => e.id);

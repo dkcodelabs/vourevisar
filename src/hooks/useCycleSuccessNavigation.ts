@@ -25,7 +25,7 @@ export const useCycleSuccessNavigation = ({
   const handleGoToCycleAfterSuccess = useCallback(async () => {
     if (!userId) return;
     setIsOpeningCycle(true);
-    const resetConflict = () => setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false });
+    const resetConflict = () => setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false, selectedSubjectIds: [], isSubjectSelectionOpen: false });
     if (action === 'replace') {
       resetConflict(); setCycleNameDraft(''); setSelectedCycleNameSourceIds([]); setCycleExamDateDraft('');
       navigate('/ciclo-estudos'); setIsOpeningCycle(false); return;

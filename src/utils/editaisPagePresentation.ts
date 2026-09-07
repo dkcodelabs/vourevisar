@@ -55,6 +55,15 @@ export type CycleConflictState = {
   updatedAt?: string | null;
   progressMode?: CycleProgressMode;
   progressSummary?: EditalProgressSummary;
+  selectedSubjectIds?: string[];
+  isSubjectSelectionOpen?: boolean;
+};
+
+export const getCycleLoadSubjectIds = (cycleConflict: CycleConflictState): string[] => {
+  const editalSubjectIds = cycleConflict.edital?.subjectIds || [];
+  const selectedSubjectIds = cycleConflict.selectedSubjectIds || editalSubjectIds;
+  const validIds = new Set(editalSubjectIds);
+  return [...new Set(selectedSubjectIds.filter(id => validIds.has(id)))];
 };
 
 export type PendingMergeDraft = Partial<Omit<CycleConflictState, 'isOpen' | 'edital'>> & { updatedAt?: string | null };

@@ -16,7 +16,7 @@ type Params = {
 export function useCycleConflictClose({ cycleConflict, isAnalyzingTopics, isMerging, setCycleConflict, setCycleNameDraft, setSelectedCycleNameSourceIds, setCycleExamDateDraft, setIsRecoveringMerge }: Params) {
     return useCallback((source: 'button' | 'backdrop' = 'button') => {
         if (shouldBlockCycleConflictClose({ action: cycleConflict.action, isAnalyzingTopics, isMerging, source, step: cycleConflict.step })) return;
-        setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false });
+        setCycleConflict({ isOpen: false, edital: null, existingIds: [], currentOrigins: [], step: 'select', action: null, showIASuggestionsOnly: false, selectedSubjectIds: [], isSubjectSelectionOpen: false });
         setCycleNameDraft('');
         setSelectedCycleNameSourceIds([]);
         setCycleExamDateDraft('');

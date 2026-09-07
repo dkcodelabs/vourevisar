@@ -31,7 +31,7 @@ export const useEditalCycleLoad = ({ canRunCycleStructuralOperation, discardPend
       const coveredIds = new Set(origins.flatMap(origin => isManualCycleOrigin(origin) ? [] : origin.subjectIds));
       if (realExistingIds.some(id => !coveredIds.has(id)) || (origins.length === 0 && (editalSubjects || []).some(subject => names.has(subject.name.toLowerCase().trim())))) origins.push({ name: 'Manual', isManual: true });
       if (editalSubjects) setLoadedEditalSubjects(editalSubjects);
-      setCycleConflict({ isOpen: true, edital, existingIds: realExistingIds, currentOrigins: origins, step: 'select', action: realExistingIds.length > 0 ? null : 'replace', showDetailedPreview: realExistingIds.length === 0, progressSummary: progressSummary.hasProgress ? progressSummary : undefined, progressMode: progressSummary.hasProgress ? undefined : 'keep' });
+      setCycleConflict({ isOpen: true, edital, existingIds: realExistingIds, currentOrigins: origins, step: 'select', action: realExistingIds.length > 0 ? null : 'replace', showDetailedPreview: realExistingIds.length === 0, progressSummary: progressSummary.hasProgress ? progressSummary : undefined, progressMode: progressSummary.hasProgress ? undefined : 'keep', selectedSubjectIds: edital.subjectIds, isSubjectSelectionOpen: false });
     } catch (error) { await errorService.report(error, { module: 'editais', action: 'loadCycle', userMessage: 'Erro ao preparar carga do ciclo.' }); }
     finally { setProcessingId(null); }
   }, [canRunCycleStructuralOperation, editais, pendingMerges, setCycleConflict, setIsRecoveringMerge, setLoadedEditalSubjects, setProcessingId, subjects, userId]);
