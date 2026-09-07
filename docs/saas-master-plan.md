@@ -29,7 +29,7 @@
 
 ### Fila executável atual
 
-Ativação de primeiro valor está implementada e validada localmente; a publicação depende apenas da aplicação das migrations de billing/telemetria no projeto Supabase e do deploy de produção.
+Ativação de primeiro valor foi publicada no frontend e no Supabase. Resta somente conferir a jornada autenticada em produção com uma conta de aluno, inclusive a variação de teste/cortesia encerrada.
 
 Importação, merge, ordenação, canal de suporte, matriz de acesso, revisão visual e recortes arquiteturais foram validados e removidos da fila executável.
 
@@ -80,7 +80,7 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 
 ## Prioridade 2 — lacunas funcionais já conhecidas
 
-- [ ] **Publicar a ativação de primeiro valor.** A implementação local conduz o aluno por edital → ciclo → primeiro estudo, recupera o contexto de teste/cortesia/assinatura encerrada e instrumenta o funil. Faltam aplicar as migrations `20260907145841` e `20260907152500` no Supabase e conferir a rota autenticada em produção. Plano: [ativação de primeiro valor](./activation-first-value-plan.md).
+- [ ] **Homologar a ativação em produção com conta de aluno.** Frontend (`edef3495`), migrations `20260907145841`/`20260907152500`, CI, preview Supabase e deploy Vercel passaram. Falta percorrer a rota autenticada real, incluindo ao menos um acesso de teste ou cortesia encerrada. Plano: [ativação de primeiro valor](./activation-first-value-plan.md).
 
 - [x] Aplicar localmente a marca premium v4 aprovada: geometria única para React e exportações; versões para temas claro/escuro, favicon SVG/ICO, ícones, imagem social e kit de divulgação com PNGs transparentes 64–4096 px, SVGs e perfis 1080 px. Lint, typecheck, testes do loader e build passaram; login e componente foram conferidos no navegador, incluindo animação única e movimento reduzido.
 - [x] Publicar a marca premium v4 no frontend e atualizar o asset remoto usado nos e-mails. O objeto `email-assets/vourevisar-mark-dark-v1.png` foi substituído pela geometria premium e seu hash público foi conferido contra o PNG local; favicon, manifest, imagem social e kit canônico acompanham o mesmo gerador.

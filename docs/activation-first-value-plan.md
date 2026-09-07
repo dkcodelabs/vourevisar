@@ -198,7 +198,7 @@ O funil deve usar denominadores explícitos: acesso liberado → ativação vist
 - [ ] Validar retorno de checkout no ambiente de teste com assinatura ativa e com aluno já ativado.
 - [ ] Validar visual e semanticamente o bloqueio em desktop e mobile para: teste inicial vencido, cortesia administrativa vencida, assinatura encerrada, acesso revogado/estornado e usuário sem histórico. Conferir a mesma verdade depois de recarregar `/planos` e em `Conta > Assinatura`.
 - [x] Rodar lint, testes focados e completos conforme impacto, typecheck, `npm run architecture:check`, build e `git diff --check`.
-- [ ] Publicar somente depois de conferir a rota autenticada renderizada em produção, não apenas o deploy.
+- [ ] Conferir a rota autenticada renderizada em produção, não apenas o deploy. Em 2026-09-07, CI, Vercel, preview Supabase e as migrations de produção foram confirmados; falta executar a matriz com conta de aluno.
 
 ## Critério de conclusão
 
