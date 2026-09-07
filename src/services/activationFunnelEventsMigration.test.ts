@@ -22,5 +22,6 @@ describe('activation funnel event migration', () => {
     }
 
     expect(migration).not.toMatch(/\b(create policy|grant |revoke |create function|drop table|insert into|update |delete from)\b/);
+    expect(migration.trimEnd().endsWith('));')).toBe(true);
   });
 });

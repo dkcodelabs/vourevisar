@@ -29,4 +29,4 @@ alter table public.user_events
       'ACCESS_RECOVERY_VIEWED',
       'ACCESS_RECOVERY_CHECKOUT_STARTED'
     ]::text[]
-  );
+  ));
