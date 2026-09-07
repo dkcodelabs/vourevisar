@@ -1,19 +1,27 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, Check, Loader2, Sparkles } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BillingShell } from '@/features/billing/components/BillingShell';
+import { useActivationJourney } from '@/features/activation/hooks/useActivationJourney';
 import { useStripeBillingOverview } from '@/features/billing/hooks/useStripeBilling';
 import { clearCheckoutRequestIds } from '@/features/billing/utils/checkoutRequest';
 
 const MAX_REFRESH_ATTEMPTS = 8;
 
 const StripeCheckoutReturn = () => {
+  const reduceMotion = useReducedMotion();
   const [searchParams] = useSearchParams();
   const overview = useStripeBillingOverview();
   const [attempt, setAttempt] = useState(0);
   const isConfirmed = overview.data?.source === 'stripe' && overview.data.is_active;
+  const activation = useActivationJourney(isConfirmed);
   const hasCheckoutReturn = Boolean(searchParams.get('session_id'));
+  const isAlreadyActivated = activation.journey?.kind === 'activated';
+  const continueHref = isAlreadyActivated ? '/dashboard' : '/ativacao';
+  const continueLabel = isAlreadyActivated
+    ? 'Ir para meu próximo estudo'
+    : 'Configurar meu plano de estudo';
 
   useEffect(() => {
     if (isConfirmed) clearCheckoutRequestIds();
@@ -52,12 +60,14 @@ const StripeCheckoutReturn = () => {
       backTo="/conta/assinatura"
       backLabel="Ver minha assinatura"
     >
-      <div className="rounded-[2rem] border border-white/80 bg-white/85 p-7 shadow-[0_28px_80px_-42px_rgba(36,24,77,0.5)] backdrop-blur-xl">
+      <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-[0_28px_80px_-48px_rgba(36,24,77,0.45)] sm:p-7">
         <motion.div
-          initial={{ scale: 0.88, opacity: 0 }}
+          initial={reduceMotion ? false : { scale: 0.88, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className={`flex h-16 w-16 items-center justify-center rounded-3xl ${
-            isConfirmed ? 'bg-[#dfff65] text-[#17122b]' : 'bg-[#eeeaff] text-[#6048ed]'
+          className={`flex size-14 items-center justify-center rounded-2xl ${
+            isConfirmed
+              ? 'bg-[hsl(var(--activation-lime))] text-[hsl(var(--activation-ink))]'
+              : 'bg-primary/10 text-primary'
           }`}
         >
           {isConfirmed ? (
@@ -71,14 +81,14 @@ const StripeCheckoutReturn = () => {
         <div
           role="status"
           aria-live="polite"
-          className={`mt-6 flex items-start gap-3 rounded-2xl p-4 ${
-            isConfirmed ? 'bg-[#efffc6]' : 'bg-[#f3f0fa]'
+          className={`mt-6 flex items-start gap-3 rounded-xl border p-4 ${
+            isConfirmed ? 'border-success/25 bg-success/10' : 'border-border bg-muted/50'
           }`}
         >
           <Sparkles
-            className={`mt-0.5 h-5 w-5 shrink-0 ${isConfirmed ? 'text-[#496400]' : 'text-[#6048ed]'}`}
+            className={`mt-0.5 h-5 w-5 shrink-0 ${isConfirmed ? 'text-success' : 'text-primary'}`}
           />
-          <p className={`text-sm font-semibold leading-6 ${isConfirmed ? 'text-[#334800]' : 'text-[#5d556e]'}`}>
+          <p className="text-sm font-semibold leading-6 text-foreground/80">
             {isConfirmed
               ? 'Tudo pronto: seu acesso já está liberado para você continuar de onde parou.'
               : hasCheckoutReturn
@@ -88,16 +98,16 @@ const StripeCheckoutReturn = () => {
         </div>
         {isConfirmed ? (
           <Link
-            to="/dashboard"
-            className="mt-6 flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#17122b] px-6 text-base font-black text-white transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#17122b]/20"
+            to={continueHref}
+            className="mt-6 flex min-h-14 w-full items-center justify-center rounded-xl bg-[hsl(var(--activation-ink))] px-6 text-base font-extrabold text-white transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           >
-            <span>Continuar meus estudos</span>
+            <span>{continueLabel}</span>
             <ArrowRight className="ml-2 h-5 w-5" />
           </Link>
         ) : !hasCheckoutReturn || attempt >= MAX_REFRESH_ATTEMPTS ? (
           <Link
             to="/conta/assinatura"
-            className="mt-6 flex min-h-14 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#6b4df5] to-[#2478ff] px-6 text-base font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#8b7bff]/30"
+            className="mt-6 flex min-h-14 w-full items-center justify-center rounded-xl bg-primary px-6 text-base font-extrabold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
           >
             Ver status da assinatura
           </Link>

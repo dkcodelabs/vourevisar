@@ -252,7 +252,7 @@ describe('AccountSubscription', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Teste gratuito')).toBeInTheDocument();
+    expect(screen.getByText('Cortesia')).toBeInTheDocument();
     expect(screen.getByText('Acesso gratuito')).toBeInTheDocument();
     expect(screen.getAllByText('Sem cobrança')).toHaveLength(1);
     expect(screen.getByText('Fim do período')).toBeInTheDocument();
@@ -282,7 +282,7 @@ describe('AccountSubscription', () => {
     expect(screen.getByText(/economize R\$ 54,90 no ano/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /assinar anual/i })).toHaveAttribute('href', '/checkout?plan=annual&from=subscription');
     expect(screen.getByRole('link', { name: /mensal.*assinar/i })).toHaveAttribute('href', '/checkout?plan=monthly&from=subscription');
-    expect(screen.getByRole('link', { name: /continuar no teste gratuito/i })).toHaveAttribute('href', '/dashboard');
+    expect(screen.getByRole('link', { name: /continuar com minha cortesia/i })).toHaveAttribute('href', '/ativacao');
     expect(screen.queryByRole('link', { name: /^ver planos/i })).not.toBeInTheDocument();
   });
 

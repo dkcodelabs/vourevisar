@@ -111,6 +111,51 @@ describe('useUserAccess', () => {
     expect(result.current.blockedReason).toBe('subscription_expired');
   });
 
+  it.each([
+    ['initial_trial', 'trial_expired'],
+    ['courtesy', 'courtesy_expired'],
+  ] as const)('preserves the %s context after access ends', (kind, expectedReason) => {
+    mocks.useStripeBillingOverview.mockReturnValue(billingState({
+      data: {
+        is_active: false,
+        source: 'none',
+        plan: 'free_trial',
+        status: 'none',
+        access_until: null,
+        subscription: null,
+        last_expired_access: {
+          kind,
+          ended_at: '2026-09-01T00:00:00Z',
+        },
+      },
+    }));
+
+    const { result } = renderHook(() => useUserAccess());
+
+    expect(result.current.hasFullAccess).toBe(false);
+    expect(result.current.blockedReason).toBe(expectedReason);
+  });
+
+  it('sends a suspended Stripe payer to payment recovery instead of plan selection', () => {
+    mocks.useStripeBillingOverview.mockReturnValue(billingState({
+      data: {
+        is_active: false,
+        source: 'stripe',
+        plan: 'monthly',
+        status: 'unpaid',
+        access_until: null,
+        subscription: {
+          status: 'unpaid',
+          access_suspended_at: '2026-09-01T00:00:00Z',
+        },
+      },
+    }));
+
+    const { result } = renderHook(() => useUserAccess());
+
+    expect(result.current.blockedReason).toBe('payment_attention');
+  });
+
   it('does not redirect while the canonical access lookup is failing', () => {
     mocks.useStripeBillingOverview.mockReturnValue(billingState({
       isError: true,

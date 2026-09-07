@@ -1,6 +1,8 @@
 import { RefreshCw, WifiOff } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
 import { DashboardDecisionExperience } from '@/components/dashboard-decision/DashboardDecisionExperience';
 import { PremiumStateCard } from '@/components/ui/PremiumStateCard';
+import { useActivationCompletionTelemetry } from '@/features/activation/hooks/useActivationTelemetry';
 import { useDashboardDecisionModel } from '@/hooks/useDashboardDecisionModel';
 
 const Dashboard = () => {
@@ -16,6 +18,9 @@ const Dashboard = () => {
     navigateToAction,
     retryDashboardDataIssue,
   } = useDashboardDecisionModel();
+  useActivationCompletionTelemetry(
+    !model.isLoading && (model.totals?.startedTopics ?? 0) > 0,
+  );
 
   if (model.error) {
     return (
@@ -34,6 +39,13 @@ const Dashboard = () => {
         />
       </div>
     );
+  }
+
+  if (!model.isLoading && (
+    model.examContext.state === 'missing_cycle' ||
+    model.totals.startedTopics === 0
+  )) {
+    return <Navigate to="/ativacao" replace />;
   }
 
   return (

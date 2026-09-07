@@ -1,11 +1,11 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { RefreshCw, ShieldAlert } from 'lucide-react';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { useUserAccess } from '@/hooks/useUserAccess';
 
 interface RequireActiveSubscriptionProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export function RequireActiveSubscription({ children }: RequireActiveSubscriptionProps) {
@@ -41,7 +41,7 @@ export function RequireActiveSubscription({ children }: RequireActiveSubscriptio
   };
 
   if (loading) {
-    return <LoadingSpinner size="large" fullPage />;
+    return <PageLoadingState label="Confirmando seu acesso" className="max-w-5xl" />;
   }
 
   if (error) {
@@ -78,5 +78,5 @@ export function RequireActiveSubscription({ children }: RequireActiveSubscriptio
     return <Navigate to="/planos" state={{ from: location, reason: blockedReason }} replace />;
   }
 
-  return <>{children}</>;
+  return <>{children ?? <Outlet />}</>;
 }

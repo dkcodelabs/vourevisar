@@ -92,6 +92,12 @@
     --brand-blue: 215 100% 59%; /* #2f80ff */
     --brand-green: 145 54% 36%;
     --brand-light: 210 40% 98%; /* #f8fafc */
+
+    /* Activation world: high-contrast ink with earned energy */
+    --activation-ink: 244 31% 13%;
+    --activation-ink-raised: 243 27% 18%;
+    --activation-lime: 76 100% 70%;
+    --activation-violet: 263 82% 68%;
   }
 
   .dark {
@@ -166,6 +172,11 @@
     --user-menu-icon: #94a3b8;
     --user-menu-separator: rgba(255, 255, 255, 0.06);
     --user-menu-border: rgba(255, 255, 255, 0.08);
+
+    --activation-ink: 244 34% 9%;
+    --activation-ink-raised: 243 28% 14%;
+    --activation-lime: 76 100% 70%;
+    --activation-violet: 263 90% 74%;
 
   }
 }

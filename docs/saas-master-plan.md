@@ -29,7 +29,7 @@
 
 ### Fila executável atual
 
-Não há implementação nova aprovada nesta etapa. O baseline arquitetural está zerado e as próximas ações dependem de dados reais, configuração do plano Supabase ou decisão explícita de produto.
+Ativação de primeiro valor está implementada e validada localmente; a publicação depende apenas da aplicação das migrations de billing/telemetria no projeto Supabase e do deploy de produção.
 
 Importação, merge, ordenação, canal de suporte, matriz de acesso, revisão visual e recortes arquiteturais foram validados e removidos da fila executável.
 
@@ -79,6 +79,8 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 - [x] Corrigir os avisos restantes do `supabase db lint` nas RPCs transacionais `atomic_delete_subject`, `reset_edital_study_progress`, `atomic_cycle_load`, `atomic_archive_edital_from_cycle`, `revert_subject_merge`, `revert_topic_merge` e `sync_topic_merge_progress`. Em 2026-08-31, a migration `20260831212253` tornou explícitos os defaults de array e removeu somente três variáveis usadas como existência; os contratos de ciclo/merge passaram e o lint remoto retornou sem erros de schema.
 
 ## Prioridade 2 — lacunas funcionais já conhecidas
+
+- [ ] **Publicar a ativação de primeiro valor.** A implementação local conduz o aluno por edital → ciclo → primeiro estudo, recupera o contexto de teste/cortesia/assinatura encerrada e instrumenta o funil. Faltam aplicar as migrations `20260907145841` e `20260907152500` no Supabase e conferir a rota autenticada em produção. Plano: [ativação de primeiro valor](./activation-first-value-plan.md).
 
 - [x] Aplicar localmente a marca premium v4 aprovada: geometria única para React e exportações; versões para temas claro/escuro, favicon SVG/ICO, ícones, imagem social e kit de divulgação com PNGs transparentes 64–4096 px, SVGs e perfis 1080 px. Lint, typecheck, testes do loader e build passaram; login e componente foram conferidos no navegador, incluindo animação única e movimento reduzido.
 - [x] Publicar a marca premium v4 no frontend e atualizar o asset remoto usado nos e-mails. O objeto `email-assets/vourevisar-mark-dark-v1.png` foi substituído pela geometria premium e seu hash público foi conferido contra o PNG local; favicon, manifest, imagem social e kit canônico acompanham o mesmo gerador.

@@ -1,13 +1,16 @@
-import React from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { PricingSection } from '@/components/PricingSection';
+import { AccessRecoveryHero } from '@/features/billing/components/AccessRecoveryHero';
 import {
   useStripeBillingOverview,
   useStripeCatalog,
 } from '@/features/billing/hooks/useStripeBilling';
 import { getSafeBillingErrorMessage } from '@/features/billing/services/stripeBillingService';
 import { buildStripePricingPlans } from '@/features/billing/utils/catalogPricing';
+import { getBillingAccessRecoveryState } from '@/features/billing/utils/billingAccessRecovery';
+import { useUserLogger } from '@/hooks/useUserLogger';
 
 const formatDate = (value?: string | null) => {
   if (!value) return null;
@@ -21,8 +24,8 @@ const formatDate = (value?: string | null) => {
 
 const Planos = () => {
   const { user } = useAuth();
+  const { logEvent } = useUserLogger();
   const navigate = useNavigate();
-  const location = useLocation();
   const catalog = useStripeCatalog();
   const billing = useStripeBillingOverview(Boolean(user));
   const subscription = billing.data?.subscription;
@@ -34,12 +37,16 @@ const Planos = () => {
   const isMonthlyActive = currentPlan === 'monthly';
   const isAnnualActive = currentPlan === 'annual';
   const annualUpgradeBlocked = isMonthlyActive;
-  const accessReason = (location.state as { reason?: string } | null)?.reason;
-  const accessNotice = accessReason === 'subscription_expired'
-    ? 'Sua assinatura expirou. Renove seu plano para voltar a acessar seus estudos.'
-    : accessReason === 'subscription_required'
-      ? 'Seu acesso ainda não está ativo. Escolha um plano para abrir seus editais e continuar seus estudos.'
-      : null;
+  const accessRecovery = getBillingAccessRecoveryState(billing.data);
+  const showPricing = accessRecovery?.kind !== 'payment_attention';
+
+  useEffect(() => {
+    if (!user?.id || !accessRecovery) return;
+    const key = `access-recovery:viewed:${user.id}:${accessRecovery.kind}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    void logEvent('ACCESS_RECOVERY_VIEWED', { kind: accessRecovery.kind });
+  }, [accessRecovery, logEvent, user?.id]);
 
   const handlePlanSelect = (plan: 'monthly' | 'annual') => {
     if (plan === 'annual' && annualUpgradeBlocked) {
@@ -52,6 +59,12 @@ const Planos = () => {
     }
 
     if (user) {
+      if (accessRecovery) {
+        void logEvent('ACCESS_RECOVERY_CHECKOUT_STARTED', {
+          kind: accessRecovery.kind,
+          plan,
+        });
+      }
       navigate(`/checkout?plan=${plan}`);
     } else {
       navigate('/login', {
@@ -100,20 +113,16 @@ const Planos = () => {
 
   return (
     <div className="w-full pb-10">
-      <div className="max-w-7xl mx-auto px-6">
-        {accessNotice ? (
-          <div className="mx-auto mb-8 max-w-3xl rounded-2xl border border-primary/30 bg-primary/10 px-5 py-4 text-center">
-            <p className="text-sm font-semibold leading-relaxed text-foreground">{accessNotice}</p>
-          </div>
-        ) : null}
-        <div className="text-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+      <div className="mx-auto max-w-7xl px-1 sm:px-3 lg:px-5">
+        {accessRecovery ? <AccessRecoveryHero state={accessRecovery} /> : null}
+        {!accessRecovery ? <div className="mb-10 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
           <h2 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
             {title}
           </h2>
-          <p className="text-[13px] text-muted-foreground font-medium max-w-md mx-auto leading-relaxed">
+          <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-muted-foreground">
             {description}
           </p>
-        </div>
+        </div> : null}
 
         {currentPlan ? (
           <div className="mx-auto mb-10 grid max-w-5xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
@@ -163,7 +172,7 @@ const Planos = () => {
           </div>
         ) : null}
         
-        {catalog.isError ? (
+        {!showPricing ? null : catalog.isError ? (
           <div className="mx-auto max-w-xl rounded-2xl border border-destructive/25 bg-destructive/10 px-5 py-5 text-center">
             <p className="text-sm font-bold text-foreground">Não conseguimos carregar os planos agora.</p>
             <p className="mt-1 text-xs font-medium text-muted-foreground">{catalogErrorMessage}</p>
@@ -186,11 +195,6 @@ const Planos = () => {
           renewalCanceled={renewalCanceled}
         />
         )}
-
-        <div className="mt-16 text-center text-[11px] text-muted-foreground font-medium animate-in fade-in duration-1000 delay-500">
-          Pagamento com cartão protegido e processado pela Stripe.
-        </div>
-
       </div>
     </div>
   );

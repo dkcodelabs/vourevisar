@@ -9,12 +9,6 @@ vi.mock('@/hooks/useUserAccess', () => ({
   useUserAccess: vi.fn(),
 }));
 
-vi.mock('@/components/ui/LoadingSpinner', () => ({
-  LoadingSpinner: ({ message }: { message?: string }) => (
-    <div>{message || 'Carregando'}</div>
-  ),
-}));
-
 const mockedUseUserAccess = vi.mocked(useUserAccess);
 
 function renderGuardedRoute() {
@@ -45,6 +39,27 @@ function PlansDestination() {
 describe('RequireActiveSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('keeps loading inside the page instead of replacing the application shell', () => {
+    mockedUseUserAccess.mockReturnValue({
+      loading: true,
+      error: null,
+      roles: {},
+      subscription: {},
+      hasFullAccess: false,
+      canAccessPremiumFeatures: false,
+      canManageUsers: false,
+      accessLevel: 'none',
+      accessMessage: 'Confirmando acesso',
+      blockedReason: 'unknown',
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useUserAccess>);
+
+    renderGuardedRoute();
+
+    expect(screen.getByLabelText('Confirmando seu acesso')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.queryByText('Conteudo protegido')).not.toBeInTheDocument();
   });
 
   it('does not redirect to plans while access verification has a temporary error', () => {

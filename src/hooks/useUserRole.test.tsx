@@ -35,4 +35,18 @@ describe('useUserRole', () => {
     expect(result.current.isAdmin).toBe(true);
     expect(result.current.loading).toBe(false);
   });
+
+  it('does not restart role loading when Supabase refreshes the same user identity', async () => {
+    mocks.useAuth.mockReturnValue({ user: { id: 'owner-1', access_token: 'first' } });
+    const { result, rerender } = renderHook(() => useUserRole());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const callsAfterInitialLoad = mocks.from.mock.calls.length;
+
+    mocks.useAuth.mockReturnValue({ user: { id: 'owner-1', access_token: 'refreshed' } });
+    rerender();
+
+    expect(result.current.loading).toBe(false);
+    expect(mocks.from).toHaveBeenCalledTimes(callsAfterInitialLoad);
+  });
 });

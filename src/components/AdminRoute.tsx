@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { AppBootLoadingState } from '@/components/AppBootLoadingState';
 import { useAuth } from '@/contexts/AuthContext';
 import { StudentHubProvider } from '@/contexts/StudentHubContext';
 import { AppLayout } from '@/components/AppLayout';
@@ -16,7 +16,7 @@ export const AdminRoute = () => {
     // The application shell only mounts after access is known, so it cannot
     // compete with this state or start duplicate role-dependent rendering.
     if (!authInitialized || (user && loading)) {
-        return <LoadingSpinner size="large" fullPage />;
+        return <AppBootLoadingState label="Confirmando acesso administrativo" />;
     }
 
     if (!user) {

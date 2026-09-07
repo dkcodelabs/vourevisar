@@ -1,4 +1,5 @@
 import type { BillingOverview } from '@/features/billing/types';
+import { getBillingAccessRecoveryState } from '@/features/billing/utils/billingAccessRecovery';
 
 export type AccountSubscriptionAction = 'none' | 'plans' | 'portal';
 
@@ -93,6 +94,28 @@ export const getAccountSubscriptionState = (
     };
   }
 
+  if (!overview.is_active) {
+    const recovery = getBillingAccessRecoveryState(overview);
+    return {
+      kind: 'ended',
+      badge: recovery?.kind === 'initial_trial_expired'
+        ? 'Teste encerrado'
+        : recovery?.kind === 'courtesy_expired'
+          ? 'Cortesia encerrada'
+          : 'Acesso inativo',
+      heroDescription: recovery?.description ?? 'Seu acesso não está ativo. Escolha um plano para retomar seus estudos.',
+      summaryLabel: 'Fim do acesso',
+      summaryValue: null,
+      asideTitle: 'Pronto para retomar?',
+      asideDescription: 'Escolha mensal ou anual. Seus editais, ciclo e histórico continuam preservados.',
+      primaryAction: 'plans',
+      primaryActionLabel: recovery?.actionLabel ?? 'Ver planos',
+      artworkNextStep: 'Retomar estudos',
+      alertTitle: null,
+      alertDescription: null,
+    };
+  }
+
   const isEnding = isStripeSubscriber && Boolean(
     subscription?.cancel_at_period_end || subscription?.cancel_at,
   );
@@ -131,19 +154,21 @@ export const getAccountSubscriptionState = (
     };
   }
 
+  const isCourtesy = overview.source === 'manual' || overview.source === 'goodwill' || overview.source === 'migration';
+
   return {
     kind: 'trial',
-    badge: overview.is_active ? 'Acesso ativo' : 'Acesso inativo',
-    heroDescription: overview.is_active
-      ? 'Seu período gratuito está ativo. Assine quando quiser para manter sua preparação sem interromper o ritmo.'
-      : 'Seu período gratuito terminou. Escolha um plano para retomar seus estudos sem perder seus dados.',
+    badge: isCourtesy ? 'Cortesia ativa' : 'Teste ativo',
+    heroDescription: isCourtesy
+      ? 'Este acesso foi concedido como cortesia. Você pode estudar normalmente até o fim do período indicado.'
+      : 'Seu teste de 7 dias está ativo. Assine quando quiser para manter sua preparação sem interromper o ritmo.',
     summaryLabel: 'Fim do período',
     summaryValue: null,
     asideTitle: 'Pronto para continuar?',
     asideDescription: 'Escolha mensal ou anual e conclua com cartão no nosso checkout seguro.',
     primaryAction: 'plans',
     primaryActionLabel: 'Ver planos',
-    artworkNextStep: overview.is_active ? 'Voltar aos estudos' : 'Escolher um plano',
+    artworkNextStep: 'Voltar aos estudos',
     alertTitle: null,
     alertDescription: null,
   };

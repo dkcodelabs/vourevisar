@@ -5,11 +5,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   clearCheckoutRequestIds: vi.fn(),
   refetch: vi.fn(),
+  useActivationJourney: vi.fn(),
   useStripeBillingOverview: vi.fn(),
 }));
 
 vi.mock('@/features/billing/hooks/useStripeBilling', () => ({
   useStripeBillingOverview: mocks.useStripeBillingOverview,
+}));
+
+vi.mock('@/features/activation/hooks/useActivationJourney', () => ({
+  useActivationJourney: mocks.useActivationJourney,
 }));
 
 vi.mock('@/features/billing/utils/checkoutRequest', () => ({
@@ -49,6 +54,7 @@ const renderPage = (route = '/checkout/retorno?session_id=cs_test_123') =>
 describe('StripeCheckoutReturn', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.useActivationJourney.mockReturnValue({ journey: null });
   });
 
   it('celebrates the activated plan and leads the student back to studying', () => {
@@ -62,9 +68,21 @@ describe('StripeCheckoutReturn', () => {
     expect(screen.getByText('Assinatura ativada')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Seu plano está ativo. Agora é hora de avançar.' })).toBeInTheDocument();
     expect(screen.getByText(/seu acesso já está liberado/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /continuar meus estudos/i })).toHaveAttribute('href', '/dashboard');
+    expect(screen.getByRole('link', { name: /configurar meu plano de estudo/i })).toHaveAttribute('href', '/ativacao');
     expect(screen.queryByText(/webhook|ativações falsas|duplicadas/i)).not.toBeInTheDocument();
     expect(mocks.clearCheckoutRequestIds).toHaveBeenCalledOnce();
+  });
+
+  it('returns an already activated student directly to the dashboard', () => {
+    mocks.useStripeBillingOverview.mockReturnValue({
+      data: { is_active: true, source: 'stripe' },
+      refetch: mocks.refetch,
+    });
+    mocks.useActivationJourney.mockReturnValue({ journey: { kind: 'activated' } });
+
+    renderPage();
+
+    expect(screen.getByRole('link', { name: /ir para meu próximo estudo/i })).toHaveAttribute('href', '/dashboard');
   });
 
   it('uses reassuring language while activation is still processing', () => {

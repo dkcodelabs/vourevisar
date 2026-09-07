@@ -22,6 +22,7 @@ const exposeDebugRoutes = shouldExposeDebugRoutes(import.meta.env);
 
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Activation = lazy(() => import("@/features/activation/pages/Activation"));
 const Subjects = lazy(() => import("@/pages/Subjects"));
 const Account = lazy(() => import("@/pages/Account"));
 const Statistics = lazy(() => import("@/pages/Statistics"));
@@ -123,31 +124,25 @@ const App = () => {
                         <Route path="/*" element={<ProtectedRoute />}>
                           <Route path="checkout" element={<StripeCheckout />} />
                           <Route path="checkout/retorno" element={<StripeCheckoutReturn />} />
-                          <Route
-                            path=""
-                            element={
-                              <RequireActiveSubscription>
-                                <StudentHubProvider>
-                                  <AppLayout />
-                                </StudentHubProvider>
-                              </RequireActiveSubscription>
-                            }
-                          >
-                            <Route path="dashboard" element={<Dashboard />} />
-                            <Route path="meus-editais" element={<Editais />} />
-                            <Route path="estatisticas" element={<Statistics />} />
-                            <Route path="materias" element={<Navigate to="/ciclo-estudos" replace />} />
-                            <Route path="materias/:subjectId" element={<Navigate to="/ciclo-estudos" replace />} />
-                            <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
-                            <Route path="topicos" element={<Navigate to="/ciclo-estudos" replace />} />
-                            <Route path="subjects" element={<Navigate to="/ciclo-estudos" replace />} />
-                            <Route path="admin/importancia-prova" element={<Navigate to="/dashboard" replace />} />
-                            <Route path="estatisticas/tendencia" element={<Navigate to="/estatisticas" replace />} />
-                            <Route path="revisoes" element={<Revisoes />} />
-                            <Route path="ciclo-estudos" element={<Subjects />} />
-                            <Route path="cadernos" element={<Navigate to="/ciclo-estudos" replace />} />
-                            <Route path="treino" element={<PracticeHome />} />
-                            <Route path="pratica/:sessionId" element={<Navigate to="/treino" replace />} />
+                          <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>
+                            <Route element={<RequireActiveSubscription />}>
+                              <Route path="ativacao" element={<Activation />} />
+                              <Route path="dashboard" element={<Dashboard />} />
+                              <Route path="meus-editais" element={<Editais />} />
+                              <Route path="estatisticas" element={<Statistics />} />
+                              <Route path="materias" element={<Navigate to="/ciclo-estudos" replace />} />
+                              <Route path="materias/:subjectId" element={<Navigate to="/ciclo-estudos" replace />} />
+                              <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />
+                              <Route path="topicos" element={<Navigate to="/ciclo-estudos" replace />} />
+                              <Route path="subjects" element={<Navigate to="/ciclo-estudos" replace />} />
+                              <Route path="admin/importancia-prova" element={<Navigate to="/dashboard" replace />} />
+                              <Route path="estatisticas/tendencia" element={<Navigate to="/estatisticas" replace />} />
+                              <Route path="revisoes" element={<Revisoes />} />
+                              <Route path="ciclo-estudos" element={<Subjects />} />
+                              <Route path="cadernos" element={<Navigate to="/ciclo-estudos" replace />} />
+                              <Route path="treino" element={<PracticeHome />} />
+                              <Route path="pratica/:sessionId" element={<Navigate to="/treino" replace />} />
+                            </Route>
                           </Route>
 
                           <Route path="" element={<StudentHubProvider><AppLayout /></StudentHubProvider>}>

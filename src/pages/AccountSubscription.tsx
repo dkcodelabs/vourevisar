@@ -27,6 +27,10 @@ import {
 } from '@/features/billing/services/stripeBillingService';
 import { buildStripePricingPlans } from '@/features/billing/utils/catalogPricing';
 import { getAccountSubscriptionState } from '@/features/billing/utils/accountSubscriptionState';
+import {
+  getBillingAccessRecoveryState,
+  getCurrentAccessName,
+} from '@/features/billing/utils/billingAccessRecovery';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
   isBillingPlanChangeEnabled,
@@ -46,21 +50,18 @@ const formatDate = (value: string | null | undefined) =>
       }).format(new Date(value))
     : '—';
 
-const planNames = {
-  free_trial: 'Teste gratuito',
-  monthly: 'Plano mensal',
-  annual: 'Plano anual',
-} as const;
-
 const AccountSubscription = () => {
   const reduceMotion = useReducedMotion();
   const overview = useStripeBillingOverview();
   const data = overview.data;
   const subscription = data?.subscription;
   const catalog = useStripeCatalog(Boolean(
-    data?.is_active && (
+      data?.is_active && (
       data.plan === 'free_trial' ||
       data.source === 'trial' ||
+      data.source === 'manual' ||
+      data.source === 'goodwill' ||
+      data.source === 'migration' ||
       (planChangeEnabled && data.source === 'stripe' && subscription?.plan === 'monthly')
     ),
   ));
@@ -117,7 +118,8 @@ const AccountSubscription = () => {
   const shouldShowInvoiceHistory = isStripeSubscriber || hasHistoricalCanceledStripeSubscription;
   const subscriptionEnd = activeStripeSubscription?.cancel_at ?? activeStripeSubscription?.current_period_end;
   const pageState = getAccountSubscriptionState(data, hasInternalAccess);
-  const isComplimentaryAccess = data.plan === 'free_trial' || data.source === 'trial';
+  const accessRecovery = getBillingAccessRecoveryState(data);
+  const isComplimentaryAccess = data.plan === 'free_trial' || ['trial', 'manual', 'goodwill', 'migration'].includes(data.source);
   const pricingPlans = buildStripePricingPlans(catalog.data);
   const annualCatalogPlan = catalog.data?.find((plan) => plan.code === 'annual');
   const annualPriceLabel = annualCatalogPlan
@@ -150,7 +152,7 @@ const AccountSubscription = () => {
       )
     : null;
   const summaryValue = pageState.summaryValue ?? formatDate(
-    isStripeSubscriber ? subscriptionEnd : data.access_until,
+    isStripeSubscriber ? subscriptionEnd : data.access_until ?? accessRecovery?.endedAt,
   );
   const periodEndValue = formatDate(isStripeSubscriber ? subscriptionEnd : data.access_until);
   const showsPeriodInHero = (
@@ -181,7 +183,11 @@ const AccountSubscription = () => {
                   </div>
                 )}
                 <h2 className="mt-5 text-3xl font-black tracking-[-0.045em] sm:text-[2.15rem]">
-                  {hasInternalAccess ? (isOwner ? 'Proprietário' : 'Administrador') : planNames[data.plan]}
+                  {hasInternalAccess
+                    ? (isOwner ? 'Proprietário' : 'Administrador')
+                    : !data.is_active && accessRecovery
+                      ? accessRecovery.title
+                      : getCurrentAccessName(data)}
                 </h2>
                 <p className="mt-3 max-w-md text-sm font-medium leading-6 text-white/60">
                   {pageState.heroDescription}
@@ -266,7 +272,15 @@ const AccountSubscription = () => {
               />
             )}
           {showsTrialOffer ? (
-            <TrialConversionOffer plans={pricingPlans} isLoading={catalog.isLoading} />
+            <TrialConversionOffer
+              plans={pricingPlans}
+              isLoading={catalog.isLoading}
+              continueLabel={data.source === 'trial'
+                ? 'Continuar no teste gratuito'
+                : data.source === 'manual' || data.source === 'goodwill'
+                  ? 'Continuar com minha cortesia'
+                  : 'Continuar com meu acesso'}
+            />
           ) : showManagementCard ? (
             <>
               <div className="rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-[0_24px_70px_-42px_rgba(15,23,42,0.16)] dark:shadow-[0_24px_70px_-42px_rgba(0,0,0,0.52)]">
@@ -336,9 +350,11 @@ const SubscriptionFrame = ({ children }: { children: React.ReactNode }) => (
 const TrialConversionOffer = ({
   plans,
   isLoading,
+  continueLabel,
 }: {
   plans: ReturnType<typeof buildStripePricingPlans>;
   isLoading: boolean;
+  continueLabel: string;
 }) => {
   if (isLoading) {
     return <div className="min-h-[360px] animate-pulse rounded-[2rem] border border-border bg-card p-6" />;
@@ -385,7 +401,7 @@ const TrialConversionOffer = ({
         <span className="text-xs font-black text-primary">Assinar</span>
       </Link>
       <p className="mt-4 text-center text-xs font-semibold text-muted-foreground">Cartão processado em ambiente seguro pela Stripe.</p>
-      <Link to="/dashboard" className="mt-4 block text-center text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Continuar no teste gratuito</Link>
+      <Link to="/ativacao" className="mt-4 block text-center text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">{continueLabel}</Link>
     </section>
   );
 };

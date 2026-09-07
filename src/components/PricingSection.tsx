@@ -1,4 +1,5 @@
 import React from 'react';
+import { ArrowRight, Check, ShieldCheck } from 'lucide-react';
 import type { BillingPricingPlans } from '@/features/billing/types';
 
 interface PricingSectionProps {
@@ -11,15 +12,15 @@ interface PricingSectionProps {
   renewalCanceled?: boolean;
 }
 
-const PlanCardSkeleton = () => (
-  <div className="p-8 rounded-[2.5rem] bg-card border border-border animate-pulse flex flex-col">
-    <div className="h-4 w-20 bg-foreground/10 rounded mb-4" />
-    <div className="h-6 w-24 bg-foreground/10 rounded mb-2" />
-    <div className="h-10 w-32 bg-foreground/10 rounded mb-6" />
-    <div className="space-y-3 mb-8 flex-grow">
-      {[1,2,3,4].map(i => <div key={i} className="h-4 w-40 bg-foreground/10 rounded" />)}
+const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
+
+const PlanSkeleton = () => (
+  <div className="min-h-80 animate-pulse rounded-2xl bg-muted p-6">
+    <div className="h-5 w-28 rounded bg-foreground/10" />
+    <div className="mt-5 h-10 w-40 rounded bg-foreground/10" />
+    <div className="mt-8 space-y-3">
+      {[1, 2, 3, 4].map((item) => <div key={item} className="h-4 w-full rounded bg-foreground/10" />)}
     </div>
-    <div className="h-10 w-full bg-foreground/10 rounded-xl" />
   </div>
 );
 
@@ -32,127 +33,107 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
   annualUpgradeScheduled = false,
   renewalCanceled = false,
 }) => {
-  
-  const monthly = plans?.monthly;
-  const annual = plans?.annual;
-  const isMonthlyCurrent = currentPlan === 'monthly';
-  const isAnnualCurrent = currentPlan === 'annual';
-  const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
-  const isMonthlyDisabled = isMonthlyCurrent || isAnnualCurrent;
-  const isAnnualDisabled = isAnnualCurrent || annualUpgradeBlocked || (renewalCanceled && isMonthlyCurrent);
-  const showAnnualAction = true;
-
-  if (loading || !monthly || !annual) {
+  if (loading || !plans) {
     return (
-      <section id="precos" className="py-8 bg-transparent">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto items-stretch">
-            <PlanCardSkeleton />
-            <PlanCardSkeleton />
-          </div>
+      <section id="precos" className="scroll-mt-6" aria-label="Carregando planos">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]">
+          <PlanSkeleton />
+          <PlanSkeleton />
         </div>
       </section>
     );
   }
 
-  const annualEquivalentMonthly = annual.value / 12;
+  const { monthly, annual } = plans;
+  const isMonthlyCurrent = currentPlan === 'monthly';
+  const isAnnualCurrent = currentPlan === 'annual';
+  const isMonthlyDisabled = isMonthlyCurrent || isAnnualCurrent;
+  const isAnnualDisabled = isAnnualCurrent || annualUpgradeBlocked || (renewalCanceled && isMonthlyCurrent);
+  const annualEquivalent = annual.value / 12;
+  const annualSavings = Math.max(0, monthly.value * 12 - annual.value);
+  const annualDiscount = monthly.value > 0
+    ? Math.round((annualSavings / (monthly.value * 12)) * 100)
+    : 0;
   const monthlyButtonLabel = isMonthlyCurrent
     ? 'Plano atual'
     : isAnnualCurrent
       ? 'Incluído no plano anual'
-      : `Assinar ${monthly.name}`;
+      : 'Assinar mensal';
   const annualButtonLabel = isAnnualCurrent
     ? 'Plano atual'
     : annualUpgradeScheduled
       ? 'Troca já agendada'
-    : isAnnualDisabled
-      ? 'Disponível após o plano atual'
-      : `Assinar ${annual.name}`;
+      : isAnnualDisabled
+        ? 'Disponível após o plano atual'
+        : 'Assinar anual';
 
   return (
-    <section id="precos" className="py-8 bg-transparent">
-      <div className="max-w-5xl mx-auto px-4">
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto items-stretch">
-          
-          {/* Plano Mensal */}
-          <div className={`group p-8 rounded-[2.5rem] bg-card border transition-all duration-500 shadow-sm relative overflow-hidden flex flex-col ${isMonthlyCurrent ? 'border-blue-500/40' : 'border-border hover:border-blue-200 hover:shadow-xl hover:shadow-blue-500/5'}`}>
-            <div className="relative z-10 flex flex-col h-full">
-              <span className="text-[10px] font-black tracking-[0.2em] text-blue-500 uppercase mb-4 block">
-                {isMonthlyCurrent ? 'Plano atual' : 'Flexibilidade'}
-              </span>
-              <h3 className="text-2xl font-bold text-foreground mb-2 font-display">{monthly.name}</h3>
-              <div className="flex items-baseline gap-1 mb-6">
-                <span className="text-4xl font-black text-foreground tracking-tight">R$ {monthly.value.toFixed(2).replace('.', ',')}</span>
-                <span className="text-muted-foreground font-medium text-sm">/mês</span>
-              </div>
-              
-              <ul className="space-y-3.5 mb-8 flex-grow">
-                {monthly.features.map((item, i) => (
-                  <li key={i} className="flex items-center gap-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                    </div>
-                    <span className="text-[13px] text-foreground/80 font-medium">{item}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              <button 
-                onClick={() => onPlanSelect('monthly')}
-                disabled={isMonthlyDisabled}
-                className="w-full min-h-12 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs tracking-widest uppercase shadow-lg shadow-blue-600/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
-              >
-                {monthlyButtonLabel}
-              </button>
+    <section id="precos" className="scroll-mt-6" aria-labelledby="pricing-title">
+      <div className="mb-5 max-w-2xl">
+        <h2 id="pricing-title" className="text-2xl font-extrabold tracking-[-0.025em] text-foreground sm:text-3xl">Escolha o ritmo que cabe na sua preparação.</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">Os dois planos mantêm o estudo completo. O anual reduz o custo mensal; o mensal preserva flexibilidade.</p>
+      </div>
+
+      <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]">
+        <article className="flex min-w-0 flex-col rounded-2xl border border-border bg-card p-5 text-card-foreground sm:p-6">
+          <div>
+            <h3 className="text-xl font-extrabold">{monthly.name}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Controle mês a mês, sem compromisso anual.</p>
+          </div>
+          <div className="mt-6 flex items-end gap-1.5">
+            <span className="text-4xl font-extrabold tracking-[-0.035em] tabular-nums">{formatCurrency(monthly.value)}</span>
+            <span className="pb-1 text-sm font-semibold text-muted-foreground">/mês</span>
+          </div>
+          <ul className="mt-7 space-y-3 text-sm">
+            {monthly.features.map((feature) => (
+              <li key={feature} className="flex items-start gap-2.5">
+                <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                <span className="leading-5 text-foreground/80">{feature}</span>
+              </li>
+            ))}
+          </ul>
+          <button type="button" onClick={() => onPlanSelect('monthly')} disabled={isMonthlyDisabled} className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-background px-4 text-sm font-bold text-foreground transition-colors hover:border-primary/50 hover:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground">
+            {monthlyButtonLabel}
+          </button>
+        </article>
+
+        <article className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl bg-[hsl(var(--activation-ink))] p-5 text-white shadow-[0_24px_60px_-36px_rgba(17,16,37,0.78)] sm:p-7">
+          <div className="absolute right-0 top-0 h-40 w-40 bg-[linear-gradient(135deg,transparent,hsl(var(--primary)/0.2))]" />
+          <div className="relative flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 className="text-2xl font-extrabold">{annual.name}</h3>
+              <p className="mt-1 text-sm text-blue-100/[0.65]">Doze meses de acesso com o menor custo mensal.</p>
             </div>
+            {annualDiscount > 0 ? (
+              <span className="rounded-full bg-[hsl(var(--activation-lime))] px-3 py-1.5 text-xs font-extrabold text-[hsl(var(--activation-ink))]">Economize {annualDiscount}%</span>
+            ) : null}
           </div>
 
-          {/* Plano Anual */}
-          <div className={`group p-8 rounded-[2.5rem] bg-card border transition-all duration-500 shadow-sm relative overflow-hidden flex flex-col ${isAnnualCurrent ? 'border-blue-500/40' : 'border-border hover:border-blue-500/30 hover:shadow-xl hover:shadow-blue-500/5'}`}>
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/5 blur-[80px] group-hover:bg-blue-500/10 transition-all duration-700"></div>
-            
-            <div className="relative z-10 flex flex-col h-full">
-              {annual.badge && (
-                <div className="inline-flex self-start items-center gap-1.5 px-3 py-1 bg-blue-600 text-white text-[9px] font-black rounded-full mb-4 shadow-lg shadow-blue-600/30 tracking-widest uppercase">
-                  <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                  {annual.badge}
-                </div>
-              )}
-              
-              <h3 className="text-2xl font-bold text-foreground mb-2 font-display">{annual.name}</h3>
-              <div className="flex items-baseline gap-1 mb-6">
-                <span className="text-4xl font-black text-foreground tracking-tight">{formatCurrency(annual.value)}</span>
-                <span className="text-muted-foreground font-medium text-sm">/ano</span>
-              </div>
-              {annualEquivalentMonthly > 0 ? (
-                <p className="mb-6 -mt-4 text-xs font-semibold text-muted-foreground">
-                  Equivale a {formatCurrency(annualEquivalentMonthly)}/mês.
-                </p>
-              ) : null}
-              
-              <ul className="space-y-3.5 mb-8 flex-grow">
-                {annual.features.map((item, i) => (
-                  <li key={i} className="flex items-center gap-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                    </div>
-                    <span className="text-[13px] text-foreground/80 font-medium">{item}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              {showAnnualAction ? (
-                <button
-                  onClick={() => onPlanSelect('annual')}
-                  disabled={isAnnualDisabled}
-                  className="w-full min-h-12 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs tracking-widest uppercase shadow-lg shadow-blue-600/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
-                >
-                  {annualButtonLabel}
-                </button>
-              ) : null}
-            </div>
+          <div className="relative mt-7 flex flex-wrap items-end gap-x-3 gap-y-1">
+            <span className="text-[clamp(2.55rem,6vw,4rem)] font-extrabold leading-none tracking-[-0.04em] tabular-nums">{formatCurrency(annual.value)}</span>
+            <span className="pb-1 text-sm font-semibold text-white/[0.55]">/ano</span>
           </div>
-        </div>
+          <p className="relative mt-2 text-sm font-bold text-[hsl(var(--activation-lime))]">{formatCurrency(annualEquivalent)}/mês · economia de {formatCurrency(annualSavings)} no ano</p>
+
+          <div className="relative mt-7 grid gap-x-5 gap-y-3 sm:grid-cols-2">
+            {annual.features.map((feature) => (
+              <div key={feature} className="flex items-start gap-2.5 text-sm">
+                <Check className="mt-0.5 size-4 shrink-0 text-[hsl(var(--activation-lime))]" />
+                <span className="leading-5 text-white/80">{feature}</span>
+              </div>
+            ))}
+          </div>
+
+          <button type="button" onClick={() => onPlanSelect('annual')} disabled={isAnnualDisabled} className="relative mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-extrabold text-white shadow-[0_16px_36px_-20px_hsl(var(--primary)/0.85)] transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/[0.45] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/[0.45] disabled:shadow-none">
+            {annualButtonLabel}
+            {!isAnnualDisabled ? <ArrowRight className="size-4" /> : null}
+          </button>
+        </article>
+      </div>
+
+      <div className="mt-4 flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground">
+        <ShieldCheck className="size-4 text-primary" />
+        Pagamento protegido e processado pela Stripe.
       </div>
     </section>
   );

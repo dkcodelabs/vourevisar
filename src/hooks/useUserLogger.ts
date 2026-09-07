@@ -17,7 +17,14 @@ type EventType =
     | 'ACCOUNT_DEACTIVATED'
     | 'ACCOUNT_REACTIVATED'
     | 'ROLE_CHANGED'
-    | 'PROFILE_UPDATED';
+    | 'PROFILE_UPDATED'
+    | 'ACTIVATION_VIEWED'
+    | 'ACTIVATION_METHOD_SELECTED'
+    | 'ACTIVATION_EDITAL_READY'
+    | 'ACTIVATION_CYCLE_READY'
+    | 'ACTIVATION_COMPLETED'
+    | 'ACCESS_RECOVERY_VIEWED'
+    | 'ACCESS_RECOVERY_CHECKOUT_STARTED';
 
 interface AuditLogResponse {
     status?: 'error' | 'skipped' | 'success';

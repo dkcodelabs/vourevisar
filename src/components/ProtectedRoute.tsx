@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LoadingSpinner } from './ui/LoadingSpinner';
+import { AppBootLoadingState } from './AppBootLoadingState';
 import { isEmailConfirmationPending } from '@/utils/authConfirmation';
 
 export const ProtectedRoute = () => {
@@ -13,7 +13,7 @@ export const ProtectedRoute = () => {
   // direct checkout navigation, where the page can mount before auth storage
   // has finished hydrating.
   if (!authInitialized) {
-    return <LoadingSpinner size="large" fullPage />;
+    return <AppBootLoadingState />;
   }
 
   // If no user authenticated, redirect to login preserving the intended path

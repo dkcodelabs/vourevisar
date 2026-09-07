@@ -31,15 +31,16 @@ export function useUserRole(): UserRoleData & {
   const [error, setError] = useState<string | null>(null)
   const [loadedForUserId, setLoadedForUserId] = useState<string | null>(null)
   const { user } = useAuth()
+  const userId = user?.id ?? null
 
   const fetchRoles = useCallback(async () => {
-    const currentUser = user
+    const currentUserId = userId
 
     try {
       setLoading(true)
       setError(null)
 
-      if (!currentUser) {
+      if (!currentUserId) {
         setRoles([])
         setHighestRole(null)
         setLoadedForUserId(null)
@@ -51,7 +52,7 @@ export function useUserRole(): UserRoleData & {
         supabase
           .from('user_roles')
           .select('role')
-          .eq('user_id', currentUser.id),
+          .eq('user_id', currentUserId),
         10000,
         'Não foi possível confirmar suas permissões. Tente novamente.',
       )
@@ -84,10 +85,10 @@ export function useUserRole(): UserRoleData & {
       console.error('Error fetching user roles:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
-      setLoadedForUserId(currentUser?.id ?? null)
+      setLoadedForUserId(currentUserId)
       setLoading(false)
     }
-  }, [user])
+  }, [userId])
 
   // Função para verificar hierarquia de roles
   const hasRoleOrHigher = useCallback((minRole: AppRole): boolean => {
@@ -116,7 +117,9 @@ export function useUserRole(): UserRoleData & {
   // Auth can resolve a user between the null-user effect and the next role
   // effect. Keep access consumers loading until this exact identity has had a
   // role lookup, otherwise a direct admin route can briefly redirect an owner.
-  const isCurrentUserLoading = Boolean(user) && (loading || loadedForUserId !== user.id)
+  // Token refreshes replace Supabase's User object without changing its id;
+  // they must not restart this lookup and unmount the visible application.
+  const isCurrentUserLoading = Boolean(userId) && (loading || loadedForUserId !== userId)
 
   return {
     roles,

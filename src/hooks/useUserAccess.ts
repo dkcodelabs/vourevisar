@@ -1,9 +1,16 @@
 import { useCallback } from 'react';
 import { useStripeBillingOverview } from '@/features/billing/hooks/useStripeBilling';
 import { getBillingAccessLabel } from '@/features/billing/utils/billingAccessLabel';
+import { getBillingAccessRecoveryState } from '@/features/billing/utils/billingAccessRecovery';
 import { useUserRole } from '@/hooks/useUserRole';
 
-export type UserAccessBlockReason = 'subscription_required' | 'subscription_expired' | 'unknown';
+export type UserAccessBlockReason =
+  | 'subscription_required'
+  | 'subscription_expired'
+  | 'trial_expired'
+  | 'courtesy_expired'
+  | 'payment_attention'
+  | 'unknown';
 
 export function useUserAccess() {
   const roleData = useUserRole();
@@ -45,11 +52,18 @@ export function useUserAccess() {
             ? 'Não foi possível confirmar o acesso'
             : 'Sem acesso';
 
+  const recoveryState = getBillingAccessRecoveryState(billing);
   const blockedReason: UserAccessBlockReason = !billing
     ? 'unknown'
-    : billing.status === 'expired' || billing.status === 'canceled'
-      ? 'subscription_expired'
-      : 'subscription_required';
+    : recoveryState?.kind === 'initial_trial_expired'
+      ? 'trial_expired'
+      : recoveryState?.kind === 'courtesy_expired'
+        ? 'courtesy_expired'
+        : recoveryState?.kind === 'subscription_expired'
+          ? 'subscription_expired'
+          : recoveryState?.kind === 'payment_attention'
+            ? 'payment_attention'
+            : 'subscription_required';
 
   return {
     loading: roleData.loading || billingOverview.isLoading,

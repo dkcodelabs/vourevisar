@@ -64,12 +64,18 @@ export interface BillingWithdrawal {
     result_at: string | null;
 }
 
+export interface LastExpiredAccess {
+  kind: 'initial_trial' | 'courtesy' | 'paid_subscription';
+  ended_at: string;
+}
+
 export interface BillingOverview {
   is_active: boolean;
-  source: 'stripe' | 'trial' | 'manual' | 'goodwill' | 'none';
+  source: 'stripe' | 'trial' | 'manual' | 'goodwill' | 'migration' | 'none';
   plan: BillingPlanCode | 'free_trial';
   status: string;
   access_until: string | null;
+  last_expired_access?: LastExpiredAccess | null;
   subscription: BillingSubscription | null;
   /** Optional during the coordinated backend/frontend rollout. */
   withdrawal?: BillingWithdrawal;

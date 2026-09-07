@@ -47,7 +47,7 @@ describe('AdminRoute', () => {
 
     renderRoute();
 
-    expect(screen.getByRole('status', { name: 'Carregando' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Confirmando acesso administrativo')).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByText('Conteúdo administrativo')).not.toBeInTheDocument();
   });
 
@@ -56,7 +56,7 @@ describe('AdminRoute', () => {
 
     renderRoute();
 
-    expect(screen.getByRole('status', { name: 'Carregando' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Confirmando acesso administrativo')).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByText('Conteúdo administrativo')).not.toBeInTheDocument();
   });
 

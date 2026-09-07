@@ -24,6 +24,8 @@ import { features } from "@/lib/features";
 import { toastManager } from "@/utils/toastManager";
 
 const routeTitles: Record<string, string> = {
+  "/ativacao": "Seu ponto de partida",
+  "/planos": "Planos",
   "/dashboard": "Painel",
   "/meus-editais": "Meus Editais",
   "/ciclo-estudos": "Ciclo de Estudos",
@@ -49,6 +51,9 @@ const routeTitles: Record<string, string> = {
 };
 
 const routeDescriptions: Record<string, string> = {
+  "/ativacao": "Transforme seu edital em uma rotina clara de estudo e revisão.",
+  "/planos": "Entenda seu acesso e escolha como continuar sua preparação.",
+  "/conta/assinatura": "Acesso, cobrança e continuidade dos seus estudos.",
   "/admin/feedback": "Gerencie e responda aos feedbacks recebidos.",
   "/admin/subscription": "Controle de planos, status de pagamento e acesso dos usuários.",
   "/dashboard": "Foco total nos estudos! O seu sucesso depende da constante dedicação.",
@@ -64,6 +69,7 @@ const getRouteLabel = (pathname: string) =>
   "Painel";
 
 const appDataOverlayRoutes = [
+  "/ativacao",
   "/dashboard",
   "/meus-editais",
   "/ciclo-estudos",
@@ -103,6 +109,12 @@ export const AppLayout = () => {
   const currentPath = location.pathname;
   const pageTitle = getRouteLabel(currentPath);
   const showAppDataOverlay = shouldShowAppDataOverlay(currentPath);
+  const showStudyUtilities = ![
+    '/ativacao',
+    '/planos',
+    '/conta',
+    '/conta/assinatura',
+  ].includes(currentPath);
   const routeDescription =
     routeDescriptions[currentPath] ||
     Object.entries(routeDescriptions).find(([route]) =>
@@ -170,18 +182,21 @@ export const AppLayout = () => {
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <FocusTimer />
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="app-header-icon rounded-lg"
-              onClick={() => setIsGeneralNotesModalOpen(true)}
-              title="Anotações Gerais"
-            >
-              <NotebookPen />
-            </Button>
+            {showStudyUtilities ? (
+              <>
+                <FocusTimer />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="app-header-icon rounded-lg"
+                  onClick={() => setIsGeneralNotesModalOpen(true)}
+                  title="Anotações Gerais"
+                >
+                  <NotebookPen />
+                </Button>
+              </>
+            ) : null}
 
             {features.STUDENT_HUB && (
               <Button

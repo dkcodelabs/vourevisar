@@ -21,6 +21,10 @@ vi.mock('@/hooks/useDashboardDecisionModel', () => ({
   }),
 }));
 
+vi.mock('@/features/activation/hooks/useActivationTelemetry', () => ({
+  useActivationCompletionTelemetry: vi.fn(),
+}));
+
 vi.mock('@/components/dashboard-decision/DashboardDecisionExperience', () => ({
   DashboardDecisionExperience: () => <div>Experiência de decisão</div>,
 }));
