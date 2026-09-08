@@ -59,6 +59,7 @@ describe('getAccountSubscriptionState', () => {
     }), false);
 
     expect(state.kind).toBe('payment_attention');
+    expect(state.tone).toBe('warning');
     expect(state.summaryLabel).toBe('Período vigente até');
     expect(state.primaryAction).toBe('portal');
     expect(state.primaryActionLabel).toBe('Atualizar pagamento');
@@ -70,6 +71,7 @@ describe('getAccountSubscriptionState', () => {
     }), false);
 
     expect(state.kind).toBe('ending');
+    expect(state.tone).toBe('warning');
     expect(state.badge).toBe('Renovação cancelada');
     expect(state.summaryLabel).toBe('Acesso até');
     expect(state.primaryAction).toBe('portal');
@@ -87,7 +89,8 @@ describe('getAccountSubscriptionState', () => {
     }), false);
 
     expect(state.kind).toBe('payment_attention');
-    expect(state.badge).toBe('Acesso suspenso');
+    expect(state.tone).toBe('danger');
+    expect(state.badge).toBe('Acesso bloqueado');
     expect(state.primaryAction).toBe('portal');
     expect(state.primaryActionLabel).toBe('Regularizar pagamento');
   });

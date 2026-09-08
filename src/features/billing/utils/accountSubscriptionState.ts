@@ -2,9 +2,11 @@ import type { BillingOverview } from '@/features/billing/types';
 import { getBillingAccessRecoveryState } from '@/features/billing/utils/billingAccessRecovery';
 
 export type AccountSubscriptionAction = 'none' | 'plans' | 'portal';
+export type AccountSubscriptionTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
 export interface AccountSubscriptionState {
   kind: 'internal' | 'trial' | 'active' | 'ending' | 'payment_attention' | 'ended';
+  tone: AccountSubscriptionTone;
   badge: string;
   heroDescription: string;
   summaryLabel: string;
@@ -30,6 +32,7 @@ export const getAccountSubscriptionState = (
   if (hasInternalAccess) {
     return {
       kind: 'internal',
+      tone: 'neutral',
       badge: 'Acesso administrativo',
       heroDescription: 'Esta conta possui acesso interno e não depende de uma assinatura ou cobrança.',
       summaryLabel: 'Acesso',
@@ -55,9 +58,10 @@ export const getAccountSubscriptionState = (
 
     return {
       kind: 'payment_attention',
-      badge: accessSuspended ? 'Acesso suspenso' : 'Pagamento pendente',
+      tone: accessSuspended ? 'danger' : 'warning',
+      badge: accessSuspended ? 'Acesso bloqueado' : 'Pagamento pendente',
       heroDescription: accessSuspended
-        ? 'Seu acesso está pausado enquanto o pagamento é regularizado. Atualize a forma de pagamento para continuar.'
+        ? 'Não foi possível concluir a cobrança. Seu acesso fica bloqueado até o pagamento ser regularizado.'
         : 'Seu plano continua disponível durante o período vigente. Atualize o pagamento para evitar a interrupção do acesso.',
       summaryLabel: accessSuspended ? 'Situação do acesso' : 'Período vigente até',
       summaryValue: accessSuspended ? 'Aguardando pagamento' : null,
@@ -66,7 +70,7 @@ export const getAccountSubscriptionState = (
       primaryAction: 'portal',
       primaryActionLabel: accessSuspended ? 'Regularizar pagamento' : 'Atualizar pagamento',
       artworkNextStep: 'Regularizar pagamento',
-      alertTitle: accessSuspended ? 'Acesso suspenso' : 'Pagamento pendente',
+      alertTitle: accessSuspended ? 'Acesso bloqueado até a regularização' : 'Não foi possível cobrar seu cartão',
       alertDescription: accessSuspended
         ? 'Regularize o pagamento para recuperar o acesso. Seus dados e seu progresso continuam salvos.'
         : 'Seu acesso permanece durante o período vigente. Atualize o cartão para evitar interrupção.',
@@ -80,6 +84,7 @@ export const getAccountSubscriptionState = (
   if (hasEnded) {
     return {
       kind: 'ended',
+      tone: 'neutral',
       badge: 'Assinatura encerrada',
       heroDescription: 'Sua assinatura foi encerrada. Escolha um plano para retomar seus estudos; suas informações continuam salvas.',
       summaryLabel: 'Renovação',
@@ -98,6 +103,7 @@ export const getAccountSubscriptionState = (
     const recovery = getBillingAccessRecoveryState(overview);
     return {
       kind: 'ended',
+      tone: 'neutral',
       badge: recovery?.kind === 'initial_trial_expired'
         ? 'Teste encerrado'
         : recovery?.kind === 'courtesy_expired'
@@ -123,6 +129,7 @@ export const getAccountSubscriptionState = (
   if (isEnding) {
     return {
       kind: 'ending',
+      tone: 'warning',
       badge: 'Renovação cancelada',
       heroDescription: 'Sua renovação foi cancelada, mas o acesso continua disponível até o fim do período pago.',
       summaryLabel: 'Acesso até',
@@ -140,6 +147,7 @@ export const getAccountSubscriptionState = (
   if (isStripeSubscriber) {
     return {
       kind: 'active',
+      tone: 'success',
       badge: 'Acesso ativo',
       heroDescription: 'Seu plano, cartão, faturas e renovação ficam reunidos em um só lugar.',
       summaryLabel: 'Próxima renovação',
@@ -158,6 +166,7 @@ export const getAccountSubscriptionState = (
 
   return {
     kind: 'trial',
+    tone: 'info',
     badge: isCourtesy ? 'Cortesia ativa' : 'Teste ativo',
     heroDescription: isCourtesy
       ? 'Este acesso foi concedido como cortesia. Você pode estudar normalmente até o fim do período indicado.'

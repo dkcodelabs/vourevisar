@@ -97,34 +97,33 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
           </button>
         </article>
 
-        <article className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl bg-[hsl(var(--activation-ink))] p-5 text-white shadow-[0_24px_60px_-36px_rgba(17,16,37,0.78)] sm:p-7">
-          <div className="absolute right-0 top-0 h-40 w-40 bg-[linear-gradient(135deg,transparent,hsl(var(--primary)/0.2))]" />
-          <div className="relative flex flex-wrap items-start justify-between gap-4">
+        <article data-pricing-highlight="annual" className="flex min-w-0 flex-col rounded-2xl bg-[hsl(220_78%_29%)] p-5 text-white shadow-[0_26px_54px_-34px_rgba(5,33,85,0.72)] sm:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h3 className="text-2xl font-extrabold">{annual.name}</h3>
-              <p className="mt-1 text-sm text-blue-100/[0.65]">Doze meses de acesso com o menor custo mensal.</p>
+              <p className="mt-1 text-sm text-white/80">Doze meses de acesso com o menor custo mensal.</p>
             </div>
             {annualDiscount > 0 ? (
-              <span className="rounded-full bg-[hsl(var(--activation-lime))] px-3 py-1.5 text-xs font-extrabold text-[hsl(var(--activation-ink))]">Economize {annualDiscount}%</span>
+              <span className="rounded-full bg-white px-3 py-1.5 text-xs font-extrabold text-success">Economize {annualDiscount}%</span>
             ) : null}
           </div>
 
-          <div className="relative mt-7 flex flex-wrap items-end gap-x-3 gap-y-1">
+          <div className="mt-7 flex flex-wrap items-end gap-x-3 gap-y-1">
             <span className="text-[clamp(2.55rem,6vw,4rem)] font-extrabold leading-none tracking-[-0.04em] tabular-nums">{formatCurrency(annual.value)}</span>
-            <span className="pb-1 text-sm font-semibold text-white/[0.55]">/ano</span>
+            <span className="pb-1 text-sm font-semibold text-white/75">/ano</span>
           </div>
-          <p className="relative mt-2 text-sm font-bold text-[hsl(var(--activation-lime))]">{formatCurrency(annualEquivalent)}/mês · economia de {formatCurrency(annualSavings)} no ano</p>
+          <p className="mt-2 text-sm font-bold text-white">{formatCurrency(annualEquivalent)}/mês · economia de {formatCurrency(annualSavings)} no ano</p>
 
-          <div className="relative mt-7 grid gap-x-5 gap-y-3 sm:grid-cols-2">
+          <div className="mt-7 grid gap-x-5 gap-y-3 sm:grid-cols-2">
             {annual.features.map((feature) => (
               <div key={feature} className="flex items-start gap-2.5 text-sm">
-                <Check className="mt-0.5 size-4 shrink-0 text-[hsl(var(--activation-lime))]" />
-                <span className="leading-5 text-white/80">{feature}</span>
+                <Check className="mt-0.5 size-4 shrink-0 text-white" />
+                <span className="leading-5 text-white/90">{feature}</span>
               </div>
             ))}
           </div>
 
-          <button type="button" onClick={() => onPlanSelect('annual')} disabled={isAnnualDisabled} className="relative mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-extrabold text-white shadow-[0_16px_36px_-20px_hsl(var(--primary)/0.85)] transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/[0.45] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/[0.45] disabled:shadow-none">
+          <button type="button" onClick={() => onPlanSelect('annual')} disabled={isAnnualDisabled} className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-extrabold text-primary shadow-[0_16px_32px_-20px_rgba(3,29,78,0.72)] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/55 disabled:shadow-none">
             {annualButtonLabel}
             {!isAnnualDisabled ? <ArrowRight className="size-4" /> : null}
           </button>

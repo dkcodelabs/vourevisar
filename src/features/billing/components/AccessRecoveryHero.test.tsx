@@ -21,6 +21,7 @@ describe('AccessRecoveryHero', () => {
     expect(screen.getByText('Terminou em 04 de setembro de 2026')).toBeInTheDocument();
     expect(screen.getByText(/progresso permanece protegido/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /escolher um plano/i })).toHaveAttribute('href', '#precos');
+    expect(document.querySelector('[data-access-recovery-tone="neutral"]')).toBeInTheDocument();
   });
 
   it('routes payment problems to account recovery instead of a new checkout', () => {
@@ -38,5 +39,6 @@ describe('AccessRecoveryHero', () => {
 
     expect(screen.getByRole('link', { name: 'Regularizar pagamento' })).toHaveAttribute('href', '/conta/assinatura');
     expect(screen.queryByRole('link', { name: /escolher plano/i })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-access-recovery-tone="danger"]')).toBeInTheDocument();
   });
 });

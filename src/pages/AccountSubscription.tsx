@@ -2,16 +2,18 @@ import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
   CalendarDays,
+  CircleAlert,
   CheckCircle2,
   ExternalLink,
+  Info,
   Loader2,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   TriangleAlert,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AccountNavigation } from '@/components/account/AccountNavigation';
+import { ActionAlert } from '@/components/ui/action-alert';
 import { BillingInvoiceHistory } from '@/features/billing/components/BillingInvoiceHistory';
 import { BillingWithdrawalPanel } from '@/features/billing/components/BillingWithdrawalPanel';
 import { ScheduledAnnualPlanChange } from '@/features/billing/components/ScheduledAnnualPlanChange';
@@ -26,7 +28,10 @@ import {
   getSafeBillingErrorMessage,
 } from '@/features/billing/services/stripeBillingService';
 import { buildStripePricingPlans } from '@/features/billing/utils/catalogPricing';
-import { getAccountSubscriptionState } from '@/features/billing/utils/accountSubscriptionState';
+import {
+  getAccountSubscriptionState,
+  type AccountSubscriptionState,
+} from '@/features/billing/utils/accountSubscriptionState';
 import {
   getBillingAccessRecoveryState,
   getCurrentAccessName,
@@ -49,6 +54,68 @@ const formatDate = (value: string | null | undefined) =>
         timeZone: 'UTC',
       }).format(new Date(value))
     : '—';
+
+const subscriptionHeroAppearance: Record<AccountSubscriptionState['tone'], {
+  card: string;
+  badge: string;
+  icon: typeof Info;
+  period: string;
+  description: string;
+  valuePanel: string;
+  valueLabel: string;
+  valueMeta: string;
+}> = {
+  neutral: {
+    card: 'border border-border bg-card text-card-foreground shadow-[0_28px_70px_-44px_rgba(15,23,42,0.18)] dark:shadow-[0_28px_70px_-44px_rgba(0,0,0,0.58)]',
+    badge: 'border border-border bg-muted text-foreground',
+    icon: Info,
+    period: 'text-muted-foreground',
+    description: 'text-muted-foreground',
+    valuePanel: 'border-border bg-muted/60',
+    valueLabel: 'text-muted-foreground',
+    valueMeta: 'text-muted-foreground',
+  },
+  info: {
+    card: 'border border-info/35 bg-info/[0.08] text-foreground shadow-[0_28px_70px_-44px_hsl(var(--info)/0.22)]',
+    badge: 'bg-info text-info-foreground',
+    icon: Info,
+    period: 'text-info',
+    description: 'text-foreground/75',
+    valuePanel: 'border-info/30 bg-background/70',
+    valueLabel: 'text-info',
+    valueMeta: 'text-muted-foreground',
+  },
+  success: {
+    card: 'border border-success/35 bg-success/[0.08] text-foreground shadow-[0_28px_70px_-44px_hsl(var(--success)/0.2)]',
+    badge: 'bg-success text-success-foreground',
+    icon: CheckCircle2,
+    period: 'text-success',
+    description: 'text-foreground/75',
+    valuePanel: 'border-success/30 bg-background/70',
+    valueLabel: 'text-success',
+    valueMeta: 'text-muted-foreground',
+  },
+  warning: {
+    card: 'border border-warning/45 bg-warning/[0.1] text-foreground shadow-[0_28px_70px_-44px_hsl(var(--warning)/0.24)]',
+    badge: 'bg-warning text-warning-foreground',
+    icon: CircleAlert,
+    period: 'text-warning',
+    description: 'text-foreground/80',
+    valuePanel: 'border-warning/35 bg-background/75',
+    valueLabel: 'text-warning',
+    valueMeta: 'text-muted-foreground',
+  },
+  danger: {
+    card: 'border border-destructive/40 bg-destructive/[0.08] text-foreground shadow-[0_28px_70px_-44px_hsl(var(--destructive)/0.2)]',
+    badge: 'bg-destructive text-destructive-foreground',
+    icon: TriangleAlert,
+    period: 'text-destructive',
+    description: 'text-foreground/80',
+    valuePanel: 'border-destructive/30 bg-background/75',
+    valueLabel: 'text-destructive',
+    valueMeta: 'text-muted-foreground',
+  },
+};
 
 const AccountSubscription = () => {
   const reduceMotion = useReducedMotion();
@@ -155,6 +222,8 @@ const AccountSubscription = () => {
     isStripeSubscriber ? subscriptionEnd : data.access_until ?? accessRecovery?.endedAt,
   );
   const periodEndValue = formatDate(isStripeSubscriber ? subscriptionEnd : data.access_until);
+  const heroAppearance = subscriptionHeroAppearance[pageState.tone];
+  const HeroStatusIcon = heroAppearance.icon;
   const showsPeriodInHero = (
     pageState.kind === 'ending' || pageState.kind === 'trial'
   ) && periodEndValue !== '—';
@@ -165,20 +234,21 @@ const AccountSubscription = () => {
           <motion.div
             initial={reduceMotion ? undefined : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="overflow-hidden rounded-3xl bg-[#17122b] p-5 text-white shadow-[0_30px_80px_-38px_rgba(23,18,43,0.9)] sm:p-6"
+            data-subscription-tone={pageState.tone}
+            className={`overflow-hidden rounded-3xl p-5 sm:p-6 ${heroAppearance.card}`}
           >
             <div className="flex flex-col justify-between gap-5 sm:flex-row">
               <div>
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em]">
-                  <Sparkles className="h-4 w-4 text-[#dfff65]" />
+                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] ${heroAppearance.badge}`}>
+                  <HeroStatusIcon className="h-4 w-4" />
                   {pageState.badge}
                 </span>
                 {showsPeriodInHero && (
-                  <div className="mt-3 flex items-center gap-2 text-sm font-bold text-white/80">
-                    <CalendarDays className="h-4 w-4 text-[#dfff65]" />
+                  <div className={`mt-3 flex items-center gap-2 text-sm font-bold ${heroAppearance.period}`}>
+                    <CalendarDays className="h-4 w-4" />
                     <span>
                       {pageState.summaryLabel}{' '}
-                      <span className="text-white">{periodEndValue}</span>
+                      <span className="text-foreground">{periodEndValue}</span>
                     </span>
                   </div>
                 )}
@@ -189,12 +259,12 @@ const AccountSubscription = () => {
                       ? accessRecovery.title
                       : getCurrentAccessName(data)}
                 </h2>
-                <p className="mt-3 max-w-md text-sm font-medium leading-6 text-white/60">
+                <p className={`mt-3 max-w-md text-sm font-medium leading-6 ${heroAppearance.description}`}>
                   {pageState.heroDescription}
                 </p>
               </div>
-              <div className="min-w-[155px] rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">
+              <div className={`min-w-[155px] rounded-2xl border p-4 ${heroAppearance.valuePanel}`}>
+                <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${heroAppearance.valueLabel}`}>
                   {hasInternalAccess
                     ? 'Vínculo'
                     : pageState.kind === 'ended'
@@ -213,7 +283,7 @@ const AccountSubscription = () => {
                     : 'Sem cobrança'}
                 </p>
                 {activeStripeSubscription && (
-                  <p className="mt-1 text-xs font-semibold text-white/50">
+                  <p className={`mt-1 text-xs font-semibold ${heroAppearance.valueMeta}`}>
                     por {subscription.billing_interval === 'year' ? 'ano' : 'mês'}
                   </p>
                 )}
@@ -222,19 +292,17 @@ const AccountSubscription = () => {
           </motion.div>
 
           {pageState.alertTitle && (
-            <div className="mt-5 rounded-3xl border border-warning/30 bg-warning/10 p-5 text-foreground">
-              <div className="flex items-start gap-3">
-                <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-                <div>
-                  <p className="text-sm font-black">{pageState.alertTitle}</p>
-                  <p className="mt-1 text-sm font-medium leading-6 opacity-80">
-                    {pageState.alertDescription
-                      ? `${pageState.alertDescription} Você mantém acesso até ${formatDate(subscriptionEnd)}.`
-                      : `Você mantém acesso até ${formatDate(subscriptionEnd)}.`}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <ActionAlert
+              className="mt-5 rounded-2xl"
+              variant={pageState.tone === 'danger' ? 'destructive' : 'warning'}
+              title={pageState.alertTitle}
+              description={[
+                pageState.alertDescription,
+                pageState.kind === 'payment_attention' && data.is_active && subscriptionEnd
+                  ? `Você mantém acesso até ${formatDate(subscriptionEnd)}.`
+                  : null,
+              ].filter(Boolean).join(' ')}
+            />
           )}
 
           {!showsPeriodInHero && (

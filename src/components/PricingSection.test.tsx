@@ -8,6 +8,13 @@ const plans = {
 };
 
 describe('PricingSection', () => {
+  it('uses the primary conversion treatment only for the annual recommendation', () => {
+    render(<PricingSection plans={plans} onPlanSelect={vi.fn()} />);
+
+    expect(document.querySelector('[data-pricing-highlight="annual"]')).toBeInTheDocument();
+    expect(screen.getByText('Economize 48%')).toHaveClass('bg-white');
+  });
+
   it('names disabled actions according to the current plan', () => {
     render(<PricingSection plans={plans} currentPlan="annual" onPlanSelect={vi.fn()} />);
 

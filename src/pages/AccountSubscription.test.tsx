@@ -373,11 +373,11 @@ describe('AccountSubscription', () => {
   });
 
   it.each([
-    ['ativo', activeOverview, 'Acesso ativo', 'Gerenciar pagamento'],
-    ['pagamento pendente', pendingOverview, 'Pagamento pendente', 'Atualizar pagamento'],
-    ['cancelamento programado', endingOverview, 'Renovação cancelada', 'Gerenciar assinatura'],
-    ['acesso suspenso', suspendedOverview, 'Acesso suspenso', 'Regularizar pagamento'],
-  ] as const)('renders the %s state with one clear recovery action', (_name, data, badge, action) => {
+    ['ativo', activeOverview, 'Acesso ativo', 'Gerenciar pagamento', 'success'],
+    ['pagamento pendente', pendingOverview, 'Pagamento pendente', 'Atualizar pagamento', 'warning'],
+    ['cancelamento programado', endingOverview, 'Renovação cancelada', 'Gerenciar assinatura', 'warning'],
+    ['acesso bloqueado', suspendedOverview, 'Acesso bloqueado', 'Regularizar pagamento', 'danger'],
+  ] as const)('renders the %s state with one clear recovery action', (_name, data, badge, action, tone) => {
     mocks.useStripeBillingOverview.mockReturnValue({
       data,
       isLoading: false,
@@ -393,6 +393,7 @@ describe('AccountSubscription', () => {
 
     expect(screen.getAllByText(badge).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: new RegExp(action, 'i') })).toBeInTheDocument();
+    expect(document.querySelector(`[data-subscription-tone="${tone}"]`)).toBeInTheDocument();
   });
 
   it('explains that a scheduled cancellation neither renews nor requests a refund', () => {
@@ -413,5 +414,23 @@ describe('AccountSubscription', () => {
     expect(screen.getByText('Acesso até')).toBeInTheDocument();
     expect(screen.getByText('02 de outubro de 2026')).toBeInTheDocument();
     expect(screen.queryByText(/Cartão da assinatura:/i)).not.toBeInTheDocument();
+  });
+
+  it('does not promise remaining access after a failed payment has already blocked it', () => {
+    mocks.useStripeBillingOverview.mockReturnValue({
+      data: suspendedOverview,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/conta/assinatura']}>
+        <AccountSubscription />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Acesso bloqueado até a regularização')).toBeInTheDocument();
+    expect(screen.queryByText(/Você mantém acesso até/i)).not.toBeInTheDocument();
   });
 });
