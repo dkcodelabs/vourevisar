@@ -88,6 +88,13 @@ const paymentFormSource = readProjectFile(
 const billingHookSource = readProjectFile(
   'src/features/billing/hooks/useStripeBilling.ts',
 );
+const billingClientSource = readProjectFile('src/integrations/supabase/client.ts');
+const portalSessionRecoverySource = readProjectFile(
+  'src/integrations/supabase/portalSessionRecovery.ts',
+);
+const billingClientServiceSource = readProjectFile(
+  'src/features/billing/services/stripeBillingService.ts',
+);
 const sidebarSubscriptionSource = readProjectFile('src/hooks/useSubscriptionInfo.ts');
 const userManagementSource = readProjectFile('src/pages/admin/UserManagement.tsx');
 const importEditalSource = readProjectFile('src/components/subjects/ImportEditalModal.tsx');
@@ -137,6 +144,15 @@ describe('Stripe billing security boundaries', () => {
     expect(portalSource).toContain('.eq("billing_customer_id", customer?.id');
     expect(portalSource).not.toContain('.gte("updated_at", customer?.updated_at');
     expect(portalSource).not.toContain('.eq("livemode", livemode)\n      .in("status", ["active", "past_due"])');
+  });
+
+  it('preserves only the current tab session while the Customer Portal replaces the document', () => {
+    expect(billingClientServiceSource).toContain('preserveStripePortalSessionForReturn()');
+    expect(billingClientSource).toContain('restoreSessionAfterBillingPortalReturn(authStorageKey)');
+    expect(billingClientSource).toContain('storageKey: authStorageKey');
+    expect(portalSessionRecoverySource).toContain('window.sessionStorage.setItem');
+    expect(portalSessionRecoverySource).toContain('window.sessionStorage.removeItem(recoveryKey)');
+    expect(portalSessionRecoverySource).not.toContain('document.cookie');
   });
 
   it('serves display prices from the allowlisted Stripe catalog without legacy tables', () => {

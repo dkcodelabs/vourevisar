@@ -89,7 +89,6 @@ export default function LandingPage() {
             <Link to="/login" className="text-sm font-bold">
               Entrar
             </Link>
-            <TrialLink authenticated={Boolean(user)} compact />
           </div>
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
@@ -114,10 +113,6 @@ export default function LandingPage() {
                   </a>
                 ))}
                 <Link to="/login">Entrar</Link>
-                <TrialLink
-                  onClick={() => setMenuOpen(false)}
-                  authenticated={Boolean(user)}
-                />
               </div>
             </SheetContent>
           </Sheet>
@@ -126,29 +121,33 @@ export default function LandingPage() {
       <main>
         <section
           ref={hero}
-          className={`${sectionClass} grid items-center gap-12 pb-16 pt-12 lg:min-h-[690px] lg:grid-cols-[0.95fr_1.05fr] lg:py-20`}
+          className={`${sectionClass} grid items-center gap-12 pb-16 pt-14 lg:min-h-[710px] lg:grid-cols-[0.95fr_1.05fr] lg:py-20`}
         >
           <motion.div
             initial={false}
             animate={reduced ? undefined : { y: [15, 0], opacity: [0.7, 1] }}
             transition={{ duration: 0.7 }}
           >
-            <p className="mb-6 text-sm font-semibold text-blue-700">
-              Sua preparação em movimento
+            <p className="mb-7 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+              <span className="size-2 rounded-full bg-[#2f80ff]" aria-hidden="true" />
+              A nova forma de aprender
             </p>
-            <h1 className="text-[clamp(2.5rem,4.4vw,3.65rem)] font-extrabold leading-[1.09] tracking-[-0.04em]">
-              Seu edital vira
+            <h1 className="text-[clamp(3rem,5.75vw,5.35rem)] font-extrabold leading-[0.98] tracking-[-0.04em] text-[#101a33]">
+              Pare de esquecer.
               <br />
-              um plano.
-              <br />
-              <span className="text-[#1765dc]">
-                Você sabe o que
-                <br className="hidden xl:block" /> fazer agora.
+              Comece a{" "}
+              <span className="relative inline-block text-[#2f80ff]">
+                Revisar
+                <span
+                  aria-hidden="true"
+                  className="absolute -bottom-1 left-0 h-1.5 w-[104%] -rotate-1 rounded-full bg-[#70dc51]"
+                />
               </span>
+              .
             </h1>
             <p className="mt-6 max-w-md text-base leading-7 text-slate-600">
-              Organize ciclo, treino e revisões em uma rotina que sempre entrega
-              o próximo passo.
+              Seu edital, ciclo, foco e revisões em uma rotina que deixa claro o
+              que fazer agora — e por que continuar.
             </p>
             <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-5">
               <TrialLink authenticated={Boolean(user)} />
@@ -167,9 +166,15 @@ export default function LandingPage() {
           </motion.div>
           <motion.div
             style={reduced ? undefined : { y: previewY }}
-            className="relative rounded-[32px] bg-[#e9f0fc] p-3 sm:p-5"
+            className="relative overflow-hidden rounded-[32px] bg-[#e9f0fc] p-3 shadow-[0_24px_60px_-38px_rgba(23,101,220,0.52)] sm:p-5"
           >
-            <ProductPreview />
+            <div
+              aria-hidden="true"
+              className="absolute right-0 top-0 h-28 w-2/5 rounded-bl-[56px] bg-[#d6e5ff]"
+            />
+            <div className="relative">
+              <ProductPreview />
+            </div>
             <p className="mt-4 text-center text-[11px] text-slate-500">
               Componentes reais do produto, com dados de demonstração.
             </p>
@@ -181,10 +186,10 @@ export default function LandingPage() {
           >
             {[
               "Edital organizado",
-              "Ciclo de estudos",
-              "Treino contextual",
-              "Revisões espaçadas",
-              "Evolução real",
+              "IA que estrutura seu conteúdo",
+              "Ciclo e cronômetro de foco",
+              "Treino com questões e flashcards",
+              "Revisões e evolução",
             ].map((label) => (
               <span key={label} className="flex items-center gap-2">
                 <Check size={15} className="text-green-700" />

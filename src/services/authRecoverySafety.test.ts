@@ -32,7 +32,7 @@ describe('password recovery safety boundaries', () => {
   it('does not let recovery create a password for a Google-only account', () => {
     expect(resetPasswordSource).toContain('getMyAuthMethods()');
     expect(resetPasswordSource).toContain("Continue com Google");
-    expect(resetPasswordSource).toContain("signOutAuth('local')");
+    expect(resetPasswordSource).toContain('signOutAuth("local")');
   });
 
   it('suppresses recovery delivery without exposing the account method publicly', () => {
@@ -64,7 +64,9 @@ describe('password recovery safety boundaries', () => {
   });
 
   it('removes recovery credentials from browser history after verification', () => {
-    expect(resetPasswordSource).toContain("window.history.replaceState({}, document.title, '/reset-password')");
+    expect(resetPasswordSource).toContain(
+      'window.history.replaceState({}, document.title, "/reset-password")',
+    );
     expect(resetPasswordSource).not.toContain('url: window.location.href');
   });
 });

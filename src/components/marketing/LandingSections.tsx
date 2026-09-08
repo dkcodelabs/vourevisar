@@ -9,6 +9,9 @@ import {
   Brain,
   RotateCcw,
   ChartNoAxesCombined,
+  ScanText,
+  Timer,
+  WandSparkles,
   Mail,
   ShieldCheck,
 } from "lucide-react";
@@ -96,102 +99,158 @@ export function LandingJourney() {
 }
 
 export function LandingResources() {
+  const reduced = useReducedMotion();
   return (
-    <section id="recursos" className="scroll-mt-24 bg-[#edf3fb] py-20 lg:py-24">
+    <section id="recursos" className="scroll-mt-24 bg-[#edf3fb] py-20 lg:py-28">
       <div className={sectionClass}>
-        <Reveal className="mb-10 max-w-2xl">
+        <Reveal className="mb-12 max-w-3xl">
           <h2 className={headingClass}>
-            Seu esforço merece
+            Sua preparação não precisa
             <br />
-            uma rotina bem organizada.
+            caber em uma planilha.
           </h2>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
+            O vouRevisar reúne as decisões que consomem sua energia em uma
+            central que acompanha o ritmo do seu estudo.
+          </p>
         </Reveal>
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          <Reveal className="overflow-hidden rounded-2xl bg-white md:col-span-2">
-            <div className="grid h-full sm:grid-cols-[1fr_0.85fr]">
+        <div className="grid gap-5 lg:grid-cols-12">
+          <Reveal className="group overflow-hidden rounded-2xl bg-white lg:col-span-7">
+            <div className="grid h-full sm:grid-cols-[1.08fr_0.92fr]">
               <div className="p-7 sm:p-9">
-                <Layers className="mb-8 text-blue-600" size={26} />
-                <h3 className="text-2xl font-bold tracking-tight">
-                  Um edital.
+                <ScanText className="mb-8 text-blue-600" size={27} />
+                <h3 className="text-2xl font-bold tracking-tight text-[#172033] sm:text-[1.8rem]">
+                  Seu edital entra como PDF.
                   <br />
-                  Muitas próximas conquistas.
+                  A rotina sai pronta.
                 </h3>
-                <p className="mt-4 text-sm leading-7 text-slate-600">
-                  Catálogo, PDF com IA ou criação manual. Seu conteúdo vira
-                  matérias, tópicos e um ciclo que você consegue percorrer.
+                <p className="mt-4 max-w-md text-sm leading-7 text-slate-600">
+                  A IA extrai o conteúdo e faz o cadastro automático de
+                  matérias e tópicos para você começar sem perder horas na
+                  organização manual.
                 </p>
+                <div className="mt-8 flex items-center gap-2 text-xs font-semibold text-blue-700">
+                  <span className="rounded-lg bg-blue-50 px-3 py-2">PDF do edital</span>
+                  <ArrowRight size={15} />
+                  <span className="rounded-lg bg-blue-50 px-3 py-2">Conteúdo estruturado</span>
+                </div>
               </div>
-              <img
-                src="/images/marketing/study-session.jpg"
-                width="1536"
-                height="1024"
-                loading="lazy"
-                alt="Estudante organizando sua preparação"
-                className="h-56 w-full object-cover object-[35%_center] transition-transform duration-700 hover:scale-[1.035] motion-reduce:transform-none sm:h-full"
-              />
+              <div className="relative min-h-64 overflow-hidden bg-[#dce9ff]">
+                <img
+                  src="/images/marketing/study-session.jpg"
+                  width="1536"
+                  height="1024"
+                  loading="lazy"
+                  alt="Estudante organizando sua preparação"
+                  className="h-full w-full object-cover object-[35%_center] transition-transform duration-700 group-hover:scale-[1.045] motion-reduce:transform-none"
+                />
+                <div className="absolute bottom-4 left-4 rounded-xl bg-white/95 px-4 py-3 shadow-[0_14px_28px_-16px_rgba(23,101,220,0.48)]">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#172033]">
+                    <WandSparkles size={15} className="text-blue-600" />
+                    IA organizando o edital
+                  </div>
+                </div>
+              </div>
             </div>
           </Reveal>
-          <Reveal className="rounded-2xl bg-[#dfeaff] p-7 sm:p-9">
-            <Brain className="mb-8 text-blue-700" size={26} />
-            <h3 className="text-2xl font-bold tracking-tight">
-              Aprender.
+
+          <Reveal className="overflow-hidden rounded-2xl bg-[#172033] p-7 text-white lg:col-span-5 sm:p-9">
+            <Timer className="mb-8 text-[#8ade58]" size={27} />
+            <h3 className="text-2xl font-bold tracking-tight sm:text-[1.8rem]">
+              Foco também
               <br />
-              Lembrar. Praticar.
+              deixa rastro.
             </h3>
-            <p className="mt-4 text-sm leading-7 text-slate-700">
-              Questões e flashcards para trabalhar o conteúdo do seu edital e
-              reconhecer o que precisa de mais atenção.
+            <p className="mt-4 max-w-sm text-sm leading-7 text-slate-300">
+              Use o cronômetro durante a sessão e registre o tempo que você
+              realmente colocou na preparação.
             </p>
-            <div className="mt-8 flex gap-2">
-              {["Questões", "Flashcards"].map((label) => (
-                <span
-                  key={label}
-                  className="rounded-lg bg-white/70 px-3 py-2 text-xs font-semibold"
-                >
-                  {label}
-                </span>
+            <div className="mt-9 border-t border-white/15 pt-5" aria-label="Prévia demonstrativa do cronômetro">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    Sessão em andamento
+                  </p>
+                  <p className="mt-1 text-4xl font-extrabold tracking-[-0.05em] tabular-nums text-white">
+                    50:00
+                  </p>
+                </div>
+                <motion.span
+                  animate={reduced ? undefined : { scale: [1, 1.18, 1], opacity: [0.65, 1, 0.65] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                  className="mb-2 size-3 rounded-full bg-[#8ade58]"
+                  aria-hidden="true"
+                />
+              </div>
+              <p className="mt-3 text-xs text-slate-400">Prévia demonstrativa</p>
+            </div>
+          </Reveal>
+
+          <Reveal className="rounded-2xl bg-[#dbe9ff] p-7 text-[#172033] lg:col-span-4 sm:p-8">
+            <Layers className="mb-7 text-blue-700" size={26} />
+            <h3 className="text-xl font-bold tracking-tight">Ciclo de estudo inteligente.</h3>
+            <p className="mt-3 text-sm leading-7 text-slate-700">
+              As matérias entram numa sequência que ajuda a transformar intenção
+              em uma próxima ação possível.
+            </p>
+            <div className="mt-8 flex items-center gap-2 text-xs font-bold text-blue-800">
+              {["Estudar", "Treinar", "Revisar"].map((label, index) => (
+                <div key={label} className="flex items-center gap-2">
+                  <span className="rounded-lg bg-white/75 px-2.5 py-2">{label}</span>
+                  {index < 2 && <ArrowRight size={14} aria-hidden="true" />}
+                </div>
               ))}
             </div>
           </Reveal>
-          <Reveal className="rounded-2xl bg-white p-7">
-            <RotateCcw className="mb-5 text-blue-600" size={25} />
-            <h3 className="text-xl font-bold">Revisão com continuidade.</h3>
+
+          <Reveal className="rounded-2xl bg-white p-7 lg:col-span-5 sm:p-8">
+            <Brain className="mb-7 text-blue-600" size={26} />
+            <h3 className="text-xl font-bold tracking-tight">
+              Questões e flashcards com IA, a partir do seu material.
+            </h3>
+            <p className="mt-3 max-w-md text-sm leading-7 text-slate-600">
+              Gere prática privada para o tópico que está estudando e descubra
+              onde vale retomar antes de seguir em frente.
+            </p>
+            <div className="mt-7 grid grid-cols-2 gap-3 text-sm font-bold">
+              <div className="rounded-xl bg-[#eff5ff] p-4 text-blue-800">Questões para praticar</div>
+              <div className="rounded-xl bg-[#edf7e9] p-4 text-green-800">Flashcards para lembrar</div>
+            </div>
+          </Reveal>
+
+          <Reveal className="rounded-2xl bg-white p-7 lg:col-span-3 sm:p-8">
+            <RotateCcw className="mb-7 text-blue-600" size={26} />
+            <h3 className="text-xl font-bold tracking-tight">Revisão que respeita seu histórico.</h3>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              Registre a dificuldade e encontre suas próximas revisões
-              organizadas pelo histórico.
+              A dificuldade registrada ajuda a organizar o que merece voltar à
+              sua atenção.
             </p>
           </Reveal>
-          <Reveal className="rounded-2xl bg-white p-7 lg:col-span-2">
-            <div className="grid items-center gap-6 sm:grid-cols-2">
+
+          <Reveal className="overflow-hidden rounded-2xl bg-[#1765dc] p-7 text-white lg:col-span-12 sm:p-8">
+            <div className="grid items-center gap-7 md:grid-cols-[0.8fr_1.2fr]">
               <div>
-                <ChartNoAxesCombined className="mb-5 text-blue-600" size={25} />
-                <h3 className="text-xl font-bold">Veja o que já construiu.</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
-                  Acompanhe seu edital e compare os giros do ciclo com dados do
-                  seu próprio estudo.
+                <ChartNoAxesCombined className="mb-6 text-[#a9e98d]" size={27} />
+                <h3 className="text-2xl font-bold tracking-tight">Evolução para enxergar o que está construindo.</h3>
+                <p className="mt-3 max-w-md text-sm leading-7 text-blue-100">
+                  Acompanhe o edital e compare os giros do ciclo com o que você
+                  realmente estudou.
                 </p>
               </div>
-              <div
-                className="rounded-xl bg-[#edf3fb] p-5"
-                aria-label="Resumo demonstrativo de evolução"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-semibold text-slate-500">
-                    Progresso do edital
-                  </p>
-                  <span className="text-[11px] font-medium text-slate-500">
-                    Prévia demonstrativa
-                  </span>
-                </div>
-                <p className="mt-2 text-3xl font-extrabold tracking-tight text-[#1765dc]">
-                  30%
-                </p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-                  <div className="h-full w-[30%] rounded-full bg-[#1765dc]" />
-                </div>
-                <p className="mt-3 text-xs leading-5 text-slate-600">
-                  24 tópicos iniciados · 6 concluídos
-                </p>
+              <div className="grid grid-cols-3 gap-3 text-left text-xs font-semibold">
+                {["Edital", "Ciclo", "Revisões"].map((label, index) => (
+                  <div key={label} className="border-t border-white/25 pt-4">
+                    <span className="block text-blue-200">{label}</span>
+                    <motion.div
+                      initial={reduced ? false : { scaleX: 0.25 }}
+                      whileInView={reduced ? undefined : { scaleX: 1 }}
+                      viewport={{ once: true, amount: 0.6 }}
+                      transition={{ duration: 0.7, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] }}
+                      className="mt-3 h-2 origin-left rounded-full bg-[#a9e98d]"
+                      style={{ width: `${[72, 53, 38][index]}%` }}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </Reveal>

@@ -315,41 +315,42 @@ const Login = () => {
         initial={false}
         className="w-full [&_input:not([type=checkbox])]:bg-slate-50 [&_input:not([type=checkbox])]:border-slate-200 [&_input:not([type=checkbox])]:rounded-xl [&_input:not([type=checkbox])]:shadow-none [&_input:not([type=checkbox])]:py-3 [&_input]:placeholder:text-slate-400 [&_label]:normal-case [&_label]:tracking-normal [&_label]:text-xs [&_label]:text-slate-600 [&_input:focus-visible]:ring-2 [&_input:focus-visible]:ring-blue-500"
       >
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-3 sm:mb-6">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-foreground">
+        <div className="mb-7">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-foreground sm:size-10">
             {isRegistering ? (
               <UserPlus size={14} className="sm:size-[18px]" />
             ) : (
               <ArrowRight size={14} className="sm:size-[18px]" />
             )}
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg font-black tracking-tight text-foreground sm:text-2xl">
+                {showForgotPassword
+                  ? "Recupere seu acesso"
+                  : isRegistering
+                    ? "Comece seu próximo passo."
+                    : "Bom ter você de volta."}
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {showForgotPassword
+                  ? "Informe seu email para receber o link de recuperação."
+                  : isRegistering
+                    ? "Crie sua conta e conheça sua central de progresso. 7 dias grátis, sem cartão."
+                    : "Sua rotina de estudos espera por você."}
+              </p>
+            </div>
           </div>
-          <h1 className="text-lg sm:text-2xl font-black text-foreground tracking-tight">
-            {showForgotPassword
-              ? "Recupere seu acesso"
-              : isRegistering
-                ? "Comece seu próximo passo."
-                : "Bom ter você de volta."}
-          </h1>
+          {emailConfirmed && (
+            <div className="mt-5 flex items-start gap-3 rounded-xl border border-success/25 bg-success/10 p-3 text-sm text-foreground">
+              <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+              <p>
+                <strong>Email confirmado.</strong> Agora entre com sua senha para
+                acessar o vouRevisar.
+              </p>
+            </div>
+          )}
         </div>
-
-        {emailConfirmed && (
-          <div className="mb-5 flex items-start gap-3 rounded-xl border border-success/25 bg-success/10 p-3 text-sm text-foreground">
-            <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-success" />
-            <p>
-              <strong>Email confirmado.</strong> Agora entre com sua senha para
-              acessar o vouRevisar.
-            </p>
-          </div>
-        )}
-
-        <p className="mb-7 text-sm leading-6 text-slate-500">
-          {showForgotPassword
-            ? "Informe seu email para receber o link de recuperação."
-            : isRegistering
-              ? "Crie sua conta e conheça sua central de progresso. 7 dias grátis, sem cartão."
-              : "Sua rotina de estudos espera por você."}
-        </p>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -1,6 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { invokeUserRpc } from '@/services/userRpcService';
-import { supabase } from '@/integrations/supabase/client';
+import { preserveStripePortalSessionForReturn, supabase } from '@/integrations/supabase/client';
 import type {
   BillingCatalogPlan,
   BillingInvoiceHistoryItem,
@@ -116,8 +116,11 @@ export const createStripeCheckout = async (
     requestId,
   });
 
-export const createStripePortal = async () =>
-  invokeBillingFunction<{ url: string }>('stripe-create-portal');
+export const createStripePortal = async () => {
+  const response = await invokeBillingFunction<{ url: string }>('stripe-create-portal');
+  preserveStripePortalSessionForReturn();
+  return response;
+};
 
 export const acceptStripeContract = async (requestId: string) =>
   invokeBillingFunction<{ accepted: boolean; reused: boolean }>('stripe-accept-contract', {

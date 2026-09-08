@@ -17,10 +17,10 @@ export const journey = [
     icon: "ciclo",
   },
   {
-    title: "Estudou? Coloque em prática.",
-    short: "Seu treino",
-    text: "Questões e flashcards conectam a prática ao conteúdo do seu edital. Um passo a mais para perceber suas dificuldades.",
-    detail: "Questões e flashcards no contexto do seu estudo",
+    title: "Estude com foco. Depois, coloque em prática.",
+    short: "Foco e treino",
+    text: "O cronômetro acompanha sua sessão. Questões e flashcards gerados por IA trabalham o conteúdo que você está estudando.",
+    detail: "Cronômetro, questões e flashcards no contexto do seu estudo",
     icon: "treino",
   },
   {
@@ -68,6 +68,11 @@ export const comparison = [
     "O que estudar agora",
     "Uma decisão nova a cada sessão",
     "Uma próxima ação para continuar",
+  ],
+  [
+    "Tempo de foco",
+    "Sessões que ficam só na intenção",
+    "Cronômetro para acompanhar seu estudo",
   ],
   [
     "Hora de revisar",

@@ -995,7 +995,7 @@
 
 @layer base {
 
-  /* Browser Autofill Overrides for Dark Mode */
+  /* Keep browser-filled values legible in both supported themes. */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
@@ -1005,9 +1005,22 @@
   select:-webkit-autofill,
   select:-webkit-autofill:hover,
   select:-webkit-autofill:focus {
-    -webkit-text-fill-color: #ffffff;
-    -webkit-box-shadow: 0 0 0px 1000px #0a0a0a inset;
+    -webkit-text-fill-color: hsl(var(--control-foreground));
+    -webkit-box-shadow: 0 0 0 1000px hsl(var(--control-background)) inset;
     transition: background-color 5000s ease-in-out 0s;
+  }
+
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus,
+  .dark textarea:-webkit-autofill,
+  .dark textarea:-webkit-autofill:hover,
+  .dark textarea:-webkit-autofill:focus,
+  .dark select:-webkit-autofill,
+  .dark select:-webkit-autofill:hover,
+  .dark select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #ffffff;
+    -webkit-box-shadow: 0 0 0 1000px #0a0a0a inset;
   }
 
   html {
