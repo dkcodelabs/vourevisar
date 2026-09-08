@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-03T15:16:27-03:00",
+  "generatedAt": "2026-09-08T00:00:00-03:00",
   "title": "Design System: vouRevisar",
   "extensions": {
     "colorMeta": {
@@ -97,7 +97,8 @@
     ],
     "motion": [
       { "name": "standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Transições gerais de cor e estado." },
-      { "name": "field", "value": "background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease", "purpose": "Campos e controles." }
+      { "name": "field", "value": "background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease", "purpose": "Campos e controles." },
+      { "name": "public-reveal", "value": "transform, opacity, clip-path 0.65s cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Entrada contida de blocos da aquisição; deve ser removida quando reduced motion estiver ativo." }
     ],
     "breakpoints": [
       { "name": "mobile", "value": "0-639px" },
@@ -163,6 +164,22 @@
       "description": "Energia visual temporária para avanço e conclusão, não para superfícies permanentes.",
       "html": "<section class=\"ds-progress\"><div><span>Progresso do ciclo</span><strong>12 de 18 tópicos</strong></div><div class=\"ds-progress-track\"><i></i></div></section>",
       "css": ".ds-progress{display:grid;gap:12px;padding:16px;border:1px solid hsl(var(--primary,215 100% 59%) / .16);border-radius:var(--radius-card,.75rem);background:hsl(var(--surface,0 0% 100%));font-family:'Plus Jakarta Sans',sans-serif}.ds-progress div:first-child{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.ds-progress span{color:hsl(var(--content-muted,218 18% 48%));font-size:12px;font-weight:700}.ds-progress strong{color:hsl(var(--text,222 47% 11%));font-size:14px}.ds-progress-track{height:8px;overflow:hidden;border-radius:999px;background:hsl(var(--muted,216 42% 96%))}.ds-progress-track i{display:block;width:67%;height:100%;border-radius:inherit;background:linear-gradient(90deg,hsl(var(--primary,215 100% 59%)),hsl(var(--info,203 92% 56%)));box-shadow:0 4px 14px hsl(var(--primary,215 100% 59%) / .24)}"
+    },
+    {
+      "name": "Marketing Trial CTA",
+      "kind": "button",
+      "refersTo": "public-trial-link",
+      "description": "CTA de aquisição azul que inicia o teste e aponta para o registro; verde/lime não assume função de conversão.",
+      "html": "<a class=\"ds-trial-cta\" href=\"/login?mode=register&source=landing\">Testar 7 dias <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></a>",
+      "css": ".ds-trial-cta{display:inline-flex;min-height:48px;align-items:center;justify-content:center;gap:12px;padding:0 20px;border-radius:12px;background:#1765dc;color:#fff;font:700 14px 'Plus Jakarta Sans',sans-serif;text-decoration:none;box-shadow:0 8px 20px -12px #1765dc;transition:background-color .2s,transform .2s,box-shadow .2s}.ds-trial-cta svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-trial-cta:hover{transform:translateY(-2px);background:#1254bd;box-shadow:0 12px 24px -12px #1765dc}.ds-trial-cta:active{transform:translateY(0)}.ds-trial-cta:focus-visible{outline:none;box-shadow:0 0 0 2px #2563eb,0 0 0 6px #fff}@media(prefers-reduced-motion:reduce){.ds-trial-cta{transition:none}.ds-trial-cta:hover,.ds-trial-cta:active{transform:none}}"
+    },
+    {
+      "name": "Demonstrative Product Preview",
+      "kind": "custom",
+      "refersTo": "public-product-preview",
+      "description": "Janela do produto com dados não persistidos e rótulo explícito de demonstração; prova o fluxo sem apresentar estado de aluno como real.",
+      "html": "<article class=\"ds-preview\"><header><strong>vouRevisar</strong><span>Prévia demonstrativa</span></header><main><small>Seu espaço de preparação</small><h3>Um passo de cada vez.</h3><section><b>Revisar Direitos fundamentais</b><p>Retome um tópico do seu edital.</p><a href=\"/login?mode=register&source=landing\">Revisar agora</a></section></main></article>",
+      "css": ".ds-preview{overflow:hidden;border-radius:16px;background:#fff;color:#172033;box-shadow:0 28px 75px -35px rgba(34,63,110,.5);font-family:'Plus Jakarta Sans',sans-serif}.ds-preview header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid #f1f5f9}.ds-preview header strong{font-size:14px}.ds-preview header span,.ds-preview small{color:#64748b;font-size:10px;font-weight:500}.ds-preview main{min-height:220px;padding:20px}.ds-preview h3{margin:4px 0 16px;font-size:18px;line-height:1.15}.ds-preview section{padding:16px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff}.ds-preview section b{font-size:14px}.ds-preview section p{margin:6px 0 12px;color:#475569;font-size:12px;line-height:1.5}.ds-preview section a{color:#1765dc;font-size:12px;font-weight:700;text-decoration:none}.ds-preview section a:hover{text-decoration:underline}.ds-preview section a:focus-visible{outline:2px solid #2563eb;outline-offset:3px}"
     }
   ],
   "narrative": {
