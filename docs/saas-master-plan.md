@@ -80,6 +80,8 @@ Estes itens não impedem o software de receber alunos hoje, mas não devem ser i
 
 ## Prioridade 2 — lacunas funcionais já conhecidas
 
+- [ ] **Concluir integração ponta a ponta da aquisição.** A landing e as superfícies públicas de login, cadastro, confirmação e recuperação foram reconstruídas, revisadas visualmente e publicadas no frontend em 2026-09-08 (commit `c452e7e3`), com a marca premium v4, prévias demonstrativas explicitamente identificadas e fotografia autoral em `public/images/marketing/study-session.jpg`. Esta entrega preserva os contratos existentes de Auth/Stripe e não alterou banco, trial ou checkout. Falta validar e, se necessário, completar cadastro, Google, trial, checkout e recuperação ponta a ponta antes de declarar a aquisição integrada.
+
 - [ ] **Homologar a ativação em produção com conta de aluno.** Frontend (`edef3495`), migrations `20260907145841`/`20260907152500`, CI, preview Supabase e deploy Vercel passaram. Falta percorrer a rota autenticada real, incluindo ao menos um acesso de teste ou cortesia encerrada. Plano: [ativação de primeiro valor](./activation-first-value-plan.md).
 
 - [x] Aplicar localmente a marca premium v4 aprovada: geometria única para React e exportações; versões para temas claro/escuro, favicon SVG/ICO, ícones, imagem social e kit de divulgação com PNGs transparentes 64–4096 px, SVGs e perfis 1080 px. Lint, typecheck, testes do loader e build passaram; login e componente foram conferidos no navegador, incluindo animação única e movimento reduzido.
