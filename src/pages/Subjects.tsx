@@ -16,6 +16,7 @@ import { useCycleQueueOrderActions } from '@/hooks/useCycleQueueOrderActions';
 import { useCycleSubjectCompletionActions } from '@/hooks/useCycleSubjectCompletionActions';
 import { useCycleEditalUnload } from '@/hooks/useCycleEditalUnload';
 import { useCycleExamDateEditor } from '@/hooks/useCycleExamDateEditor';
+import { useCycleExamDateDeepLink } from '@/hooks/useCycleExamDateDeepLink';
 import { usePermanentSubjectDeletion } from '@/hooks/usePermanentSubjectDeletion';
 import { useEditalImport } from '@/hooks/useEditalImport';
 import { useStudyCyclePageData } from '@/hooks/useStudyCyclePageData';
@@ -48,7 +49,6 @@ import { useUnifiedSubjectNameSave } from '@/hooks/useUnifiedSubjectNameSave';
 import { useSubjectsNavigationActions } from '@/hooks/useSubjectsNavigationActions';
 
 type SubjectTab = 'all' | 'vertical';
-
 const Subjects = () => {
   const { user } = useAuth();
   const { resetTimer, resumeTimer, setProcessedUpdate, stopTimer } = useTimer();
@@ -128,6 +128,11 @@ const Subjects = () => {
     setUserCycle,
     userCycle,
     userId: user?.id,
+  });
+  useCycleExamDateDeepLink({
+    isLoading: isLoading || loading,
+    openEditor: openCycleExamDateEditor,
+    userCycle,
   });
   const { importSubjects: handleImportSubjects } = useEditalImport({
     closeModal: closeImportEditalModal,

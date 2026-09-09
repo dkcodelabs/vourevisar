@@ -42,19 +42,19 @@ export function NextBestActionCard({ action, onNavigate }: NextBestActionCardPro
     <Card
       role="region"
       aria-labelledby={titleId}
-      className="min-w-0 self-start overflow-hidden rounded-2xl border-primary/25 bg-[linear-gradient(135deg,hsl(220_46%_7%),hsl(212_72%_13%)_52%,hsl(214_95%_18%))] text-white"
+      className="dashboard-next-action min-w-0 self-start overflow-hidden rounded-2xl border-0 bg-[hsl(220_52%_11%)] text-white shadow-[0_22px_46px_-30px_hsl(220_52%_7%/0.72)]"
     >
-      <CardContent className="p-4 sm:p-5">
+      <CardContent className="relative p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id={titleId} className="text-sm font-semibold text-white/85">Melhor próxima ação</h2>
-          <Badge variant="outline" className="gap-1.5 border-white/20 bg-white/10 text-xs font-medium text-white">
+          <h2 id={titleId} className="text-sm font-semibold tracking-[-0.015em] text-white/85">Melhor próxima ação</h2>
+          <Badge variant="outline" className="gap-1.5 border-white/15 bg-white/[0.07] text-xs font-medium text-white">
             <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${statusColors[action.tone]}`} />
             {actionLabels[action.kind]}
           </Badge>
         </div>
 
-        <div className="mt-4 min-w-0">
-          <h3 className="break-words text-lg font-bold leading-snug [overflow-wrap:anywhere]" title={subjectLabel}>
+        <div className="mt-5 min-w-0">
+          <h3 className="max-w-[30ch] break-words text-xl font-bold leading-snug tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-2xl" title={subjectLabel}>
             {subjectLabel}
           </h3>
           {topicLabel ? (
@@ -65,13 +65,13 @@ export function NextBestActionCard({ action, onNavigate }: NextBestActionCardPro
           ) : (
             <p className="mt-1.5 break-words text-sm leading-relaxed text-white/85 [overflow-wrap:anywhere]">{action.description}</p>
           )}
-          <p className="mt-3 break-words text-xs leading-relaxed text-white/75 [overflow-wrap:anywhere]">{action.reason}</p>
+          <p className="mt-3 max-w-[65ch] break-words text-xs leading-relaxed text-white/72 [overflow-wrap:anywhere]">{action.reason}</p>
         </div>
 
-        <div className="pt-4">
+        <div className="pt-5">
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal px-4 py-2 text-left text-sm"
+              className="h-auto min-h-11 max-w-full whitespace-normal bg-primary px-4 py-2 text-left text-sm shadow-[0_12px_20px_-14px_hsl(215_100%_59%/0.9)] hover:bg-primary/90"
               onClick={() => onNavigate(action.primaryHref, action.target)}
             >
               <span className="min-w-0 [overflow-wrap:anywhere]">{action.primaryLabel}</span>

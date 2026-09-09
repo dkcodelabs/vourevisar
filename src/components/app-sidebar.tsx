@@ -151,7 +151,7 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
           </>
         )}
       </SidebarContent>
-      <SidebarFooter className="px-3 pb-3">
+      <SidebarFooter className="app-sidebar-footer px-3 pb-3">
         <div className="app-sidebar-theme-toggle group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
           <ThemeToggle compact={collapsed} />
         </div>

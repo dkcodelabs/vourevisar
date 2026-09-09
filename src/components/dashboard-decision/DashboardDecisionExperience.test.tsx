@@ -221,7 +221,7 @@ describe('DashboardCommandHero', () => {
     totals: { ...missingCycleModel.totals, overdueReviews: 4, todayReviews: 2, unstartedTopics: 8 },
   };
 
-  it('uses an opaque destructive icon treatment without changing metric destinations', () => {
+  it('keeps only the exam context here so priority metrics are not duplicated above the queue', () => {
     const onNavigate = vi.fn();
     render(
       <DashboardCommandHero
@@ -232,17 +232,31 @@ describe('DashboardCommandHero', () => {
       />,
     );
 
-    const overdueButton = screen.getByRole('button', { name: 'Revisões atrasadas: 4' });
-    const overdueIcon = overdueButton.querySelector('[data-metric-icon="danger"]');
-    expect(overdueIcon).toHaveClass('bg-destructive', 'text-destructive-foreground', 'border-destructive/70');
-    expect(overdueIcon).not.toHaveClass('bg-destructive/10', 'text-destructive');
+    expect(screen.getByText('40')).toBeVisible();
+    expect(screen.getByText('dias até a prova')).toBeVisible();
+    expect(screen.getByText('08/10/2026')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Revisões atrasadas: 4' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Revisões para hoje: 2' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tópicos a iniciar: 8' })).not.toBeInTheDocument();
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
 
-    fireEvent.click(overdueButton);
-    fireEvent.click(screen.getByRole('button', { name: 'Revisões para hoje: 2' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Tópicos a iniciar: 8' }));
-    expect(onNavigate).toHaveBeenNthCalledWith(1, '/revisoes');
-    expect(onNavigate).toHaveBeenNthCalledWith(2, '/revisoes');
-    expect(onNavigate).toHaveBeenNthCalledWith(3, '/ciclo-estudos');
+  it('opens the cycle date editor instead of sending an expired exam date to the edital list', () => {
+    const onNavigate = vi.fn();
+    render(
+      <DashboardCommandHero
+        model={{
+          ...readyModel,
+          examContext: { ...readyModel.examContext, daysRemaining: -34, state: 'exam_date_past' },
+        }}
+        onNavigate={onNavigate}
+        onUpdateCycleName={vi.fn()}
+        isUpdatingCycleName={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Atualizar data da prova' }));
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith('/ciclo-estudos?action=edit-exam-date');
   });
 
   it('preserves trimmed cycle-name editing after extraction', async () => {
@@ -301,17 +315,17 @@ describe('ExamPacePanel', () => {
   });
 
   it.each([
-    ['missing_exam_date', 'Definir data da prova'],
-    ['exam_date_past', 'Atualizar data da prova'],
-    ['missing_cycle', 'Carregar edital no ciclo'],
-  ] as const)('keeps the explanation and configuration visible for %s', (state, label) => {
+    ['missing_exam_date', 'Definir data da prova', '/ciclo-estudos?action=edit-exam-date'],
+    ['exam_date_past', 'Atualizar data da prova', '/ciclo-estudos?action=edit-exam-date'],
+    ['missing_cycle', 'Carregar edital no ciclo', '/meus-editais'],
+  ] as const)('keeps the explanation and configuration visible for %s', (state, label, href) => {
     const onNavigate = vi.fn();
     render(<ExamPacePanel pace={{ ...pace, state, newTopicsPerDay: null, reviewsPerDay: null, explanation: 'Ajuste o contexto da prova.' }} activityDays={[]} onNavigate={onNavigate} />);
     expect(screen.getByText('Ajuste o contexto da prova.')).toBeVisible();
     expect(screen.getAllByText('--')).toHaveLength(2);
     expect(screen.queryByText(/acompanha a meta|abaixo da meta/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: label }));
-    expect(onNavigate).toHaveBeenCalledExactlyOnceWith('/meus-editais');
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith(href);
   });
 
   it('does not invent targets or a configuration action when data is insufficient', () => {
@@ -381,7 +395,7 @@ describe('ProgressSummaryCard', () => {
     }} unstartedTopics={52} onNavigate={onNavigate} />);
 
     const region = screen.getByRole('region', { name: 'Progresso do edital' });
-    expect(within(region).getByRole('img', { name: '37% do edital iniciado' })).toBeVisible();
+    expect(within(region).getByRole('progressbar', { name: '37% do edital iniciado' })).toBeVisible();
     [['Iniciados', '30'], ['Em andamento', '24'], ['Não iniciados', '52'], ['Total de tópicos', '82']].forEach(([label, value]) => {
       expect(within(region).getByText(label).closest('div')).toHaveTextContent(value);
     });
@@ -392,7 +406,7 @@ describe('ProgressSummaryCard', () => {
 
   it.each([0, 100])('keeps the supplied coverage at %i%% without estimating it from other counts', percentage => {
     render(<ProgressSummaryCard summary={{ ...missingCycleModel.progressSummary, editalProgressPercentage: percentage }} unstartedTopics={0} onNavigate={vi.fn()} />);
-    expect(screen.getByRole('img', { name: `${percentage}% do edital iniciado` })).toBeVisible();
+    expect(screen.getByRole('progressbar', { name: `${percentage}% do edital iniciado` })).toBeVisible();
     expect(screen.getAllByRole('button', { name: 'Ver progresso por matéria' })).toHaveLength(1);
   });
 });

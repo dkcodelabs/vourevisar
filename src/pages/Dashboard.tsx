@@ -49,7 +49,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="h-full w-full pb-10">
+    <div className="dashboard-page h-full w-full pb-10">
       <DashboardDecisionExperience
         model={model}
         onNavigate={navigateToAction}

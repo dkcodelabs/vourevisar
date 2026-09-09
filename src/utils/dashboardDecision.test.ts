@@ -62,14 +62,14 @@ describe('getPaceBannerAction', () => {
     expect(getPaceBannerAction('ready')).toBeNull();
   });
 
-  it('routes missing and expired exam dates to edital management', () => {
+  it('routes missing and expired exam dates to the cycle date editor', () => {
     expect(getPaceBannerAction('missing_exam_date')).toEqual({
       label: 'Definir data da prova',
-      href: '/meus-editais',
+      href: '/ciclo-estudos?action=edit-exam-date',
     });
     expect(getPaceBannerAction('exam_date_past')).toEqual({
       label: 'Atualizar data da prova',
-      href: '/meus-editais',
+      href: '/ciclo-estudos?action=edit-exam-date',
     });
   });
 

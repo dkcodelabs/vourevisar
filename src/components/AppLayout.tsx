@@ -107,6 +107,7 @@ export const AppLayout = () => {
     React.useState<'notificacoes' | 'feedbacks'>('notificacoes');
 
   const currentPath = location.pathname;
+  const isDashboardRoute = currentPath === '/dashboard';
   const pageTitle = getRouteLabel(currentPath);
   const showAppDataOverlay = shouldShowAppDataOverlay(currentPath);
   const showStudyUtilities = ![
@@ -159,15 +160,15 @@ export const AppLayout = () => {
   }
 
   return (
-    <SidebarProvider className="app-page-bg">
+    <SidebarProvider className={`app-page-bg${isDashboardRoute ? ' dashboard-app-shell' : ''}`}>
       <AppSidebar
         onOpenHelp={() => {
           setStudentHubInitialTab('feedbacks');
           setIsHubOpen(true);
         }}
       />
-      <SidebarInset className="h-svh overflow-hidden bg-transparent">
-        <header className="app-shell-header flex min-h-16 shrink-0 items-center gap-3 px-3 py-2.5 sm:px-6">
+      <SidebarInset className={`h-svh overflow-hidden bg-transparent${isDashboardRoute ? ' dashboard-app-inset' : ''}`}>
+        <header className={`app-shell-header flex min-h-[62px] shrink-0 items-center gap-3 px-3 py-2 sm:px-5 lg:px-6${isDashboardRoute ? ' dashboard-app-header' : ''}`}>
           <SidebarTrigger className="app-header-trigger -ml-1 shrink-0" title="Abrir menu" />
 
           <div className="flex min-w-0 flex-1 flex-col justify-center">
@@ -219,8 +220,8 @@ export const AppLayout = () => {
           </div>
         </header>
 
-        <main className="layout-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain bg-transparent">
-          <div className="mx-auto flex min-h-full w-full max-w-[1680px] flex-col px-3 py-4 sm:px-4 lg:px-5 xl:px-6">
+        <main className={`layout-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain bg-transparent${isDashboardRoute ? ' dashboard-app-content' : ''}`}>
+          <div className="mx-auto flex min-h-full w-full max-w-[1480px] flex-col px-3 py-4 sm:px-5 lg:px-6">
             <Outlet />
           </div>
         </main>

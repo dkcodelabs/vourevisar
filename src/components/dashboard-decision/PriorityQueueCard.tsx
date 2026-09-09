@@ -61,10 +61,10 @@ export const PriorityQueueCard = ({ model, onNavigate }: { model: DashboardDecis
   ];
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-slate-900/10 bg-[linear-gradient(145deg,hsl(220_40%_8%),hsl(213_44%_12%)_58%,hsl(213_50%_10%))] text-white shadow-[0_18px_54px_hsl(216_58%_6%/0.30)] dark:border-primary/15">
+    <Card className="dashboard-priority-card overflow-hidden rounded-2xl border-border/80 bg-card shadow-[0_16px_36px_-28px_hsl(222_47%_11%/0.4)]">
       <CardHeader className="flex-row items-center justify-between gap-3 px-4 pb-2.5 pt-4">
-        <CardTitle className="text-sm font-extrabold text-white sm:text-base">Fila de prioridade</CardTitle>
-        <Button variant="ghost" size="sm" className="min-h-11 h-auto shrink-0 px-2 text-xs font-semibold text-white/85 hover:bg-white/10 hover:text-white focus-visible:ring-white/70" onClick={() => onNavigate('/revisoes')}>
+        <CardTitle className="text-sm font-extrabold text-foreground sm:text-base">Fila de prioridade</CardTitle>
+        <Button variant="ghost" size="sm" className="min-h-11 h-auto shrink-0 px-2 text-xs font-semibold text-primary hover:bg-primary/5 hover:text-primary" onClick={() => onNavigate('/revisoes')}>
           Ver revisões
         </Button>
       </CardHeader>
@@ -98,28 +98,28 @@ const PriorityQueueRow = ({
   const palette = {
     danger: {
       bar: 'bg-destructive',
-      shell: 'border-destructive/20 bg-[linear-gradient(90deg,hsl(var(--destructive)/0.18),hsl(var(--destructive)/0.07)_34%,hsl(var(--primary)/0.05))]',
-      icon: 'bg-destructive/16',
+      shell: 'border-destructive/15 bg-destructive/[0.045] hover:bg-destructive/[0.075]',
+      icon: 'bg-destructive/12 text-destructive',
     },
     warning: {
       bar: 'bg-warning',
-      shell: 'border-warning/20 bg-[linear-gradient(90deg,hsl(var(--warning)/0.18),hsl(var(--warning)/0.07)_34%,hsl(var(--primary)/0.05))]',
-      icon: 'bg-warning/16',
+      shell: 'border-warning/20 bg-warning/[0.055] hover:bg-warning/[0.085]',
+      icon: 'bg-warning/15 text-warning',
     },
     info: {
       bar: 'bg-primary',
-      shell: 'border-primary/20 bg-[linear-gradient(90deg,hsl(var(--primary)/0.20),hsl(var(--primary)/0.08)_34%,hsl(var(--info)/0.05))]',
-      icon: 'bg-primary/16',
+      shell: 'border-primary/20 bg-primary/[0.055] hover:bg-primary/[0.085]',
+      icon: 'bg-primary/12 text-primary',
     },
     success: {
       bar: 'bg-success',
-      shell: 'border-success/20 bg-[linear-gradient(90deg,hsl(var(--success)/0.20),hsl(var(--success)/0.08)_34%,hsl(var(--primary)/0.05))]',
-      icon: 'bg-success/16',
+      shell: 'border-success/20 bg-success/[0.055] hover:bg-success/[0.085]',
+      icon: 'bg-success/12 text-success',
     },
     neutral: {
       bar: 'bg-muted-foreground',
-      shell: 'border-white/10 bg-white/[0.04]',
-      icon: 'bg-white/10',
+      shell: 'border-border/80 bg-muted/40 hover:bg-muted/65',
+      icon: 'bg-muted text-content-muted',
     },
   }[row.tone];
 
@@ -128,22 +128,21 @@ const PriorityQueueRow = ({
       type="button"
       onClick={() => onNavigate(row.href, row.target)}
       className={cn(
-        'group grid min-h-[66px] w-full grid-cols-[4px_minmax(0,1fr)_auto] overflow-hidden rounded-xl border text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+        'group grid min-h-[66px] w-full grid-cols-[minmax(0,1fr)_auto] overflow-hidden rounded-xl border text-left transition-[background-color,border-color,transform] duration-200 ease-out hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2',
         palette.shell,
       )}
     >
-      <span aria-hidden="true" className={palette.bar} />
       <span className="min-w-0 px-3 py-2">
-        <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/90">
+        <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
           <span className={cn('grid size-4 place-items-center rounded-full', palette.icon)}>
             <Icon aria-hidden="true" className="size-3" />
           </span>
           {row.label} ({row.count})
         </span>
-        <span title={row.title} className="block truncate text-xs font-bold leading-tight text-white">{row.title}</span>
-        <span title={row.description} className="mt-0.5 block truncate text-[11px] text-white/80">{row.description}</span>
+        <span title={row.title} className="block truncate text-xs font-bold leading-tight text-foreground">{row.title}</span>
+        <span title={row.description} className="mt-0.5 block truncate text-[11px] text-content-muted">{row.description}</span>
       </span>
-      <span className="flex items-center gap-2 px-2.5 text-[11px] text-white/80">
+      <span className="flex items-center gap-2 px-2.5 text-[11px] text-content-muted">
         <span className="hidden tabular-nums sm:block">{row.meta}</span>
         <ChevronRight aria-hidden="true" className="size-4" />
       </span>

@@ -80,8 +80,8 @@ export const DashboardDecisionExperience = ({
   }
 
   return (
-    <main className="flex w-full flex-col gap-5 pb-10">
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.65fr)]">
+    <main className="dashboard-command-surface flex w-full flex-col gap-4 pb-8 sm:gap-5">
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)] xl:gap-5">
         <DashboardCommandHero
           model={model}
           onNavigate={onNavigate}
@@ -91,9 +91,18 @@ export const DashboardDecisionExperience = ({
         <ProgressSummaryCard summary={model.progressSummary} unstartedTopics={model.totals.unstartedTopics} onNavigate={onNavigate} />
       </section>
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.9fr)_minmax(300px,0.8fr)]">
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)] xl:gap-5">
         <NextBestActionCard action={model.nextBestAction} onNavigate={onNavigate} />
         <PriorityQueueCard model={model} onNavigate={onNavigate} />
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)] xl:gap-5">
+        <StudyPaceCard
+          model={model}
+          onNavigate={onNavigate}
+          isActivityUnavailable={model.dataIssues.includes('activity')}
+          onRetryActivity={() => onRetryDataIssue?.('activity') ?? Promise.resolve()}
+        />
         <RecentRemindersCard
           reminders={model.reminders}
           onAddReminder={onAddReminder}
@@ -105,29 +114,24 @@ export const DashboardDecisionExperience = ({
           onRetry={() => onRetryDataIssue?.('reminders') ?? Promise.resolve()}
         />
       </section>
-
-      <StudyPaceCard
-        model={model}
-        onNavigate={onNavigate}
-        isActivityUnavailable={model.dataIssues.includes('activity')}
-        onRetryActivity={() => onRetryDataIssue?.('activity') ?? Promise.resolve()}
-      />
     </main>
   );
 };
 
 const DashboardDecisionSkeleton = () => (
-  <div className="flex flex-col gap-5">
-    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.65fr)]">
+  <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
+      <Skeleton className="h-44 rounded-2xl" />
+      <Skeleton className="h-44 rounded-2xl" />
+    </div>
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Skeleton className="h-72 rounded-2xl" />
+      <Skeleton className="h-72 rounded-2xl" />
+    </div>
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <Skeleton className="h-52 rounded-2xl" />
-      <Skeleton className="h-32 rounded-2xl xl:h-52" />
+      <Skeleton className="h-52 rounded-2xl" />
     </div>
-    <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-      <Skeleton className="h-96 rounded-2xl" />
-      <Skeleton className="h-96 rounded-2xl" />
-      <Skeleton className="h-96 rounded-2xl" />
-    </div>
-    <Skeleton className="h-64 rounded-2xl" />
   </div>
 );
 
@@ -171,8 +175,8 @@ export const RecentRemindersCard = ({
 
   return (
     <>
-      <Card id="lembretes" className="overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm">
-      <CardHeader className="flex-row items-center justify-between gap-3 px-4 pb-1.5 pt-4">
+      <Card id="lembretes" className="dashboard-reminders-card overflow-hidden rounded-2xl border-border/80 bg-card shadow-[0_16px_34px_-28px_hsl(222_47%_11%/0.38)]">
+      <CardHeader className="flex-row items-center justify-between gap-3 px-4 pb-1.5 pt-4 sm:px-5">
         <CardTitle className="text-sm font-extrabold text-foreground sm:text-base">Últimos lembretes</CardTitle>
         <Button
           variant="ghost"
@@ -183,7 +187,7 @@ export const RecentRemindersCard = ({
           {showAll ? 'Ver recentes' : 'Ver todos'}
         </Button>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2 px-4 pb-4">
+      <CardContent className="flex flex-col gap-2 px-4 pb-4 sm:px-5 sm:pb-5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_30px] items-center gap-1.5 border-b border-border/65 py-1 transition-colors focus-within:border-primary/45">
           <div className="relative min-w-0">
             <Plus className="pointer-events-none absolute left-0 top-1/2 size-3 -translate-y-1/2 text-primary" />
@@ -368,7 +372,7 @@ const StudyPaceCard = ({
   isActivityUnavailable: boolean;
   onRetryActivity: () => Promise<void>;
 }) => (
-  <Card className="overflow-hidden rounded-2xl border-primary/15 bg-[radial-gradient(circle_at_78%_8%,hsl(var(--primary)/0.12),transparent_26%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--surface)))]">
+  <Card className="dashboard-pace-card overflow-hidden rounded-2xl border-border/80 bg-card shadow-[0_16px_34px_-28px_hsl(222_47%_11%/0.38)]">
     <ExamPacePanel
       pace={model.pace}
       activityDays={model.activityDays}

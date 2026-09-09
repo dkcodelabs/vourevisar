@@ -74,7 +74,7 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="app-sidebar-user-trigger data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               tooltip={collapsed ? displayName : undefined}
             >
               <Avatar className="h-8 w-8 rounded-lg">
@@ -96,34 +96,34 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="app-sidebar-user-menu w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl p-1.5"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
           >
             <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+              <div className="flex items-center gap-2.5 px-2 py-2 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={profile?.avatar_url || undefined} alt={displayName} />
                   <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{displayName}</span>
-                  <span className="truncate text-xs">{email}</span>
+                  <span className="truncate text-xs text-sidebar-foreground/58">{email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link to="/conta" onClick={closeMobileSidebar}>
+                <Link className="app-sidebar-user-menu-item" to="/conta" onClick={closeMobileSidebar}>
                   <BadgeCheck />
                   Conta
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
+            <DropdownMenuItem className="app-sidebar-user-menu-item text-sidebar-foreground/78 focus:text-white" onClick={handleSignOut}>
               <LogOut />
               Sair
             </DropdownMenuItem>

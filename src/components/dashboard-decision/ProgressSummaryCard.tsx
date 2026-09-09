@@ -21,8 +21,8 @@ export function ProgressSummaryCard({ summary, unstartedTopics, onNavigate }: Pr
   ];
 
   return (
-    <Card role="region" aria-labelledby={titleId} className="min-w-0 overflow-hidden rounded-2xl border-primary/15 bg-[radial-gradient(circle_at_85%_5%,hsl(var(--primary)/0.12),transparent_34%),linear-gradient(145deg,hsl(var(--card)),hsl(var(--surface)))] shadow-sm">
-      <div className="p-3 sm:p-4 xl:p-5">
+    <Card role="region" aria-labelledby={titleId} className="dashboard-progress-card relative min-w-0 overflow-hidden rounded-2xl border-border/80 bg-card shadow-[0_16px_36px_-28px_hsl(222_47%_11%/0.4)]">
+      <div className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-x-2">
           <h2 id={titleId} className="text-sm font-semibold text-foreground">Progresso do edital</h2>
           <Button
@@ -36,29 +36,19 @@ export function ProgressSummaryCard({ summary, unstartedTopics, onNavigate }: Pr
           </Button>
         </div>
 
-        <div className="mt-1 grid grid-cols-[56px_minmax(0,1fr)] items-center gap-3 xl:mt-3 xl:grid-cols-[86px_minmax(0,1fr)]">
-          <div
-            className="grid size-14 place-items-center rounded-full p-1 xl:size-[86px] xl:p-[7px]"
-            style={{ background: `conic-gradient(hsl(var(--primary)) 0 ${summary.editalProgressPercentage}%, hsl(var(--border)) ${summary.editalProgressPercentage}% 100%)` }}
-            role="img"
-            aria-label={`${summary.editalProgressPercentage}% do edital iniciado`}
-          >
-            <div className="grid size-full place-items-center rounded-full bg-card text-center">
-              <div>
-                <span className="block text-base font-bold tabular-nums leading-none text-foreground xl:text-xl">{summary.editalProgressPercentage}%</span>
-                <span className="mt-1 hidden text-[9px] text-content-muted xl:block">edital iniciado</span>
-              </div>
-            </div>
+        <div className="mt-4">
+          <div className="flex items-end justify-between gap-3">
+            <p className="text-xs font-medium text-content-muted">Edital iniciado</p>
+            <strong className="text-3xl font-extrabold leading-none tracking-[-0.04em] tabular-nums text-foreground">{summary.editalProgressPercentage}%</strong>
           </div>
-
-          <dl className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 xl:grid-cols-1 xl:gap-y-2.5">
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${summary.editalProgressPercentage}% do edital iniciado`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={summary.editalProgressPercentage}>
+            <div className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: `${summary.editalProgressPercentage}%` }} />
+          </div>
+          <dl className="mt-4 grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 sm:gap-x-3">
             {metrics.map(metric => (
-              <div key={metric.label} className="flex min-w-0 items-baseline justify-between gap-1 text-[11px]">
-                <dt className="min-w-0 text-content-muted">
-                  <span aria-hidden="true" className={`mr-1.5 hidden size-2 rounded-sm xl:inline-block ${metric.color}`} />
-                  {metric.label}
-                </dt>
-                <dd className="shrink-0 font-semibold tabular-nums text-foreground">{metric.value}</dd>
+              <div key={metric.label} className="min-w-0 border-l border-border/80 pl-2.5 first:border-l-0 first:pl-0 sm:border-l sm:pl-3 sm:first:border-l-0 sm:first:pl-0">
+                <dt className="truncate text-[10px] font-medium text-content-muted">{metric.label}</dt>
+                <dd className="mt-1 text-base font-bold leading-none tabular-nums text-foreground">{metric.value}</dd>
               </div>
             ))}
           </dl>

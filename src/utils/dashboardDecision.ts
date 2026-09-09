@@ -71,10 +71,10 @@ export function getDashboardCriticalError({
 
 export function getPaceBannerAction(state: DashboardPace['state']) {
   if (state === 'missing_exam_date') {
-    return { label: 'Definir data da prova', href: '/meus-editais' };
+    return { label: 'Definir data da prova', href: '/ciclo-estudos?action=edit-exam-date' };
   }
   if (state === 'exam_date_past') {
-    return { label: 'Atualizar data da prova', href: '/meus-editais' };
+    return { label: 'Atualizar data da prova', href: '/ciclo-estudos?action=edit-exam-date' };
   }
   if (state === 'missing_cycle') {
     return { label: 'Carregar edital no ciclo', href: '/meus-editais' };

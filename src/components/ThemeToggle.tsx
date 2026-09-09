@@ -7,24 +7,45 @@ interface ThemeToggleProps {
 }
 
 export const ThemeToggle: React.FC<ThemeToggleProps> = ({ compact = false }) => {
-  const { theme, toggleTheme } = useTheme();
-  const label = theme === 'light' ? 'Modo escuro' : 'Modo claro';
-  const title = theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro';
-  const Icon = theme === 'light' ? Moon : Sun;
+  const { theme, setTheme } = useTheme();
+
+  if (compact) {
+    const isLight = theme === 'light';
+    const Icon = isLight ? Moon : Sun;
+    const title = isLight ? 'Ativar modo escuro' : 'Ativar modo claro';
+
+    return (
+      <button
+        onClick={() => setTheme(isLight ? 'dark' : 'light')}
+        className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[0.05] text-sidebar-foreground/70 transition-colors hover:bg-white/[0.1] hover:text-sidebar-primary focus-visible:ring-sidebar-ring"
+        aria-label={title}
+        title={title}
+      >
+        <Icon size={16} />
+      </button>
+    );
+  }
 
   return (
-    <button
-      onClick={toggleTheme}
-      className={
-        compact
-          ? 'grid h-9 w-9 place-items-center rounded-lg border border-black/5 bg-black/5 text-muted-foreground transition-colors hover:bg-black/10 hover:text-primary dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10'
-          : 'flex h-9 w-full items-center gap-2 rounded-lg border border-black/5 bg-black/5 px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/10 hover:text-primary dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10'
-      }
-      aria-label={title}
-      title={title}
-    >
-      <Icon size={17} className={theme === 'light' ? undefined : 'text-yellow-500'} />
-      {!compact && <span>{label}</span>}
-    </button>
+    <div className="app-sidebar-theme-switcher" role="group" aria-label="Tema da aplicação">
+      <button
+        type="button"
+        onClick={() => setTheme('light')}
+        aria-pressed={theme === 'light'}
+        className="app-sidebar-theme-option"
+      >
+        <Sun size={14} aria-hidden="true" />
+        Claro
+      </button>
+      <button
+        type="button"
+        onClick={() => setTheme('dark')}
+        aria-pressed={theme === 'dark'}
+        className="app-sidebar-theme-option"
+      >
+        <Moon size={14} aria-hidden="true" />
+        Escuro
+      </button>
+    </div>
   );
 };
