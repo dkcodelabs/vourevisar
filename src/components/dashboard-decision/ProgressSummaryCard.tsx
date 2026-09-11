@@ -41,8 +41,8 @@ export function ProgressSummaryCard({ summary, unstartedTopics, onNavigate }: Pr
             <p className="text-xs font-medium text-content-muted">Edital iniciado</p>
             <strong className="text-3xl font-extrabold leading-none tracking-[-0.04em] tabular-nums text-foreground">{summary.editalProgressPercentage}%</strong>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${summary.editalProgressPercentage}% do edital iniciado`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={summary.editalProgressPercentage}>
-            <div className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: `${summary.editalProgressPercentage}%` }} />
+          <div className="mt-2.5 h-2.5 overflow-hidden rounded-full bg-muted/80" role="progressbar" aria-label={`${summary.editalProgressPercentage}% do edital iniciado`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={summary.editalProgressPercentage}>
+            <div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-500 shadow-[0_0_12px_rgba(37,99,235,0.4)] transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: `${summary.editalProgressPercentage}%` }} />
           </div>
           <dl className="mt-4 grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 sm:gap-x-3">
             {metrics.map(metric => (

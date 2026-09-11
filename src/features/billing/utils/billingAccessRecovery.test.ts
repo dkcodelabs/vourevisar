@@ -44,4 +44,23 @@ describe('billingAccessRecovery', () => {
       access_until: '2026-09-10T00:00:00Z',
     })).toBe('Cortesia');
   });
+
+  it('explains when the signed-in account has never had an entitlement', () => {
+    expect(getBillingAccessRecoveryState(inactiveOverview)).toMatchObject({
+      kind: 'access_required',
+      title: 'Esta conta ainda não possui acesso',
+      description: expect.stringContaining('plano, teste ou cortesia'),
+      actionLabel: 'Escolher um plano',
+      endedAt: null,
+    });
+  });
+
+  it.each([
+    [{ ...inactiveOverview, last_expired_access: { kind: 'initial_trial' as const, ended_at: '2026-09-07T00:00:00Z' } }, 'Seu teste de 7 dias terminou'],
+    [{ ...inactiveOverview, last_expired_access: { kind: 'courtesy' as const, ended_at: '2026-09-07T00:00:00Z' } }, 'Sua cortesia terminou'],
+    [{ ...inactiveOverview, source: 'stripe' as const, status: 'canceled', access_until: '2026-09-07T00:00:00Z' }, 'Sua assinatura foi encerrada'],
+    [{ ...inactiveOverview, source: 'stripe' as const, status: 'unpaid', subscription: { status: 'unpaid' as const, access_suspended_at: '2026-09-07T00:00:00Z' } }, 'Seu pagamento precisa de atenção'],
+  ])('keeps the access cause explicit: %s', (overview, title) => {
+    expect(getBillingAccessRecoveryState(overview)?.title).toBe(title);
+  });
 });

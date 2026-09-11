@@ -105,6 +105,22 @@ export type PracticeOverview = {
   selectedTopic: PracticeOverviewTopic | null;
   materialTopics: PracticeMaterialTopic[];
   flashcards: { dueCount: number; dueTopicCount: number; newCount: number; newTopicCount: number };
+  recentPerformance: {
+    windowDays: 7;
+    questions: {
+      correct: number;
+      incorrect: number;
+      skipped: number;
+      answered: number;
+      accuracyPercentage: number | null;
+    };
+    flashcards: {
+      recalled: number;
+      effortful: number;
+      forgotten: number;
+      reviewed: number;
+    };
+  };
   studyAction: {
     kind: 'reviews' | 'cycle';
     topic: PracticeOverviewTopic | null;

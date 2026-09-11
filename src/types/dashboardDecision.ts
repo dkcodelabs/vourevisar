@@ -19,7 +19,7 @@ export interface DashboardActionTarget {
 }
 
 export type DashboardNavigate = (href: string, target?: DashboardActionTarget) => void;
-export type DashboardDataIssueSource = 'activity' | 'reminders';
+export type DashboardDataIssueSource = 'activity' | 'reminders' | 'practice';
 
 export interface DashboardAction {
   id: string;
@@ -120,6 +120,24 @@ export interface DashboardProgressSummary {
   editalProgressPercentage: number;
 }
 
+export interface DashboardPracticePulse {
+  status: 'loading' | 'ready' | 'unavailable';
+  dueFlashcards: number;
+  questions: {
+    correct: number;
+    incorrect: number;
+    skipped: number;
+    answered: number;
+    accuracyPercentage: number | null;
+  };
+  flashcards: {
+    recalled: number;
+    effortful: number;
+    forgotten: number;
+    reviewed: number;
+  };
+}
+
 export interface DashboardDecisionModel {
   isLoading: boolean;
   error: unknown;
@@ -133,6 +151,7 @@ export interface DashboardDecisionModel {
   reminders: DashboardReminder[];
   activityDays: DashboardRecentPaceDay[];
   progressSummary: DashboardProgressSummary;
+  practicePulse: DashboardPracticePulse;
   totals: {
     overdueReviews: number;
     todayReviews: number;
@@ -142,4 +161,5 @@ export interface DashboardDecisionModel {
     completedTopics: number;
     totalTopics: number;
   };
+  subjects?: DashboardCycleSubject[];
 }

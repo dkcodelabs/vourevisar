@@ -77,4 +77,24 @@ describe('Planos', () => {
     expect(screen.getByRole('link', { name: 'Regularizar pagamento' })).toHaveAttribute('href', '/conta/assinatura');
     expect(screen.queryByRole('button', { name: /assinar mensal/i })).not.toBeInTheDocument();
   });
+
+  it('explains that a different signed-in account has no entitlement', () => {
+    mocks.useStripeBillingOverview.mockReturnValue({
+      data: {
+        is_active: false,
+        source: 'none',
+        plan: 'free_trial',
+        status: 'inactive',
+        access_until: null,
+        subscription: null,
+      },
+      isLoading: false,
+    });
+
+    render(<MemoryRouter><Planos /></MemoryRouter>);
+
+    expect(screen.getByRole('heading', { name: 'Esta conta ainda não possui acesso' })).toBeInTheDocument();
+    expect(screen.getByText(/plano, teste ou cortesia/i)).toBeInTheDocument();
+    expect(screen.getByText(/outro e-mail/i)).toBeInTheDocument();
+  });
 });

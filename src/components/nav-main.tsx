@@ -20,6 +20,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 
 export function NavMain({
   label = "Platform",
@@ -58,9 +59,17 @@ export function NavMain({
             <Collapsible key={item.title} asChild defaultOpen={defaultOpen}>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip={item.title} isActive={isActive}>
-                  <NavLink to={item.url} onClick={closeMobileSidebar}>
-                    <item.icon />
-                    <span>{item.title}</span>
+                  <NavLink to={item.url} onClick={closeMobileSidebar} className="flex items-center gap-3.5 w-full">
+                    <item.icon className="size-5 shrink-0 transition-transform duration-150" />
+                    <span
+                      className={cn(
+                        "text-[13px] leading-none tracking-tight flex-1 transition-colors",
+                        isActive ? "font-bold text-blue-600 dark:text-white" : "font-medium text-inherit"
+                      )}
+                    >
+                      {item.title}
+                    </span>
+                    {isActive && <ChevronRight className="size-3.5 text-blue-600 dark:text-white/80 shrink-0 ml-auto" />}
                   </NavLink>
                 </SidebarMenuButton>
                 {item.items?.length ? (
@@ -73,15 +82,25 @@ export function NavMain({
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {item.items?.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton asChild>
-                              <NavLink to={subItem.url} onClick={closeMobileSidebar}>
-                                <span>{subItem.title}</span>
-                              </NavLink>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
+                        {item.items?.map((subItem) => {
+                          const isSubActive = location.pathname === subItem.url
+                          return (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton asChild isActive={isSubActive}>
+                                <NavLink to={subItem.url} onClick={closeMobileSidebar}>
+                                  <span
+                                    className={cn(
+                                      "text-[12px] leading-none tracking-tight flex-1 transition-colors",
+                                      isSubActive ? "font-bold text-blue-600 dark:text-white" : "font-medium"
+                                    )}
+                                  >
+                                    {subItem.title}
+                                  </span>
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          )
+                        })}
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </>

@@ -17,6 +17,7 @@ import {
   UserCircle,
   Sparkles,
   BrainCircuit,
+  ChevronRight,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
@@ -24,11 +25,11 @@ import { NavLink, useLocation } from "react-router-dom"
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
-import { TeamSwitcher } from "@/components/team-switcher"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { BrandMark } from "@/components/brand/BrandLogo"
 import { useAIStatus } from "@/hooks/useAIStatus"
 import { useUserRole } from "@/hooks/useUserRole"
+import { cn } from "@/lib/utils"
 import {
   Sidebar,
   SidebarContent,
@@ -96,20 +97,17 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
       ]
     : []
 
-  const teams = [
-    {
-      name: "vouRevisar",
-      logo: <BrandMark className="size-7 text-sidebar-foreground" />,
-      plan: "Estudos inteligentes",
-    },
-  ]
-
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="px-3 pb-2 pt-3">
-        <TeamSwitcher teams={teams} />
+      <SidebarHeader className="px-3 pb-3 pt-4">
+        <div className="flex items-center justify-center gap-2.5 py-1 text-[#172033] dark:text-[#F8FAFC]">
+          <BrandMark className="h-7 w-auto shrink-0 text-inherit" />
+          <span className="font-sans text-[19px] font-extrabold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+            <span className="font-medium opacity-65">vou</span>Revisar
+          </span>
+        </div>
       </SidebarHeader>
-      <SidebarContent className="px-1">
+      <SidebarContent className="px-3">
         <NavMain label="" items={navMain} />
 
         <SidebarSeparator className="app-sidebar-separator my-3" />
@@ -122,9 +120,17 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
                 tooltip="Conta"
                 isActive={location.pathname.startsWith("/conta")}
               >
-                <NavLink to="/conta" onClick={closeMobileSidebar}>
-                  <UserCircle />
-                  <span>Conta</span>
+                <NavLink to="/conta" onClick={closeMobileSidebar} className="flex items-center gap-3.5 w-full">
+                  <UserCircle className="size-5 shrink-0 transition-transform duration-150" />
+                  <span
+                    className={cn(
+                      "text-[13px] leading-none tracking-tight flex-1 transition-colors",
+                      location.pathname.startsWith("/conta") ? "font-bold text-blue-600 dark:text-white" : "font-medium text-inherit"
+                    )}
+                  >
+                    Conta
+                  </span>
+                  {location.pathname.startsWith("/conta") && <ChevronRight className="size-3.5 text-blue-600 dark:text-white/80 shrink-0 ml-auto" />}
                 </NavLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -136,9 +142,10 @@ export function AppSidebar({ onOpenHelp, ...props }: AppSidebarProps) {
                   closeMobileSidebar()
                   onOpenHelp?.()
                 }}
+                className="flex items-center gap-3"
               >
-                <CircleHelp />
-                <span>Ajuda</span>
+                <CircleHelp className="size-5 shrink-0 transition-transform duration-150" />
+                <span className="text-[13px] font-medium leading-none tracking-tight">Ajuda</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

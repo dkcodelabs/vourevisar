@@ -17,7 +17,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ compact = false }) => 
     return (
       <button
         onClick={() => setTheme(isLight ? 'dark' : 'light')}
-        className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/[0.05] text-sidebar-foreground/70 transition-colors hover:bg-white/[0.1] hover:text-sidebar-primary focus-visible:ring-sidebar-ring"
+        className="grid h-9 w-9 place-items-center rounded-lg border border-sidebar-border bg-sidebar-foreground/[0.04] text-sidebar-foreground/70 transition-colors hover:bg-sidebar-foreground/[0.08] hover:text-sidebar-primary focus-visible:ring-sidebar-ring"
         aria-label={title}
         title={title}
       >

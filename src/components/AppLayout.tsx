@@ -50,19 +50,6 @@ const routeTitles: Record<string, string> = {
   "/admin/system/errors": "Erros do Sistema",
 };
 
-const routeDescriptions: Record<string, string> = {
-  "/ativacao": "Transforme seu edital em uma rotina clara de estudo e revisão.",
-  "/planos": "Entenda seu acesso e escolha como continuar sua preparação.",
-  "/conta/assinatura": "Acesso, cobrança e continuidade dos seus estudos.",
-  "/admin/feedback": "Gerencie e responda aos feedbacks recebidos.",
-  "/admin/subscription": "Controle de planos, status de pagamento e acesso dos usuários.",
-  "/dashboard": "Foco total nos estudos! O seu sucesso depende da constante dedicação.",
-  "/ciclo-estudos": "O que estudar agora para avançar melhor no edital.",
-  "/admin/users": "Gerencie os membros da sua equipe e suas permissões de conta aqui.",
-  "/admin/ai-settings": "Gestão de IA e comportamento do Gemini para extração de editais.",
-  "/admin/audit": "Rastreamento de ações e eventos do sistema.",
-};
-
 const getRouteLabel = (pathname: string) =>
   routeTitles[pathname] ||
   Object.entries(routeTitles).find(([route]) => pathname.startsWith(route))?.[1] ||
@@ -116,11 +103,6 @@ export const AppLayout = () => {
     '/conta',
     '/conta/assinatura',
   ].includes(currentPath);
-  const routeDescription =
-    routeDescriptions[currentPath] ||
-    Object.entries(routeDescriptions).find(([route]) =>
-      currentPath.startsWith(route),
-    )?.[1];
 
   React.useEffect(() => {
     if (!user) return;
@@ -168,21 +150,16 @@ export const AppLayout = () => {
         }}
       />
       <SidebarInset className={`h-svh overflow-hidden bg-transparent${isDashboardRoute ? ' dashboard-app-inset' : ''}`}>
-        <header className={`app-shell-header flex min-h-[62px] shrink-0 items-center gap-3 px-3 py-2 sm:px-5 lg:px-6${isDashboardRoute ? ' dashboard-app-header' : ''}`}>
+        <header className={`app-shell-header flex min-h-[58px] sm:min-h-[62px] shrink-0 items-center justify-between gap-3 px-3 py-2 sm:px-5 lg:px-6${isDashboardRoute ? ' dashboard-app-header' : ''}`}>
           <SidebarTrigger className="app-header-trigger -ml-1 shrink-0" title="Abrir menu" />
 
-          <div className="flex min-w-0 flex-1 flex-col justify-center">
-            <h1 className="app-type-page-title min-w-0 max-w-full break-words text-title-page">
+          <div className="flex min-w-0 flex-1 items-center">
+            <h1 className="app-type-page-title min-w-0 max-w-full truncate text-title-page font-bold text-lg sm:text-xl">
               {pageTitle}
             </h1>
-            {routeDescription && (
-              <p className="app-type-page-subtitle mt-0.5 hidden min-w-0 max-w-full overflow-hidden text-content-muted [-webkit-box-orient:vertical] [-webkit-line-clamp:1] sm:[display:-webkit-box] min-[760px]:[-webkit-line-clamp:2]">
-                {routeDescription}
-              </p>
-            )}
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
             {showStudyUtilities ? (
               <>
                 <FocusTimer />
@@ -190,11 +167,12 @@ export const AppLayout = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="app-header-icon rounded-lg"
+                  className="app-header-icon rounded-full"
                   onClick={() => setIsGeneralNotesModalOpen(true)}
                   title="Anotações Gerais"
+                  aria-label="Anotações Gerais"
                 >
-                  <NotebookPen />
+                  <NotebookPen className="size-4 sm:size-[1.125rem]" />
                 </Button>
               </>
             ) : null}
@@ -204,16 +182,17 @@ export const AppLayout = () => {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="app-header-icon relative rounded-lg"
+                className="app-header-icon relative rounded-full"
                 onClick={() => {
                   setStudentHubInitialTab('notificacoes');
                   setIsHubOpen(true);
                 }}
                 title="Central do Aluno"
+                aria-label="Central do Aluno"
               >
-                <Bell />
+                <Bell className="size-4 sm:size-[1.125rem]" />
                 {totalUnreadCount > 0 && (
-                  <span className="absolute right-2 top-2 size-1.5 rounded-full bg-secondary shadow-[0_0_5px_#FF8C00]" />
+                  <span className="absolute right-2 top-2 size-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.85)] ring-2 ring-background" />
                 )}
               </Button>
             )}

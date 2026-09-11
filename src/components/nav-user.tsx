@@ -50,6 +50,7 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
   if (!user) return null
 
   const displayName = profile?.name || user.user_metadata?.name || user.email?.split("@")[0] || "Estudante"
+  const firstName = displayName.trim().split(/\s+/)[0] || displayName
   const email = user.email || ""
   const initials = getInitials(profile?.name || email)
   const isAccessLabelLoading = roleLoading || billingOverview.isLoading
@@ -75,14 +76,14 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
             <SidebarMenuButton
               size="lg"
               className="app-sidebar-user-trigger data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-              tooltip={collapsed ? displayName : undefined}
+              tooltip={collapsed ? firstName : undefined}
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={profile?.avatar_url || undefined} alt={displayName} />
                 <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{displayName}</span>
+                <span className="truncate font-semibold">{firstName}</span>
                 {isAccessLabelLoading ? (
                   <span
                     aria-label="Carregando assinatura"
@@ -97,9 +98,9 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="app-sidebar-user-menu w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl p-1.5"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
+            side="top"
+            align="start"
+            sideOffset={8}
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2.5 px-2 py-2 text-left text-sm">
@@ -109,7 +110,7 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{displayName}</span>
-                  <span className="truncate text-xs text-sidebar-foreground/58">{email}</span>
+                  <span className="truncate text-xs text-muted-foreground">{email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
@@ -123,7 +124,7 @@ export function NavUser({ collapsed = false }: { collapsed?: boolean }) {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="app-sidebar-user-menu-item text-sidebar-foreground/78 focus:text-white" onClick={handleSignOut}>
+            <DropdownMenuItem className="app-sidebar-user-menu-item text-destructive focus:text-destructive focus:bg-destructive/10" onClick={handleSignOut}>
               <LogOut />
               Sair
             </DropdownMenuItem>

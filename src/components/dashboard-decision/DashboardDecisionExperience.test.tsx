@@ -10,6 +10,7 @@ import { ProgressSummaryCard } from './ProgressSummaryCard';
 import { ExamPacePanel } from './ExamPacePanel';
 import { DashboardDataIssueNotice } from './DashboardDataIssueNotice';
 import { DashboardCommandHero } from './DashboardCommandHero';
+import { DashboardPulseStrip } from './DashboardPulseStrip';
 import type { DashboardAction, DashboardDecisionModel } from '@/types/dashboardDecision';
 
 class ResizeObserverMock {
@@ -68,6 +69,12 @@ const missingCycleModel: DashboardDecisionModel = {
     completedTopics: 0,
     totalTopics: 0,
     editalProgressPercentage: 0,
+  },
+  practicePulse: {
+    status: 'ready',
+    dueFlashcards: 0,
+    questions: { correct: 0, incorrect: 0, skipped: 0, answered: 0, accuracyPercentage: null },
+    flashcards: { recalled: 0, effortful: 0, forgotten: 0, reviewed: 0 },
   },
   totals: {
     overdueReviews: 0,
@@ -188,27 +195,21 @@ describe('DashboardDecisionExperience', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'PORTUGUES' })).toBeInTheDocument();
-    expect(within(screen.getByRole('region', { name: 'Melhor próxima ação' })).getByTitle('Crase')).toBeInTheDocument();
-    expect(screen.getByText('Primeiro contato')).toBeInTheDocument();
-    expect(screen.getByText('Alterna as matérias pela ordem que você definiu no Ciclo de Estudos.')).toBeVisible();
-    expect(screen.queryByText('Primeiro contato organizado reduz troca de contexto e mantém progresso incremental.')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Como foi definida' }));
-    expect(screen.getByText('Primeiro contato organizado reduz troca de contexto e mantém progresso incremental.')).toBeVisible();
-    expect(screen.queryByText('Prioridade máxima')).not.toBeInTheDocument();
-    expect(screen.getByText('Seu ritmo até a prova')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Abrir Evolução completa' })).toBeInTheDocument();
+    expect(screen.getByText('PORTUGUES')).toBeInTheDocument();
+    expect(screen.getByText('Crase')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Agora e depois' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Pulso de estudo' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Minhas tarefas' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Atividade recente' })).toBeInTheDocument();
     expect(screen.queryByText('Consistência recente')).not.toBeInTheDocument();
     expect(screen.queryByText('Mapa de dificuldade')).not.toBeInTheDocument();
     expect(screen.queryByText('Mapa de cobrança')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar estudo' }));
-    fireEvent.click(screen.getByRole('button', { name: /Ciclo de estudos \(3\)/i }));
-    expect(onNavigate).toHaveBeenCalledTimes(2);
-    expect(onNavigate).toHaveBeenNthCalledWith(1, '/ciclo-estudos', {
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    expect(onNavigate).toHaveBeenCalledWith('/ciclo-estudos', {
       subjectId: 'subject-portugues', topicId: 'topic-crase', subjectName: 'PORTUGUES', topicName: 'Crase',
     });
-    expect(onNavigate).toHaveBeenNthCalledWith(2, ...onNavigate.mock.calls[0]);
   });
 });
 
@@ -277,6 +278,108 @@ describe('DashboardCommandHero', () => {
 
     await waitFor(() => expect(onUpdateCycleName).toHaveBeenCalledExactlyOnceWith('Ciclo TRT'));
     expect(screen.queryByRole('textbox', { name: 'Nome do ciclo' })).not.toBeInTheDocument();
+  });
+
+  it('renders position/cargo and allows inline editing', async () => {
+    const onUpdatePosition = vi.fn().mockResolvedValue(undefined);
+    render(
+      <DashboardCommandHero
+        model={readyModel}
+        onNavigate={vi.fn()}
+        onUpdateCycleName={vi.fn()}
+        isUpdatingCycleName={false}
+        onUpdatePosition={onUpdatePosition}
+      />,
+    );
+
+    expect(screen.getByText('Analista')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /Analista/i }));
+
+    const input = screen.getByRole('textbox', { name: 'Cargo do concurso' });
+    fireEvent.change(input, { target: { value: 'Perito Criminal' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(onUpdatePosition).toHaveBeenCalledExactlyOnceWith('Perito Criminal'));
+  });
+
+  it('allows changing the exam date via popover when onUpdateExamDate is provided', async () => {
+    const onUpdateExamDate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <DashboardCommandHero
+        model={readyModel}
+        onNavigate={vi.fn()}
+        onUpdateCycleName={vi.fn()}
+        isUpdatingCycleName={false}
+        onUpdateExamDate={onUpdateExamDate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /dias até a prova/i }));
+    expect(screen.getByText('Data da prova')).toBeVisible();
+
+    const dateInput = screen.getByLabelText('Nova data da prova');
+    fireEvent.change(dateInput, { target: { value: '2026-11-30' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(onUpdateExamDate).toHaveBeenCalledExactlyOnceWith('2026-11-30'));
+  });
+
+  it('renders edital progress runway when topics exist', () => {
+    const modelWithProgress: DashboardDecisionModel = {
+      ...readyModel,
+      progressSummary: {
+        startedTopics: 10,
+        inProgressTopics: 5,
+        completedTopics: 15,
+        totalTopics: 30,
+        editalProgressPercentage: 50,
+      },
+      pace: {
+        state: 'ready',
+        daysRemaining: 40,
+        newTopicsPerDay: 1.5,
+        reviewsPerDay: 2,
+        unstartedTopics: 15,
+        pendingReviews: 3,
+        futureReviewsInWindow: 5,
+        explanation: '',
+      },
+    };
+
+    render(
+      <DashboardCommandHero
+        model={modelWithProgress}
+        onNavigate={vi.fn()}
+        onUpdateCycleName={vi.fn()}
+        isUpdatingCycleName={false}
+      />,
+    );
+
+    expect(screen.getByText('Progresso do edital')).toBeVisible();
+    expect(screen.getByText('50%')).toBeVisible();
+    expect(screen.getByText('10')).toBeVisible();
+    expect(screen.getByText(/de 30 tópicos iniciados/)).toBeVisible();
+  });
+});
+
+describe('DashboardPulseStrip', () => {
+  it('shows question accuracy without treating skipped answers as errors and keeps flashcard recall states', () => {
+    const onNavigate = vi.fn();
+    render(<DashboardPulseStrip model={{
+      ...missingCycleModel,
+      practicePulse: {
+        status: 'ready',
+        dueFlashcards: 6,
+        questions: { correct: 8, incorrect: 2, skipped: 3, answered: 10, accuracyPercentage: 80 },
+        flashcards: { recalled: 4, effortful: 2, forgotten: 1, reviewed: 7 },
+      },
+    }} onNavigate={onNavigate} />);
+
+    expect(screen.getByText('80%')).toBeVisible();
+    expect(screen.getByText('8 acertos · 2 erros · 3 puladas')).toBeVisible();
+    expect(screen.getByText('4 lembrei · 2 com esforço · 1 esqueci')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /Questões · 7 dias/ }));
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith('/treino');
   });
 });
 
@@ -421,7 +524,7 @@ describe('PriorityQueueCard', () => {
     target: { subjectId: 'subject-1', topicId, subjectName: 'Direito Constitucional', topicName: `Tópico ${topicId}` },
   });
 
-  it('preserves row order, counts and exact targets including review query parameters', () => {
+  it('preserves the primary action and the next two exact targets', () => {
     const onNavigate = vi.fn();
     const overdue = { ...makeAction('review_overdue', 'overdue'), metadata: { daysOverdue: 3 } };
     const today = makeAction('review_today', 'today');
@@ -434,12 +537,10 @@ describe('PriorityQueueCard', () => {
       totals: { ...missingCycleModel.totals, overdueReviews: 4, todayReviews: 2, unstartedTopics: 8 },
     }} onNavigate={onNavigate} />);
 
-    const rows = screen.getAllByRole('button').slice(1);
-    ['Atrasadas (4)', 'Para hoje (2)', 'Ciclo de estudos (8)'].forEach((label, index) => {
-      expect(rows[index]).toHaveTextContent(label);
-      fireEvent.click(rows[index]);
-    });
-    expect(rows[0]).toHaveTextContent('Há 3 dias');
+    const primary = screen.getByRole('button', { name: overdue.primaryLabel });
+    fireEvent.click(primary);
+    const nextRows = screen.getAllByRole('button', { name: /Direito Constitucional/ });
+    nextRows.forEach((row) => fireEvent.click(row));
     [overdue, today, cycle].forEach((action, index) => {
       expect(onNavigate).toHaveBeenNthCalledWith(index + 1, action.primaryHref, action.target);
     });
@@ -451,28 +552,17 @@ describe('PriorityQueueCard', () => {
     const first = makeAction('review_today', 'first');
     const second = makeAction('review_today', 'second');
     render(<PriorityQueueCard model={{ ...missingCycleModel, nextBestAction: first, actionQueue: [second] }} onNavigate={onNavigate} />);
-    fireEvent.click(screen.getByRole('button', { name: /Para hoje/ }));
+    fireEvent.click(screen.getByRole('button', { name: first.primaryLabel }));
     expect(onNavigate).toHaveBeenCalledExactlyOnceWith(first.primaryHref, first.target);
-    expect(screen.queryByText('Tópico second')).not.toBeInTheDocument();
+    expect(screen.getByText('Tópico second')).toBeInTheDocument();
   });
 
-  it('keeps empty-state shortcuts available and labels the header destination honestly', () => {
+  it('keeps the empty state primary action usable without fabricating queue rows', () => {
     const onNavigate = vi.fn();
     render(<PriorityQueueCard model={missingCycleModel} onNavigate={onNavigate} />);
-    expect(screen.queryByRole('button', { name: 'Ver todas' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Ver revisões' }));
-    expect(onNavigate).toHaveBeenLastCalledWith('/revisoes');
-
-    const rows = screen.getAllByRole('button').slice(1);
-    const destinations = ['/revisoes', '/revisoes', '/ciclo-estudos'];
-    rows.forEach((row, index) => {
-      expect(row).toBeEnabled();
-      expect(row).toHaveTextContent('(0)');
-      expect(row).not.toHaveClass('opacity-75');
-      fireEvent.click(row);
-      expect(onNavigate).toHaveBeenLastCalledWith(destinations[index], undefined);
-    });
-    expect(screen.getByText('Nenhuma revisão atrasada')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('/meus-editais', {});
+    expect(screen.queryByText('Depois')).not.toBeInTheDocument();
   });
 });
 
@@ -580,7 +670,7 @@ describe('NextBestActionCard', () => {
 });
 
 describe('RecentRemindersCard', () => {
-  it('shows the illustrated empty state when there are no reminders', () => {
+  it('shows a compact empty state when there are no reminders', () => {
     render(
       <RecentRemindersCard
         reminders={[]}
@@ -592,12 +682,9 @@ describe('RecentRemindersCard', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Bloco de notas vazio com lápis' })).toHaveAttribute(
-      'src',
-      '/images/dashboard/reminders-empty-state.png',
-    );
-    expect(screen.getByText('Sua lista está livre')).toBeInTheDocument();
-    expect(screen.getByText('Adicione algo quando precisar.')).toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByText('Nada pendente por aqui')).toBeInTheDocument();
+    expect(screen.getByText('Use o campo acima para guardar a próxima tarefa.')).toBeInTheDocument();
   });
 
   it('does not present a failed reminder query as an empty list and offers a local retry', () => {

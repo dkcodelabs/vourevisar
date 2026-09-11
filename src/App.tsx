@@ -130,6 +130,7 @@ const App = () => {
                               <Route path="dashboard" element={<Dashboard />} />
                               <Route path="meus-editais" element={<Editais />} />
                               <Route path="estatisticas" element={<Statistics />} />
+                              <Route path="evolucao" element={<Navigate to="/estatisticas" replace />} />
                               <Route path="materias" element={<Navigate to="/ciclo-estudos" replace />} />
                               <Route path="materias/:subjectId" element={<Navigate to="/ciclo-estudos" replace />} />
                               <Route path="materias/:subjectId/topicos" element={<Navigate to="/ciclo-estudos" replace />} />

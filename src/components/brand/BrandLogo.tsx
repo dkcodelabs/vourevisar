@@ -27,7 +27,7 @@ export const BrandMark = React.forwardRef<SVGSVGElement, BrandMarkProps>(
       <svg
         ref={ref}
         viewBox={geometry.viewBox}
-        className={cn("brand-mark shrink-0 overflow-visible", `brand-mark--${motion}`, className)}
+        className={cn("brand-mark shrink-0 overflow-visible w-8 h-[26px]", `brand-mark--${motion}`, className)}
         role={title ? "img" : undefined}
         aria-labelledby={titleId}
         aria-hidden={title ? undefined : true}

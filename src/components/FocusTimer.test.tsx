@@ -96,8 +96,10 @@ describe('FocusTimer', () => {
 
     fireEvent.click(screen.getByRole('button'));
 
-    expect(mocks.navigate).toHaveBeenCalledWith('/ciclo-estudos', {
-      state: { focusSubjectId: 'subject-1', focusTopicId: 'topic-1' },
+    await waitFor(() => {
+      expect(mocks.navigate).toHaveBeenCalledWith('/ciclo-estudos', {
+        state: { focusSubjectId: 'subject-1', focusTopicId: 'topic-1' },
+      });
     });
   });
 
@@ -125,8 +127,10 @@ describe('FocusTimer', () => {
 
     fireEvent.click(screen.getByRole('button'));
 
-    expect(mocks.navigate).toHaveBeenCalledWith('/revisoes?topicId=topic-1', {
-      state: { focusTopicId: 'topic-1' },
+    await waitFor(() => {
+      expect(mocks.navigate).toHaveBeenCalledWith('/revisoes?topicId=topic-1', {
+        state: { focusTopicId: 'topic-1' },
+      });
     });
   });
 });

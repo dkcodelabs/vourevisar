@@ -51,6 +51,24 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     } else {
       root.classList.remove('dark');
     }
+
+    // Limpeza de variáveis inline do testador temporário para garantir os tokens oficiais
+    if (localStorage.getItem('vourevisar_temp_palette_id')) {
+      localStorage.removeItem('vourevisar_temp_palette_id');
+      [
+        '--background',
+        '--sidebar-background',
+        '--card',
+        '--surface',
+        '--surface-raised',
+        '--border',
+        '--sidebar-border',
+        '--sidebar-accent',
+        '--muted',
+      ].forEach(prop => {
+        root.style.removeProperty(prop);
+      });
+    }
   }, [theme]);
 
   // Remover listener de mudanças do sistema - sempre manter controle manual

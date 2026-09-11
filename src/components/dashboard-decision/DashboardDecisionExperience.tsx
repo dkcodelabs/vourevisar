@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Calendar,
   Loader2,
@@ -19,12 +20,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
-import { NextBestActionCard } from '@/components/dashboard-decision/NextBestActionCard';
 import { PriorityQueueCard } from '@/components/dashboard-decision/PriorityQueueCard';
-import { ProgressSummaryCard } from '@/components/dashboard-decision/ProgressSummaryCard';
-import { ExamPacePanel } from '@/components/dashboard-decision/ExamPacePanel';
 import { DashboardDataIssueNotice } from '@/components/dashboard-decision/DashboardDataIssueNotice';
 import { DashboardCommandHero } from '@/components/dashboard-decision/DashboardCommandHero';
+import { DashboardPulseStrip } from '@/components/dashboard-decision/DashboardPulseStrip';
+import { DashboardActivityStrip } from '@/components/dashboard-decision/DashboardActivityStrip';
 import type {
   DashboardDecisionModel,
   DashboardNavigate,
@@ -48,9 +48,13 @@ interface DashboardDecisionExperienceProps {
   onToggleReminder: (id: string, completed: boolean) => Promise<void>;
   onDeleteReminder: (id: string) => Promise<void>;
   onUpdateCycleName: (name: string) => Promise<void>;
+  onUpdateExamDate?: (date: string | null) => Promise<void>;
+  onUpdatePosition?: (position: string) => Promise<void>;
   isAddingReminder: boolean;
   isDeletingReminder: boolean;
   isUpdatingCycleName: boolean;
+  isUpdatingExamDate?: boolean;
+  isUpdatingPosition?: boolean;
 }
 
 export const DashboardDecisionExperience = ({
@@ -61,10 +65,15 @@ export const DashboardDecisionExperience = ({
   onToggleReminder,
   onDeleteReminder,
   onUpdateCycleName,
+  onUpdateExamDate,
+  onUpdatePosition,
   isAddingReminder,
   isDeletingReminder,
   isUpdatingCycleName,
+  isUpdatingExamDate = false,
+  isUpdatingPosition = false,
 }: DashboardDecisionExperienceProps) => {
+  const reduceMotion = useReducedMotion();
   if (model.isLoading) {
     return <DashboardDecisionSkeleton />;
   }
@@ -80,58 +89,47 @@ export const DashboardDecisionExperience = ({
   }
 
   return (
-    <main className="dashboard-command-surface flex w-full flex-col gap-4 pb-8 sm:gap-5">
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)] xl:gap-5">
-        <DashboardCommandHero
-          model={model}
-          onNavigate={onNavigate}
-          onUpdateCycleName={onUpdateCycleName}
-          isUpdatingCycleName={isUpdatingCycleName}
-        />
-        <ProgressSummaryCard summary={model.progressSummary} unstartedTopics={model.totals.unstartedTopics} onNavigate={onNavigate} />
-      </section>
+    <motion.main
+      initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="dashboard-command-surface flex w-full flex-col gap-4 pb-8 sm:gap-5"
+    >
+      <DashboardCommandHero
+        model={model}
+        onNavigate={onNavigate}
+        onUpdateCycleName={onUpdateCycleName}
+        isUpdatingCycleName={isUpdatingCycleName}
+        onUpdateExamDate={onUpdateExamDate}
+        isUpdatingExamDate={isUpdatingExamDate}
+        onUpdatePosition={onUpdatePosition}
+        isUpdatingPosition={isUpdatingPosition}
+      />
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)] xl:gap-5">
-        <NextBestActionCard action={model.nextBestAction} onNavigate={onNavigate} />
-        <PriorityQueueCard model={model} onNavigate={onNavigate} />
-      </section>
+      <DashboardPulseStrip model={model} onNavigate={onNavigate} onRetryPractice={() => onRetryDataIssue?.('practice') ?? Promise.resolve()} />
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)] xl:gap-5">
-        <StudyPaceCard
-          model={model}
-          onNavigate={onNavigate}
-          isActivityUnavailable={model.dataIssues.includes('activity')}
-          onRetryActivity={() => onRetryDataIssue?.('activity') ?? Promise.resolve()}
-        />
-        <RecentRemindersCard
-          reminders={model.reminders}
-          onAddReminder={onAddReminder}
-          onToggleReminder={onToggleReminder}
-          onDeleteReminder={onDeleteReminder}
-          isAdding={isAddingReminder}
-          isDeleting={isDeletingReminder}
-          isUnavailable={model.dataIssues.includes('reminders')}
-          onRetry={() => onRetryDataIssue?.('reminders') ?? Promise.resolve()}
-        />
+      <section className="grid grid-cols-1 gap-4 [grid-template-areas:'priority'_'tasks'_'activity'] xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)] xl:[grid-template-areas:'priority_tasks'_'activity_tasks'] xl:gap-5">
+        <PriorityQueueCard className="[grid-area:priority]" model={model} onNavigate={onNavigate} />
+        <div className="[grid-area:tasks]">
+          <RecentRemindersCard reminders={model.reminders} onAddReminder={onAddReminder} onToggleReminder={onToggleReminder} onDeleteReminder={onDeleteReminder} isAdding={isAddingReminder} isDeleting={isDeletingReminder} isUnavailable={model.dataIssues.includes('reminders')} onRetry={() => onRetryDataIssue?.('reminders') ?? Promise.resolve()} />
+        </div>
+        <DashboardActivityStrip className="[grid-area:activity]" activityDays={model.activityDays} onNavigate={onNavigate} isUnavailable={model.dataIssues.includes('activity')} onRetry={() => onRetryDataIssue?.('activity') ?? Promise.resolve()} />
       </section>
-    </main>
+    </motion.main>
   );
 };
 
 const DashboardDecisionSkeleton = () => (
-  <div className="flex flex-col gap-4">
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
-      <Skeleton className="h-44 rounded-2xl" />
-      <Skeleton className="h-44 rounded-2xl" />
+  <div className="flex flex-col gap-5 sm:gap-6">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-2">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-36 rounded-md" />
+        <Skeleton className="h-8 w-64 rounded-lg" />
+      </div>
+      <Skeleton className="h-12 w-48 rounded-2xl" />
     </div>
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <Skeleton className="h-72 rounded-2xl" />
-      <Skeleton className="h-72 rounded-2xl" />
-    </div>
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <Skeleton className="h-52 rounded-2xl" />
-      <Skeleton className="h-52 rounded-2xl" />
-    </div>
+    <Skeleton className="h-28 rounded-2xl" />
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)] xl:gap-5"><Skeleton className="h-80 rounded-2xl" /><Skeleton className="h-80 rounded-2xl" /></div>
   </div>
 );
 
@@ -175,9 +173,9 @@ export const RecentRemindersCard = ({
 
   return (
     <>
-      <Card id="lembretes" className="dashboard-reminders-card overflow-hidden rounded-2xl border-border/80 bg-card shadow-[0_16px_34px_-28px_hsl(222_47%_11%/0.38)]">
+      <Card id="lembretes" className="dashboard-reminders-card overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_4px_24px_-8px_rgba(0,0,0,0.06)] dark:border-white/[0.06] dark:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.4)]">
       <CardHeader className="flex-row items-center justify-between gap-3 px-4 pb-1.5 pt-4 sm:px-5">
-        <CardTitle className="text-sm font-extrabold text-foreground sm:text-base">Últimos lembretes</CardTitle>
+        <div><CardTitle className="text-sm font-extrabold text-foreground sm:text-base">Minhas tarefas</CardTitle><p className="mt-1 text-[10px] text-content-muted">Anotações rápidas para não perder o fio</p></div>
         <Button
           variant="ghost"
           size="sm"
@@ -255,22 +253,10 @@ export const RecentRemindersCard = ({
             </div>
           ) : null}
           {!isUnavailable && visibleReminders.length === 0 ? (
-            <div className="flex min-h-[210px] flex-col items-center justify-center px-4 py-5 text-center">
-              <div className="relative grid size-24 place-items-center sm:size-28">
-                <div className="absolute inset-3 grid place-items-center rounded-[28px] bg-primary/8 text-primary">
-                  <NotebookPen className="size-9" strokeWidth={1.5} aria-hidden="true" />
-                </div>
-                <img
-                  src="/images/dashboard/reminders-empty-state.png"
-                  alt="Bloco de notas vazio com lápis"
-                  className="relative h-full w-full object-contain drop-shadow-[0_12px_18px_hsl(var(--primary)/0.12)]"
-                  onError={(event) => {
-                    event.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-              <p className="mt-1 text-xs font-bold text-foreground">Sua lista está livre</p>
-              <p className="mt-1 text-[10px] leading-relaxed text-content-muted">Adicione algo quando precisar.</p>
+            <div className="flex min-h-36 flex-col items-center justify-center rounded-xl bg-muted/25 px-4 py-5 text-center">
+              <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary"><NotebookPen className="size-4" strokeWidth={1.75} aria-hidden="true" /></span>
+              <p className="mt-3 text-xs font-bold text-foreground">Nada pendente por aqui</p>
+              <p className="mt-1 max-w-[28ch] text-[10px] leading-relaxed text-content-muted">Use o campo acima para guardar a próxima tarefa.</p>
             </div>
           ) : visibleReminders.length > 0 ? (
             visibleReminders.map((reminder, index) => (
@@ -360,25 +346,3 @@ const ReminderRow = ({
     </div>
   );
 };
-
-const StudyPaceCard = ({
-  model,
-  onNavigate,
-  isActivityUnavailable,
-  onRetryActivity,
-}: {
-  model: DashboardDecisionModel;
-  onNavigate: DashboardNavigate;
-  isActivityUnavailable: boolean;
-  onRetryActivity: () => Promise<void>;
-}) => (
-  <Card className="dashboard-pace-card overflow-hidden rounded-2xl border-border/80 bg-card shadow-[0_16px_34px_-28px_hsl(222_47%_11%/0.38)]">
-    <ExamPacePanel
-      pace={model.pace}
-      activityDays={model.activityDays}
-      onNavigate={onNavigate}
-      isActivityUnavailable={isActivityUnavailable}
-      onRetryActivity={onRetryActivity}
-    />
-  </Card>
-);

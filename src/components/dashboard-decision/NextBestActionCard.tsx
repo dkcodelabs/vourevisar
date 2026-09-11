@@ -42,36 +42,36 @@ export function NextBestActionCard({ action, onNavigate }: NextBestActionCardPro
     <Card
       role="region"
       aria-labelledby={titleId}
-      className="dashboard-next-action min-w-0 self-start overflow-hidden rounded-2xl border-0 bg-[hsl(220_52%_11%)] text-white shadow-[0_22px_46px_-30px_hsl(220_52%_7%/0.72)]"
+      className="dashboard-next-action min-w-0 self-start overflow-hidden rounded-2xl"
     >
       <CardContent className="relative p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id={titleId} className="text-sm font-semibold tracking-[-0.015em] text-white/85">Melhor próxima ação</h2>
-          <Badge variant="outline" className="gap-1.5 border-white/15 bg-white/[0.07] text-xs font-medium text-white">
-            <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${statusColors[action.tone]}`} />
+          <h2 id={titleId} className="text-sm font-semibold tracking-[-0.015em] text-foreground/80 dark:text-white/85">Melhor próxima ação</h2>
+          <Badge variant="outline" className="gap-1.5 border-primary/25 bg-primary/10 text-xs font-semibold text-primary dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-300">
+            <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${statusColors[action.tone]} shadow-[0_0_8px_currentColor]`} />
             {actionLabels[action.kind]}
           </Badge>
         </div>
 
         <div className="mt-5 min-w-0">
-          <h3 className="max-w-[30ch] break-words text-xl font-bold leading-snug tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-2xl" title={subjectLabel}>
+          <h3 className="max-w-[30ch] break-words text-xl font-extrabold leading-snug tracking-[-0.03em] text-foreground [overflow-wrap:anywhere] sm:text-2xl dark:text-white" title={subjectLabel}>
             {subjectLabel}
           </h3>
           {topicLabel ? (
-            <p className="mt-1.5 flex items-start gap-2 text-sm leading-relaxed text-white/85">
-              <BookOpen aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <p className="mt-1.5 flex items-start gap-2 text-sm leading-relaxed text-content-muted dark:text-zinc-200">
+              <BookOpen aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
               <span className="min-w-0 break-words [overflow-wrap:anywhere]" title={topicLabel}>{topicLabel}</span>
             </p>
           ) : (
-            <p className="mt-1.5 break-words text-sm leading-relaxed text-white/85 [overflow-wrap:anywhere]">{action.description}</p>
+            <p className="mt-1.5 break-words text-sm leading-relaxed text-content-muted [overflow-wrap:anywhere] dark:text-zinc-200">{action.description}</p>
           )}
-          <p className="mt-3 max-w-[65ch] break-words text-xs leading-relaxed text-white/72 [overflow-wrap:anywhere]">{action.reason}</p>
+          <p className="mt-3 max-w-[65ch] break-words text-xs leading-relaxed text-content-muted [overflow-wrap:anywhere] dark:text-zinc-400">{action.reason}</p>
         </div>
 
         <div className="pt-5">
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal bg-primary px-4 py-2 text-left text-sm shadow-[0_12px_20px_-14px_hsl(215_100%_59%/0.9)] hover:bg-primary/90"
+              className="h-auto min-h-11 max-w-full whitespace-normal bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-left text-sm font-bold text-white shadow-[0_4px_18px_rgba(37,99,235,0.45)] transition-all hover:from-blue-500 hover:to-indigo-500 hover:shadow-[0_6px_22px_rgba(37,99,235,0.6)]"
               onClick={() => onNavigate(action.primaryHref, action.target)}
             >
               <span className="min-w-0 [overflow-wrap:anywhere]">{action.primaryLabel}</span>
@@ -80,7 +80,7 @@ export function NextBestActionCard({ action, onNavigate }: NextBestActionCardPro
             {secondaryHref ? (
               <Button
                 variant="ghost"
-                className="h-auto min-h-11 max-w-full whitespace-normal px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10 hover:text-white"
+                className="h-auto min-h-11 max-w-full whitespace-normal px-3 py-2 text-left text-sm text-foreground/80 hover:bg-muted dark:text-white/85 dark:hover:bg-white/10 dark:hover:text-white"
                 onClick={() => onNavigate(secondaryHref, action.target)}
               >
                 {action.secondaryLabel || 'Abrir tópico'}
@@ -94,7 +94,7 @@ export function NextBestActionCard({ action, onNavigate }: NextBestActionCardPro
                 <Button
                   type="button"
                   variant="ghost"
-                  className="group min-h-11 h-auto max-w-full justify-start whitespace-normal px-0 text-left text-xs text-white/70 hover:bg-transparent hover:text-white"
+                  className="group min-h-11 h-auto max-w-full justify-start whitespace-normal px-0 text-left text-xs text-content-muted hover:bg-transparent hover:text-foreground dark:text-white/70 dark:hover:text-white"
                   onKeyDown={(event) => {
                     if (event.key !== 'Enter' && event.key !== ' ') return;
                     event.preventDefault();
@@ -106,7 +106,7 @@ export function NextBestActionCard({ action, onNavigate }: NextBestActionCardPro
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <p className="break-words border-t border-white/15 pt-3 text-xs leading-relaxed text-white/75 [overflow-wrap:anywhere]">{explanation}</p>
+                <p className="break-words border-t border-border/60 pt-3 text-xs leading-relaxed text-content-muted [overflow-wrap:anywhere] dark:border-white/15 dark:text-white/75">{explanation}</p>
               </CollapsibleContent>
             </Collapsible>
           ) : null}

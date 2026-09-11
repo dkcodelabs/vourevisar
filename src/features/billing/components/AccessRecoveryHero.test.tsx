@@ -41,4 +41,22 @@ describe('AccessRecoveryHero', () => {
     expect(screen.queryByRole('link', { name: /escolher plano/i })).not.toBeInTheDocument();
     expect(document.querySelector('[data-access-recovery-tone="danger"]')).toBeInTheDocument();
   });
+
+  it('makes an account mismatch actionable instead of implying a payment problem', () => {
+    render(
+      <MemoryRouter>
+        <AccessRecoveryHero state={{
+          kind: 'access_required',
+          title: 'Esta conta ainda não possui acesso',
+          description: 'Não encontramos plano, teste ou cortesia vinculados a esta conta. Se você já assinou usando outro e-mail, entre com a conta usada na contratação.',
+          actionLabel: 'Escolher um plano',
+          endedAt: null,
+        }} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Esta conta ainda não possui acesso' })).toBeInTheDocument();
+    expect(screen.getByText(/outro e-mail/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Escolher um plano' })).toHaveAttribute('href', '#precos');
+  });
 });

@@ -8,6 +8,7 @@ import { useReviewsData } from '@/hooks/useReviewsData';
 import { useStudyCycleData } from '@/hooks/useStudyCycleData';
 import { useEditalOriginsWithMerge } from '@/hooks/useEditalOriginsWithMerge';
 import { ReviewInterval, SubjectStatus } from '@/types/study-cycle';
+import { updateActiveCycleExamDate } from '@/services/cycleExamDateService';
 import {
   buildActionQueue,
   buildDashboardPace,
@@ -32,6 +33,7 @@ import type {
   DashboardReviewTopic,
 } from '@/types/dashboardDecision';
 import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
+import { usePracticeOverview } from '@/features/practice/hooks/usePracticeOverview';
 
 const toLocalDate = (date: string) => (date.length === 10 ? parseISO(date) : new Date(date));
 const DASHBOARD_PACE_WINDOW_DAYS = 7;
@@ -137,6 +139,7 @@ export const useDashboardDecisionModel = () => {
     [cycleData.studyCycleSubjects],
   );
   const activeTopicScope = useMemo(() => buildActiveTopicScope(dashboardSubjects), [dashboardSubjects]);
+  const practiceOverview = usePracticeOverview(user?.id, undefined, hasActiveCycle);
 
   const overdueReviews = useMemo(() => reviewsData.delayedTopics.map(toReviewTopic), [reviewsData.delayedTopics]);
   const todayReviews = useMemo(() => reviewsData.todayTopics.map(toReviewTopic), [reviewsData.todayTopics]);
@@ -291,6 +294,68 @@ export const useDashboardDecisionModel = () => {
     onError: () => toastManager.error('Não consegui atualizar o nome do ciclo agora'),
   });
 
+  const updateExamDate = useMutation({
+    mutationFn: async (newExamDate: string | null) => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      const cleanDate = newExamDate ? newExamDate.trim() : '';
+
+      if (cycleData.userCycle?.id) {
+        await updateActiveCycleExamDate({
+          examDate: cleanDate,
+          userId: user.id,
+        });
+      }
+
+      if (activeEdital?.id) {
+        const { error } = await supabase
+          .from('user_editais')
+          .update({
+            exam_date: cleanDate ? cleanDate : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', activeEdital.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['study-cycle'] });
+      queryClient.invalidateQueries({ queryKey: ['user-cycle'] });
+      queryClient.invalidateQueries({ queryKey: ['reviews-data'] });
+      queryClient.invalidateQueries({ queryKey: ['editais-origins'] });
+      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'exam_date_updated' } }));
+      toastManager.success('Data da prova atualizada');
+    },
+    onError: () => toastManager.error('Não consegui atualizar a data da prova agora'),
+  });
+
+  const updatePosition = useMutation({
+    mutationFn: async (newPosition: string) => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      const cleanPosition = newPosition.trim() || null;
+
+      if (activeEdital?.id) {
+        const { error } = await supabase
+          .from('user_editais')
+          .update({
+            position: cleanPosition,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', activeEdital.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['editais-origins'] });
+      window.dispatchEvent(new CustomEvent('cycleUpdated', { detail: { type: 'position_updated' } }));
+      toastManager.success('Cargo atualizado');
+    },
+    onError: () => toastManager.error('Não consegui atualizar o cargo agora'),
+  });
+
   const pace = useMemo(
     () =>
       buildDashboardPace({
@@ -353,11 +418,15 @@ export const useDashboardDecisionModel = () => {
   const model: DashboardDecisionModel = {
     isLoading: reviewsData.isLoading || cycleData.isLoading || isEditaisLoading || isRemindersLoading || (hasActiveCycle && isActivityLoading),
     error: criticalError,
-    dataIssues: getDashboardDataIssues({ activityError, remindersError }),
+    dataIssues: getDashboardDataIssues({
+      activityError,
+      remindersError,
+      practiceError: practiceOverview.error,
+    }),
     studyEntryState,
     examContext: {
       editalName: cycleDisplayName || editalIdentity.editalName,
-      position: useCycleNameAsIdentity ? null : editalIdentity.position,
+      position: editalIdentity.position || activeEdital?.position || null,
       editalId: activeEdital?.id,
       examDate,
       daysRemaining,
@@ -370,6 +439,27 @@ export const useDashboardDecisionModel = () => {
     reminders,
     activityDays: hasActiveCycle ? activityDays : [],
     progressSummary,
+    practicePulse: {
+      status: practiceOverview.isLoading
+        ? 'loading'
+        : practiceOverview.error || !practiceOverview.data
+          ? 'unavailable'
+          : 'ready',
+      dueFlashcards: practiceOverview.data?.flashcards.dueCount ?? 0,
+      questions: practiceOverview.data?.recentPerformance?.questions ?? {
+        correct: 0,
+        incorrect: 0,
+        skipped: 0,
+        answered: 0,
+        accuracyPercentage: null,
+      },
+      flashcards: practiceOverview.data?.recentPerformance?.flashcards ?? {
+        recalled: 0,
+        effortful: 0,
+        forgotten: 0,
+        reviewed: 0,
+      },
+    },
     totals: {
       overdueReviews: overdueReviews.length,
       todayReviews: todayReviews.length,
@@ -379,6 +469,7 @@ export const useDashboardDecisionModel = () => {
       completedTopics: progressSummary.completedTopics,
       totalTopics: progressSummary.totalTopics,
     },
+    subjects: hasActiveCycle ? dashboardSubjects : [],
   };
 
   const navigateToAction: DashboardNavigate = (href, target) => {
@@ -395,6 +486,10 @@ export const useDashboardDecisionModel = () => {
       await refetchActivity();
       return;
     }
+    if (source === 'practice') {
+      await practiceOverview.refetch();
+      return;
+    }
     await refetchReminders();
   };
 
@@ -404,8 +499,12 @@ export const useDashboardDecisionModel = () => {
     toggleReminder: (id: string, completed: boolean) => toggleReminder.mutateAsync({ id, completed }),
     deleteReminder: (id: string) => deleteReminder.mutateAsync(id),
     updateCycleName: (name: string) => updateCycleName.mutateAsync(name),
+    updateExamDate: (examDate: string | null) => updateExamDate.mutateAsync(examDate),
+    updatePosition: (position: string) => updatePosition.mutateAsync(position),
     isAddingReminder: addReminder.isPending,
     isUpdatingCycleName: updateCycleName.isPending,
+    isUpdatingExamDate: updateExamDate.isPending,
+    isUpdatingPosition: updatePosition.isPending,
     navigateToAction,
     retryDashboardDataIssue,
     isTogglingReminder: toggleReminder.isPending,

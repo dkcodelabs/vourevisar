@@ -217,40 +217,49 @@ export const FocusTimer: React.FC<FocusTimerProps> = () => {
     return base;
   };
 
-  const buttonClasses = activeTopicId
-    ? isPaused
-      ? 'border border-warning/35 bg-warning/15 text-warning hover:bg-warning/20'
-      : 'border border-primary/35 bg-primary text-primary-foreground hover:bg-primary/90 animate-pulse'
-    : 'border border-border/60 bg-control text-content-muted hover:border-primary/25 hover:bg-primary/10 hover:text-primary';
-
-  const feedbackClasses = justReturned
-    ? 'border border-primary/40 bg-primary/15 text-primary animate-pulse'
-    : '';
-
   return (
     <>
-      <button
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-        className={`flex h-9 items-center justify-center gap-1.5 rounded-lg px-2.5 transition-colors duration-200 focus:outline-none focus:ring-0 group lg:h-10 ${justReturned ? feedbackClasses : buttonClasses}`}
-        style={activeTopicId && !justReturned && !isPaused ? { animationDuration: '3s' } : {}}
-        title={getTitle()}
-      >
-        <Hourglass
-          className={`w-3.5 h-3.5 transition-transform duration-500 ${activeTopicId && !isPaused ? 'group-hover:rotate-180' : ''
+      {activeTopicId ? (
+        <button
+          type="button"
+          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
+          className={`flex h-[2.375rem] items-center justify-center gap-2 rounded-full px-3.5 transition-all duration-150 focus:outline-none group active:scale-95 ${
+            isPaused
+              ? 'border border-amber-500/30 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25'
+              : 'border border-blue-400/30 bg-blue-600 text-white shadow-md shadow-blue-600/25 hover:bg-blue-500'
+          } ${justReturned ? 'animate-pulse ring-2 ring-primary/50' : ''}`}
+          title={getTitle()}
+          aria-label={getTitle()}
+        >
+          <Hourglass
+            className={`w-3.5 h-3.5 transition-transform duration-500 ${
+              isPaused
+                ? 'text-amber-400'
+                : 'text-white animate-spin [animation-duration:3s]'
             }`}
-        />
-        <span className="text-[11px] font-bold tracking-wide flex items-center gap-1 uppercase">
-          {activeTopicId ? (
-            <>
-              <span className="font-mono tabular-nums tracking-normal text-xs">{displayTime}</span>
-              {isPaused && <span>(Pausa)</span>}
-            </>
-          ) : (
-            'Iniciar'
+          />
+          <span className="font-mono text-xs sm:text-sm font-bold tracking-tight tabular-nums">
+            {displayTime}
+          </span>
+          {isPaused && (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/90 rounded bg-amber-500/20 px-1 py-0.5 ml-0.5">
+              Pausa
+            </span>
           )}
-        </span>
-      </button>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleClick}
+          className="app-header-icon rounded-full group focus:outline-none"
+          title={getTitle()}
+          aria-label={getTitle()}
+        >
+          <Hourglass className="w-4 h-4 transition-transform duration-300 group-hover:rotate-180" />
+          <span className="sr-only">Iniciar revisão</span>
+        </button>
+      )}
 
       {/* Focus Modal */}
       <FocusModal

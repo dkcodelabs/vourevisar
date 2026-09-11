@@ -26,6 +26,7 @@ describe('getDashboardDataIssues', () => {
     expect(getDashboardDataIssues({ activityError: new Error('activity'), remindersError: null })).toEqual(['activity']);
     expect(getDashboardDataIssues({ activityError: null, remindersError: new Error('reminders') })).toEqual(['reminders']);
     expect(getDashboardDataIssues({ activityError: new Error('activity'), remindersError: new Error('reminders') })).toEqual(['activity', 'reminders']);
+    expect(getDashboardDataIssues({ activityError: null, remindersError: null, practiceError: new Error('practice') })).toEqual(['practice']);
   });
 });
 describe('getDashboardCriticalError', () => {

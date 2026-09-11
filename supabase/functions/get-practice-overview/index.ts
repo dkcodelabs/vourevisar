@@ -9,6 +9,11 @@ import {
   type PracticeOverviewTopic,
 } from "../_shared/practiceOverview.ts";
 import { getActivePracticeScope } from "../_shared/practiceScope.ts";
+import {
+  emptyRecentPracticePerformance,
+  summarizeRecentPracticePerformance,
+  type PracticePerformanceAttempt,
+} from "../_shared/practicePerformance.ts";
 
 const inputSchema = z.object({ topicId: z.string().uuid().optional() }).strict();
 
@@ -54,10 +59,7 @@ type ItemRow = { id: string; package_id: string; item_type: "flashcard" | "multi
 type GenerationRow = { topic_id: string };
 type ScheduleRow = { item_id: string; last_rating: string | null; repetitions: number; lapses: number };
 type FeedbackRow = { item_id: string };
-type AttemptRow = {
-  topic_id: string | null;
-  result: "correct" | "incorrect" | "skipped" | "recalled" | "effortful" | "forgotten";
-};
+type AttemptRow = PracticePerformanceAttempt;
 type CompletedSessionRow = {
   topic_id: string | null;
   completed_at: string | null;
@@ -77,6 +79,7 @@ const getOverview = async (
       selectedTopic: null,
       materialTopics: [],
       flashcards: { dueCount: 0, dueTopicCount: 0, newCount: 0, newTopicCount: 0 },
+      recentPerformance: emptyRecentPracticePerformance(),
       studyAction: { kind: "cycle", topic: null, reason: "continue_cycle" },
       dailyRecommendation: {
         kind: "clear",
@@ -107,6 +110,7 @@ const getOverview = async (
       selectedTopic: null,
       materialTopics: [],
       flashcards: { dueCount: 0, dueTopicCount: 0, newCount: 0, newTopicCount: 0 },
+      recentPerformance: emptyRecentPracticePerformance(),
       studyAction: { kind: "cycle", topic: null, reason: "continue_cycle" },
       dailyRecommendation: {
         kind: "clear",
@@ -144,6 +148,7 @@ const getOverview = async (
       subjectWeight: subjectWeightById.get(topic.subject_id) ?? 0,
     }] : [];
   });
+  const activeTopicIds = new Set(overviewTopics.map((topic) => topic.id));
   const now = Date.now();
   const recentAttemptsStart = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
   const completedSessionStart = new Date(now - 35 * 24 * 60 * 60 * 1000).toISOString();
@@ -161,7 +166,7 @@ const getOverview = async (
       .eq("status", "generating"),
     supabase
       .from("practice_attempts")
-      .select("topic_id, result")
+      .select("topic_id, attempt_kind, result")
       .eq("user_id", userId)
       .is("invalidated_at", null)
       .gte("created_at", recentAttemptsStart),
@@ -180,8 +185,12 @@ const getOverview = async (
   const recentFailureCountByTopicId = new Map<string, number>();
   const recentAttemptCountByTopicId = new Map<string, number>();
   const recentCorrectCountByTopicId = new Map<string, number>();
+  const recentPerformance = summarizeRecentPracticePerformance(
+    (recentAttempts ?? []) as AttemptRow[],
+    activeTopicIds,
+  );
   for (const attempt of (recentAttempts ?? []) as AttemptRow[]) {
-    if (!attempt.topic_id || !["correct", "incorrect", "skipped"].includes(attempt.result)) continue;
+    if (!attempt.topic_id || !activeTopicIds.has(attempt.topic_id) || attempt.attempt_kind !== "objective_answer") continue;
     recentAttemptCountByTopicId.set(attempt.topic_id, (recentAttemptCountByTopicId.get(attempt.topic_id) ?? 0) + 1);
     if (attempt.result === "correct") {
       recentCorrectCountByTopicId.set(attempt.topic_id, (recentCorrectCountByTopicId.get(attempt.topic_id) ?? 0) + 1);
@@ -213,7 +222,6 @@ const getOverview = async (
   // Material privado só entra na recomendação quando o tópico ainda pertence
   // ao ciclo ativo. Sem esse filtro, a tela podia contar um flashcard de um
   // edital anterior que a sessão corretamente recusaria abrir.
-  const activeTopicIds = new Set(overviewTopics.map((topic) => topic.id));
   const packageRows = ((packages ?? []) as PackageRow[])
     .filter((item) => activeTopicIds.has(item.topic_id));
   const packagesByTopicId = new Map<string, string[]>();
@@ -369,6 +377,7 @@ const getOverview = async (
     selectedTopic: toPracticeTopic(selectedTopic),
     materialTopics,
     flashcards: { dueCount: reviewRows.length, dueTopicCount: dueTopicIds.size, newCount: newRows.length, newTopicCount: newTopicIds.size },
+    recentPerformance,
     studyAction: studyAction.topic
       ? {
         kind: "reviews",

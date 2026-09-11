@@ -72,9 +72,9 @@ export function getBillingAccessRecoveryState(
 
   return {
     kind: 'access_required',
-    title: 'Seu acesso não está ativo',
-    description: 'Escolha um plano para abrir seus editais e continuar sua preparação.',
-    actionLabel: 'Ver planos',
+    title: 'Esta conta ainda não possui acesso',
+    description: 'Não encontramos plano, teste ou cortesia vinculados a esta conta. Se você já assinou usando outro e-mail, entre com a conta usada na contratação.',
+    actionLabel: 'Escolher um plano',
     endedAt: null,
   };
 }

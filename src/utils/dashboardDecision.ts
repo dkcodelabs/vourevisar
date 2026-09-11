@@ -47,13 +47,16 @@ export function normalizeReminderDate(value: string | null | undefined) {
 export function getDashboardDataIssues({
   activityError,
   remindersError,
+  practiceError,
 }: {
   activityError: unknown;
   remindersError: unknown;
+  practiceError?: unknown;
 }): DashboardDataIssueSource[] {
   return [
     ...(activityError ? ['activity' as const] : []),
     ...(remindersError ? ['reminders' as const] : []),
+    ...(practiceError ? ['practice' as const] : []),
   ];
 }
 
