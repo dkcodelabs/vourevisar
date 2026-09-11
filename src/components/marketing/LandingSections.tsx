@@ -39,9 +39,9 @@ export function LandingJourney() {
         <h2 className={headingClass}>
           Do edital à próxima revisão.
           <br />
-          <span className="text-[#1765dc]">Tudo se conecta.</span>
+          <span className="text-[#70dc51]">Tudo se conecta.</span>
         </h2>
-        <p className="mt-5 max-w-xl leading-7 text-slate-600">
+        <p className="mt-5 max-w-xl leading-7 text-white/60">
           Menos tempo decidindo por onde começar. Mais clareza para continuar de
           onde parou.
         </p>
@@ -57,16 +57,16 @@ export function LandingJourney() {
                   if (!reduced) setActive(i);
                 }}
                 viewport={{ amount: 0.7 }}
-                className="border-t border-slate-200 py-7 lg:min-h-[220px] lg:py-10"
+                className="border-t border-white/10 py-7 lg:min-h-[220px] lg:py-10"
               >
-                <div className="mb-4 flex items-center gap-3 text-sm font-semibold text-[#1765dc]">
+                <div className="mb-4 flex items-center gap-3 text-sm font-semibold text-[#70dc51]">
                   <Icon size={19} />
                   <span>{step.short}</span>
                 </div>
                 <h3 className="text-xl font-bold tracking-tight sm:text-2xl">
                   {step.title}
                 </h3>
-                <p className="mt-3 max-w-md text-sm leading-7 text-slate-600">
+                <p className="mt-3 max-w-md text-sm leading-7 text-white/58">
                   {step.text}
                 </p>
               </motion.article>
@@ -74,21 +74,21 @@ export function LandingJourney() {
           })}
           <div className="mt-2 lg:hidden">
             <ProductPreview compact view={active} />
-            <p className="mt-4 text-center text-xs font-medium text-slate-600">
+            <p className="mt-4 text-center text-xs font-medium text-white/50">
               {journey[active].detail}
             </p>
           </div>
         </div>
         <div className="hidden lg:sticky lg:top-28 lg:block">
           <ProductPreview view={active} />
-          <p className="mt-6 text-center text-sm font-medium text-slate-600">
+          <p className="mt-6 text-center text-sm font-medium text-white/50">
             {journey[active].detail}
           </p>
           <div className="mt-5 flex justify-center gap-2">
             {journey.map((step, i) => (
               <span
                 key={step.short}
-                className={`h-1 rounded-full transition-all duration-500 motion-reduce:transition-none ${i === active ? "w-12 bg-blue-600" : "w-5 bg-slate-200"}`}
+                className={`h-1 rounded-full transition-all duration-500 motion-reduce:transition-none ${i === active ? "w-12 bg-[#70dc51]" : "w-5 bg-white/15"}`}
               />
             ))}
           </div>
@@ -101,7 +101,7 @@ export function LandingJourney() {
 export function LandingResources() {
   const reduced = useReducedMotion();
   return (
-    <section id="recursos" className="scroll-mt-24 bg-[#edf3fb] py-20 lg:py-28">
+    <section id="recursos" className="scroll-mt-24 border-y border-white/10 bg-[#0a100d] py-20 lg:py-28">
       <div className={sectionClass}>
         <Reveal className="mb-12 max-w-3xl">
           <h2 className={headingClass}>
@@ -109,17 +109,17 @@ export function LandingResources() {
             <br />
             caber em uma planilha.
           </h2>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
+          <p className="mt-5 max-w-2xl text-base leading-7 text-white/60">
             O vouRevisar reúne as decisões que consomem sua energia em uma
             central que acompanha o ritmo do seu estudo.
           </p>
         </Reveal>
         <div className="grid gap-5 lg:grid-cols-12">
-          <Reveal className="group overflow-hidden rounded-2xl bg-white lg:col-span-7">
+          <Reveal className="group overflow-hidden rounded-2xl bg-[#f4f8f5] text-[#172033] lg:col-span-7">
             <div className="grid h-full sm:grid-cols-[1.08fr_0.92fr]">
               <div className="p-7 sm:p-9">
-                <ScanText className="mb-8 text-blue-600" size={27} />
-                <h3 className="text-2xl font-bold tracking-tight text-[#172033] sm:text-[1.8rem]">
+                <ScanText className="mb-8 text-[#1765dc]" size={27} />
+                <h3 className="text-2xl font-bold tracking-tight text-[#172033] sm:text-3xl">
                   Seu edital entra como PDF.
                   <br />
                   A rotina sai pronta.
@@ -154,9 +154,9 @@ export function LandingResources() {
             </div>
           </Reveal>
 
-          <Reveal className="overflow-hidden rounded-2xl bg-[#172033] p-7 text-white lg:col-span-5 sm:p-9">
+          <Reveal className="overflow-hidden rounded-2xl border border-[#70dc51]/20 bg-[#111a15] p-7 text-white shadow-[0_24px_58px_-36px_rgba(99,223,22,0.55)] lg:col-span-5 sm:p-9">
             <Timer className="mb-8 text-[#8ade58]" size={27} />
-            <h3 className="text-2xl font-bold tracking-tight sm:text-[1.8rem]">
+            <h3 className="text-2xl font-bold tracking-tight sm:text-3xl">
               Foco também
               <br />
               deixa rastro.
@@ -168,7 +168,7 @@ export function LandingResources() {
             <div className="mt-9 border-t border-white/15 pt-5" aria-label="Prévia demonstrativa do cronômetro">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
                     Sessão em andamento
                   </p>
                   <p className="mt-1 text-4xl font-extrabold tracking-[-0.05em] tabular-nums text-white">
@@ -186,8 +186,8 @@ export function LandingResources() {
             </div>
           </Reveal>
 
-          <Reveal className="rounded-2xl bg-[#dbe9ff] p-7 text-[#172033] lg:col-span-4 sm:p-8">
-            <Layers className="mb-7 text-blue-700" size={26} />
+          <Reveal className="rounded-2xl bg-[#dce9ff] p-7 text-[#172033] lg:col-span-4 sm:p-8">
+            <Layers className="mb-7 text-[#1765dc]" size={26} />
             <h3 className="text-xl font-bold tracking-tight">Ciclo de estudo inteligente.</h3>
             <p className="mt-3 text-sm leading-7 text-slate-700">
               As matérias entram numa sequência que ajuda a transformar intenção
@@ -203,31 +203,31 @@ export function LandingResources() {
             </div>
           </Reveal>
 
-          <Reveal className="rounded-2xl bg-white p-7 lg:col-span-5 sm:p-8">
+          <Reveal className="rounded-2xl border border-white/10 bg-[#121814] p-7 text-white lg:col-span-5 sm:p-8">
             <Brain className="mb-7 text-blue-600" size={26} />
             <h3 className="text-xl font-bold tracking-tight">
               Questões e flashcards com IA, a partir do seu material.
             </h3>
-            <p className="mt-3 max-w-md text-sm leading-7 text-slate-600">
+            <p className="mt-3 max-w-md text-sm leading-7 text-white/58">
               Gere prática privada para o tópico que está estudando e descubra
               onde vale retomar antes de seguir em frente.
             </p>
             <div className="mt-7 grid grid-cols-2 gap-3 text-sm font-bold">
-              <div className="rounded-xl bg-[#eff5ff] p-4 text-blue-800">Questões para praticar</div>
-              <div className="rounded-xl bg-[#edf7e9] p-4 text-green-800">Flashcards para lembrar</div>
+              <div className="rounded-xl bg-[#18263f] p-4 text-blue-200">Questões para praticar</div>
+              <div className="rounded-xl bg-[#18251a] p-4 text-[#a8ee8a]">Flashcards para lembrar</div>
             </div>
           </Reveal>
 
-          <Reveal className="rounded-2xl bg-white p-7 lg:col-span-3 sm:p-8">
-            <RotateCcw className="mb-7 text-blue-600" size={26} />
+          <Reveal className="rounded-2xl border border-white/10 bg-[#121814] p-7 text-white lg:col-span-3 sm:p-8">
+            <RotateCcw className="mb-7 text-[#70dc51]" size={26} />
             <h3 className="text-xl font-bold tracking-tight">Revisão que respeita seu histórico.</h3>
-            <p className="mt-3 text-sm leading-7 text-slate-600">
+            <p className="mt-3 text-sm leading-7 text-white/58">
               A dificuldade registrada ajuda a organizar o que merece voltar à
               sua atenção.
             </p>
           </Reveal>
 
-          <Reveal className="overflow-hidden rounded-2xl bg-[#1765dc] p-7 text-white lg:col-span-12 sm:p-8">
+          <Reveal className="overflow-hidden rounded-2xl bg-[#1765dc] p-7 text-white shadow-[0_26px_64px_-36px_rgba(47,128,255,0.8)] lg:col-span-12 sm:p-8">
             <div className="grid items-center gap-7 md:grid-cols-[0.8fr_1.2fr]">
               <div>
                 <ChartNoAxesCombined className="mb-6 text-[#a9e98d]" size={27} />
@@ -269,31 +269,31 @@ export function LandingComparison() {
           <br />
           não precisa ser outra matéria.
         </h2>
-        <p className="mt-5 max-w-xl leading-7 text-slate-600">
+        <p className="mt-5 max-w-xl leading-7 text-white/60">
           Você continua no comando. O vouRevisar conecta as partes da
           preparação.
         </p>
       </Reveal>
-      <div className="mt-10 overflow-hidden rounded-2xl border border-slate-200">
-        <div className="hidden grid-cols-3 border-b border-slate-200 bg-slate-50 px-6 py-5 text-sm font-bold md:grid">
+      <div className="mt-10 overflow-hidden rounded-2xl border border-white/10 bg-[#0c120f]">
+        <div className="hidden grid-cols-3 border-b border-white/10 bg-white/[0.035] px-6 py-5 text-sm font-bold md:grid">
           <span>Na sua preparação</span>
-          <span className="text-slate-500">Organização manual</span>
-          <span className="text-blue-700">Com o vouRevisar</span>
+          <span className="text-white/42">Organização manual</span>
+          <span className="text-[#8bdd64]">Com o vouRevisar</span>
         </div>
         {comparison.map(([label, before, after]) => (
           <div
             key={label}
-            className="grid gap-3 border-b border-slate-100 px-5 py-5 last:border-0 md:grid-cols-3 md:gap-6 md:px-6"
+            className="grid gap-3 border-b border-white/10 px-5 py-5 last:border-0 md:grid-cols-3 md:gap-6 md:px-6"
           >
             <h3 className="text-sm font-bold">{label}</h3>
-            <p className="text-sm leading-6 text-slate-500">
-              <span className="block text-[11px] md:hidden">
+            <p className="text-sm leading-6 text-white/42">
+              <span className="block text-xs md:hidden">
                 Organização manual
               </span>
               {before}
             </p>
             <p className="flex gap-2 text-sm font-semibold leading-6">
-              <Check className="mt-1 shrink-0 text-green-700" size={16} />
+              <Check className="mt-1 shrink-0 text-[#70dc51]" size={16} />
               {after}
             </p>
           </div>
@@ -305,7 +305,7 @@ export function LandingComparison() {
 
 export function LandingDevices() {
   return (
-    <section className="overflow-hidden bg-[#edf3fb] py-20">
+    <section className="overflow-hidden border-y border-white/10 bg-[#0b1510] py-20">
       <div
         className={`${sectionClass} grid items-center gap-12 lg:grid-cols-[0.75fr_1.25fr]`}
       >
@@ -315,21 +315,21 @@ export function LandingDevices() {
             <br />
             com você.
           </h2>
-          <p className="mt-5 leading-7 text-slate-600">
+          <p className="mt-5 leading-7 text-white/60">
             Na mesa, no intervalo ou onde a rotina permitir. Acesse pelo
             computador, tablet ou celular.
           </p>
-          <p className="mt-6 text-sm font-semibold text-blue-700">
+          <p className="mt-6 text-sm font-semibold text-[#8bdd64]">
             Uma conta. A mesma preparação.
           </p>
         </Reveal>
         <Reveal className="relative pb-24 pr-5 sm:pr-8">
-          <div className="rounded-2xl bg-slate-800 p-2 pb-3 shadow-xl">
+          <div className="rounded-2xl bg-[#1a211d] p-2 pb-3 shadow-[0_28px_70px_-34px_rgba(99,223,22,0.45)]">
             <ProductPreview />
           </div>
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-0 left-3 hidden h-[220px] w-[280px] overflow-hidden rounded-[20px] border-[7px] border-slate-800 bg-white shadow-xl sm:block"
+            className="pointer-events-none absolute bottom-0 left-3 hidden h-[220px] w-[280px] overflow-hidden rounded-[20px] border-[7px] border-[#1a211d] bg-white shadow-xl sm:block"
           >
             <fieldset
               disabled
@@ -340,7 +340,7 @@ export function LandingDevices() {
           </div>
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-0 right-0 h-[260px] w-[150px] overflow-hidden rounded-[24px] border-[6px] border-slate-800 bg-white shadow-xl"
+            className="pointer-events-none absolute bottom-0 right-0 h-[260px] w-[150px] overflow-hidden rounded-[24px] border-[6px] border-[#1a211d] bg-white shadow-xl"
           >
             <fieldset
               disabled
@@ -365,14 +365,14 @@ export function LandingQuestions() {
             <br />
             alguma dúvida?
           </h2>
-          <p className="mt-5 text-sm leading-7 text-slate-600">
+          <p className="mt-5 text-sm leading-7 text-white/58">
             Começar deve ser simples.
             <br />
             Se precisar, estamos por aqui.
           </p>
           <a
             href={getSupportEmailUrl("Dúvida sobre o vouRevisar")}
-            className="mt-6 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-blue-700"
+            className="mt-6 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#8bdd64]"
           >
             <Mail size={17} />
             Fale com o suporte
@@ -384,12 +384,12 @@ export function LandingQuestions() {
             <AccordionItem
               value={`faq-${i}`}
               key={question}
-              className="border-slate-200"
+              className="border-white/10"
             >
-              <AccordionTrigger className="py-5 text-left text-sm font-semibold hover:no-underline">
+              <AccordionTrigger className="py-5 text-left text-sm font-semibold text-white hover:no-underline">
                 {question}
               </AccordionTrigger>
-              <AccordionContent className="text-sm leading-7 text-slate-600">
+              <AccordionContent className="text-sm leading-7 text-white/58">
                 {answer}
               </AccordionContent>
             </AccordionItem>
@@ -403,7 +403,7 @@ export function LandingQuestions() {
 export function LandingTrust() {
   return (
     <div className="mt-8 grid gap-5 sm:grid-cols-2">
-      <div className="rounded-2xl bg-[#edf5e9] p-6">
+      <div className="rounded-2xl bg-[#eaf5e7] p-6">
         <Check className="mb-3 text-green-800" />
         <h3 className="font-bold">7 dias para experimentar.</h3>
         <p className="mt-2 text-sm leading-6 text-slate-600">

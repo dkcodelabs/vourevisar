@@ -1,6 +1,6 @@
 import { useLayoutEffect, type ReactNode, type RefObject } from "react";
 
-/** Public campaign uses a light palette without changing the saved app preference. */
+/** Public campaign owns its palette without changing the saved app preference. */
 export function PublicSurface({
   children,
   className = "",
@@ -21,7 +21,7 @@ export function PublicSurface({
   return (
     <div
       ref={scrollRef}
-      className={`fixed inset-0 overflow-y-auto overflow-x-hidden bg-[#f7f9fc] font-sans text-[#172033] selection:bg-blue-100 selection:text-blue-950 [color-scheme:light] ${className}`}
+      className={`fixed inset-0 overflow-y-auto overflow-x-hidden bg-[#070b09] font-sans text-[#f4f8f5] selection:bg-[#70dc51] selection:text-[#071008] [color-scheme:dark] [scrollbar-color:#2a5737_#070b09] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#2a5737] [&::-webkit-scrollbar-track]:bg-[#070b09] [&::-webkit-scrollbar]:w-2 ${className}`}
     >
       {children}
     </div>

@@ -7,7 +7,7 @@ import { trialHref } from "./marketingContent";
 export const sectionClass =
   "mx-auto w-full max-w-[1240px] px-5 sm:px-8 lg:px-12";
 export const headingClass =
-  "text-[clamp(1.85rem,3.8vw,3rem)] font-extrabold leading-[1.13] tracking-[-0.035em] text-[#172033]";
+  "text-[clamp(1.85rem,3.8vw,3rem)] font-extrabold leading-[1.13] tracking-[-0.035em] text-[#f4f8f5]";
 export function Reveal({
   children,
   className = "",
@@ -51,7 +51,7 @@ export function TrialLink({
     <Link
       to={authenticated ? "/dashboard" : trialHref}
       onClick={onClick}
-      className={`inline-flex min-h-12 items-center justify-center gap-3 whitespace-nowrap rounded-xl bg-[#1765dc] px-5 text-sm font-bold text-white shadow-[0_8px_20px_-12px_#1765dc] transition-[background-color,transform,box-shadow] hover:-translate-y-0.5 hover:bg-[#1254bd] hover:shadow-[0_12px_24px_-12px_#1765dc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-4 active:translate-y-0 motion-reduce:transform-none ${compact ? "" : "sm:min-h-14 sm:px-6"} ${className}`}
+      className={`inline-flex min-h-12 items-center justify-center gap-3 whitespace-nowrap rounded-xl bg-[#2f80ff] px-5 text-sm font-bold text-white shadow-[0_14px_36px_-18px_rgba(99,223,22,0.72)] transition-[background-color,transform,box-shadow] hover:-translate-y-0.5 hover:bg-[#4b91ff] hover:shadow-[0_18px_42px_-16px_rgba(99,223,22,0.78)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8bf25a] focus-visible:ring-offset-4 focus-visible:ring-offset-[#070b09] active:translate-y-0 motion-reduce:transform-none ${compact ? "" : "sm:min-h-14 sm:px-6"} ${className}`}
     >
       {authenticated ? "Acessar meu painel" : "Testar 7 dias"}
       <ArrowRight size={17} aria-hidden="true" />

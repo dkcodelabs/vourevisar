@@ -7,7 +7,7 @@ import {
   useScroll,
   useTransform,
 } from "motion/react";
-import { ArrowRight, Check, Menu } from "lucide-react";
+import { ArrowRight, Check, Menu, RotateCcw, Sparkles, Target } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { PricingSection } from "@/components/PricingSection";
@@ -68,38 +68,38 @@ export default function LandingPage() {
   ];
   return (
     <PublicSurface scrollRef={scrollRoot} className="motion-safe:scroll-smooth">
-      <header className="sticky top-0 z-30 border-b border-slate-200/60 bg-[#f7f9fc]/95 backdrop-blur-lg">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#070b09]/96 backdrop-blur-xl">
         <nav
           aria-label="Navegação principal"
           className={`${sectionClass} flex h-[76px] items-center justify-between gap-5`}
         >
           <Link to="/" aria-label="vouRevisar início">
-            <BrandLogo motion="entrance" className="!text-[#172033]" />
+            <BrandLogo motion="entrance" className="!text-white" />
           </Link>
           <div className="hidden items-center gap-7 lg:flex">
             {links.map(([label, href]) => (
               <a
                 key={href}
                 href={href}
-                className="text-sm font-medium text-slate-600 hover:text-blue-700"
+                className="text-sm font-medium text-white/65 transition-colors hover:text-white"
               >
                 {label}
               </a>
             ))}
-            <Link to="/login" className="text-sm font-bold">
+            <Link to="/login" className="text-sm font-bold text-white">
               Entrar
             </Link>
           </div>
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className="grid size-11 place-items-center rounded-xl border border-slate-200 lg:hidden"
+                className="grid size-11 place-items-center rounded-xl border border-white/15 text-white lg:hidden"
                 aria-label="Abrir menu"
               >
                 <Menu size={21} />
               </button>
             </SheetTrigger>
-            <SheetContent className="bg-white text-slate-900">
+            <SheetContent className="border-white/10 bg-[#0b110e] text-white">
               <SheetTitle>Menu vouRevisar</SheetTitle>
               <div className="mt-10 flex flex-col gap-6">
                 {links.map(([label, href]) => (
@@ -119,70 +119,91 @@ export default function LandingPage() {
         </nav>
       </header>
       <main>
-        <section
-          ref={hero}
-          className={`${sectionClass} grid items-center gap-12 pb-16 pt-14 lg:min-h-[710px] lg:grid-cols-[0.95fr_1.05fr] lg:py-20`}
-        >
-          <motion.div
-            initial={false}
-            animate={reduced ? undefined : { y: [15, 0], opacity: [0.7, 1] }}
-            transition={{ duration: 0.7 }}
-          >
-            <p className="mb-7 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
-              <span className="size-2 rounded-full bg-[#2f80ff]" aria-hidden="true" />
-              A nova forma de aprender
-            </p>
-            <h1 className="text-[clamp(3rem,5.75vw,5.35rem)] font-extrabold leading-[0.98] tracking-[-0.04em] text-[#101a33]">
+        <section ref={hero} className="relative isolate overflow-hidden border-b border-white/10">
+          <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_72%_42%,rgba(42,161,82,0.23),transparent_31%),radial-gradient(circle_at_54%_18%,rgba(47,128,255,0.12),transparent_26%)]" />
+          <div aria-hidden="true" className="absolute -right-32 top-20 -z-10 size-[520px] rounded-full bg-[#34d058]/10 blur-[110px]" />
+          <div className={`${sectionClass} grid items-center gap-8 pb-16 pt-10 sm:gap-12 sm:pb-20 sm:pt-16 lg:min-h-[760px] lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:py-24`}>
+            <motion.div
+              initial={false}
+              animate={reduced ? undefined : { y: [15, 0], opacity: [0.7, 1] }}
+              transition={{ duration: 0.7 }}
+              className="relative z-10"
+            >
+            <h1 className="max-w-[720px] text-[clamp(2.65rem,5.75vw,5.6rem)] font-extrabold leading-[0.96] tracking-[-0.04em] text-white">
               Pare de esquecer.
               <br />
               Comece a{" "}
-              <span className="relative inline-block text-[#2f80ff]">
+              <span className="relative inline-block text-[#70dc51]">
                 Revisar
                 <span
                   aria-hidden="true"
-                  className="absolute -bottom-1 left-0 h-1.5 w-[104%] -rotate-1 rounded-full bg-[#70dc51]"
+                  className="absolute -bottom-2 left-0 h-1 w-[104%] -rotate-1 rounded-full bg-[#2f80ff]"
                 />
               </span>
               .
             </h1>
-            <p className="mt-6 max-w-md text-base leading-7 text-slate-600">
+            <p className="mt-5 max-w-lg text-base leading-7 text-white/68 sm:mt-7 sm:text-lg sm:leading-8">
               Seu edital, ciclo, foco e revisões em uma rotina que deixa claro o
               que fazer agora — e por que continuar.
             </p>
-            <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-5">
+            <div className="mt-6 flex flex-row items-center gap-4 sm:mt-8 sm:gap-5">
               <TrialLink authenticated={Boolean(user)} />
               <a
                 href="#funcionalidades"
-                className="inline-flex min-h-12 items-center gap-2 text-sm font-semibold"
+                className="inline-flex min-h-12 items-center gap-2 text-sm font-semibold text-white/78 transition-colors hover:text-white"
               >
                 Ver como funciona
                 <ArrowRight size={16} />
               </a>
             </div>
-            <p className="mt-5 flex items-center gap-2 text-xs text-slate-500">
-              <Check size={15} className="text-green-700" />7 dias grátis. Sem
+            <p className="mt-4 flex items-center gap-2 text-xs text-white/52 sm:mt-5">
+              <Check size={15} className="text-[#70dc51]" />7 dias grátis. Sem
               cartão. Sem cobrança automática.
             </p>
-          </motion.div>
-          <motion.div
-            style={reduced ? undefined : { y: previewY }}
-            className="relative overflow-hidden rounded-[32px] bg-[#e9f0fc] p-3 shadow-[0_24px_60px_-38px_rgba(23,101,220,0.52)] sm:p-5"
-          >
-            <div
-              aria-hidden="true"
-              className="absolute right-0 top-0 h-28 w-2/5 rounded-bl-[56px] bg-[#d6e5ff]"
-            />
-            <div className="relative">
+            </motion.div>
+            <motion.div
+              style={reduced ? undefined : { y: previewY }}
+              className="relative mx-auto w-full max-w-[660px] lg:mx-0"
+            >
+            <div aria-hidden="true" className="absolute inset-[12%_8%] rounded-full bg-[#35d05b]/25 blur-[80px]" />
+            <div className="relative rounded-[28px] border border-white/10 bg-[#111713]/90 p-2 shadow-[0_38px_90px_-32px_rgba(0,0,0,0.92)] sm:p-3">
               <ProductPreview />
             </div>
-            <p className="mt-4 text-center text-[11px] text-slate-500">
+            <motion.div
+              animate={reduced ? undefined : { y: [0, -7, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -left-1 -top-4 block w-[148px] rounded-2xl border border-white/10 bg-[#151b17]/95 p-3 shadow-[0_22px_48px_-24px_rgba(0,0,0,0.9)] backdrop-blur-xl sm:-left-3 sm:top-7 sm:w-48 sm:p-4 lg:-left-16"
+            >
+              <Target className="mb-3 text-[#70dc51]" size={20} />
+              <p className="text-xs font-bold text-white">Próxima ação definida</p>
+              <p className="mt-1 text-xs leading-5 text-white/55">Revisar Direito Constitucional</p>
+            </motion.div>
+            <motion.div
+              animate={reduced ? undefined : { y: [0, 8, 0] }}
+              transition={{ duration: 5.8, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -right-1 top-16 block w-[150px] rounded-2xl border border-[#70dc51]/20 bg-[#111713]/95 p-3 shadow-[0_22px_48px_-24px_rgba(53,208,91,0.55)] backdrop-blur-xl sm:bottom-4 sm:right-0 sm:top-auto sm:w-52 sm:p-4 lg:-right-8"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <RotateCcw className="text-[#70dc51]" size={19} />
+                <span className="text-xs font-bold text-[#9deb78]">Hoje</span>
+              </div>
+              <p className="mt-3 text-xs font-bold text-white">Revisão no momento certo</p>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full w-3/4 rounded-full bg-[#70dc51]" />
+              </div>
+            </motion.div>
+            <div className="absolute right-3 top-36 hidden size-11 place-items-center rounded-xl bg-[#2f80ff] text-white shadow-[0_14px_34px_-14px_rgba(47,128,255,0.9)] sm:right-4 sm:top-8 sm:grid">
+              <Sparkles size={19} aria-hidden="true" />
+            </div>
+            <p className="relative mt-5 text-center text-xs text-white/45">
               Componentes reais do produto, com dados de demonstração.
             </p>
-          </motion.div>
+            </motion.div>
+          </div>
         </section>
-        <div className="border-y border-slate-200 bg-white">
+        <div className="border-b border-white/10 bg-[#0a100d]">
           <div
-            className={`${sectionClass} flex flex-wrap items-center justify-between gap-x-5 gap-y-4 py-6 text-sm font-semibold text-slate-500`}
+            className={`${sectionClass} flex flex-wrap items-center justify-between gap-x-5 gap-y-4 py-6 text-sm font-semibold text-white/52`}
           >
             {[
               "Edital organizado",
@@ -192,7 +213,7 @@ export default function LandingPage() {
               "Revisões e evolução",
             ].map((label) => (
               <span key={label} className="flex items-center gap-2">
-                <Check size={15} className="text-green-700" />
+                <Check size={15} className="text-[#70dc51]" />
                 {label}
               </span>
             ))}
@@ -206,9 +227,10 @@ export default function LandingPage() {
         </div>
         <section
           ref={pricing}
-          className={`${sectionClass} py-20 lg:py-24 [&_#precos]:scroll-mt-24`}
+          className={`${sectionClass} py-20 lg:py-28 [&_#precos]:scroll-mt-24`}
         >
-          {catalog.isError || (!catalog.isLoading && !plans) ? (
+          <div className="rounded-[28px] bg-[#f7f9fc] p-5 text-[#172033] shadow-[0_30px_80px_-38px_rgba(53,208,91,0.35)] sm:p-8 lg:p-10">
+            {catalog.isError || (!catalog.isLoading && !plans) ? (
             <div
               id="precos"
               className="scroll-mt-24 rounded-2xl bg-slate-100 p-8"
@@ -239,11 +261,13 @@ export default function LandingPage() {
                     })
               }
             />
-          )}
-          <LandingTrust />
+            )}
+            <LandingTrust />
+          </div>
         </section>
         <LandingQuestions />
-        <section className="bg-[#e9f1ff] py-16 sm:py-20">
+        <section className="relative overflow-hidden border-y border-white/10 bg-[#0c1510] py-16 sm:py-20">
+          <div aria-hidden="true" className="absolute right-0 top-0 size-72 rounded-full bg-[#70dc51]/10 blur-[90px]" />
           <div
             className={`${sectionClass} flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-center`}
           >
@@ -251,11 +275,11 @@ export default function LandingPage() {
               <h2 className={`${headingClass} max-w-2xl`}>
                 Sua preparação já tem conteúdo.
                 <br />
-                <span className="text-[#1765dc]">
+                <span className="text-[#70dc51]">
                   Dê a ela uma próxima ação.
                 </span>
               </h2>
-              <p className="mt-5 text-sm text-slate-600">
+              <p className="mt-5 text-sm text-white/60">
                 Comece com o seu edital. O próximo passo vem junto.
               </p>
             </div>
@@ -267,8 +291,8 @@ export default function LandingPage() {
         className={`${sectionClass} flex flex-col gap-8 py-10 pb-28 sm:pb-10`}
       >
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-          <BrandLogo className="!text-[#172033]" />
-          <div className="flex flex-wrap gap-5 text-xs text-slate-600">
+          <BrandLogo className="!text-white" />
+          <div className="flex flex-wrap gap-5 text-xs text-white/55">
             {[
               ["Privacidade", "/privacidade"],
               ["Termos", "/termos"],
@@ -281,7 +305,7 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-white/40">
           © {new Date().getFullYear()} vouRevisar. Cada próximo passo conta.
         </p>
       </footer>
@@ -289,7 +313,7 @@ export default function LandingPage() {
         <motion.div
           initial={reduced ? false : { opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white p-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-5 sm:right-5 sm:rounded-2xl sm:border sm:p-2"
+          className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0a100d]/95 p-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur-xl sm:inset-x-auto sm:bottom-5 sm:right-5 sm:rounded-2xl sm:border sm:p-2"
         >
           <TrialLink compact className="w-full" />
         </motion.div>
