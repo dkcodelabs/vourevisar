@@ -20,11 +20,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
-import { PriorityQueueCard } from '@/components/dashboard-decision/PriorityQueueCard';
 import { DashboardDataIssueNotice } from '@/components/dashboard-decision/DashboardDataIssueNotice';
 import { DashboardCommandHero } from '@/components/dashboard-decision/DashboardCommandHero';
 import { DashboardPulseStrip } from '@/components/dashboard-decision/DashboardPulseStrip';
-import { DashboardActivityStrip } from '@/components/dashboard-decision/DashboardActivityStrip';
+import { DashboardUpcomingReviewsCard } from '@/components/dashboard-decision/DashboardUpcomingReviewsCard';
 import type {
   DashboardDecisionModel,
   DashboardNavigate,
@@ -108,12 +107,21 @@ export const DashboardDecisionExperience = ({
 
       <DashboardPulseStrip model={model} onNavigate={onNavigate} onRetryPractice={() => onRetryDataIssue?.('practice') ?? Promise.resolve()} />
 
-      <section className="grid grid-cols-1 gap-4 [grid-template-areas:'priority'_'tasks'_'activity'] xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)] xl:[grid-template-areas:'priority_tasks'_'activity_tasks'] xl:gap-5">
-        <PriorityQueueCard className="[grid-area:priority]" model={model} onNavigate={onNavigate} />
-        <div className="[grid-area:tasks]">
-          <RecentRemindersCard reminders={model.reminders} onAddReminder={onAddReminder} onToggleReminder={onToggleReminder} onDeleteReminder={onDeleteReminder} isAdding={isAddingReminder} isDeleting={isDeletingReminder} isUnavailable={model.dataIssues.includes('reminders')} onRetry={() => onRetryDataIssue?.('reminders') ?? Promise.resolve()} />
-        </div>
-        <DashboardActivityStrip className="[grid-area:activity]" activityDays={model.activityDays} onNavigate={onNavigate} isUnavailable={model.dataIssues.includes('activity')} onRetry={() => onRetryDataIssue?.('activity') ?? Promise.resolve()} />
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.85fr)] lg:gap-5">
+        <DashboardUpcomingReviewsCard
+          upcoming={model.upcomingReviews}
+          onNavigate={onNavigate}
+        />
+        <RecentRemindersCard
+          reminders={model.reminders}
+          onAddReminder={onAddReminder}
+          onToggleReminder={onToggleReminder}
+          onDeleteReminder={onDeleteReminder}
+          isAdding={isAddingReminder}
+          isDeleting={isDeletingReminder}
+          isUnavailable={model.dataIssues.includes('reminders')}
+          onRetry={() => onRetryDataIssue?.('reminders') ?? Promise.resolve()}
+        />
       </section>
     </motion.main>
   );
@@ -128,8 +136,16 @@ const DashboardDecisionSkeleton = () => (
       </div>
       <Skeleton className="h-12 w-48 rounded-2xl" />
     </div>
-    <Skeleton className="h-28 rounded-2xl" />
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)] xl:gap-5"><Skeleton className="h-80 rounded-2xl" /><Skeleton className="h-80 rounded-2xl" /></div>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <Skeleton className="h-32 rounded-2xl" />
+      <Skeleton className="h-32 rounded-2xl" />
+      <Skeleton className="h-32 rounded-2xl" />
+      <Skeleton className="h-32 rounded-2xl" />
+    </div>
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.85fr)] lg:gap-5">
+      <Skeleton className="h-64 rounded-2xl" />
+      <Skeleton className="h-64 rounded-2xl" />
+    </div>
   </div>
 );
 
@@ -173,7 +189,7 @@ export const RecentRemindersCard = ({
 
   return (
     <>
-      <Card id="lembretes" className="dashboard-reminders-card overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_4px_24px_-8px_rgba(0,0,0,0.06)] dark:border-white/[0.06] dark:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.4)]">
+      <Card id="lembretes" className="dashboard-reminders-card overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_4px_24px_-8px_rgba(0,0,0,0.06)] dark:border-white/[0.10] dark:bg-gradient-to-b dark:from-[#1c1e26]/95 dark:via-[#181a22]/95 dark:to-[#13141b]/95 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-10px_rgba(0,0,0,0.6)]">
       <CardHeader className="flex-row items-center justify-between gap-3 px-4 pb-1.5 pt-4 sm:px-5">
         <div><CardTitle className="text-sm font-extrabold text-foreground sm:text-base">Minhas tarefas</CardTitle><p className="mt-1 text-[10px] text-content-muted">Anotações rápidas para não perder o fio</p></div>
         <Button

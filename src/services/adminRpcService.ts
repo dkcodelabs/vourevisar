@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 
 type AdminRpcArgs = Record<string, unknown>;
 
@@ -16,6 +17,16 @@ export async function invokeAdminRpc<T = unknown>(
     body: { action, args },
   });
 
+  if (error instanceof FunctionsHttpError) {
+    const body = await error.context.json().catch(() => null) as {
+      error?: string;
+      code?: string;
+    } | null;
+
+    if (body?.error) {
+      throw new Error(body.code ? `${body.error} (código ${body.code})` : body.error);
+    }
+  }
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
 

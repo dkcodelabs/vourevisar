@@ -22,6 +22,7 @@ import {
   resolveDashboardNavigation,
 } from '@/utils/dashboardDecision';
 import { buildActiveTopicScope, filterHistoryRowsByActiveTopicIds } from '@/utils/cycleAnalyticsScope';
+import { buildUpcomingReviews } from '@/utils/upcomingReviews';
 import { toastManager } from '@/utils/toastManager';
 import type {
   DashboardCycleSubject,
@@ -154,6 +155,11 @@ export const useDashboardDecisionModel = () => {
       return !isAfter(due, exam);
     }).length;
   }, [examDate, futureReviews]);
+
+  const upcomingReviews = useMemo(
+    () => buildUpcomingReviews(todayReviews, overdueReviews, futureReviews),
+    [todayReviews, overdueReviews, futureReviews],
+  );
 
   const cycleActions = useMemo(() => getNextCycleActions(dashboardSubjects, 3), [dashboardSubjects]);
   const progressSummary = useMemo(() => buildProgressSummary(dashboardSubjects), [dashboardSubjects]);
@@ -438,6 +444,7 @@ export const useDashboardDecisionModel = () => {
     continueCycleItems: cycleActions,
     reminders,
     activityDays: hasActiveCycle ? activityDays : [],
+    upcomingReviews,
     progressSummary,
     practicePulse: {
       status: practiceOverview.isLoading

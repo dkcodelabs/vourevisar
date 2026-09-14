@@ -147,7 +147,7 @@ export function DashboardCommandHero({
     : null;
 
   return (
-    <div className="dashboard-command-hero rounded-2xl border border-border/80 bg-card p-4 sm:p-5 md:p-6 shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] dark:border-white/[0.06] dark:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.4)]">
+    <div className="dashboard-command-hero rounded-2xl border border-border/80 bg-card p-4 sm:p-5 md:p-6 shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] dark:border-white/[0.10] dark:bg-gradient-to-b dark:from-[#1c1e26]/95 dark:via-[#181a22]/95 dark:to-[#13141b]/95 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-10px_rgba(0,0,0,0.6)]">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         {/* Contexto do concurso */}
         <div className="min-w-0 flex-1">
@@ -261,7 +261,7 @@ export function DashboardCommandHero({
         </div>
 
         {/* HUD Telemetria Cockpit: Progresso + Contagem de Missão (Sem Caixas Presas) */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 rounded-2xl border border-border/70 bg-secondary/30 dark:bg-white/[0.02] p-3.5 sm:px-5 sm:py-3.5 backdrop-blur-md shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 rounded-2xl border border-border/70 bg-secondary/30 dark:border-white/[0.08] dark:bg-black/30 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] p-3.5 sm:px-5 sm:py-3.5 backdrop-blur-md shrink-0">
           {/* 1. Radar de Progresso Circular + Métricas */}
           {hasTopics ? (
             <div className="dashboard-progress-summary flex items-center gap-3.5 min-w-[210px]">

@@ -339,13 +339,13 @@ describe('Subjects cycle integration', () => {
     setScenario({ subjects: [], cycle: null });
   });
 
-  it('keeps the loading state while edital origins are loading', async () => {
+  it('keeps the cycle available while optional edital origins are loading', async () => {
     setScenario({ subjects: [], cycle: null, originsLoading: true });
 
     renderSubjects();
 
-    expect(await screen.findByLabelText('Carregando ciclo de estudos')).toHaveAttribute('aria-busy', 'true');
-    expect(screen.queryByText('Seu ciclo ainda não está montado')).not.toBeInTheDocument();
+    expect(await screen.findByText('Comece pelo seu primeiro edital')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Carregando ciclo de estudos')).not.toBeInTheDocument();
   });
 
   it('shows the empty state only after loading and navigates to Meus Editais', async () => {

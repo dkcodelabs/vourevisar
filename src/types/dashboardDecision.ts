@@ -111,6 +111,25 @@ export interface DashboardRecentPaceDay {
   reviewedCount: number;
 }
 
+export interface DashboardUpcomingReviewDay {
+  date: string;
+  dayOfWeek: string;
+  dayLabel: string;
+  reviewCount: number;
+  overdueCount?: number;
+  isToday: boolean;
+}
+
+export interface DashboardUpcomingReviews {
+  days: DashboardUpcomingReviewDay[];
+  totalInWindow: number;
+  totalBeyondWindow: number;
+  peakDay: {
+    dayLabel: string;
+    count: number;
+  } | null;
+}
+
 
 export interface DashboardProgressSummary {
   startedTopics: number;
@@ -150,6 +169,7 @@ export interface DashboardDecisionModel {
   continueCycleItems: DashboardAction[];
   reminders: DashboardReminder[];
   activityDays: DashboardRecentPaceDay[];
+  upcomingReviews: DashboardUpcomingReviews;
   progressSummary: DashboardProgressSummary;
   practicePulse: DashboardPracticePulse;
   totals: {

@@ -1334,6 +1334,13 @@
     -moz-osx-font-smoothing: grayscale;
     /* Prevent horizontal scroll globally */
     overflow-x: hidden;
+    background-color: hsl(var(--background));
+    color-scheme: light;
+    transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   /* Desktop density follows the product scale validated at 90% browser zoom.
@@ -1349,12 +1356,7 @@
     /* Prevent any scroll on body - only inner content scrolls */
     overflow-x: hidden;
     height: 100%;
-    /* Smooth transitions - optimized to avoid jitter */
-    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    /* HW Acceleration to stop trembling */
-    transform: translate3d(0, 0, 0);
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
+    transition: background-color 180ms cubic-bezier(0.4, 0, 0.2, 1);
     image-rendering: -webkit-optimize-contrast;
   }
 

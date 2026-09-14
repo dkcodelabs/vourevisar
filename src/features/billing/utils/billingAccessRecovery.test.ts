@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BillingOverview } from '@/features/billing/types';
+import type { BillingOverview, BillingSubscription } from '@/features/billing/types';
 import {
   getBillingAccessRecoveryState,
   getCurrentAccessName,
@@ -59,7 +59,7 @@ describe('billingAccessRecovery', () => {
     [{ ...inactiveOverview, last_expired_access: { kind: 'initial_trial' as const, ended_at: '2026-09-07T00:00:00Z' } }, 'Seu teste de 7 dias terminou'],
     [{ ...inactiveOverview, last_expired_access: { kind: 'courtesy' as const, ended_at: '2026-09-07T00:00:00Z' } }, 'Sua cortesia terminou'],
     [{ ...inactiveOverview, source: 'stripe' as const, status: 'canceled', access_until: '2026-09-07T00:00:00Z' }, 'Sua assinatura foi encerrada'],
-    [{ ...inactiveOverview, source: 'stripe' as const, status: 'unpaid', subscription: { status: 'unpaid' as const, access_suspended_at: '2026-09-07T00:00:00Z' } }, 'Seu pagamento precisa de atenção'],
+    [{ ...inactiveOverview, source: 'stripe' as const, status: 'unpaid', subscription: { status: 'unpaid' as const, access_suspended_at: '2026-09-07T00:00:00Z' } as unknown as BillingSubscription }, 'Seu pagamento precisa de atenção'],
   ])('keeps the access cause explicit: %s', (overview, title) => {
     expect(getBillingAccessRecoveryState(overview)?.title).toBe(title);
   });

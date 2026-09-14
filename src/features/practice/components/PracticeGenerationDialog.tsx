@@ -17,10 +17,8 @@ type PracticeGenerationDialogProps = {
   state: PracticeGenerationState;
   topic: PracticeMaterialTopic | null;
   onOpenChange: (open: boolean) => void;
-  onPracticeQuestions: () => void;
-  onPracticeFlashcards: () => void;
+  onReturnToComposer: () => void;
   onChooseAnotherTopic: () => void;
-  openingFormat?: "questions" | "flashcards" | null;
 };
 
 const countLabel = (count: number, singular: string, plural: string) => `${count} ${count === 1 ? singular : plural}`;
@@ -30,10 +28,8 @@ export const PracticeGenerationDialog = ({
   state,
   topic,
   onOpenChange,
-  onPracticeQuestions,
-  onPracticeFlashcards,
+  onReturnToComposer,
   onChooseAnotherTopic,
-  openingFormat = null,
 }: PracticeGenerationDialogProps) => {
   const subjectName = topic?.subjectName ?? "Tópico selecionado";
   const topicName = topic?.name ?? "Aguardando os detalhes do tópico";
@@ -56,7 +52,7 @@ export const PracticeGenerationDialog = ({
               <DialogTitle>Preparando material</DialogTitle>
               {topicIdentity}
               <DialogDescription className="mt-4 leading-relaxed">
-                O lote será salvo em Seu material. Você pode escolher como praticar agora ou voltar depois.
+                O lote ficará disponível neste treino. Você pode escolher como praticar agora ou voltar depois.
               </DialogDescription>
             </DialogHeader>
             <div className="flex justify-end">
@@ -88,21 +84,16 @@ export const PracticeGenerationDialog = ({
               </div>
               <DialogTitle>Material pronto para praticar</DialogTitle>
               {topicIdentity}
-              <DialogDescription className="mt-4 leading-relaxed">Seu lote está salvo. Escolha um formato agora ou volte quando quiser.</DialogDescription>
+              <DialogDescription className="mt-4 leading-relaxed">Seu lote está pronto. Voltaremos ao compositor com seu foco, formato e quantidade preservados.</DialogDescription>
             </DialogHeader>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm" aria-label="Material criado">
               <p className="inline-flex items-center gap-2 text-content-muted"><ListChecks aria-hidden="true" className="size-4 text-foreground/70" /><span className="font-semibold tabular-nums text-foreground">{countLabel(topic?.questionCount ?? 0, "questão", "questões")}</span></p>
               <p className="inline-flex items-center gap-2 text-content-muted"><Layers3 aria-hidden="true" className="size-4 text-foreground/70" /><span className="font-semibold tabular-nums text-foreground">{countLabel(topic?.flashcardCount ?? 0, "flashcard", "flashcards")}</span></p>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" className="h-11 w-full sm:w-auto" disabled={!topic?.questionCount || Boolean(openingFormat)} onClick={onPracticeQuestions}>
-                <ListChecks className="size-4" /> {openingFormat === "questions" ? "Abrindo questões…" : "Resolver questões agora"}
-              </Button>
-              <Button variant="outline" className="h-11 w-full sm:w-auto" disabled={!topic?.flashcardCount || Boolean(openingFormat)} onClick={onPracticeFlashcards}>
-                <Layers3 className="size-4" /> {openingFormat === "flashcards" ? "Abrindo flashcards…" : "Praticar flashcards"}
-              </Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="ghost" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Decidir depois</Button>
+              <Button className="h-11 w-full sm:w-auto" onClick={onReturnToComposer}>Voltar ao treino</Button>
             </div>
-            <div className="flex justify-end"><Button variant="ghost" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Decidir depois</Button></div>
           </>
         )}
       </DialogContent>

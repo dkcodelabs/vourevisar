@@ -487,7 +487,7 @@ const Subjects = () => {
     userId: user?.id,
   });
 
-	  if (isLoading || isOriginsLoading || loading) {
+  if (isLoading || loading) {
     return <PageLoadingState label="Carregando ciclo de estudos" />;
   }
 

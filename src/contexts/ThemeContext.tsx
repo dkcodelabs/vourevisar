@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useLayoutEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -8,6 +8,14 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+const applyThemeClass = (theme: Theme) => {
+  const root = window.document.documentElement;
+  const isLoginPage = window.location.pathname === '/login' ||
+    window.location.pathname === '/reset-password';
+
+  root.classList.toggle('dark', theme === 'dark' || isLoginPage);
+};
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
@@ -34,23 +42,17 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   });
 
   const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
+    // A classe raiz precisa trocar no mesmo evento do clique. Esperar o effect
+    // roda uma pintura com os tokens anteriores e expõe o canvas branco do browser.
+    applyThemeClass(newTheme);
     localStorage.setItem('theme', newTheme);
+    setThemeState(newTheme);
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = window.document.documentElement;
 
-    // Verificar se estamos na página base de acesso livre
-    const isLoginPage = window.location.pathname === '/login' ||
-      window.location.pathname === '/reset-password';
-
-    // Ao invés de forçar light (claro), vamos FORÇAR DARK na página de login
-    if (theme === 'dark' || isLoginPage) {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    applyThemeClass(theme);
 
     // Limpeza de variáveis inline do testador temporário para garantir os tokens oficiais
     if (localStorage.getItem('vourevisar_temp_palette_id')) {

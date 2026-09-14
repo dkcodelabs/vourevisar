@@ -11,6 +11,7 @@ import { ExamPacePanel } from './ExamPacePanel';
 import { DashboardDataIssueNotice } from './DashboardDataIssueNotice';
 import { DashboardCommandHero } from './DashboardCommandHero';
 import { DashboardPulseStrip } from './DashboardPulseStrip';
+import { DashboardUpcomingReviewsCard } from './DashboardUpcomingReviewsCard';
 import type { DashboardAction, DashboardDecisionModel } from '@/types/dashboardDecision';
 
 class ResizeObserverMock {
@@ -63,6 +64,20 @@ const missingCycleModel: DashboardDecisionModel = {
     studiedCount: 1,
     reviewedCount: 0,
   }],
+  upcomingReviews: {
+    days: [
+      { date: '2026-06-21', dayOfWeek: 'DOM', dayLabel: 'Hoje', reviewCount: 0, isToday: true },
+      { date: '2026-06-22', dayOfWeek: 'SEG', dayLabel: 'Amanhã', reviewCount: 0, isToday: false },
+      { date: '2026-06-23', dayOfWeek: 'TER', dayLabel: '23/06', reviewCount: 0, isToday: false },
+      { date: '2026-06-24', dayOfWeek: 'QUA', dayLabel: '24/06', reviewCount: 0, isToday: false },
+      { date: '2026-06-25', dayOfWeek: 'QUI', dayLabel: '25/06', reviewCount: 0, isToday: false },
+      { date: '2026-06-26', dayOfWeek: 'SEX', dayLabel: '26/06', reviewCount: 0, isToday: false },
+      { date: '2026-06-27', dayOfWeek: 'SÁB', dayLabel: '27/06', reviewCount: 0, isToday: false },
+    ],
+    totalInWindow: 0,
+    totalBeyondWindow: 0,
+    peakDay: null,
+  },
   progressSummary: {
     startedTopics: 0,
     inProgressTopics: 0,
@@ -136,7 +151,7 @@ describe('DashboardDecisionExperience', () => {
     expect(onNavigate).toHaveBeenCalledExactlyOnceWith('/meus-editais');
   });
 
-  it('keeps the subject, topic and reason while deferring the complementary explanation', () => {
+  it('renders the cockpit pulse, activity and reminders in the primary viewport', () => {
     const onNavigate = vi.fn();
     render(
       <DashboardDecisionExperience
@@ -153,26 +168,6 @@ describe('DashboardDecisionExperience', () => {
           pace: {
             ...missingCycleModel.pace,
             state: 'ready',
-          },
-          nextBestAction: {
-            id: 'start-portugues-crase',
-            kind: 'start_cycle_topic',
-            tone: 'info',
-            title: 'Crase',
-            description: 'PORTUGUES • Primeiro contato',
-            reason: 'Alterna as matérias pela ordem que você definiu no Ciclo de Estudos.',
-            scientificBasis: 'Primeiro contato organizado reduz troca de contexto e mantém progresso incremental.',
-            primaryLabel: 'Iniciar estudo',
-            primaryHref: '/ciclo-estudos',
-            secondaryLabel: 'Ver no ciclo',
-            secondaryHref: '/ciclo-estudos',
-            target: {
-              subjectId: 'subject-portugues',
-              topicId: 'topic-crase',
-              subjectName: 'PORTUGUES',
-              topicName: 'Crase',
-            },
-            priorityScore: 100,
           },
           totals: {
             ...missingCycleModel.totals,
@@ -195,21 +190,19 @@ describe('DashboardDecisionExperience', () => {
       />,
     );
 
-    expect(screen.getByText('PORTUGUES')).toBeInTheDocument();
-    expect(screen.getByText('Crase')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Agora e depois' })).toBeInTheDocument();
+    expect(screen.getByText('TRT')).toBeInTheDocument();
+    expect(screen.getByText('Analista')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Pulso de estudo' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Minhas tarefas' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Atividade recente' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Previsão de revisões' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Agora e depois' })).not.toBeInTheDocument();
     expect(screen.queryByText('Consistência recente')).not.toBeInTheDocument();
     expect(screen.queryByText('Mapa de dificuldade')).not.toBeInTheDocument();
     expect(screen.queryByText('Mapa de cobrança')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Iniciar estudo' }));
+    fireEvent.click(screen.getByRole('button', { name: /Estudo hoje/ }));
     expect(onNavigate).toHaveBeenCalledTimes(1);
-    expect(onNavigate).toHaveBeenCalledWith('/ciclo-estudos', {
-      subjectId: 'subject-portugues', topicId: 'topic-crase', subjectName: 'PORTUGUES', topicName: 'Crase',
-    });
+    expect(onNavigate).toHaveBeenCalledWith('/ciclo-estudos');
   });
 });
 
@@ -820,5 +813,57 @@ describe('RecentRemindersCard', () => {
 
     expect(screen.getByTestId('reminders-list')).toHaveClass('overflow-x-hidden');
     expect(screen.getByRole('button', { name: 'Excluir lembrete: Revisar constitucional' })).toHaveClass('size-5');
+  });
+});
+
+describe('DashboardUpcomingReviewsCard', () => {
+  const upcomingFixture = {
+    days: [
+      { date: '2026-09-15', dayOfWeek: 'TER', dayLabel: 'Hoje', reviewCount: 4, overdueCount: 2, isToday: true },
+      { date: '2026-09-16', dayOfWeek: 'QUA', dayLabel: 'Amanhã', reviewCount: 8, isToday: false },
+      { date: '2026-09-17', dayOfWeek: 'QUI', dayLabel: '17/09', reviewCount: 2, isToday: false },
+      { date: '2026-09-18', dayOfWeek: 'SEX', dayLabel: '18/09', reviewCount: 0, isToday: false },
+      { date: '2026-09-19', dayOfWeek: 'SÁB', dayLabel: '19/09', reviewCount: 3, isToday: false },
+      { date: '2026-09-20', dayOfWeek: 'DOM', dayLabel: '20/09', reviewCount: 1, isToday: false },
+      { date: '2026-09-21', dayOfWeek: 'SEG', dayLabel: '21/09', reviewCount: 5, isToday: false },
+    ],
+    totalInWindow: 23,
+    totalBeyondWindow: 6,
+    peakDay: { dayLabel: 'Amanhã', count: 8 },
+  };
+
+  it('renders heading, total count in window, days columns, and peak insight', () => {
+    const onNavigate = vi.fn();
+    render(<DashboardUpcomingReviewsCard upcoming={upcomingFixture} onNavigate={onNavigate} />);
+
+    expect(screen.getByRole('heading', { name: 'Previsão de revisões' })).toBeInTheDocument();
+    expect(screen.getByText('23 revisões agendadas para os próximos 7 dias')).toBeInTheDocument();
+    expect(screen.getByText('Hoje')).toBeInTheDocument();
+    expect(screen.getByText('+6 no horizonte futuro')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver todas as revisões' }));
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith('/revisoes');
+  });
+
+  it('renders empty state text when no reviews are scheduled in window', () => {
+    const emptyFixture = {
+      days: [
+        { date: '2026-09-15', dayOfWeek: 'TER', dayLabel: 'Hoje', reviewCount: 0, isToday: true },
+        { date: '2026-09-16', dayOfWeek: 'QUA', dayLabel: 'Amanhã', reviewCount: 0, isToday: false },
+        { date: '2026-09-17', dayOfWeek: 'QUI', dayLabel: '17/09', reviewCount: 0, isToday: false },
+        { date: '2026-09-18', dayOfWeek: 'SEX', dayLabel: '18/09', reviewCount: 0, isToday: false },
+        { date: '2026-09-19', dayOfWeek: 'SÁB', dayLabel: '19/09', reviewCount: 0, isToday: false },
+        { date: '2026-09-20', dayOfWeek: 'DOM', dayLabel: '20/09', reviewCount: 0, isToday: false },
+        { date: '2026-09-21', dayOfWeek: 'SEG', dayLabel: '21/09', reviewCount: 0, isToday: false },
+      ],
+      totalInWindow: 0,
+      totalBeyondWindow: 0,
+      peakDay: null,
+    };
+
+    render(<DashboardUpcomingReviewsCard upcoming={emptyFixture} onNavigate={vi.fn()} />);
+
+    expect(screen.getByText('Nenhuma revisão agendada para os próximos 7 dias')).toBeInTheDocument();
+    expect(screen.getByText('Nenhuma revisão agendada nos próximos 7 dias. Excelente momento para iniciar novos tópicos.')).toBeInTheDocument();
   });
 });

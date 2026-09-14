@@ -6,11 +6,42 @@ import {
     Edit2, Database, Sparkles, FileText, CalendarDays, MoreHorizontal
 } from 'lucide-react';
 import type { UserEdital } from '@/pages/Editais';
-import {
-    editalHeaderBadgeTypography,
-    editalHeaderExamBoardTypography,
-    editalHeaderPositionTypography
-} from '@/components/editais/editalHeaderTypography';
+
+const ACRONYMS = new Set([
+    'IDCAP', 'PCES', 'SEFAZ', 'INSS', 'IBGE', 'PF', 'PRF', 'TCU', 'CGU',
+    'TJ', 'TRF', 'TRE', 'TRT', 'MP', 'MPSP', 'MPRJ', 'BACEN', 'STJ', 'STF',
+    'PM', 'PC', 'CBM', 'SEAP', 'DETRAN', 'ANVISA', 'OAB', 'FGV', 'CEBRASPE',
+    'VUNESP', 'FCC', 'AOCP', 'IBFC', 'IADES', 'FUNCAB', 'CESGRANRIO', 'IDAF',
+    'SUS', 'CLT', 'TI', 'RH', 'DF', 'SP', 'RJ', 'MG', 'ES', 'RS', 'PR', 'SC',
+    'BA', 'GO', 'PE', 'CE', 'PA', 'MA', 'MT', 'MS', 'RN', 'PB', 'PI', 'AL', 'SE', 'TO', 'RO', 'AC', 'AP', 'RR', 'AM'
+]);
+
+const LOWERCASE_WORDS = new Set([
+    'de', 'da', 'do', 'das', 'dos', 'e', 'em', 'para', 'com', 'por', 'a', 'o', 'as', 'os', 'na', 'no', 'nas', 'nos'
+]);
+
+const formatProperCase = (text?: string | null): string => {
+    if (!text) return '';
+    const trimmed = text.trim();
+    // If it already contains lowercase letters, respect the existing capitalization
+    const hasLower = /[a-zà-ÿ]/.test(trimmed);
+    const hasUpper = /[A-ZÀ-ß]/.test(trimmed);
+    if (hasLower && hasUpper) return trimmed;
+
+    return trimmed
+        .toLowerCase()
+        .split(/(\s+|[-–—/])/g)
+        .map((segment, index) => {
+            const clean = segment.trim();
+            if (!clean) return segment;
+            const upper = clean.toUpperCase();
+            if (ACRONYMS.has(upper)) return upper;
+            const lower = clean.toLowerCase();
+            if (index > 0 && LOWERCASE_WORDS.has(lower)) return lower;
+            return clean.charAt(0).toUpperCase() + clean.slice(1);
+        })
+        .join('');
+};
 
 interface EditalCardProps {
     edital: UserEdital;
@@ -90,111 +121,132 @@ export const EditalCard = ({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className="glow-card group relative mx-auto flex h-full w-full max-w-[460px] flex-col overflow-hidden rounded-3xl border border-border bg-card transition-all duration-300 hover:border-border-strong dark:border-white/5 dark:bg-zinc-900/40 dark:hover:border-white/10 xl:mx-0"
+            className="group relative mx-auto flex h-full w-full max-w-[460px] flex-col overflow-hidden rounded-2xl border transition-all duration-300 border-border/80 bg-card shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] hover:border-border-strong hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.10)] dark:border-white/[0.10] dark:bg-gradient-to-b dark:from-[#1c1e26]/95 dark:via-[#181a22]/95 dark:to-[#13141b]/95 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-10px_rgba(0,0,0,0.6)] dark:hover:border-white/[0.20] xl:mx-0"
         >
             {/* Destaque (Highlight) via Div Absoluta para evitar recortes */}
             {isHighlighted && (
-                <div className="absolute inset-0 rounded-[inherit] ring-[3px] ring-primary shadow-[0_0_20px_rgba(14,165,233,0.3)] animate-pulse-subtle pointer-events-none z-50" />
+                <div className="absolute inset-0 rounded-[inherit] ring-[2px] ring-primary shadow-[0_0_16px_rgba(59,130,246,0.3)] animate-pulse-subtle pointer-events-none z-50" />
             )}
 
             <div className="flex h-full flex-col p-4 md:p-5">
-                <div className="relative mb-4 min-h-[118px] border-b border-border pb-4 dark:border-white/5">
+                <div className="relative mb-4 border-b border-border/70 pb-4 dark:border-white/[0.08]">
                     <div className="min-w-0">
                         <div className="flex min-w-0 flex-col gap-2">
-                            <div className="flex min-w-0 items-start gap-1.5">
-                                <GraduationCap size={12} className="mt-[2px] shrink-0 text-primary" />
-                                <h3 className="line-clamp-2 text-sm font-black uppercase leading-tight tracking-tight text-content-main [overflow-wrap:anywhere]">
-                                    {edital.year ? `${edital.year} - ` : ''}{displayOrgan}
+                            <div className="flex min-w-0 items-start gap-2.5">
+                                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                                    <GraduationCap size={15} />
+                                </div>
+                                <h3 className="line-clamp-2 text-sm font-bold leading-snug tracking-tight text-foreground sm:text-[15px] [overflow-wrap:anywhere]">
+                                    {edital.year ? `${edital.year} • ` : ''}{formatProperCase(displayOrgan)}
                                 </h3>
                             </div>
-                            <div className="min-h-[31px] space-y-1">
+                            <div className="space-y-1 pl-9.5">
                                 {displayPosition && (
-                                    <p className={`flex min-w-0 items-center gap-1.5 truncate text-content-muted ${editalHeaderPositionTypography}`}>
-                                        <BriefcaseBusiness size={11} className="shrink-0 text-warning" />
-                                        <span className="truncate">{displayPosition}</span>
+                                    <p className="flex min-w-0 items-center gap-1.5 truncate text-xs font-medium text-muted-foreground">
+                                        <BriefcaseBusiness size={12} className="shrink-0 text-amber-500 dark:text-amber-400" />
+                                        <span className="truncate">{formatProperCase(displayPosition)}</span>
                                     </p>
                                 )}
                                 {edital.examBoard && (
-                                    <p className={`flex min-w-0 items-center gap-1.5 truncate text-content-muted ${editalHeaderExamBoardTypography}`}>
-                                        <GraduationCap size={11} className="shrink-0 text-primary" />
-                                        <span className="truncate">{edital.examBoard}</span>
+                                    <p className="flex min-w-0 items-center gap-1.5 truncate text-xs font-medium text-muted-foreground">
+                                        <GraduationCap size={12} className="shrink-0 text-primary/80" />
+                                        <span className="truncate">{formatProperCase(edital.examBoard)}</span>
                                     </p>
                                 )}
                             </div>
                         </div>
                     </div>
-                    <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-2">
-                        <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-content-muted">
-                            <CalendarDays size={11} className="shrink-0 text-content-muted/80" />
+                    <div className="mt-3.5 flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3 dark:border-white/[0.06]">
+                        <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                            <CalendarDays size={13} className="shrink-0 text-muted-foreground/80" />
                             <span className="truncate">{examDateLabel}</span>
                         </span>
-                        <span className={`inline-flex shrink-0 items-center gap-0.5 rounded border px-1 py-px ${editalHeaderBadgeTypography} ${sourceBadge.className}`}>
-                            <SourceBadgeIcon size={8} />
-                            {sourceBadge.label}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                            {edital.mergedIntoCycle && (
+                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    No ciclo
+                                </span>
+                            )}
+                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${sourceBadge.className}`}>
+                                <SourceBadgeIcon size={11} />
+                                {sourceBadge.label}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="mx-auto mb-4 grid w-full grid-cols-1 overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.09] via-background/70 to-primary/[0.08] shadow-[inset_0_1px_0_hsl(var(--foreground)/0.06),0_10px_30px_hsl(var(--primary)/0.05)] min-[360px]:w-[94%] min-[360px]:grid-cols-2 dark:border-primary/20 dark:from-primary/[0.10] dark:via-white/[0.025] dark:to-primary/[0.08]">
-                    <div className="flex min-h-[92px] flex-col px-3 py-3">
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-1">
-                                <BookOpen size={12} className="shrink-0 text-primary" />
-                                <span className="whitespace-nowrap text-[8px] font-bold uppercase tracking-[0.08em] text-content-muted sm:text-[9px] sm:tracking-[0.14em]">Progresso</span>
-                            </div>
-                            <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[8px] font-bold leading-none text-primary sm:text-[9px]">
-                                {progress}%
-                            </span>
-                        </div>
-                        <div className="flex flex-1 flex-col justify-center gap-1">
-                            <div className="flex items-baseline justify-between gap-2">
-                                <span className="text-[11px] font-bold leading-none text-content-main">Tópicos</span>
-                                <span className="text-[11px] font-black leading-none text-content-main">
-                                    {metrics.completedTopics}<span className="font-bold text-content-muted">/{metrics.totalTopics}</span>
+                <div className="mb-4 grid grid-cols-1 gap-2.5 min-[360px]:grid-cols-2">
+                    {/* Card 1: Progresso */}
+                    <div className="flex flex-col justify-between rounded-2xl border border-border/80 bg-card/70 p-3.5 shadow-sm transition-all dark:border-white/[0.08] dark:bg-gradient-to-br dark:from-[#1b1e28]/90 dark:to-[#13151d]/90">
+                        <div>
+                            <div className="mb-2.5 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-blue-500/20 bg-blue-500/10 text-blue-500 dark:text-blue-400">
+                                        <BookOpen size={13} />
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Progresso</span>
+                                </div>
+                                <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-black leading-none text-blue-600 dark:text-blue-400">
+                                    {progress}%
                                 </span>
                             </div>
-                            <div className="flex items-baseline justify-between gap-2">
-                                <span className="text-[11px] font-bold leading-none text-content-muted">Matérias</span>
-                                <span className="text-[11px] font-black leading-none text-content-main">
-                                    {metrics.completedSubjectsCount || 0}<span className="font-bold text-content-muted">/{metrics.subjectsCount}</span>
-                                </span>
+                            <div className="space-y-1.5 py-1">
+                                <div className="flex items-baseline justify-between text-xs">
+                                    <span className="text-[11px] font-medium text-muted-foreground">Tópicos</span>
+                                    <span className="text-xs font-bold text-foreground">
+                                        {metrics.completedTopics} <span className="font-normal text-muted-foreground/70">/ {metrics.totalTopics}</span>
+                                    </span>
+                                </div>
+                                <div className="flex items-baseline justify-between text-xs">
+                                    <span className="text-[11px] font-medium text-muted-foreground">Matérias</span>
+                                    <span className="text-xs font-bold text-foreground">
+                                        {metrics.completedSubjectsCount || 0} <span className="font-normal text-muted-foreground/70">/ {metrics.subjectsCount}</span>
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-content-muted/15">
+
+                        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary/80 dark:bg-white/10">
                             <div
                                 className={`h-full rounded-full transition-all duration-500 ${
                                     progress > 0
-                                        ? 'bg-gradient-to-r from-primary via-sky-400 to-primary'
-                                        : 'bg-content-muted/25'
+                                        ? 'bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 shadow-[0_0_10px_rgba(59,130,246,0.35)]'
+                                        : 'bg-transparent'
                                 }`}
-                                style={{ width: progress > 0 ? `max(${progress}%, 8px)` : '8px' }}
+                                style={{ width: `${progress}%` }}
                             />
                         </div>
                     </div>
-                    
-                    <div className="flex min-h-[92px] flex-col border-t border-border/70 px-3 py-3 min-[360px]:border-l min-[360px]:border-t-0 dark:border-white/10">
-                        <div className="mb-2 flex items-center gap-1.5">
-                            <Clock
-                                size={12}
-                                className={`shrink-0 ${
-                                    metrics.totalStudyMinutes > 0 ? 'text-primary' : 'text-content-muted'
-                                }`}
-                            />
-                            <span className="truncate text-[9px] font-bold uppercase tracking-[0.16em] text-content-muted">Tempo</span>
-                        </div>
-                        <div className="flex flex-1 flex-col justify-center">
-                            <div
-                                className={`font-black leading-none tabular-nums ${
-                                    metrics.totalStudyMinutes > 0
-                                        ? 'text-[24px] text-primary'
-                                        : 'text-[22px] text-content-muted'
-                                }`}
-                            >
-                                {studyTimeLabel}
+
+                    {/* Card 2: Tempo de Estudo */}
+                    <div className="flex flex-col justify-between rounded-2xl border border-border/80 bg-card/70 p-3.5 shadow-sm transition-all dark:border-white/[0.08] dark:bg-gradient-to-br dark:from-[#1b1e28]/90 dark:to-[#13151d]/90">
+                        <div>
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-amber-500/20 bg-amber-500/10 text-amber-500 dark:text-amber-400">
+                                        <Clock size={13} />
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tempo</span>
+                                </div>
+                                <span className="rounded-full border border-border/60 bg-secondary/60 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground dark:border-white/10 dark:bg-white/[0.04]">
+                                    {metrics.totalStudyMinutes > 0 ? 'Total' : '0h'}
+                                </span>
                             </div>
-                            <p className="mt-1 text-[10px] font-bold leading-none text-content-muted">
-                                {studyTimeCaption === 'sem registro' ? 'Sem registro' : 'Tempo de estudo'}
-                            </p>
+
+                            <div className="py-1">
+                                <div className="text-[26px] font-black leading-none tracking-tight tabular-nums text-foreground">
+                                    {studyTimeLabel}
+                                </div>
+                                <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                                    {studyTimeCaption === 'sem registro' ? 'Sem registro' : 'Tempo de estudo'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mt-3 flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                            <span>{metrics.totalStudyMinutes > 0 ? 'Sessões registradas' : 'Inicie um estudo'}</span>
                         </div>
                     </div>
                 </div>
@@ -213,24 +265,24 @@ export const EditalCard = ({
                     </motion.div>
                 )}
 
-                <div className="mt-auto flex min-h-11 items-center justify-between gap-2 border-t border-border/80 pt-3 dark:border-white/5">
+                <div className="mt-auto flex min-h-11 items-center justify-between gap-2 border-t border-border/70 pt-3 dark:border-white/[0.08]">
                     <div className="grid min-w-0 flex-1 grid-cols-2 items-center gap-2">
                         {metrics.subjectsCount > 0 ? (
                             <>
                                 <button
                                     onClick={onViewSubjects}
-                                    className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-primary/25 bg-primary/[0.08] px-2 text-[10px] font-bold text-primary transition-colors duration-200 hover:border-primary/40 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:px-3"
+                                    className="flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-border/80 bg-secondary/50 px-2 text-[11px] font-semibold text-foreground transition-all duration-200 hover:border-border hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:px-3 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
                                 >
-                                    <Eye size={13} className="shrink-0" />
+                                    <Eye size={13} className="shrink-0 text-muted-foreground" />
                                     <span className="truncate">Ver Matérias</span>
                                 </button>
                                 <button
                                     onClick={edital.mergedIntoCycle ? onUnloadCycle : onLoadCycle}
                                     disabled={isProcessing}
-                                    className={`relative flex h-8 min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-2 text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-80 sm:px-3 ${
+                                    className={`relative flex h-9 min-w-0 items-center justify-center gap-1.5 overflow-hidden rounded-xl px-2 text-[11px] font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-80 sm:px-3 ${
                                         edital.mergedIntoCycle
-                                            ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400'
-                                            : 'bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90'
+                                            ? 'border border-border/80 bg-secondary/30 text-muted-foreground hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/30 dark:border-white/10 dark:bg-white/[0.02] dark:hover:bg-destructive/10'
+                                            : 'bg-primary text-primary-foreground shadow-sm shadow-primary/25 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
                                     }`}
                                 >
                                     {isProcessing && processingProgress && (
@@ -238,7 +290,7 @@ export const EditalCard = ({
                                             initial={{ width: 0 }}
                                             animate={{ width: `${processingProgress.percentage}%` }}
                                             className={`absolute inset-y-0 left-0 z-0 opacity-20 ${
-                                                edital.mergedIntoCycle ? 'bg-red-500' : 'bg-white'
+                                                edital.mergedIntoCycle ? 'bg-destructive' : 'bg-white'
                                             }`}
                                         />
                                     )}
@@ -252,11 +304,11 @@ export const EditalCard = ({
                                         ) : edital.mergedIntoCycle ? (
                                             <>
                                                 <X size={13} className="shrink-0" />
-                                                <span className="truncate">Remover</span>
+                                                <span className="truncate">Remover do ciclo</span>
                                             </>
                                         ) : (
                                             <>
-                                                <Play size={13} className="shrink-0" />
+                                                <Play size={13} className="shrink-0 fill-current" />
                                                 <span className="truncate">Carregar Ciclo</span>
                                             </>
                                         )}
@@ -267,15 +319,15 @@ export const EditalCard = ({
                             <>
                                 <button
                                     onClick={onViewSubjects}
-                                    className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2 text-[10px] font-bold text-content-muted transition-colors hover:bg-secondary-strong hover:text-foreground sm:px-3 dark:border-white/5 dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
+                                    className="flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-border/80 bg-secondary/50 px-2 text-[11px] font-semibold text-muted-foreground transition-all duration-200 hover:border-border hover:bg-secondary hover:text-foreground sm:px-3 dark:border-white/10 dark:bg-white/[0.04]"
                                 >
                                     <Eye size={13} className="shrink-0" />
                                     <span className="truncate">Ver</span>
                                 </button>
 
-                                <div className="flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 text-center sm:px-3">
-                                    <AlertTriangle size={13} className="shrink-0 text-amber-400" />
-                                    <span className="truncate text-[10px] font-bold text-amber-400">Sem matérias</span>
+                                <div className="flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-2 text-center sm:px-3">
+                                    <AlertTriangle size={13} className="shrink-0 text-amber-500" />
+                                    <span className="truncate text-[10px] font-bold text-amber-500">Sem matérias</span>
                                 </div>
                             </>
                         )}
@@ -288,7 +340,7 @@ export const EditalCard = ({
                                     onSync?.();
                                 }}
                                 disabled={isProcessing}
-                                className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-success/40 bg-success text-success-foreground transition-colors after:absolute after:-inset-1.5 disabled:opacity-50"
+                                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 transition-colors hover:bg-emerald-500/20 disabled:opacity-50 dark:text-emerald-400"
                                 title="Atualização disponível!"
                                 aria-label="Sincronizar atualização do edital"
                             >
@@ -303,11 +355,11 @@ export const EditalCard = ({
                         <AnimatePresence initial={false}>
                             {showActions && (
                                 <motion.div
-                                    initial={{ opacity: 0, x: 10, scale: 0.96 }}
-                                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                                    exit={{ opacity: 0, x: 10, scale: 0.96 }}
-                                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                                    className="absolute bottom-[calc(100%+8px)] right-0 z-20 flex items-center gap-2 rounded-xl border border-border/80 bg-card/95 p-1.5 shadow-xl shadow-black/20 backdrop-blur-md dark:border-white/10"
+                                    initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 6, scale: 0.95 }}
+                                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                                    className="absolute bottom-[calc(100%+8px)] right-0 z-20 flex items-center gap-1.5 rounded-xl border border-border/80 bg-card/95 p-1.5 shadow-xl shadow-black/20 backdrop-blur-md dark:border-white/10 dark:bg-[#181a22]/95"
                                 >
                                     <button
                                         onClick={(e) => {
@@ -316,11 +368,11 @@ export const EditalCard = ({
                                             onEdit?.();
                                         }}
                                         disabled={isProcessing}
-                                        className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/[0.08] text-primary transition-colors duration-200 after:absolute after:-inset-1.5 hover:border-primary/40 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50"
+                                        className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-secondary/40 text-muted-foreground transition-colors duration-200 hover:border-border hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] dark:hover:text-white"
                                         title="Editar edital"
                                         aria-label="Editar edital"
                                     >
-                                        <Edit2 size={15} />
+                                        <Edit2 size={14} />
                                     </button>
 
                                     <button
@@ -330,14 +382,14 @@ export const EditalCard = ({
                                             onDelete();
                                         }}
                                         disabled={isProcessing}
-                                        className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive transition-colors duration-200 after:absolute after:-inset-1.5 hover:border-destructive/50 hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 disabled:opacity-50"
+                                        className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-destructive/20 bg-destructive/10 text-destructive transition-colors duration-200 hover:border-destructive/40 hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 disabled:opacity-50"
                                         title="Excluir edital"
                                         aria-label="Excluir edital"
                                     >
                                         {isProcessing && !edital.mergedIntoCycle ? (
-                                            <Loader2 size={15} className="animate-spin" />
+                                            <Loader2 size={14} className="animate-spin" />
                                         ) : (
-                                            <Trash2 size={15} />
+                                            <Trash2 size={14} />
                                         )}
                                     </button>
                                 </motion.div>
@@ -350,10 +402,10 @@ export const EditalCard = ({
                                 e.stopPropagation();
                                 setShowActions((current) => !current);
                             }}
-                            className={`relative flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-200 after:absolute after:-inset-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                            className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
                                 showActions
-                                    ? 'border-primary/35 bg-primary/15 text-primary'
-                                    : 'border-primary/20 bg-primary/[0.07] text-primary/80 hover:border-primary/35 hover:bg-primary/15 hover:text-primary'
+                                    ? 'border-border-strong bg-secondary text-foreground'
+                                    : 'border-border/80 bg-secondary/40 text-muted-foreground hover:border-border hover:bg-secondary hover:text-foreground dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] dark:hover:text-white'
                             }`}
                             aria-label={showActions ? 'Ocultar ações do edital' : 'Mostrar ações do edital'}
                             aria-expanded={showActions}

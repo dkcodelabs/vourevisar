@@ -29,6 +29,11 @@ const overview = {
     reason: 'clear' as const,
     estimatedMinutes: 0,
   },
+  recentPerformance: {
+    windowDays: 7 as const,
+    questions: { correct: 0, incorrect: 0, skipped: 0, answered: 0, accuracyPercentage: 0 },
+    flashcards: { recalled: 0, effortful: 0, forgotten: 0, reviewed: 0 },
+  },
 };
 
 const createHarness = () => {
