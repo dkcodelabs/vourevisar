@@ -1022,14 +1022,15 @@
   }
 
   .dark .app-cycle-subject {
-    background: linear-gradient(160deg, #152037 0%, #10182b 100%);
-    border-color: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+    box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
   }
 
   .dark .app-cycle-subject:hover {
-    background: linear-gradient(160deg, #182540 0%, #121c32 100%);
-    border-color: rgba(59, 130, 246, 0.35);
+    background: hsl(var(--surface-raised));
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
   }
 
   .app-cycle-subject-closed {

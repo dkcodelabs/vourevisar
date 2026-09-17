@@ -100,14 +100,14 @@ export function CycleSubjectCard({
                   : isFirstContactDone
                     ? 'border-primary/20 hover:border-primary/35'
                   : 'app-hairline'
-            } ${isClosedInCycle ? 'app-cycle-subject-closed' : 'app-cycle-subject'} ${isFirstContactDone && !isClosedInCycle ? 'bg-primary/[0.025]' : ''} ${isReorderingCycle ? 'ring-1 ring-warning/15 shadow-[0_8px_26px_rgba(0,0,0,0.10)]' : ''} flex-1 min-w-0`}
+            } ${isClosedInCycle ? 'app-cycle-subject-closed' : 'app-cycle-subject'} ${isReorderingCycle ? 'ring-1 ring-warning/15 shadow-[0_8px_26px_rgba(0,0,0,0.10)]' : ''} flex-1 min-w-0`}
           >
             <div
               data-subject-id={subject.id}
               onClick={onToggleExpand}
               className={`min-h-[64px] pl-2 pr-4 py-2 flex items-center gap-2 group cursor-pointer relative transition-colors ${
                 isClosedInCycle ? 'bg-success/[0.055]' : ''
-              } ${isFirstContactDone && !isClosedInCycle ? 'bg-primary/[0.045]' : ''} ${isHighlighted ? 'study-cycle-subject-focus' : ''}`}
+              } ${isHighlighted ? 'study-cycle-subject-focus' : ''}`}
             >
               <div className="flex items-start gap-3 min-w-0 flex-1">
                 <div className="flex items-start gap-1.5 min-w-0 flex-1">

@@ -6,6 +6,7 @@ import Login from './Login';
 const authState = vi.hoisted(() => ({
   loading: false,
   user: null as null | { id: string; email: string },
+  signIn: vi.fn(),
   signUp: vi.fn(),
 }));
 
@@ -13,7 +14,7 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     loading: authState.loading,
     user: authState.user,
-    signIn: vi.fn(),
+    signIn: authState.signIn,
     signUp: authState.signUp,
     signInWithGoogle: vi.fn(),
   }),
@@ -54,6 +55,7 @@ describe('Login', () => {
   beforeEach(() => {
     authState.loading = false;
     authState.user = null;
+    authState.signIn.mockReset().mockResolvedValue({ success: false });
     authState.signUp.mockReset().mockResolvedValue({ success: false });
   });
 
@@ -80,6 +82,23 @@ describe('Login', () => {
 
     expect(screen.getByPlaceholderText('seu@email.com')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Digite sua senha')).toBeInTheDocument();
+  });
+
+  it('prioritizes email login before the Google alternative', () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Login />
+      </MemoryRouter>,
+    );
+
+    const email = screen.getByLabelText('Email');
+    const password = screen.getByLabelText('Senha');
+    const submit = screen.getByRole('button', { name: 'Entrar' });
+    const google = screen.getByRole('button', { name: 'Continuar com Google' });
+
+    expect(email.compareDocumentPosition(password) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(password.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(submit.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('requires and forwards versioned legal acceptance for a new free-trial account', async () => {
@@ -112,5 +131,28 @@ describe('Login', () => {
         privacyVersion: '2026-08-31.1',
       },
     );
+  });
+
+  it('acknowledges a password login attempt while authentication is in progress', async () => {
+    let resolveSignIn: (result: { success: boolean }) => void;
+    authState.signIn.mockReturnValue(
+      new Promise<{ success: boolean }>((resolve) => {
+        resolveSignIn = resolve;
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Login />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('seu@email.com'), { target: { value: 'aluno@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Digite sua senha'), { target: { value: 'senha123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+
+    expect(await screen.findByRole('button', { name: 'Entrando…' })).toBeDisabled();
+
+    resolveSignIn!({ success: false });
   });
 });

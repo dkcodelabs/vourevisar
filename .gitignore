@@ -29,6 +29,7 @@ dist-ssr
 
 # Arquivos temporários
 temp-files/
+tmp/
 ._*
 
 # Arquivos de desenvolvimento

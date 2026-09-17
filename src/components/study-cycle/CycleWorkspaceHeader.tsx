@@ -61,15 +61,24 @@ export function CycleWorkspaceHeader({
   };
 
   return (
-    <div className="mb-2 space-y-2 px-0">
-      <div className="flex min-w-0 items-center gap-2">
-        {isCycleMode ? (
-          <ListTodo size={17} className="shrink-0 text-primary" />
-        ) : (
-          <FileText size={16} className="shrink-0 text-primary" />
-        )}
+    <div className="mb-4 space-y-3 px-0">
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 text-xs font-semibold">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-primary">
+            {isCycleMode ? (
+              <ListTodo size={13} className="shrink-0" />
+            ) : (
+              <FileText size={13} className="shrink-0" />
+            )}
+            {isCycleMode ? 'Fila do Ciclo' : 'Edital Verticalizado'}
+          </span>
+          <span className="text-[11px] font-medium text-content-muted">
+            • {count} {count === 1 ? 'matéria' : 'matérias'}
+          </span>
+        </div>
+
         {isEditingTitle ? (
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5 pt-1">
             <input
               type="text"
               value={titleDraft}
@@ -87,14 +96,14 @@ export function CycleWorkspaceHeader({
               disabled={isSavingTitle}
               autoFocus
               maxLength={160}
-              className="h-8 min-w-0 flex-1 rounded-lg border border-primary/35 bg-background px-2 text-sm font-black uppercase tracking-tight text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-9 min-w-0 flex-1 rounded-xl border border-primary/40 bg-surface px-3 text-sm font-semibold text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-70"
               aria-label="Nome do ciclo"
             />
             <button
               type="button"
               onClick={() => void saveRename()}
               disabled={isSavingTitle}
-              className="app-control h-8 w-8 shrink-0 p-0 text-success disabled:cursor-not-allowed disabled:opacity-50"
+              className="app-control h-9 w-9 shrink-0 p-0 text-success hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Salvar nome do ciclo"
               title="Salvar nome do ciclo"
             >
@@ -104,7 +113,7 @@ export function CycleWorkspaceHeader({
               type="button"
               onClick={cancelRename}
               disabled={isSavingTitle}
-              className="app-control h-8 w-8 shrink-0 p-0 text-content-muted disabled:cursor-not-allowed disabled:opacity-50"
+              className="app-control h-9 w-9 shrink-0 p-0 text-content-muted hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Cancelar edição do nome do ciclo"
               title="Cancelar"
             >
@@ -112,26 +121,23 @@ export function CycleWorkspaceHeader({
             </button>
           </div>
         ) : (
-          <>
-            <h3 className="app-type-section-title min-w-0 break-words text-title-section">
+          <div className="flex items-start gap-2 pt-0.5">
+            <h3 className="min-w-0 flex-1 break-words text-base sm:text-lg font-bold tracking-tight text-title-section leading-snug">
               {title}
             </h3>
             {canRenameCycle && (
               <button
                 type="button"
                 onClick={() => setIsEditingTitle(true)}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-content-muted/70 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 aria-label="Editar nome do ciclo"
                 title="Editar nome do ciclo"
               >
                 <Pencil size={13} />
               </button>
             )}
-          </>
+          </div>
         )}
-        <span className="app-type-badge shrink-0 rounded-md bg-primary/8 px-1.5 py-0.5 text-primary">
-          ({count})
-        </span>
       </div>
       <div className="app-glass app-cycle-toolbar rounded-2xl px-2 py-2">
         <div className="app-cycle-toolbar-primary">

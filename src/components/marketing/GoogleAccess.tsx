@@ -15,9 +15,9 @@ export function GoogleAccess({
         type="button"
         onClick={onClick}
         disabled={isLoading}
-        className="w-full bg-card dark:bg-white/5 border border-slate-200 dark:border-white/5 hover:bg-secondary dark:hover:bg-white/10 text-foreground font-bold py-3.5 sm:py-4 rounded-xl sm:rounded-2xl transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+        className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white font-semibold text-sm text-slate-700 shadow-sm transition-[background-color,border-color,transform] hover:border-slate-300 hover:bg-slate-50/80 active:scale-[0.99] disabled:opacity-60"
       >
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
+        <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24">
           <path
             fill="#4285F4"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -47,20 +47,8 @@ export function GoogleAccess({
           <Link to="/privacidade" className="font-bold text-primary underline">
             Política de Privacidade
           </Link>
-          . Novas contas recebem 7 dias grátis, sem cartão e sem cobrança
-          automática.
         </p>
       )}
-      <div className="relative py-4">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-black/5 dark:border-white/5"></div>
-        </div>
-        <div className="relative flex justify-center text-xs uppercase font-bold tracking-widest">
-          <span className="bg-card px-4 text-muted-foreground">
-            ou use seu email
-          </span>
-        </div>
-      </div>
     </>
   );
 }
