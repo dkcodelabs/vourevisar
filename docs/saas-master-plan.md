@@ -22,8 +22,8 @@
 - [x] Incidência/cobrança por prova: recurso removido por decisão de produto e custo inviável; tabelas, colunas, serviços e Edge Function foram eliminados do caminho ativo.
 - [x] Banco: migrations aplicadas, índices de FKs e políticas RLS revisadas; não há função `SECURITY DEFINER` executável diretamente por aluno.
 - [x] Cobrança Stripe Live: catálogo, webhook, contrato versionado, arrependimento, portal, histórico e funções de billing publicados. O endpoint Live respondeu sem falhas na inspeção realizada em 2026-08-31.
-- [x] Release: `main` no commit `790ed535`; produção Vercel concluída com sucesso após o versionamento dos conceitos de marca, servindo o bundle que contém a versão legal `2026-08-31.1`.
-- [x] Qualidade do corte: 839 testes, lint, typecheck e build concluídos sem falha; a suíte registra apenas o aviso conhecido de `Window.scrollTo` não implementado pelo ambiente jsdom.
+- [x] Release: lote pendente publicado na `main` pelo commit `902c1439`; o deploy Vercel `HLi5P43HFwRoaYfi6qMuwVwDXvnP` concluiu com sucesso em 2026-09-17 e `https://www.vourevisar.com.br/login` respondeu HTTP 200 servindo o novo showcase de autenticação. O lote também versionou os refinamentos visuais do ciclo e os dois guias de parceria em `output/docx/`; não houve alteração de migration ou Edge Function.
+- [x] Qualidade do corte: 913 testes em 232 arquivos, arquitetura, lint, typecheck, build e higiene do diff concluídos sem falha; o login foi inspecionado localmente em desktop/mobile e novamente renderizado no domínio oficial após o deploy.
 
 ## Ordem operacional atual
 
