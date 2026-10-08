@@ -5,9 +5,11 @@ const legalAcceptanceEnabled = isBillingContractAcceptanceEnabled();
 export function GoogleAccess({
   onClick,
   isLoading,
+  showLegalNotice = false,
 }: {
   onClick: () => void;
   isLoading: boolean;
+  showLegalNotice?: boolean;
 }) {
   return (
     <>
@@ -37,7 +39,7 @@ export function GoogleAccess({
         </svg>
         Continuar com Google
       </button>
-      {legalAcceptanceEnabled && (
+      {showLegalNotice && legalAcceptanceEnabled && (
         <p className="mt-3 text-center text-[11px] font-medium leading-5 text-muted-foreground">
           Ao continuar com Google, você concorda com os{" "}
           <Link to="/termos" className="font-bold text-primary underline">

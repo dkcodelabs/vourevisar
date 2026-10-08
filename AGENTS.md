@@ -103,6 +103,10 @@ Este arquivo é a fonte principal de instruções para agentes neste projeto. Se
 - Siga os componentes e padrões existentes de shadcn/ui, Radix e Tailwind.
 - Use componentes reutilizáveis quando já existirem, especialmente em modais, tabelas, formulários e estados vazios.
 - Priorize fluxo de estudo: menos ruído visual, hierarquia clara, estados de loading/erro vazios bem tratados.
+- Para mudanças de UI e motion, use `emil-design-eng` como revisão de acabamento: antes de animar, defina o propósito, a frequência de uso, a curva, a duração e o comportamento com `prefers-reduced-motion`.
+- Motion deve reforçar feedback, continuidade espacial ou compreensão do fluxo; não deve atrasar ações frequentes, listas de estudo, navegação por teclado ou interações de alta repetição.
+- Para código novo de animação, prefira `motion/react`; mantenha imports existentes de `framer-motion` sem migração oportunista ou refatoração fora do escopo.
+- Skills de motion não autorizam transformar telas operacionais em decoração. Clareza, velocidade e acessibilidade do estudo têm precedência sobre efeitos visuais.
 - Toda alteração, criação ou refatoração de interface deve ser pensada e implementada para desktop, tablet e mobile. Responsividade real é requisito do sistema inteiro, inclusive páginas administrativas.
 - Garanta responsividade real em desktop e mobile. Texto não deve sobrepor, cortar de forma feia ou quebrar controles.
 - Para mudanças visuais relevantes, rode o app localmente e valide no navegador.

@@ -84,6 +84,25 @@ const renderDialog = (session: PracticeSession) => {
 };
 
 describe('PracticeSessionDialog', () => {
+  it('abre imediatamente com estado de preparação enquanto a sessão é montada', () => {
+    render(
+      <PracticeSessionDialog
+        mode="flashcards"
+        session={null}
+        isPreparingSession
+        onOpenChange={vi.fn()}
+        onReveal={vi.fn()}
+        onSubmitAttempt={vi.fn()}
+        onRate={vi.fn()}
+        onStartAnother={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Montando sua sessão')).toBeInTheDocument();
+    expect(screen.getByText(/organizando seus itens de prática/i)).toBeInTheDocument();
+    expect(screen.queryByText(/material ainda não disponível/i)).not.toBeInTheDocument();
+  });
+
   it('só mostra a correção da questão depois da resposta do servidor', async () => {
     const { onSubmitAttempt } = renderDialog(questionSession);
     onSubmitAttempt.mockResolvedValue({ attempt: attempt('incorrect'), answer: questionAnswer });
@@ -109,7 +128,8 @@ describe('PracticeSessionDialog', () => {
     onReveal.mockResolvedValue(answer);
     onSubmitAttempt.mockResolvedValue({ attempt: attempt('effortful'), answer });
 
-    expect(screen.getByText(/busca o verso já salvo\. não usa ia\./i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /revelar resposta/i })).toBeInTheDocument();
+    expect(screen.queryByText(answer.explanation)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /revelar resposta/i }));
     await waitFor(() => {
       expect(onReveal).toHaveBeenCalledWith('session-flashcard', 'item-flashcard');

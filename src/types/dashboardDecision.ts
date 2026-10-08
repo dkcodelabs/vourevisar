@@ -72,6 +72,7 @@ export interface DashboardCycleSubject {
   cyclePosition: number;
   isCompletedInCycle: boolean;
   topics: DashboardCycleTopic[];
+  color?: string | null;
 }
 
 
@@ -157,6 +158,54 @@ export interface DashboardPracticePulse {
   };
 }
 
+export interface DashboardCompactMetrics {
+  totalStudyMinutes: number;
+  dailyAverageMinutes: number;
+  activeStudyDays: number;
+  totalPracticeItems: number;
+}
+
+export interface DashboardSubjectPerformance {
+  subjectId: string;
+  subjectName: string;
+  color: string | null;
+  completedTopics?: number;
+  totalTopics?: number;
+  overdueReviewsCount?: number;
+  correct: number;
+  incorrect: number;
+  skipped: number;
+  totalMinutes: number;
+  accuracyPercentage: number | null;
+}
+
+export interface DashboardHeatmapDay {
+  date: string;
+  intensity: 'none' | 'partial' | 'completed' | 'exceeded';
+  studyMinutes: number;
+  reviewsCount: number;
+  practiceCount: number;
+  isToday: boolean;
+  isFuture?: boolean;
+}
+
+export interface DashboardWeeklyPlanningDay {
+  date: string;
+  dayLabel: string;
+  shortDay: string;
+  reviewCount: number;
+  studyMinutes: number;
+  isToday: boolean;
+  hasOverdue: boolean;
+  isFuture?: boolean;
+}
+
+export interface DashboardWeeklyPlanning {
+  currentWeekMinutes: number;
+  weeklyGoalHours: number;
+  days: DashboardWeeklyPlanningDay[];
+}
+
 export interface DashboardDecisionModel {
   isLoading: boolean;
   error: unknown;
@@ -172,6 +221,14 @@ export interface DashboardDecisionModel {
   upcomingReviews: DashboardUpcomingReviews;
   progressSummary: DashboardProgressSummary;
   practicePulse: DashboardPracticePulse;
+  compactMetrics: DashboardCompactMetrics;
+  subjectPerformance: DashboardSubjectPerformance[];
+  consistencyHeatmap: {
+    days: DashboardHeatmapDay[];
+    currentStreak: number;
+    totalActiveDays: number;
+  };
+  weeklyPlanning: DashboardWeeklyPlanning;
   totals: {
     overdueReviews: number;
     todayReviews: number;

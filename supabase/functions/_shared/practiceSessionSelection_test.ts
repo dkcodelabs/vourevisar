@@ -33,3 +33,52 @@ Deno.test("questions prefer unseen eligible items", () => {
   }
 });
 
+Deno.test("manual practice never silently reuses an exhausted item pool", () => {
+  const items = selectPracticeItems({
+    mode: "questions",
+    quantity: 2,
+    candidates,
+    attemptedItemIds: new Set(["question-seen", "question-new"]),
+  });
+
+  if (items.length !== 0) {
+    throw new Error("Itens já praticados devem abrir o estado de lote concluído, não uma repetição silenciosa.");
+  }
+});
+
+Deno.test("mixed practice alternates questions and flashcards while both exist", () => {
+  const items = selectPracticeItems({
+    mode: "quick",
+    format: "mixed",
+    quantity: 4,
+    candidates: [
+      { id: "question-newest", itemType: "multiple_choice", topicId: "topic-a", createdAt: "2026-08-04T00:00:00Z" },
+      { id: "flashcard-newest", itemType: "flashcard", topicId: "topic-a", createdAt: "2026-08-03T00:00:00Z" },
+      { id: "question-old", itemType: "true_false", topicId: "topic-a", createdAt: "2026-08-02T00:00:00Z" },
+      { id: "flashcard-old", itemType: "flashcard", topicId: "topic-a", createdAt: "2026-08-01T00:00:00Z" },
+    ],
+    attemptedItemIds: new Set(),
+  });
+
+  if (items.map((item) => item.itemType).join(",") !== "multiple_choice,flashcard,true_false,flashcard") {
+    throw new Error("O formato misto deve alternar questões e flashcards preservando a ordem interna de cada tipo.");
+  }
+});
+
+Deno.test("mixed practice keeps the available type when the other pool is exhausted", () => {
+  const items = selectPracticeItems({
+    mode: "quick",
+    format: "mixed",
+    quantity: 3,
+    candidates: [
+      { id: "question-newest", itemType: "multiple_choice", topicId: "topic-a", createdAt: "2026-08-03T00:00:00Z" },
+      { id: "question-old", itemType: "true_false", topicId: "topic-a", createdAt: "2026-08-02T00:00:00Z" },
+      { id: "flashcard", itemType: "flashcard", topicId: "topic-a", createdAt: "2026-08-01T00:00:00Z" },
+    ],
+    attemptedItemIds: new Set(),
+  });
+
+  if (items.length !== 3 || items[1]?.itemType !== "flashcard") {
+    throw new Error("A seleção mista deve completar a quantidade usando o tipo ainda disponível.");
+  }
+});

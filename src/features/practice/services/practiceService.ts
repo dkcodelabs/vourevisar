@@ -89,6 +89,8 @@ export type PracticeOverviewTopic = {
 export type PracticeMaterialTopic = PracticeOverviewTopic & {
   questionCount: number;
   flashcardCount: number;
+  availableQuestionCount?: number;
+  availableFlashcardCount?: number;
   dueFlashcardCount: number;
   latestPackageCreatedAt: string | null;
   isGenerating: boolean;
@@ -221,7 +223,7 @@ type RawPracticeSession = Omit<PracticeSession, 'items'> & { items: RawSessionIt
 
 export type BuildPracticeSessionResult =
   | { status: 'ready'; session: PracticeSession; reused: boolean }
-  | { status: 'needs_material'; topicId: string | null; reason: 'no_package' | 'no_eligible_item' | 'no_due_flashcard' };
+  | { status: 'needs_material'; topicId: string | null; reason: 'no_package' | 'no_eligible_item' | 'all_items_attempted' | 'no_due_flashcard' };
 
 export const buildPracticeSession = async (
   input: BuildPracticeSessionInput,
@@ -231,7 +233,7 @@ export const buildPracticeSession = async (
     session?: RawPracticeSession;
     reused?: boolean;
     topicId?: string | null;
-    reason?: 'no_package' | 'no_eligible_item' | 'no_due_flashcard';
+    reason?: 'no_package' | 'no_eligible_item' | 'all_items_attempted' | 'no_due_flashcard';
   }>('build-practice-session', input);
 
   if (response.status === 'needs_material') {

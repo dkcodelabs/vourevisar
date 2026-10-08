@@ -123,4 +123,30 @@ describe('AuthCallback', () => {
     expect(await screen.findByText('Dashboard')).toBeInTheDocument();
     expect(legalAcceptance.complete).toHaveBeenCalledOnce();
   });
+
+  it('não confunde login com Google com confirmação de email pendente de tentativa anterior', async () => {
+    window.history.pushState({}, '', '/auth/callback?code=google-code');
+    localStorage.setItem('pendingConfirmationEmail', 'aluno@gmail.com');
+    localStorage.setItem('pendingConfirmationCooldownUntil', String(Date.now() + 60_000));
+
+    auth.exchangeCodeForSession.mockResolvedValue({
+      data: {
+        user: {
+          email: 'aluno@gmail.com',
+          email_confirmed_at: '2026-08-21T00:00:00Z',
+          confirmed_at: '2026-08-21T00:00:00Z',
+          app_metadata: { provider: 'google', providers: ['google'] },
+        },
+      },
+      error: null,
+    });
+
+    renderAuthCallback('/auth/callback?code=google-code');
+
+    expect(await screen.findByText('Dashboard')).toBeInTheDocument();
+    expect(screen.queryByText('Tela de login')).not.toBeInTheDocument();
+    expect(auth.signOut).not.toHaveBeenCalled();
+    expect(localStorage.getItem('pendingConfirmationEmail')).toBeNull();
+    expect(localStorage.getItem('confirmedEmail')).toBeNull();
+  });
 });

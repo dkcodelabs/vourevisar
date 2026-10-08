@@ -100,6 +100,7 @@ const mapSubjectToStudyCycleSubject = (subject: Subject): StudyCycleSubject => {
   return {
     id: subject.id,
     name: subject.name,
+    color: subject.color ?? null,
     topics: mappedTopics,
     status: isFullyCompleted ? SubjectStatus.FINISHED : mapStatusToStudyCycleStatus(subject.status),
     exam_weight_points: subject.exam_weight_points ?? null,

@@ -49,6 +49,7 @@ export interface StudyCycleSubject {
   status: SubjectStatus;
   originalId?: string; // ID original da matéria
   cyclePosition?: number; // Posição específica desta instância no ciclo
+  color?: string | null;
   exam_weight_points?: number | null;
   exam_weight_questions?: number | null;
   exam_weight_percentage?: number | null;

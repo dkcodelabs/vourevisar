@@ -45,3 +45,4 @@ supabase/.temp/
 .env*
 .agents/**/mcp_config.json
 .superpowers/brainstorm/**/state/
+output/fotos-estudio-cinza/

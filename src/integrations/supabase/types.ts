@@ -3814,6 +3814,7 @@ export type Database = {
           subjects_per_day: number
           updated_at: string
           user_id: string
+          weekly_study_hours_target: number
         }
         Insert: {
           created_at?: string
@@ -3824,6 +3825,7 @@ export type Database = {
           subjects_per_day?: number
           updated_at?: string
           user_id: string
+          weekly_study_hours_target?: number
         }
         Update: {
           created_at?: string
@@ -3834,6 +3836,7 @@ export type Database = {
           subjects_per_day?: number
           updated_at?: string
           user_id?: string
+          weekly_study_hours_target?: number
         }
         Relationships: []
       }

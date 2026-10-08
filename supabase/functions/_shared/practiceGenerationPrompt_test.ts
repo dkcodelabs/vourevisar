@@ -158,6 +158,21 @@ Deno.test("Gemini transport schema requires one answer value without a union exp
   if (!answer.required?.includes("value")) {
     throw new Error("O schema não pode permitir resposta vazia.");
   }
+
+  if (!itemSchema.properties.itemType.enum?.includes("flashcard")) {
+    throw new Error("O schema do provedor precisa limitar os tipos de item aceitos.");
+  }
+});
+
+Deno.test("editorial validation returns actionable transport feedback", () => {
+  const result = validatePracticePackage({
+    quickRecap: { title: "Resumo", summary: "Resumo", memoryKey: "Chave" },
+    items: Array.from({ length: 10 }, () => ({ itemType: "invalid" })),
+  }, "true_false");
+
+  if (result.ok || !result.reasons.some((reason) => reason.includes("itemType"))) {
+    throw new Error("A correção precisa receber uma causa utilizável, não apenas Invalid.");
+  }
 });
 
 Deno.test("provider answer values normalize into the private domain contract", () => {

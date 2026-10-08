@@ -337,7 +337,7 @@ REGRAS OBRIGATÓRIAS:
       body: { 
         action: 'generateContent', 
         prompt: enhancedPrompt.replace('$SUBJECTS$', JSON.stringify(subjectList)),
-        model: 'gemini-2.5-flash'
+        model: 'gemini-3.5-flash'
       },
     }), 20000, 'Análise semântica de matérias');
 
@@ -620,7 +620,7 @@ Retorne um JSON no formato: { "groups": [ { "originalTopicsToMerge": ["ID1", "ID
     body: {
       action: 'generateContent',
       prompt: fullPrompt,
-      model: 'gemini-2.5-flash'
+      model: 'gemini-3.5-flash'
     },
   }), 20000, `Análise semântica de tópicos (${subjectName})`);
 

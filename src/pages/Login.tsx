@@ -15,7 +15,6 @@ import {
   Eye,
   EyeOff,
   User,
-  Phone,
   CheckCircle,
 } from "lucide-react";
 import { GoogleAccess } from "@/components/marketing/GoogleAccess";
@@ -44,11 +43,8 @@ const Login = () => {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const isRegistering =
     new URLSearchParams(location.search).get("mode") === "register";
@@ -61,8 +57,6 @@ const Login = () => {
       { replace: true, state: location.state },
     );
   };
-  const [hasAcceptedLegalDocuments, setHasAcceptedLegalDocuments] =
-    useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [shakePassword, setShakePassword] = useState(false);
   const passwordInputRef = React.useRef<HTMLInputElement>(null);
@@ -116,22 +110,8 @@ const Login = () => {
           return;
         }
 
-        if (password !== confirmPassword) {
-          toastManager.error("As senhas não coincidem");
-          setIsLoading(false);
-          return;
-        }
-
         if (password.length < 6) {
           toastManager.error("A senha deve ter pelo menos 6 caracteres");
-          setIsLoading(false);
-          return;
-        }
-
-        if (legalAcceptanceEnabled && !hasAcceptedLegalDocuments) {
-          toastManager.error(
-            "Confirme os Termos de Uso e a Política de Privacidade para criar sua conta.",
-          );
           setIsLoading(false);
           return;
         }
@@ -139,14 +119,17 @@ const Login = () => {
         const result = await signUp(
           email.trim(),
           password,
-          name,
-          phone,
+          name.trim(),
+          "",
           legalAcceptanceEnabled ? signupLegalAcceptance : undefined,
         );
         if (result.success) {
           localStorage.setItem("pendingConfirmationEmail", email.trim());
           navigate("/confirm-email", { replace: true });
         } else {
+          if (result.error?.toLowerCase().includes("já está cadastrado")) {
+            setIsRegistering(false);
+          }
           setIsLoading(false);
         }
       } else {
@@ -310,23 +293,23 @@ const Login = () => {
   return (
     <AuthShell>
       <motion.div initial={false} className="w-full">
-        <div className="mb-6">
+        <div className="mb-6 text-center">
           <h1 className="text-balance text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
             {showForgotPassword
               ? "Recupere seu acesso"
               : isRegistering
-                ? "Comece seu próximo passo"
-                : "Continue seus estudos"}
+                ? "Crie sua conta"
+                : "Acesse sua conta"}
           </h1>
           <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
             {showForgotPassword
               ? "Informe seu email para receber o link de recuperação."
               : isRegistering
-                ? "Crie sua conta e conheça sua central de progresso. 7 dias grátis, sem cartão."
-                : "Entre para retomar sua rotina no vouRevisar."}
+                ? "Comece seus 7 dias grátis, sem cartão."
+                : "Entre no vouRevisar para acessar seus estudos."}
           </p>
           {emailConfirmed && (
-            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-xs text-emerald-900">
+            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-left text-xs text-emerald-900">
               <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
               <p>
                 <strong>Email confirmado.</strong> Agora entre com sua senha para
@@ -336,6 +319,23 @@ const Login = () => {
           )}
         </div>
 
+        {!showForgotPassword && (
+          <div className="mb-5">
+            <GoogleAccess onClick={handleGoogleLogin} isLoading={isLoading} />
+
+            <div className="relative my-4 py-1">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-[11px] font-semibold uppercase tracking-wider">
+                <span className="bg-white px-3 text-slate-400">
+                  {isRegistering ? "ou cadastre-se com email" : "ou continue com email"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <AnimatePresence mode="wait">
@@ -344,61 +344,30 @@ const Login = () => {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="space-y-3 overflow-hidden"
+                className="space-y-1.5 overflow-hidden"
               >
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="signup-name"
-                    className="text-xs font-semibold text-slate-700"
-                  >
-                    Nome
-                  </label>
-                  <div className="relative group">
-                    <User
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors"
-                      size={18}
-                    />
-                    <input
-                      id="signup-name"
-                      autoComplete="name"
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/15"
-                      placeholder="Seu nome completo"
-                      required={isRegistering}
-                    />
-                  </div>
+                <label
+                  htmlFor="signup-name"
+                  className="text-xs font-semibold text-slate-700"
+                >
+                  Nome
+                </label>
+                <div className="relative group">
+                  <User
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors"
+                    size={18}
+                  />
+                  <input
+                    id="signup-name"
+                    autoComplete="name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/15"
+                    placeholder="Seu nome completo"
+                    required={isRegistering}
+                  />
                 </div>
-
-                <details className="space-y-2">
-                  <summary className="cursor-pointer py-0.5 text-xs font-medium text-slate-500 hover:text-slate-700">
-                    Adicionar telefone (opcional)
-                  </summary>
-                  <div className="space-y-1.5 pt-1">
-                    <label
-                      htmlFor="signup-phone"
-                      className="text-xs font-semibold text-slate-700"
-                    >
-                      Telefone (opcional)
-                    </label>
-                    <div className="relative group">
-                      <Phone
-                        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors"
-                        size={18}
-                      />
-                      <input
-                        id="signup-phone"
-                        autoComplete="tel"
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/15"
-                        placeholder="(11) 99999-9999"
-                      />
-                    </div>
-                  </div>
-                </details>
               </motion.div>
             )}
           </AnimatePresence>
@@ -433,7 +402,7 @@ const Login = () => {
           {showForgotPassword && (
             <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-500">
               A recuperação de senha é para contas que entram com email e senha.
-              Se você usa Google, continue pelo Google abaixo.
+              Se você usa Google, continue pelo Google acima.
             </p>
           )}
 
@@ -492,90 +461,10 @@ const Login = () => {
             </div>
           )}
 
-          {isRegistering && (
-            <div className="space-y-4">
-              {legalAcceptanceEnabled && (
-                <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-xs leading-relaxed text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={hasAcceptedLegalDocuments}
-                    onChange={(event) =>
-                      setHasAcceptedLegalDocuments(event.target.checked)
-                    }
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>
-                    Li e concordo com os{" "}
-                    <Link
-                      to="/termos"
-                      className="font-semibold text-blue-600 underline"
-                    >
-                      Termos de Uso
-                    </Link>{" "}
-                    e a{" "}
-                    <Link
-                      to="/privacidade"
-                      className="font-semibold text-blue-600 underline"
-                    >
-                      Política de Privacidade
-                    </Link>
-                    . Entendo que receberei 7 dias grátis, sem cartão e sem
-                    cobrança automática.
-                  </span>
-                </label>
-              )}
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="signup-confirm"
-                  className="text-xs font-semibold text-slate-700"
-                >
-                  Confirmar senha
-                </label>
-                <div className="relative group">
-                  <Lock
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors"
-                    size={18}
-                  />
-                  <input
-                    id="signup-confirm"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-11 pr-11 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/15"
-                    placeholder="••••••••"
-                    required
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    aria-label={
-                      showConfirmPassword
-                        ? "Ocultar confirmação de senha"
-                        : "Mostrar confirmação de senha"
-                    }
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff size={18} />
-                    ) : (
-                      <Eye size={18} />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           <button
             type={showForgotPassword ? "button" : "submit"}
             onClick={showForgotPassword ? handleForgotPassword : undefined}
-            disabled={
-              isLoading ||
-              (isRegistering &&
-                legalAcceptanceEnabled &&
-                !hasAcceptedLegalDocuments)
-            }
+            disabled={isLoading}
             className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 active:scale-[0.99] disabled:opacity-70"
           >
             {isLoading ? (
@@ -598,18 +487,28 @@ const Login = () => {
             )}
           </button>
 
-          {!showForgotPassword && (
-            <>
-              <div className="relative my-2 py-1">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200" />
-                </div>
-                <div className="relative flex justify-center text-[11px] font-semibold uppercase tracking-wider">
-                  <span className="bg-white px-3 text-slate-400">ou continue com</span>
-                </div>
-              </div>
-              <GoogleAccess onClick={handleGoogleLogin} isLoading={isLoading} />
-            </>
+          {isRegistering && legalAcceptanceEnabled && (
+            <p className="pt-1 text-center text-xs leading-relaxed text-slate-500">
+              Ao criar sua conta, você concorda com nossos{" "}
+              <Link
+                to="/termos"
+                className="font-medium text-slate-700 underline transition-colors hover:text-blue-600"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Termos de Uso
+              </Link>{" "}
+              e a{" "}
+              <Link
+                to="/privacidade"
+                className="font-medium text-slate-700 underline transition-colors hover:text-blue-600"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Política de Privacidade
+              </Link>
+              . 7 dias grátis, sem cartão.
+            </p>
           )}
 
           {showForgotPassword && (
@@ -632,7 +531,6 @@ const Login = () => {
                   type="button"
                   onClick={() => {
                     setIsRegistering(!isRegistering);
-                    setHasAcceptedLegalDocuments(false);
                   }}
                   className="font-bold text-blue-600 transition-colors hover:text-blue-700 hover:underline"
                 >

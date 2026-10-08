@@ -91,6 +91,25 @@ const missingCycleModel: DashboardDecisionModel = {
     questions: { correct: 0, incorrect: 0, skipped: 0, answered: 0, accuracyPercentage: null },
     flashcards: { recalled: 0, effortful: 0, forgotten: 0, reviewed: 0 },
   },
+  compactMetrics: {
+    totalStudyMinutes: 0,
+    dailyAverageMinutes: 0,
+    activeStudyDays: 0,
+    totalPracticeItems: 0,
+  },
+  subjectPerformance: [],
+  consistencyHeatmap: {
+    days: [],
+    currentStreak: 0,
+    totalActiveDays: 0,
+  },
+  weeklyPlanning: {
+    currentWeekMinutes: 0,
+    weeklyGoalHours: 20,
+    days: [
+      { date: '2026-06-21', dayLabel: 'Domingo', shortDay: 'D', reviewCount: 0, studyMinutes: 0, isToday: true, hasOverdue: false },
+    ],
+  },
   totals: {
     overdueReviews: 0,
     todayReviews: 0,
@@ -192,15 +211,17 @@ describe('DashboardDecisionExperience', () => {
 
     expect(screen.getByText('TRT')).toBeInTheDocument();
     expect(screen.getByText('Analista')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Pulso de estudo' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Métricas gerais de estudo' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Desempenho por Matéria' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Consistência' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Planejamento' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Minhas tarefas' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Previsão de revisões' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Agora e depois' })).not.toBeInTheDocument();
     expect(screen.queryByText('Consistência recente')).not.toBeInTheDocument();
     expect(screen.queryByText('Mapa de dificuldade')).not.toBeInTheDocument();
     expect(screen.queryByText('Mapa de cobrança')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Estudo hoje/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Tempo total/ }));
     expect(onNavigate).toHaveBeenCalledTimes(1);
     expect(onNavigate).toHaveBeenCalledWith('/ciclo-estudos');
   });
@@ -235,6 +256,25 @@ describe('DashboardCommandHero', () => {
     expect(onNavigate).not.toHaveBeenCalled();
   });
 
+  it('does not cap a long edital name while the metrics share the hero', () => {
+    render(
+      <DashboardCommandHero
+        model={{
+          ...readyModel,
+          examContext: {
+            ...readyModel.examContext,
+            editalName: 'Instituto de Defesa Agropecuária e Florestal do Espírito Santo – Fiscal Estadual Agropecuário – Medicina Veterinária (2021)',
+          },
+        }}
+        onNavigate={vi.fn()}
+        onUpdateCycleName={vi.fn()}
+        isUpdatingCycleName={false}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: /Instituto de Defesa Agropecuária/i })).not.toHaveClass('max-w-3xl');
+  });
+
   it('opens the cycle date editor instead of sending an expired exam date to the edital list', () => {
     const onNavigate = vi.fn();
     render(
@@ -248,6 +288,9 @@ describe('DashboardCommandHero', () => {
         isUpdatingCycleName={false}
       />,
     );
+
+    expect(screen.getByText('DATA EXPIRADA')).toBeInTheDocument();
+    expect(screen.queryByText('RETA FINAL')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Atualizar data da prova' }));
     expect(onNavigate).toHaveBeenCalledExactlyOnceWith('/ciclo-estudos?action=edit-exam-date');

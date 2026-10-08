@@ -14,11 +14,13 @@ const Dashboard = () => {
     updateCycleName,
     updateExamDate,
     updatePosition,
+    updateWeeklyHoursTarget,
     isAddingReminder,
     isDeletingReminder,
     isUpdatingCycleName,
     isUpdatingExamDate,
     isUpdatingPosition,
+    isUpdatingWeeklyHoursTarget,
     navigateToAction,
     retryDashboardDataIssue,
   } = useDashboardDecisionModel();
@@ -64,11 +66,13 @@ const Dashboard = () => {
         onUpdateCycleName={updateCycleName}
         onUpdateExamDate={updateExamDate}
         onUpdatePosition={updatePosition}
+        onUpdateWeeklyHoursTarget={updateWeeklyHoursTarget}
         isAddingReminder={isAddingReminder}
         isDeletingReminder={isDeletingReminder}
         isUpdatingCycleName={isUpdatingCycleName}
         isUpdatingExamDate={isUpdatingExamDate}
         isUpdatingPosition={isUpdatingPosition}
+        isUpdatingWeeklyHoursTarget={isUpdatingWeeklyHoursTarget}
       />
     </div>
   );

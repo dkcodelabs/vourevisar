@@ -4,9 +4,13 @@ export type PracticeGenerationRates = {
 };
 
 const KNOWN_STANDARD_RATES: Record<string, PracticeGenerationRates> = {
-  // Google Gemini Developer API standard paid tier, checked on 2026-08-29.
+  // Google Gemini Developer API standard paid tier, checked on 2026-08-29 and 2026-10-05.
   // Keep explicit environment overrides available because provider prices change.
   "gemini-2.5-flash": {
+    inputUsdPerMillion: 0.30,
+    outputUsdPerMillion: 2.50,
+  },
+  "gemini-3.5-flash": {
     inputUsdPerMillion: 0.30,
     outputUsdPerMillion: 2.50,
   },

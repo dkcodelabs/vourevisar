@@ -70,7 +70,10 @@ const itemSchema = {
   additionalProperties: false,
   properties: {
     ...itemBaseProperties,
-    itemType: { type: "string" },
+    itemType: {
+      type: "string",
+      enum: ["flashcard", "true_false", "multiple_choice"],
+    },
     answer: {
       type: "object",
       additionalProperties: false,
@@ -217,6 +220,22 @@ export const normalizePracticePackageCandidate = (raw: unknown): unknown => {
   };
 };
 
+const describeValidationIssue = (issue: {
+  code: string;
+  message: string;
+  path: Array<string | number>;
+}) => {
+  const location = issue.path.length > 0
+    ? issue.path.join(".")
+    : "resposta";
+
+  if (issue.code === "invalid_union" || issue.message === "Invalid input") {
+    return `${location}: formato incompatível. Confira itemType, answer e options.`;
+  }
+
+  return `${location}: ${issue.message}`;
+};
+
 export const validatePracticePackage = (
   raw: unknown,
   questionFormat: PracticeQuestionFormat,
@@ -230,7 +249,7 @@ export const validatePracticePackage = (
   if (!parsed.success) {
     return {
       ok: false,
-      reasons: parsed.error.issues.slice(0, 12).map((issue) => issue.message),
+      reasons: parsed.error.issues.slice(0, 12).map(describeValidationIssue),
     };
   }
 

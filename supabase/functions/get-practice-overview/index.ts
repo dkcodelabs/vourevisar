@@ -59,6 +59,7 @@ type ItemRow = { id: string; package_id: string; item_type: "flashcard" | "multi
 type GenerationRow = { topic_id: string };
 type ScheduleRow = { item_id: string; last_rating: string | null; repetitions: number; lapses: number };
 type FeedbackRow = { item_id: string };
+type ItemAttemptRow = { item_id: string };
 type AttemptRow = PracticePerformanceAttempt;
 type CompletedSessionRow = {
   topic_id: string | null;
@@ -239,20 +240,35 @@ const getOverview = async (
   if (itemsError) throw itemsError;
 
   const itemRows = (items ?? []) as ItemRow[];
-  const { data: negativeFeedback, error: negativeFeedbackError } = itemRows.length
-    ? await supabase
-      .from("practice_item_feedback")
-      .select("item_id")
-      .eq("user_id", userId)
-      .eq("rating", -1)
-      .in("item_id", itemRows.map((item) => item.id))
-    : { data: [], error: null };
+  const itemIds = itemRows.map((item) => item.id);
+  const [negativeFeedbackResult, itemAttemptsResult] = itemIds.length
+    ? await Promise.all([
+      supabase
+        .from("practice_item_feedback")
+        .select("item_id")
+        .eq("user_id", userId)
+        .eq("rating", -1)
+        .in("item_id", itemIds),
+      supabase
+        .from("practice_attempts")
+        .select("item_id")
+        .eq("user_id", userId)
+        .is("invalidated_at", null)
+        .in("item_id", itemIds),
+    ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  const { data: negativeFeedback, error: negativeFeedbackError } = negativeFeedbackResult;
+  const { data: itemAttempts, error: itemAttemptsError } = itemAttemptsResult;
   if (negativeFeedbackError) throw negativeFeedbackError;
+  if (itemAttemptsError) throw itemAttemptsError;
   const hiddenItemIds = new Set((negativeFeedback ?? [] as FeedbackRow[]).map((row) => row.item_id));
+  const attemptedItemIds = new Set((itemAttempts ?? [] as ItemAttemptRow[]).map((row) => row.item_id));
   const eligibleItemRows = itemRows.filter((item) => !hiddenItemIds.has(item.id));
   const topicIdByPackageId = new Map(packageRows.map((item) => [item.id, item.topic_id]));
   const questionCountByTopicId = new Map<string, number>();
   const flashcardCountByTopicId = new Map<string, number>();
+  const availableQuestionCountByTopicId = new Map<string, number>();
+  const availableFlashcardCountByTopicId = new Map<string, number>();
   for (const item of eligibleItemRows) {
     const topicId = topicIdByPackageId.get(item.package_id);
     if (!topicId) continue;
@@ -260,6 +276,12 @@ const getOverview = async (
       ? flashcardCountByTopicId
       : questionCountByTopicId;
     target.set(topicId, (target.get(topicId) ?? 0) + 1);
+    if (!attemptedItemIds.has(item.id)) {
+      const availableTarget = item.item_type === "flashcard"
+        ? availableFlashcardCountByTopicId
+        : availableQuestionCountByTopicId;
+      availableTarget.set(topicId, (availableTarget.get(topicId) ?? 0) + 1);
+    }
   }
 
   // The daily recommendation must be an action the student can take now.
@@ -350,6 +372,8 @@ const getOverview = async (
       ...toPracticeTopic(topic)!,
       questionCount: questionCountByTopicId.get(topic.id) ?? 0,
       flashcardCount: flashcardCountByTopicId.get(topic.id) ?? 0,
+      availableQuestionCount: availableQuestionCountByTopicId.get(topic.id) ?? 0,
+      availableFlashcardCount: availableFlashcardCountByTopicId.get(topic.id) ?? 0,
       dueFlashcardCount: dueFlashcardCountByTopicId.get(topic.id) ?? 0,
       latestPackageCreatedAt: latestPackageCreatedAtByTopicId.get(topic.id) ?? null,
       isGenerating: activeGenerationTopicIds.has(topic.id),

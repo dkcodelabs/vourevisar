@@ -1,22 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleAlert, LoaderCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { StudyEmptyState } from "@/components/study/StudyEmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { PracticeComposer } from "@/features/practice/components/PracticeComposer";
-import { PracticeGenerationDialog, type PracticeGenerationState } from "@/features/practice/components/PracticeGenerationDialog";
+import { PracticeGenerationDialog, type PracticeGenerationState, type PracticeGenerationTopic } from "@/features/practice/components/PracticeGenerationDialog";
 import { PracticeSessionDialog, type PracticeMode as DialogPracticeMode } from "@/features/practice/components/PracticeSessionDialog";
 import { usePracticeComposer } from "@/features/practice/hooks/usePracticeComposer";
 import { usePracticeSessionActions } from "@/features/practice/hooks/usePracticeSessionActions";
@@ -27,10 +17,13 @@ import type { BuildPracticeSessionInput, BuildPracticeSessionResult, PracticeFor
 type SessionState = {
   mode: DialogPracticeMode;
   session: PracticeSession | null;
+  isPreparing?: boolean;
   unavailableReason?: Extract<BuildPracticeSessionResult, { status: "needs_material" }>["reason"];
   unavailableTopicId?: string | null;
   unavailableSubjectId?: string | null;
 };
+
+type PendingGenerationInput = Omit<BuildPracticeSessionInput, "idempotencyKey">;
 
 const dialogModeFor = (format: PracticeFormat): DialogPracticeMode => format === "flashcards" ? "flashcards" : format === "mixed" ? "mixed" : "questions";
 
@@ -41,31 +34,26 @@ const PracticeHome = () => {
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [generationTopicId, setGenerationTopicId] = useState<string | null>(null);
   const [generationState, setGenerationState] = useState<PracticeGenerationState | null>(null);
-  const [confirmGenerationTopicId, setConfirmGenerationTopicId] = useState<string | null>(null);
+  const [generationInput, setGenerationInput] = useState<PendingGenerationInput | null>(null);
+  const [generationSubmitted, setGenerationSubmitted] = useState(false);
+  const [generationTopicSnapshot, setGenerationTopicSnapshot] = useState<PracticeGenerationTopic | null>(null);
+  const [autoStartInput, setAutoStartInput] = useState<PendingGenerationInput | null>(null);
+  const launchRequestRef = useRef(0);
   const overviewQuery = usePracticeOverview(user?.id);
+  const refetchOverview = overviewQuery.refetch;
   const subjectsQuery = usePracticeSubjects(user?.id, overviewQuery.data?.scope.subjectIds);
   const composer = usePracticeComposer({ userId: user?.id, overview: overviewQuery.data, subjects: subjectsQuery.data ?? [] });
   const generatedTopicQuery = usePracticeOverview(user?.id, generationTopicId ?? undefined, Boolean(generationTopicId), generationState === "preparing");
   const { buildSession, generatePackage, revealItem, submitAttempt, rateItem } = usePracticeSessionActions();
   const generatedMaterialTopic = generatedTopicQuery.data?.materialTopics.find((topic) => topic.id === generationTopicId) ?? null;
-  const confirmationTopic = composer.topics.find((topic) => topic.id === confirmGenerationTopicId)
-    ?? overviewQuery.data?.materialTopics.find((topic) => topic.id === confirmGenerationTopicId)
-    ?? overviewQuery.data?.dailyRecommendation.topic;
-
-  useEffect(() => {
-    if (generationState !== "preparing" || !generatedMaterialTopic) return;
-    if (generatedMaterialTopic.hasReadyPackage) {
-      setGenerationState("ready");
-      void overviewQuery.refetch();
-    } else if (!generatedMaterialTopic.isGenerating) {
-      setGenerationState("failed");
-    }
-  }, [generatedMaterialTopic, generationState, overviewQuery]);
-
-  const launch = async (input: BuildPracticeSessionInput, format: PracticeFormat) => {
+  const generationDisplayTopic = generatedMaterialTopic ?? generationTopicSnapshot;
+  const launch = useCallback(async (input: BuildPracticeSessionInput, format: PracticeFormat) => {
     setLaunchError(null);
+    const launchRequestId = ++launchRequestRef.current;
+    setSession({ mode: dialogModeFor(format), session: null, isPreparing: true });
     try {
       const result = await buildSession.mutateAsync(input);
+      if (launchRequestId !== launchRequestRef.current) return false;
       if (result.status === "ready") {
         setSession({ mode: dialogModeFor(format), session: result.session });
         return true;
@@ -73,28 +61,65 @@ const PracticeHome = () => {
       setSession({ mode: dialogModeFor(format), session: null, unavailableReason: result.reason, unavailableTopicId: result.topicId, unavailableSubjectId: input.subjectId });
       return false;
     } catch (error) {
+      if (launchRequestId !== launchRequestRef.current) return false;
+      setSession(null);
       setLaunchError(error instanceof Error ? error.message : "Não foi possível montar o treino.");
       return false;
     }
-  };
+  }, [buildSession]);
 
   const launchComposer = () => {
     const input = composer.buildInput();
     if (input) void launch({ ...input, idempotencyKey: crypto.randomUUID() }, composer.format);
   };
 
-  const generate = async (topicId: string) => {
+  const generate = async () => {
+    const input = composer.buildInputAfterGeneration();
+    if (!input?.topicId) return;
     setLaunchError(null);
-    setGenerationTopicId(topicId);
+    setGenerationInput(input);
+    setGenerationTopicId(input.topicId);
+    setGenerationTopicSnapshot({
+      subjectName: composer.selectedSubjectName || "Matéria selecionada",
+      name: composer.selectedTopicName || "Tópico selecionado",
+    });
     setGenerationState("preparing");
+    setGenerationSubmitted(false);
     try {
-      await generatePackage.mutateAsync({ topicId, idempotencyKey: crypto.randomUUID(), trigger: "explicit" });
+      await generatePackage.mutateAsync({
+        topicId: input.topicId,
+        idempotencyKey: crypto.randomUUID(),
+        trigger: composer.selectedFormatIsExhausted ? "replacement" : "explicit",
+      });
+      setGenerationSubmitted(true);
       await overviewQuery.refetch();
     } catch (error) {
       setGenerationState("failed");
       setLaunchError(error instanceof Error ? error.message : "Não foi possível gerar o material agora.");
     }
   };
+
+  useEffect(() => {
+    if (generationState !== "preparing" || !generationSubmitted || !generatedMaterialTopic) return;
+    if (generatedMaterialTopic.hasReadyPackage && !generatedMaterialTopic.isGenerating && generationInput) {
+      const input = generationInput;
+      setGenerationState(null);
+      setGenerationTopicId(null);
+      setGenerationInput(null);
+      setGenerationSubmitted(false);
+      setGenerationTopicSnapshot(null);
+      setAutoStartInput(input);
+      void refetchOverview();
+    } else if (!generatedMaterialTopic.isGenerating) {
+      setGenerationState("failed");
+    }
+  }, [generatedMaterialTopic, generationInput, generationState, generationSubmitted, refetchOverview]);
+
+  useEffect(() => {
+    if (!autoStartInput) return;
+    setAutoStartInput(null);
+    void launch({ ...autoStartInput, idempotencyKey: crypto.randomUUID() }, autoStartInput.format ?? "questions");
+  }, [autoStartInput, launch]);
 
   const focusComposer = () => requestAnimationFrame(() => document.getElementById("practice-composer")?.focus());
 
@@ -110,15 +135,11 @@ const PracticeHome = () => {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
       {overviewQuery.isLoading ? <div className="mb-5 flex items-center gap-2 text-sm text-content-muted" role="status"><LoaderCircle className="size-4 animate-spin text-primary" /> Preparando seu treino…</div> : null}
-      <PracticeComposer composer={composer} subjects={subjectsQuery.data ?? []} isLoading={overviewQuery.isLoading} isStarting={buildSession.isPending} onStart={launchComposer} onRequestGeneration={setConfirmGenerationTopicId} />
+      <PracticeComposer composer={composer} subjects={subjectsQuery.data ?? []} isLoading={overviewQuery.isLoading} isStarting={buildSession.isPending} isGeneratingMaterial={generationState === "preparing"} onStart={launchComposer} onRequestGeneration={() => { void generate(); }} />
       {launchError ? <div role="alert" className="mt-4 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">{launchError}</div> : null}
 
-      <AlertDialog open={Boolean(confirmGenerationTopicId)} onOpenChange={(open) => !open && setConfirmGenerationTopicId(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Gerar material deste tópico?</AlertDialogTitle><AlertDialogDescription>A IA criará 4 flashcards e 6 questões privadas para {confirmationTopic?.name ?? "o tópico selecionado"}. Pode levar alguns instantes; praticar esse material depois não chama a IA novamente.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={generatePackage.isPending}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={generatePackage.isPending} onClick={() => { const topicId = confirmGenerationTopicId; setConfirmGenerationTopicId(null); if (topicId) void generate(topicId); }}>{generatePackage.isPending ? "Preparando…" : "Gerar material"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-      </AlertDialog>
-
-      <PracticeGenerationDialog open={Boolean(generationState)} state={generationState ?? "preparing"} topic={generatedMaterialTopic} onOpenChange={(open) => { if (!open) { setGenerationState(null); setGenerationTopicId(null); } }} onReturnToComposer={() => { setGenerationState(null); setGenerationTopicId(null); focusComposer(); }} onChooseAnotherTopic={() => { setGenerationState(null); setGenerationTopicId(null); composer.focusTopicSelection(); focusComposer(); }} />
-      <PracticeSessionDialog mode={session?.mode ?? null} session={session?.session ?? null} unavailableReason={session?.unavailableReason} unavailableScope={session?.unavailableTopicId ? "topic" : "subject"} preparingAnotherSession={buildSession.isPending} onOpenChange={(open) => { if (!open) { setSession(null); void overviewQuery.refetch(); focusComposer(); } }} onReveal={(sessionId, itemId) => revealItem.mutateAsync({ sessionId, itemId })} onSubmitAttempt={async (input) => { const result = await submitAttempt.mutateAsync(input); void overviewQuery.refetch(); return result; }} onRate={(input) => rateItem.mutateAsync(input)} onStartAnother={(prefill) => { const topic = session?.session?.topicId ? overviewQuery.data?.materialTopics.find((item) => item.id === session.session?.topicId) ?? overviewQuery.data?.recommendedTopic : null; composer.applySessionPrefill({ ...prefill, subjectId: topic?.subjectId, topicId: topic?.id }); setSession(null); focusComposer(); }} onGenerateMaterial={session?.unavailableReason !== "no_due_flashcard" && session?.unavailableTopicId ? () => setConfirmGenerationTopicId(session.unavailableTopicId ?? null) : session?.unavailableSubjectId ? () => { setSession(null); composer.focusTopicSelection(); focusComposer(); } : undefined} isGeneratingMaterial={generatePackage.isPending} generateMaterialLabel={session?.unavailableTopicId ? "Gerar material deste tópico" : "Escolher tópico para gerar material"} />
+      <PracticeGenerationDialog open={Boolean(generationState)} state={generationState ?? "preparing"} topic={generationDisplayTopic} onOpenChange={(open) => { if (!open && generationState !== "preparing") { setGenerationState(null); setGenerationTopicId(null); setGenerationInput(null); setGenerationSubmitted(false); setGenerationTopicSnapshot(null); } }} onRetry={() => { void generate(); }} />
+      <PracticeSessionDialog mode={session?.mode ?? null} session={session?.session ?? null} isPreparingSession={session?.isPreparing} unavailableReason={session?.unavailableReason} unavailableScope={session?.unavailableTopicId ? "topic" : "subject"} preparingAnotherSession={buildSession.isPending} onOpenChange={(open) => { if (!open) { launchRequestRef.current += 1; setSession(null); void overviewQuery.refetch(); focusComposer(); } }} onReveal={(sessionId, itemId) => revealItem.mutateAsync({ sessionId, itemId })} onSubmitAttempt={async (input) => { const result = await submitAttempt.mutateAsync(input); void overviewQuery.refetch(); return result; }} onRate={(input) => rateItem.mutateAsync(input)} onStartAnother={(prefill) => { const topic = session?.session?.topicId ? overviewQuery.data?.materialTopics.find((item) => item.id === session.session?.topicId) ?? overviewQuery.data?.recommendedTopic : null; composer.applySessionPrefill({ ...prefill, subjectId: topic?.subjectId, topicId: topic?.id }); setSession(null); focusComposer(); }} onGenerateMaterial={session?.unavailableReason !== "no_due_flashcard" && composer.canGenerate ? () => { void generate(); } : session?.unavailableSubjectId ? () => { setSession(null); composer.focusTopicSelection(); focusComposer(); } : undefined} isGeneratingMaterial={generationState === "preparing"} generateMaterialLabel={composer.selectedFormatIsExhausted ? "Gerar mais material" : "Gerar material para treinar"} />
     </main>
   );
 };

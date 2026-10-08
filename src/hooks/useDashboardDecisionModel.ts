@@ -35,6 +35,15 @@ import type {
 } from '@/types/dashboardDecision';
 import { getStudyEmptyStateKind } from '@/utils/studyEntryState';
 import { usePracticeOverview } from '@/features/practice/hooks/usePracticeOverview';
+import {
+  calculateCompactMetrics,
+  calculateSubjectPerformance,
+  calculateConsistencyHeatmap,
+  calculateWeeklyPlanning,
+  type SessionDataRow,
+  type PracticeAttemptRow,
+  type ReviewHistoryRow,
+} from '@/utils/dashboardAnalytics';
 
 const toLocalDate = (date: string) => (date.length === 10 ? parseISO(date) : new Date(date));
 const DASHBOARD_PACE_WINDOW_DAYS = 7;
@@ -121,6 +130,7 @@ export const useDashboardDecisionModel = () => {
       cycleData.studyCycleSubjects.map((subject, index) => ({
         id: subject.id,
         name: subject.name,
+        color: subject.color ?? null,
         cyclePosition: subject.cyclePosition ?? index + 1,
         isCompletedInCycle:
           subject.status === SubjectStatus.COMPLETED_CYCLE || subject.status === SubjectStatus.FINISHED,
@@ -221,6 +231,102 @@ export const useDashboardDecisionModel = () => {
     // Estudo e revisão acontecem em outras rotas. Reconciliar ao voltar evita
     // comparar a meta com uma janela recente ainda válida apenas no cache.
     refetchOnMount: 'always',
+  });
+
+  const { data: userSettingsData } = useQuery({
+    queryKey: ['user-settings-weekly-goal', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('weekly_study_hours_target')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+    enabled: Boolean(user?.id),
+  });
+  const weeklyGoalHours = userSettingsData?.weekly_study_hours_target ?? 20;
+
+  const { data: dashboardSessions = [] } = useQuery({
+    queryKey: ['dashboard-study-sessions', user?.id, cycleData.userCycle?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      let query = supabase
+        .from('study_sessions')
+        .select('id, subject_id, study_date, session_duration_minutes')
+        .eq('user_id', user.id)
+        .order('study_date', { ascending: false });
+
+      if (cycleData.userCycle?.id) {
+        query = query.eq('cycle_id', cycleData.userCycle.id);
+      }
+      const { data, error } = await query;
+      if (error) return [];
+      return (data || []) as SessionDataRow[];
+    },
+    enabled: Boolean(user?.id && hasActiveCycle),
+    refetchOnMount: 'always',
+  });
+
+  const { data: dashboardPracticeAttempts = [] } = useQuery({
+    queryKey: ['dashboard-practice-attempts', user?.id, activeTopicScope.scopeKey],
+    queryFn: async () => {
+      if (!user?.id || !activeTopicScope.hasScopedData) return [];
+      const { data, error } = await supabase
+        .from('practice_attempts')
+        .select('topic_id, result, created_at, attempt_kind')
+        .eq('user_id', user.id)
+        .in('topic_id', activeTopicScope.activeTopicIds)
+        .is('invalidated_at', null)
+        .order('created_at', { ascending: false });
+      if (error) return [];
+      return (data || []) as PracticeAttemptRow[];
+    },
+    enabled: Boolean(user?.id && hasActiveCycle),
+    refetchOnMount: 'always',
+  });
+
+  const { data: dashboardReviewHistory = [] } = useQuery({
+    queryKey: ['dashboard-review-history-14w', user?.id, activeTopicScope.scopeKey],
+    queryFn: async () => {
+      if (!user?.id || !activeTopicScope.hasScopedData) return [];
+      const start = startOfDay(subDays(new Date(), 98)).toISOString();
+      const { data, error } = await supabase
+        .from('topic_review_history')
+        .select('topic_id, reviewed_at')
+        .eq('user_id', user.id)
+        .in('topic_id', activeTopicScope.activeTopicIds)
+        .gte('reviewed_at', start)
+        .order('reviewed_at', { ascending: true });
+      if (error) return [];
+      return (data || []) as ReviewHistoryRow[];
+    },
+    enabled: Boolean(user?.id && hasActiveCycle),
+    refetchOnMount: 'always',
+  });
+
+  const updateWeeklyHoursTarget = useMutation({
+    mutationFn: async (targetHours: number) => {
+      if (!user?.id) throw new Error('Usuário não autenticado');
+      const cleanHours = Math.max(1, Math.min(168, Math.round(targetHours)));
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: user.id,
+          weekly_study_hours_target: cleanHours,
+          updated_at: new Date().toISOString(),
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-settings-weekly-goal', user?.id] });
+      toastManager.success('Meta semanal atualizada com sucesso');
+    },
+    onError: () => {
+      toastManager.error('Não foi possível atualizar a meta semanal');
+    },
   });
 
   const addReminder = useMutation({
@@ -421,6 +527,52 @@ export const useDashboardDecisionModel = () => {
     editaisError,
   });
 
+  const compactMetrics = useMemo(
+    () =>
+      calculateCompactMetrics({
+        sessions: dashboardSessions,
+        historyRows: dashboardReviewHistory,
+        practiceAttempts: dashboardPracticeAttempts,
+        practiceAnsweredCount: practiceOverview.data?.recentPerformance?.questions.answered ?? 0,
+        flashcardsReviewedCount: practiceOverview.data?.recentPerformance?.flashcards.reviewed ?? 0,
+      }),
+    [dashboardSessions, dashboardReviewHistory, dashboardPracticeAttempts, practiceOverview.data?.recentPerformance?.questions.answered, practiceOverview.data?.recentPerformance?.flashcards.reviewed],
+  );
+
+  const subjectPerformance = useMemo(
+    () =>
+      calculateSubjectPerformance({
+        subjects: hasActiveCycle ? dashboardSubjects : [],
+        sessions: dashboardSessions,
+        practiceAttempts: dashboardPracticeAttempts,
+      }),
+    [dashboardPracticeAttempts, dashboardSessions, dashboardSubjects, hasActiveCycle],
+  );
+
+  const consistencyHeatmap = useMemo(
+    () =>
+      calculateConsistencyHeatmap({
+        referenceDate: new Date(),
+        weeksCount: 14,
+        sessions: dashboardSessions,
+        historyRows: dashboardReviewHistory,
+        practiceAttempts: dashboardPracticeAttempts,
+      }),
+    [dashboardPracticeAttempts, dashboardReviewHistory, dashboardSessions],
+  );
+
+  const weeklyPlanning = useMemo(
+    () =>
+      calculateWeeklyPlanning({
+        referenceDate: new Date(),
+        weeklyGoalHours,
+        sessions: dashboardSessions,
+        upcomingReviews,
+        historyRows: dashboardReviewHistory,
+      }),
+    [dashboardSessions, dashboardReviewHistory, upcomingReviews, weeklyGoalHours],
+  );
+
   const model: DashboardDecisionModel = {
     isLoading: reviewsData.isLoading || cycleData.isLoading || isEditaisLoading || isRemindersLoading || (hasActiveCycle && isActivityLoading),
     error: criticalError,
@@ -467,6 +619,10 @@ export const useDashboardDecisionModel = () => {
         reviewed: 0,
       },
     },
+    compactMetrics,
+    subjectPerformance,
+    consistencyHeatmap,
+    weeklyPlanning,
     totals: {
       overdueReviews: overdueReviews.length,
       todayReviews: todayReviews.length,
@@ -508,10 +664,12 @@ export const useDashboardDecisionModel = () => {
     updateCycleName: (name: string) => updateCycleName.mutateAsync(name),
     updateExamDate: (examDate: string | null) => updateExamDate.mutateAsync(examDate),
     updatePosition: (position: string) => updatePosition.mutateAsync(position),
+    updateWeeklyHoursTarget: (targetHours: number) => updateWeeklyHoursTarget.mutateAsync(targetHours),
     isAddingReminder: addReminder.isPending,
     isUpdatingCycleName: updateCycleName.isPending,
     isUpdatingExamDate: updateExamDate.isPending,
     isUpdatingPosition: updatePosition.isPending,
+    isUpdatingWeeklyHoursTarget: updateWeeklyHoursTarget.isPending,
     navigateToAction,
     retryDashboardDataIssue,
     isTogglingReminder: toggleReminder.isPending,

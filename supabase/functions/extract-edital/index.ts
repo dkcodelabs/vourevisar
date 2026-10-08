@@ -311,15 +311,20 @@ function buildGeminiApiError(status: number, headers: Headers, errorText: string
   const apiMessage = parsed?.error?.message ? String(parsed.error.message) : errorText;
   const retryAfterSeconds = parseRetryAfterSeconds(headers, errorText);
   const isRateLimit = status === 429 || apiStatus === "RESOURCE_EXHAUSTED";
+  const isBillingDepleted = status === 402 ||
+    apiMessage.toLowerCase().includes("prepayment credits are depleted") ||
+    apiMessage.toLowerCase().includes("payment required");
 
   return new GeminiApiError(`Gemini API erro ${status}: ${apiMessage.substring(0, 300)}`, {
     status,
     apiStatus,
-    code: isRateLimit ? "AI_RATE_LIMITED" : `GEMINI_${status}`,
+    code: isBillingDepleted ? "AI_BILLING_DEPLETED" : isRateLimit ? "AI_RATE_LIMITED" : `GEMINI_${status}`,
     retryAfterSeconds,
-    publicMessage: isRateLimit
-      ? "A IA atingiu o limite temporario de uso. Aguarde alguns minutos e tente novamente."
-      : "A IA ficou temporariamente indisponivel. Tente novamente em alguns minutos.",
+    publicMessage: isBillingDepleted
+      ? "O serviço de inteligência artificial está temporariamente sem créditos no Google AI Studio. A administração foi notificada."
+      : isRateLimit
+        ? "A IA atingiu o limite temporario de uso. Aguarde alguns minutos e tente novamente."
+        : "A IA ficou temporariamente indisponivel. Tente novamente em alguns minutos.",
   });
 }
 
@@ -416,6 +421,7 @@ function getModelCandidates(config: JsonBoundary, primaryModel: string) {
   return uniqueModels([
     primaryModel,
     ...configuredFallbacks,
+    "gemini-3.5-flash",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
   ]);
@@ -617,52 +623,75 @@ function getMaxOutputTokensForModel(modelName: string, requestedMaxTokens: numbe
 }
 
 async function callGeminiWithFallbacks(
-  apiKey: string,
+  apiKeys: string | string[],
   modelCandidates: string[],
   payloadFactory: (modelName: string) => JsonBoundary,
   timeoutMs: number,
   attemptsPerModel = 1,
 ): Promise<{ text: string; finishReason: string; usage: JsonBoundary; modelName: string }> {
+  const keys = Array.isArray(apiKeys) ? apiKeys.filter(Boolean) : [apiKeys].filter(Boolean);
   let lastError: JsonBoundary = null;
 
-  for (const modelName of modelCandidates) {
-    for (let attempt = 1; attempt <= attemptsPerModel; attempt++) {
-      try {
-        const result = await callGemini(apiKey, modelName, payloadFactory(modelName), timeoutMs);
-        return { ...result, modelName };
-      } catch (error: JsonBoundary) {
-        lastError = error;
-        const isModelNotFoundError = String(error?.message || "").includes("erro 404") || 
-                                     String(error?.message || "").includes("not found") || 
-                                     String(error?.message || "").includes("no longer available");
+  for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
+    const currentApiKey = keys[keyIdx];
+    const hasNextKey = keyIdx < keys.length - 1;
 
-        if (isGeminiRateLimitError(error)) {
-          console.warn("[extract-edital] Gemini rate limit reached; waiting before retry", {
+    for (const modelName of modelCandidates) {
+      for (let attempt = 1; attempt <= attemptsPerModel; attempt++) {
+        try {
+          const result = await callGemini(currentApiKey, modelName, payloadFactory(modelName), timeoutMs);
+          return { ...result, modelName };
+        } catch (error: JsonBoundary) {
+          lastError = error;
+          const isModelNotFoundError = String(error?.message || "").includes("erro 404") || 
+                                       String(error?.message || "").includes("not found") || 
+                                       String(error?.message || "").includes("no longer available");
+          const isBillingDepletedError = error?.code === "AI_BILLING_DEPLETED" ||
+                                         error?.status === 402 ||
+                                         String(error?.message || "").includes("prepayment credits are depleted");
+
+          if (isBillingDepletedError) {
+            if (hasNextKey) {
+              console.warn(`[extract-edital] Chave ${keyIdx + 1} sem créditos (402). Alternando para chave reserva de contingência...`);
+              break;
+            }
+            throw error;
+          }
+
+          if (isGeminiRateLimitError(error)) {
+            console.warn("[extract-edital] Gemini rate limit reached; waiting before retry", {
+              modelName,
+              attempt,
+              status: error?.status,
+              apiStatus: error?.apiStatus,
+              retryAfterSeconds: error?.retryAfterSeconds,
+            });
+            if (hasNextKey && attempt === attemptsPerModel) {
+              console.warn(`[extract-edital] Rate limit na chave ${keyIdx + 1}. Alternando para chave reserva...`);
+              break;
+            }
+            const waitTime = error?.retryAfterSeconds ? error.retryAfterSeconds * 1000 : 10000;
+            await sleep(waitTime);
+            continue;
+          }
+          
+          if (!isRetryableGeminiError(error) && !isModelNotFoundError) {
+            throw error;
+          }
+
+          console.warn("[extract-edital] Gemini retryable error", {
             modelName,
             attempt,
-            status: error?.status,
-            apiStatus: error?.apiStatus,
-            retryAfterSeconds: error?.retryAfterSeconds,
+            message: error?.message,
           });
-          // Wait longer on rate limit (use retryAfterSeconds or fallback to 10s)
-          const waitTime = error?.retryAfterSeconds ? error.retryAfterSeconds * 1000 : 10000;
-          await sleep(waitTime);
-          continue; // Allow it to retry or fallback to next model
-        }
-        
-        if (!isRetryableGeminiError(error) && !isModelNotFoundError) {
-          throw error;
-        }
 
-        console.warn("[extract-edital] Gemini retryable error", {
-          modelName,
-          attempt,
-          message: error?.message,
-        });
-
-        if (attempt < attemptsPerModel) {
-          await sleep(1200 * attempt);
+          if (attempt < attemptsPerModel) {
+            await sleep(1200 * attempt);
+          }
         }
+      }
+      if (lastError?.code === "AI_BILLING_DEPLETED" && hasNextKey) {
+        break;
       }
     }
   }
@@ -1495,7 +1524,7 @@ serve(async (req) => {
   let userId = "";
   let reqData: JsonBoundary;
   let mode: ExtractMode = "analyze";
-  let modelNameUsed = "gemini-2.5-flash";
+  let modelNameUsed = "gemini-3.5-flash";
 
   const logAiUsage = async (status: "success" | "failed", modelUsed: string, pTokens: number, cTokens: number) => {
     if (!supabaseClient || !userId) return;
@@ -1562,8 +1591,10 @@ serve(async (req) => {
       .maybeSingle();
 
     const config = (systemSetting?.value || {}) as JsonBoundary;
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) throw new Error("GEMINI_API_KEY nao configurada nos secrets da Edge Function.");
+    const primaryApiKey = Deno.env.get("GEMINI_API_KEY") || "";
+    const fallbackApiKey = Deno.env.get("GEMINI_FALLBACK_API_KEY") || "";
+    const apiKeys = [primaryApiKey, fallbackApiKey].filter(Boolean);
+    if (apiKeys.length === 0) throw new Error("GEMINI_API_KEY nao configurada nos secrets da Edge Function.");
 
     // Check bypass for user (admin/owner)
     const { data: userRole } = await supabaseClient
@@ -1701,15 +1732,35 @@ serve(async (req) => {
 
     let fileUri: string | null = null;
     const shouldUsePdfFile = mode === "analyze" || mode === "extractForCargo";
+    const uploadWithFallback = async (uploader: (k: string) => Promise<string>): Promise<string> => {
+      let lastErr: unknown = null;
+      for (let i = 0; i < apiKeys.length; i++) {
+        const k = apiKeys[i];
+        try {
+          return await uploader(k);
+        } catch (err) {
+          lastErr = err;
+          const msg = String((err as { message?: string })?.message || "").toLowerCase();
+          const isDepleted = msg.includes("402") || msg.includes("prepayment credits are depleted");
+          if (isDepleted && i < apiKeys.length - 1) {
+            console.warn(`[extract-edital] Falha no upload com chave ${i + 1}. Tentando chave reserva...`);
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw lastErr;
+    };
+
     if (shouldUsePdfFile && pdfFileUri) {
       fileUri = String(pdfFileUri);
     } else if (shouldUsePdfFile && pdfPath) {
-      fileUri = await uploadStoragePdfToGemini(supabaseClient, apiKey, pdfPath, userId);
+      fileUri = await uploadWithFallback((k) => uploadStoragePdfToGemini(supabaseClient, k, pdfPath, userId));
     } else if (shouldUsePdfFile && pdfUrl) {
-      fileUri = await uploadPdfUrlToGemini(apiKey, pdfUrl);
+      fileUri = await uploadWithFallback((k) => uploadPdfUrlToGemini(k, pdfUrl));
     }
 
-    const primaryModelName = config.model || "gemini-2.5-flash";
+    const primaryModelName = config.model || "gemini-3.5-flash";
     const modelCandidates = getModelCandidates(config, primaryModelName);
     const maxTokens = mode === "mapContentStructure"
       ? Math.min(config.max_tokens || 8192, 12000)
@@ -1789,7 +1840,7 @@ ${WEIGHT_EXTRACTION_DISABLED_RULES}`;
 
     console.log("[extract-edital] Calling Gemini", { mode, modelCandidates, hasPdf: !!payloadFileUri, hasText: !!payloadInputText });
     const timeoutMs = mode === "extractForCargo" ? 85000 : mode === "extractSubject" ? 45000 : mode === "extractWeights" ? 25000 : 70000;
-    const { text, finishReason, usage, modelName } = await callGeminiWithFallbacks(apiKey, modelCandidates, buildPayload, timeoutMs, 2);
+    const { text, finishReason, usage, modelName } = await callGeminiWithFallbacks(apiKeys, modelCandidates, buildPayload, timeoutMs, 2);
     modelNameUsed = modelName;
 
     // Log success in telemetria

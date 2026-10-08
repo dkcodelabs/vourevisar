@@ -72,8 +72,12 @@ export function AuthCallback() {
           }
 
           const confirmedUserEmail = sessionData.session.user.email?.toLowerCase();
-          const isSignupConfirmation = type === 'signup'
-            || Boolean(pendingConfirmationEmail && confirmedUserEmail === pendingConfirmationEmail);
+          const isGoogleUser = sessionData.session.user.app_metadata?.provider === 'google'
+            || Boolean(sessionData.session.user.app_metadata?.providers?.includes('google'));
+          const isSignupConfirmation = !isGoogleUser && (
+            type === 'signup'
+            || Boolean(pendingConfirmationEmail && confirmedUserEmail === pendingConfirmationEmail)
+          );
 
           if (isSignupConfirmation) {
             if (sessionData.session.user.email) {
@@ -83,6 +87,7 @@ export function AuthCallback() {
             await signOutAuth();
             setRedirectPath('/login?confirmed=1');
           } else {
+            clearPendingConfirmationMarkers();
             await completePendingSignupLegalAcceptance();
             setRedirectPath('/dashboard');
           }
@@ -132,18 +137,23 @@ export function AuthCallback() {
             return;
           }
 
-          if (exchangedSession.user?.email) {
-            localStorage.setItem('confirmedEmail', exchangedSession.user.email);
-          }
           const exchangedUserEmail = exchangedSession.user?.email?.toLowerCase();
-          const isSignupConfirmation = type === 'signup'
-            || Boolean(pendingConfirmationEmail && exchangedUserEmail === pendingConfirmationEmail);
+          const isGoogleUser = exchangedSession.user?.app_metadata?.provider === 'google'
+            || Boolean(exchangedSession.user?.app_metadata?.providers?.includes('google'));
+          const isSignupConfirmation = !isGoogleUser && (
+            type === 'signup'
+            || Boolean(pendingConfirmationEmail && exchangedUserEmail === pendingConfirmationEmail)
+          );
 
           if (isSignupConfirmation) {
+            if (exchangedSession.user?.email) {
+              localStorage.setItem('confirmedEmail', exchangedSession.user.email);
+            }
             clearPendingConfirmationMarkers();
             await signOutAuth();
             setRedirectPath('/login?confirmed=1');
           } else {
+            clearPendingConfirmationMarkers();
             await completePendingSignupLegalAcceptance();
             setRedirectPath('/dashboard');
           }

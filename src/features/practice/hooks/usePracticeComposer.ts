@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { usePracticeTopics } from "@/features/practice/hooks/usePracticeTopicOptions";
 import type { PracticeSubjectOption } from "@/features/practice/hooks/usePracticeTopicOptions";
@@ -25,7 +25,7 @@ const countForFormat = (
   ? material.questions
   : format === "flashcards"
     ? material.flashcards
-    : material.questions + material.flashcards;
+  : material.questions + material.flashcards;
 
 export type PracticeComposerState = ReturnType<typeof usePracticeComposer>;
 
@@ -39,10 +39,6 @@ export const usePracticeComposer = ({
   subjects: PracticeSubjectOption[];
 }) => {
   const recommendation = overview?.dailyRecommendation;
-  const recommendationKey = recommendation
-    ? [recommendation.kind, recommendation.topic?.id ?? "cycle", recommendation.count, recommendation.reason].join(":")
-    : "pending";
-  const appliedRecommendationKey = useRef<string | null>(null);
   const [subjectId, setSubjectId] = useState("");
   const [topicId, setTopicId] = useState("");
   const [topicPickerOpen, setTopicPickerOpen] = useState(false);
@@ -55,7 +51,6 @@ export const usePracticeComposer = ({
   const restoreRecommendation = () => {
     if (!recommendation || recommendation.kind === "clear") return;
     const isDueQueue = recommendation.kind === "flashcards_due";
-    appliedRecommendationKey.current = recommendationKey;
     setRecommendationActive(true);
     setDueCycleQueue(isDueQueue);
     setSubjectId(isDueQueue ? "" : recommendation.topic?.subjectId ?? "");
@@ -64,26 +59,6 @@ export const usePracticeComposer = ({
     setFormat(isDueQueue || recommendation.kind === "flashcards_new" ? "flashcards" : "questions");
     setQuantity(recommendation.count);
   };
-
-  useEffect(() => {
-    if (!recommendation || appliedRecommendationKey.current === recommendationKey) return;
-    appliedRecommendationKey.current = recommendationKey;
-
-    if (recommendation.kind === "clear") {
-      setRecommendationActive(false);
-      setDueCycleQueue(false);
-      return;
-    }
-
-    const isDueQueue = recommendation.kind === "flashcards_due";
-    setRecommendationActive(true);
-    setDueCycleQueue(isDueQueue);
-    setSubjectId(isDueQueue ? "" : recommendation.topic?.subjectId ?? "");
-    setTopicId(isDueQueue ? "" : recommendation.topic?.id ?? "");
-    setTopicPickerOpen(Boolean(!isDueQueue && recommendation.topic?.id));
-    setFormat(isDueQueue || recommendation.kind === "flashcards_new" ? "flashcards" : "questions");
-    setQuantity(recommendation.count);
-  }, [recommendation, recommendationKey]);
 
   const selectedSubject = subjects.find((subject) => subject.id === subjectId) ?? null;
   const selectedTopic = (topicsQuery.data ?? []).find((topic) => topic.id === topicId) ?? null;
@@ -103,26 +78,41 @@ export const usePracticeComposer = ({
       (total, topic) => ({
         questions: total.questions + topic.questionCount,
         flashcards: total.flashcards + topic.flashcardCount,
+        availableQuestions: total.availableQuestions + (topic.availableQuestionCount ?? topic.questionCount),
+        availableFlashcards: total.availableFlashcards + (topic.availableFlashcardCount ?? topic.flashcardCount),
         dueFlashcards: total.dueFlashcards + topic.dueFlashcardCount,
       }),
-      { questions: 0, flashcards: 0, dueFlashcards: 0 },
+      { questions: 0, flashcards: 0, availableQuestions: 0, availableFlashcards: 0, dueFlashcards: 0 },
     );
   }, [dueCycleQueue, overview?.materialTopics, subjectId, topicId]);
 
+  const availableMaterial = {
+    questions: material.availableQuestions,
+    flashcards: material.availableFlashcards,
+  };
   const availableCount = dueCycleQueue
     ? overview?.flashcards.dueCount ?? 0
-    : countForFormat(format, material);
+    : countForFormat(format, availableMaterial);
   const mixedIsAvailable = material.questions > 0 && material.flashcards > 0;
-  const availableFormatCount = format === "mixed" && !mixedIsAvailable
+  const mixedHasAvailableItems = availableMaterial.questions > 0 && availableMaterial.flashcards > 0;
+  const availableFormatCount = format === "mixed" && !mixedHasAvailableItems
+    ? 0
+    : countForFormat(format, availableMaterial);
+  const totalFormatCount = format === "mixed" && !mixedIsAvailable
     ? 0
     : countForFormat(format, material);
   const sessionQuantity = Math.min(quantity, availableCount);
   const hasSelectedFocus = dueCycleQueue || Boolean(subjectId);
   const needsTopicForGeneration = !dueCycleQueue && !topicId && availableFormatCount === 0;
+  const selectedMaterialTopic = topicId
+    ? (overview?.materialTopics ?? []).find((topic) => topic.id === topicId) ?? null
+    : null;
+  const selectedTopicIsGenerating = Boolean(selectedMaterialTopic?.isGenerating);
+  const selectedFormatIsExhausted = !dueCycleQueue && Boolean(topicId) && totalFormatCount > 0 && availableFormatCount === 0;
   const canStart = dueCycleQueue
     ? availableCount > 0
-    : Boolean(subjectId) && availableFormatCount > 0;
-  const canGenerate = !dueCycleQueue && Boolean(topicId) && availableFormatCount === 0;
+    : Boolean(subjectId) && availableFormatCount > 0 && !selectedTopicIsGenerating;
+  const canGenerate = !dueCycleQueue && Boolean(topicId) && availableFormatCount === 0 && !selectedTopicIsGenerating;
 
   const markManual = () => {
     setRecommendationActive(false);
@@ -152,7 +142,6 @@ export const usePracticeComposer = ({
   };
 
   const clearRecommendation = () => {
-    appliedRecommendationKey.current = recommendationKey;
     setRecommendationActive(false);
     setDueCycleQueue(false);
     setSubjectId("");
@@ -173,7 +162,6 @@ export const usePracticeComposer = ({
     format?: PracticeFormat;
   }) => {
     if (!prefill) return;
-    appliedRecommendationKey.current = recommendationKey;
     setRecommendationActive(false);
     setDueCycleQueue(false);
     setSubjectId(prefill.subjectId ?? "");
@@ -182,8 +170,8 @@ export const usePracticeComposer = ({
     setFormat(prefill.format ?? "questions");
   };
 
-  const buildInput = (): ComposerInput | null => {
-    if (!canStart) return null;
+  const buildInput = (allowUnavailableMaterial = false): ComposerInput | null => {
+    if (!canStart && !allowUnavailableMaterial) return null;
     if (dueCycleQueue) {
       return {
         mode: "flashcards_due",
@@ -203,11 +191,11 @@ export const usePracticeComposer = ({
       // New cards can be suggested, but only the due-cycle queue is allowed to reschedule reviews.
       origin: isQuestionRecommendation ? "daily_recommendation" : "manual",
       ...(topicId ? { topicId } : { subjectId }),
-      quantity: sessionQuantity,
+      quantity: allowUnavailableMaterial ? quantity : sessionQuantity,
     };
   };
 
-  const recommendationReason = recommendationActive && recommendation?.kind !== "clear"
+  const recommendationReason = recommendation && recommendation.kind !== "clear"
     ? recommendationReasonCopy[recommendation.reason as keyof typeof recommendationReasonCopy]
     : null;
 
@@ -224,6 +212,8 @@ export const usePracticeComposer = ({
     material,
     availableCount,
     mixedIsAvailable,
+    selectedTopicIsGenerating,
+    selectedFormatIsExhausted,
     sessionQuantity,
     hasSelectedFocus,
     needsTopicForGeneration,
@@ -232,6 +222,10 @@ export const usePracticeComposer = ({
     recommendationActive,
     recommendationAvailable: Boolean(recommendation && recommendation.kind !== "clear" && !recommendationActive),
     recommendationReason,
+    recommendedTopicName: recommendation?.topic?.name ?? null,
+    recommendedSubjectName: recommendation?.topic?.subjectName ?? null,
+    recommendationKind: recommendation?.kind ?? "clear",
+    recommendationCount: recommendation?.count ?? 0,
     dueCycleQueue,
     estimatedMinutes: recommendationActive ? recommendation?.estimatedMinutes ?? null : null,
     chooseSubject,
@@ -244,5 +238,6 @@ export const usePracticeComposer = ({
     setTopicPickerOpen,
     applySessionPrefill,
     buildInput,
+    buildInputAfterGeneration: () => buildInput(true),
   };
 };

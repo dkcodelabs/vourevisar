@@ -33,8 +33,9 @@ type PracticeSessionDialogProps = {
   mode: PracticeMode | null;
   session: PracticeSession | null;
   unavailableReason?:
-    "no_package" | "no_eligible_item" | "no_due_flashcard" | null;
+    "no_package" | "no_eligible_item" | "all_items_attempted" | "no_due_flashcard" | null;
   unavailableScope?: "topic" | "subject";
+  isPreparingSession?: boolean;
   preparingAnotherSession?: boolean;
   onOpenChange: (open: boolean) => void;
   onReveal: (sessionId: string, itemId: string) => Promise<PracticeAnswer>;
@@ -85,6 +86,7 @@ export const PracticeSessionDialog = ({
   session,
   unavailableReason = null,
   unavailableScope = "topic",
+  isPreparingSession = false,
   preparingAnotherSession = false,
   onOpenChange,
   onReveal,
@@ -327,6 +329,8 @@ export const PracticeSessionDialog = ({
   const unavailableCopy =
     unavailableReason === "no_due_flashcard"
       ? "Você não tem flashcards pendentes agora. Quando um cartão vencer, ele aparecerá aqui."
+      : unavailableReason === "all_items_attempted"
+        ? "Você já praticou todos os itens inéditos deste tópico. Gere mais material para continuar com conteúdo novo."
       : unavailableScope === "subject"
         ? "Ainda não há material de prática pronto para esta matéria. Escolha um tópico para gerar questões e flashcards."
       : "Ainda não há material de prática pronto para este tópico. Gere questões e flashcards se quiser praticá-lo agora.";
@@ -350,7 +354,7 @@ export const PracticeSessionDialog = ({
     <Dialog open={mode !== null} onOpenChange={(open) => !open && close()}>
       <DialogContent
         className={cn(
-          "min-w-0 max-w-[calc(100vw-1.5rem)] gap-0 rounded-2xl border-border bg-card p-0 shadow-xl sm:max-w-4xl",
+          "min-w-0 max-w-[calc(100vw-1.5rem)] gap-0 rounded-2xl border-border/80 bg-modal/95 p-0 shadow-2xl shadow-black/25 backdrop-blur-2xl sm:max-w-3xl",
           isQuestions
             ? "max-h-[min(720px,calc(100dvh-1rem))] overflow-y-auto"
             : "max-h-[min(680px,calc(100dvh-1rem))] flex flex-col overflow-hidden",
@@ -405,7 +409,17 @@ export const PracticeSessionDialog = ({
           ) : null}
         </DialogHeader>
 
-        {!session ? (
+        {isPreparingSession ? (
+          <div className="grid min-h-[19rem] place-items-center px-5 py-8 text-center" role="status" aria-live="polite">
+            <div>
+              <div className="mx-auto grid size-11 place-items-center rounded-full border border-primary/20 bg-primary/10 text-primary">
+                <Play className="size-4 animate-pulse" aria-hidden="true" />
+              </div>
+              <h2 className="mt-4 text-lg font-semibold tracking-tight text-foreground">Montando sua sessão</h2>
+              <p className="mt-2 max-w-sm text-sm leading-relaxed text-content-muted">Estamos organizando seus itens de prática e preservando seu histórico.</p>
+            </div>
+          </div>
+        ) : !session ? (
           <div className="p-5 sm:p-6">
             <div className="rounded-2xl border border-border bg-secondary/25 p-5 text-center">
               <div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-primary/10 text-primary">
@@ -728,59 +742,47 @@ export const PracticeSessionDialog = ({
             )}
           </div>
         ) : activeItem ? (
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
-            <div className="mx-auto min-w-0 max-w-3xl">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+            <div className="mx-auto min-w-0 max-w-2xl">
               {!revealedAnswer ? (
                 <button
                   type="button"
                   aria-label="Revelar resposta"
                   disabled={isRevealing}
                   onClick={() => void handleReveal()}
-                  className="group flex h-[360px] min-w-0 w-full flex-col overflow-hidden rounded-2xl border border-dashed border-border bg-card px-4 py-3 text-left shadow-sm transition-[background-color,border-color,box-shadow] duration-200 hover:border-primary/40 hover:bg-secondary/[0.12] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-wait disabled:opacity-80 sm:h-[380px] sm:px-5 sm:py-4"
+                  className="group flex min-h-[310px] min-w-0 w-full flex-col px-6 py-7 text-left transition-colors duration-200 hover:bg-primary/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 disabled:cursor-wait disabled:opacity-80 sm:min-h-[350px] sm:px-9 sm:py-8"
                 >
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.13em] text-primary">
-                    Frente
-                  </span>
-                  <h2 className="mt-6 text-pretty text-lg font-bold leading-snug tracking-tight text-foreground sm:text-xl">
+                  <span className="h-px w-8 bg-primary/70" aria-hidden="true" />
+                  <h2 className="mt-7 max-w-[34rem] text-pretty text-xl font-semibold leading-snug tracking-tight text-foreground sm:text-2xl">
                     {activeItem.prompt}
                   </h2>
-                  <span className="mb-7 mt-auto self-center text-center text-content-muted transition-colors group-hover:text-foreground">
-                    <span className="inline-flex items-center text-sm">
-                      <Eye className="mr-2 h-4 w-4" />{" "}
+                  <span className="mt-auto inline-flex items-center self-start text-sm font-medium text-content-muted transition-colors group-hover:text-primary">
+                    <Eye className="mr-2 h-4 w-4" />{" "}
                       {isRevealing
                         ? "Abrindo resposta salva…"
                         : "Revelar resposta"}
-                    </span>
-                    <span className="mt-1 block text-[11px] leading-relaxed text-content-muted">
-                      Busca o verso já salvo. Não usa IA.
-                    </span>
                   </span>
                 </button>
               ) : (
-                <div className="flex h-[360px] min-w-0 flex-col overflow-hidden rounded-2xl border border-dashed border-border bg-card shadow-sm sm:h-[380px]">
-                  <div className="flex h-1/2 min-h-0 min-w-0 shrink-0 flex-col items-stretch justify-start px-4 py-4 sm:px-5 sm:py-5">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.13em] text-primary">
-                      Frente
-                    </span>
-                    <h2 className="mt-6 text-pretty text-lg font-bold leading-snug tracking-tight text-foreground sm:text-xl">
+                <div>
+                  <div className="px-6 pb-7 pt-8 sm:px-9 sm:pb-8 sm:pt-9">
+                    <span className="h-px w-8 bg-primary/70" aria-hidden="true" />
+                    <h2 className="mt-7 max-w-[34rem] text-pretty text-xl font-semibold leading-snug tracking-tight text-foreground sm:text-2xl">
                       {activeItem.prompt}
                     </h2>
                   </div>
                   <div
-                    className="animate-in fade-in-0 slide-in-from-bottom-1 h-1/2 min-h-0 shrink-0 overflow-y-auto border-t border-border bg-secondary/20 px-4 py-4 duration-200 sm:px-5"
+                    className="animate-in fade-in-0 slide-in-from-bottom-1 border-t border-border bg-secondary/30 px-6 py-6 duration-200 sm:px-9 sm:py-7"
                     aria-live="polite"
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
-                      Verso
-                    </p>
-                    <p className="mt-3 text-sm leading-relaxed text-foreground">
+                    <p className="max-w-[42rem] text-base leading-relaxed text-foreground">
                       {revealedAnswer.explanation}
                     </p>
                   </div>
                 </div>
               )}
               {revealedAnswer && (
-                <div className="sticky bottom-0 mt-4 border-t border-border bg-card/95 pt-4 backdrop-blur-sm">
+                <div className="sticky bottom-0 border-t border-border bg-modal/95 px-6 py-5 backdrop-blur-xl sm:px-9">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <fieldset className="min-w-0 flex-1">
                       <legend className="text-[13px] font-semibold">

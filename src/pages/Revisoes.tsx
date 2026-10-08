@@ -266,8 +266,10 @@ export const Revisoes = () => {
     if (focusedTopicId) return;
     const tabByQuery: Record<string, ViewTab> = {
       hoje: 'FOCUS',
+      today: 'FOCUS',
       atrasadas: 'FOCUS',
       futuras: 'FUTURE',
+      future: 'FUTURE',
       concluidas: 'COMPLETED',
       todas: 'ALL',
     };

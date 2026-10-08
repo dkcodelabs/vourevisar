@@ -86,6 +86,18 @@ export function useAuthOperations() {
         throw error;
       }
 
+      // Supabase returns an obfuscated user object with empty identities array (`[]`)
+      // when User Enumeration Protection is enabled and the email is already registered.
+      const isExistingUser = Boolean(
+        data.user &&
+        Array.isArray(data.user.identities) &&
+        data.user.identities.length === 0
+      );
+
+      if (isExistingUser) {
+        throw new Error('Este email já está cadastrado. Faça login para acessar sua conta.');
+      }
+
       const confirmationPending = Boolean(data.user && isEmailConfirmationPending(data.user));
       if (confirmationPending && data.session) {
         await supabase.auth.signOut();
@@ -96,10 +108,7 @@ export function useAuthOperations() {
         localStorage.setItem('pendingConfirmationCooldownUntil', String(Date.now() + 60_000));
       }
 
-      // Supabase intentionally returns an obfuscated success for an address that
-      // already belongs to a confirmed account. Never promise an email here,
-      // because that would be false for that safe, generic response.
-      toastManager.success('Se este endereço precisar de confirmação, enviaremos um link por e-mail.');
+      toastManager.success('Cadastro realizado! Enviamos um link de confirmação para o seu email.');
       return { ...data, confirmationPending };
     } catch (error: unknown) {
       console.error('Sign up error:', error);
@@ -113,6 +122,9 @@ export function useAuthOperations() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
+      localStorage.removeItem('pendingConfirmationEmail');
+      localStorage.removeItem('pendingConfirmationCooldownUntil');
+      localStorage.removeItem('confirmedEmail');
       markPendingSignupLegalAcceptance();
       // Usar o domínio atual para callback
       const currentOrigin = window.location.origin;

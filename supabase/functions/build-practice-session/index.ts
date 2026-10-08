@@ -359,27 +359,32 @@ serve(async (request) => {
       for (const schedule of dueSchedules) dueAtByItemId.set(schedule.item_id, schedule.due_at);
     }
 
+    const selectableCandidates = itemRows
+      .filter((item) => !hiddenItemIds.has(item.id))
+      .map((item) => ({
+        id: item.id,
+        itemType: item.item_type,
+        topicId: packageTopicById.get(item.package_id) ?? "",
+        createdAt: item.created_at,
+        dueAt: dueAtByItemId.get(item.id),
+      }));
     const selected = selectPracticeItems({
       mode: input.mode,
       format: input.format,
       quantity: input.quantity,
       attemptedItemIds,
-      candidates: itemRows
-        .filter((item) => !hiddenItemIds.has(item.id))
-        .map((item) => ({
-          id: item.id,
-          itemType: item.item_type,
-          topicId: packageTopicById.get(item.package_id) ?? "",
-          createdAt: item.created_at,
-          dueAt: dueAtByItemId.get(item.id),
-        })),
+      candidates: selectableCandidates,
     });
 
     if (!selected.length) {
       return json(request, {
         status: "needs_material",
         topicId: input.topicId ?? null,
-        reason: input.mode === "flashcards_due" ? "no_due_flashcard" : "no_eligible_item",
+        reason: input.mode === "flashcards_due"
+          ? "no_due_flashcard"
+          : selectableCandidates.some((item) => !attemptedItemIds.has(item.id))
+            ? "no_eligible_item"
+            : "all_items_attempted",
       });
     }
 

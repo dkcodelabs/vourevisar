@@ -292,6 +292,16 @@ const classifyGenerationFailure = (
       ? sanitizeFailureDetail(error.providerCode)
       : null;
 
+    if (error.status === 402 || error.providerCode?.toLowerCase().includes("prepayment credits are depleted")) {
+      return {
+        code: "provider_billing_depleted",
+        message: "O serviço de inteligência artificial está temporariamente sem créditos no Google AI Studio. A administração foi notificada.",
+        httpStatus: 503,
+        providerStatus: error.status,
+        providerDetail,
+      };
+    }
+
     if (error.status === 401 || error.status === 403) {
       return {
         code: "provider_authentication_failed",
@@ -456,7 +466,7 @@ serve(async (request) => {
     }
 
     const modelId = Deno.env.get("PRACTICE_GENERATION_MODEL") ??
-      "gemini-2.5-flash";
+      "gemini-3.5-flash";
     const promptVersion = "practice-package-v1";
     const schemaVersion = "practice-package-schema-v1";
     const contextFingerprint = await sha256(JSON.stringify({
@@ -506,8 +516,42 @@ serve(async (request) => {
       });
     }
 
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiApiKey) {
+    // Rate limit por aluno: máx. 25 pacotes inéditos por hora (250 questões/hora por usuário).
+    // Tópicos já gerados anteriormente são reutilizados sem chamar o Gemini e não consomem essa cota.
+    const { data: rateLimitOk } = await supabase
+      .rpc("check_rate_limit", {
+        p_user_id: userId,
+        p_endpoint: "practice:generate-package",
+        p_max_per_hour: 25,
+      });
+
+    if (rateLimitOk === false) {
+      await reportFailure(
+        supabase,
+        generationId,
+        userId,
+        "failed",
+        "rate_limited",
+        "Você atingiu o limite de gerações inéditas com IA nesta hora (máx. 25 pacotes/hora). Continue praticando com os pacotes já disponíveis ou aguarde alguns minutos.",
+        [],
+        0,
+      );
+      return json(request, {
+        error: "Limite de gerações de treino por hora atingido. Aguarde alguns minutos.",
+        code: "PRACTICE_RATE_LIMITED"
+      }, 429);
+    }
+
+    await supabase.rpc("log_api_usage", {
+      p_user_id: userId,
+      p_endpoint: "practice:generate-package",
+    });
+
+    const primaryGeminiApiKey = Deno.env.get("GEMINI_API_KEY") ?? "";
+    const fallbackGeminiApiKey = Deno.env.get("GEMINI_FALLBACK_API_KEY") ?? "";
+    const apiKeys = [primaryGeminiApiKey, fallbackGeminiApiKey].filter(Boolean);
+
+    if (apiKeys.length === 0) {
       await reportFailure(
         supabase,
         generationId,
@@ -521,10 +565,30 @@ serve(async (request) => {
       return json(request, { error: "Geração indisponível no momento." }, 503);
     }
 
+    const callGeminiWithKeyFallback = async (model: string, promptText: string): Promise<GeminiResponse> => {
+      let lastErr: unknown = null;
+      for (let i = 0; i < apiKeys.length; i++) {
+        const k = apiKeys[i];
+        try {
+          return await callGemini(k, model, promptText);
+        } catch (err) {
+          lastErr = err;
+          const isBillingOrLimit = err instanceof GeminiProviderError &&
+            (err.status === 402 || err.status === 429 || String(err.providerCode || "").toLowerCase().includes("prepayment"));
+          if (isBillingOrLimit && i < apiKeys.length - 1) {
+            console.warn(`[generate-practice-package] Chave ${i + 1} falhou (${(err as GeminiProviderError).status}). Tentando chave reserva...`);
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw lastErr;
+    };
+
     generationStage = "provider";
     const prompt = buildPracticeGenerationPrompt(context);
     providerAttemptCount += 1;
-    const providerResponse = await callGemini(geminiApiKey, modelId, prompt);
+    const providerResponse = await callGeminiWithKeyFallback(modelId, prompt);
     const providerResponses = [providerResponse];
     generationStage = "validation";
     const questionFormat = getPracticeQuestionFormat(context.examBoard);
@@ -550,8 +614,7 @@ serve(async (request) => {
     let validation = validateProviderResponse(providerResponse);
     if (!validation.ok) {
       providerAttemptCount += 1;
-      const correctedResponse = await callGemini(
-        geminiApiKey,
+      const correctedResponse = await callGeminiWithKeyFallback(
         modelId,
         buildPracticeCorrectionPrompt(context, validation.reasons),
       );

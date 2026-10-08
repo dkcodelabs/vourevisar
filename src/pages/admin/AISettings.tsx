@@ -12,7 +12,7 @@ import { PageLoadingState } from '@/components/ui/PageLoadingState';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const DEFAULT_CONFIG = {
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.5-flash',
   temperature: 0.1,
   top_p: 1.0,
   top_k: 1,
@@ -228,8 +228,27 @@ export default function AISettings() {
                     setHasUnsavedChanges(true);
                   }}
                   className="w-full h-12 bg-secondary/50 dark:bg-zinc-800/50 border border-border dark:border-white/10 rounded-2xl px-5 text-sm font-bold focus:border-primary/50 outline-none transition-all"
-                  placeholder="gemini-1.5-flash"
+                  placeholder="gemini-3.5-flash"
                 />
+                <div className="flex gap-2 pt-1">
+                  {['gemini-3.5-flash', 'gemini-2.5-flash'].map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => {
+                        setConfig({...config, model: m});
+                        setHasUnsavedChanges(true);
+                      }}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                        config.model === m 
+                          ? 'border-primary/60 bg-primary/10 text-primary font-bold' 
+                          : 'border-border text-muted-foreground hover:border-foreground/30'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -511,13 +530,15 @@ function AIStatusSection() {
   const statusColors = {
     active: 'bg-green-500',
     inactive: 'bg-gray-400',
+    contingency: 'bg-amber-500',
     error: 'bg-red-500',
     unknown: 'bg-yellow-500'
   };
 
   const statusLabels = {
-    active: 'Ativa',
+    active: 'Ativa (Chave Principal)',
     inactive: 'Inativa',
+    contingency: 'Modo Contingência (Chave Reserva)',
     error: 'Erro',
     unknown: 'Não verificado'
   };
@@ -537,13 +558,16 @@ function AIStatusSection() {
     const status = await checkAIStatus(true);
     const checkedAt = new Date().toISOString();
 
-    if (status.status === 'active') {
+    if (status.status === 'active' || status.status === 'contingency') {
+      const isContingency = status.status === 'contingency';
       setLastManualTest({
         status: 'success',
         checkedAt,
-        message: status.modelName
-          ? `Teste aprovado com o modelo ${status.modelName}.`
-          : 'Teste aprovado. A API respondeu, mas não retornou o nome do modelo.'
+        message: isContingency
+          ? (status.warning || 'Teste aprovado via chave reserva de contingência (chave principal sem créditos).')
+          : (status.modelName
+            ? `Teste aprovado com o modelo ${status.modelName}.`
+            : 'Teste aprovado. A API respondeu, mas não retornou o nome do modelo.')
       });
       return;
     }
@@ -596,6 +620,18 @@ function AIStatusSection() {
             <p className="font-bold text-foreground">A cada 5 minutos</p>
           </div>
         </div>
+
+        {aiStatus.status === 'contingency' && (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-medium flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm">Modo de Contingência em Operação</p>
+              <p className="mt-1 leading-relaxed">
+                {aiStatus.warning || 'A chave primária está sem saldo (Erro 402). O vouRevisar está funcionando normalmente com a chave reserva gratuita para os alunos. Recarregue os créditos da chave principal no Google AI Studio para manter alta disponibilidade.'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {lastManualTest && (
           <div className={`p-3 border rounded-lg ${

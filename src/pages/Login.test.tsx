@@ -84,24 +84,24 @@ describe('Login', () => {
     expect(screen.getByPlaceholderText('Digite sua senha')).toBeInTheDocument();
   });
 
-  it('prioritizes email login before the Google alternative', () => {
+  it('prioritizes the Google alternative before email login', () => {
     render(
       <MemoryRouter initialEntries={['/login']}>
         <Login />
       </MemoryRouter>,
     );
 
+    const google = screen.getByRole('button', { name: 'Continuar com Google' });
     const email = screen.getByLabelText('Email');
     const password = screen.getByLabelText('Senha');
     const submit = screen.getByRole('button', { name: 'Entrar' });
-    const google = screen.getByRole('button', { name: 'Continuar com Google' });
 
+    expect(google.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(email.compareDocumentPosition(password) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(password.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(submit.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('requires and forwards versioned legal acceptance for a new free-trial account', async () => {
+  it('forwards versioned legal acceptance on submit for a new free-trial account', async () => {
     render(
       <MemoryRouter initialEntries={['/login']}>
         <Login />
@@ -112,11 +112,8 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('Seu nome completo'), { target: { value: 'Aluno Teste' } });
     fireEvent.change(screen.getByPlaceholderText('seu@email.com'), { target: { value: 'aluno@example.com' } });
     fireEvent.change(screen.getByPlaceholderText('Digite sua senha'), { target: { value: 'senha123' } });
-    fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'senha123' } });
 
     const submit = screen.getByRole('button', { name: 'Criar Conta' });
-    expect(submit).toBeDisabled();
-    fireEvent.click(screen.getByRole('checkbox'));
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
 
@@ -154,5 +151,31 @@ describe('Login', () => {
     expect(await screen.findByRole('button', { name: 'Entrando…' })).toBeDisabled();
 
     resolveSignIn!({ success: false });
+  });
+
+  it('switches to login view when signup fails because email is already registered', async () => {
+    authState.signUp.mockResolvedValue({
+      success: false,
+      error: 'Este email já está cadastrado. Faça login para acessar sua conta.',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/login?mode=register']}>
+        <Login />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Crie sua conta' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Seu nome completo'), { target: { value: 'Aluno Teste' } });
+    fireEvent.change(screen.getByPlaceholderText('seu@email.com'), { target: { value: 'existente@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Digite sua senha'), { target: { value: 'senha123' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Criar Conta' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Acesse sua conta' })).toBeInTheDocument();
+    });
+    expect(screen.getByPlaceholderText('seu@email.com')).toHaveValue('existente@example.com');
   });
 });

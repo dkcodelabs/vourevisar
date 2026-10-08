@@ -20,7 +20,7 @@ import {
 import type { DashboardDecisionModel } from '@/types/dashboardDecision';
 
 const formatExamDate = (date?: string | null) => {
-  if (!date) return 'Definir data';
+  if (!date) return 'Definir data da prova';
   return format(parseISO(date), 'dd/MM/yyyy', { locale: ptBR });
 };
 
@@ -147,10 +147,10 @@ export function DashboardCommandHero({
     : null;
 
   return (
-    <div className="dashboard-command-hero rounded-2xl border border-border/80 bg-card p-4 sm:p-5 md:p-6 shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] dark:border-white/[0.10] dark:bg-gradient-to-b dark:from-[#1c1e26]/95 dark:via-[#181a22]/95 dark:to-[#13141b]/95 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-10px_rgba(0,0,0,0.6)]">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+    <div className="dashboard-command-hero w-full py-1 sm:py-2">
+      <div className="flex flex-wrap items-start justify-between gap-5 xl:items-center">
         {/* Contexto do concurso */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-[1_1_26rem]">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
             Visão de hoje
           </p>
@@ -188,11 +188,11 @@ export function DashboardCommandHero({
               className="group mt-1 inline-flex min-w-0 max-w-full items-center gap-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/35 disabled:cursor-default"
               title={canEditCycleName ? 'Editar nome do ciclo' : undefined}
             >
-              <h1 className="max-w-3xl break-words text-xl font-black leading-tight tracking-[-0.025em] text-foreground sm:text-2xl lg:text-[1.65rem]">
+              <h1 className="break-words text-xl font-black leading-tight tracking-[-0.025em] text-foreground sm:text-2xl lg:text-[1.65rem]">
                 {examContext.editalName || 'Nenhum edital carregado no ciclo'}
               </h1>
               {canEditCycleName ? (
-                <Pencil className="size-3.5 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+                <Pencil className="size-3.5 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground group-focus-visible:text-foreground" />
               ) : null}
             </button>
           )}
@@ -236,7 +236,7 @@ export function DashboardCommandHero({
                   <BriefcaseBusiness className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-primary transition-colors" />
                   <span className="min-w-0 break-words">{examContext.position}</span>
                   {canEditPosition ? (
-                    <Pencil className="size-2.5 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100" />
+                    <Pencil className="size-3 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground" />
                   ) : null}
                 </button>
               ) : canEditPosition ? (
@@ -260,8 +260,8 @@ export function DashboardCommandHero({
           ) : null}
         </div>
 
-        {/* HUD Telemetria Cockpit: Progresso + Contagem de Missão (Sem Caixas Presas) */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 rounded-2xl border border-border/70 bg-secondary/30 dark:border-white/[0.08] dark:bg-black/30 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] p-3.5 sm:px-5 sm:py-3.5 backdrop-blur-md shrink-0">
+        {/* HUD Telemetria Cockpit: Progresso + Contagem de Missão (Unboxed Glassy) */}
+        <div className="flex min-w-0 flex-[1_1_34rem] flex-col items-stretch gap-4 rounded-2xl border border-border/60 bg-muted/30 p-3.5 backdrop-blur-md sm:flex-row sm:items-center sm:gap-6 sm:px-5 sm:py-3.5 dark:border-white/[0.06] dark:bg-white/[0.02]">
           {/* 1. Radar de Progresso Circular + Métricas */}
           {hasTopics ? (
             <div className="dashboard-progress-summary flex items-center gap-3.5 min-w-[210px]">
@@ -358,9 +358,9 @@ export function DashboardCommandHero({
                       </span>
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-tight">
-                          {examDateActionLabel ?? 'dias até a prova'}
+                          dias até a prova
                         </span>
-                        {examContext.daysRemaining !== null && typeof examContext.daysRemaining === 'number' && (
+                        {examContext.state === 'ready' && examContext.daysRemaining !== null && typeof examContext.daysRemaining === 'number' && examContext.daysRemaining >= 0 && (
                           <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest mt-0.5 ${
                             examContext.daysRemaining <= 45
                               ? 'text-amber-500'
@@ -374,16 +374,24 @@ export function DashboardCommandHero({
                             {examContext.daysRemaining <= 45 ? 'RETA FINAL' : 'FASE DE RITMO'}
                           </span>
                         )}
+                        {examContext.state === 'exam_date_past' && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-red-500 mt-0.5">
+                            <span className="size-1.5 rounded-full bg-red-500" />
+                            DATA EXPIRADA
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     <div className="mt-1 flex items-center gap-1.5">
                       <span className="block text-xs font-semibold text-muted-foreground/90 group-hover:text-foreground transition-colors">
-                        {examContext.examDate ? formatExamDate(examContext.examDate) : 'Definir data'}
+                        {examContext.state === 'exam_date_past'
+                          ? 'Atualizar data da prova'
+                          : examContext.examDate
+                            ? formatExamDate(examContext.examDate)
+                            : 'Definir data da prova'}
                       </span>
-                      {onUpdateExamDate ? (
-                        <Pencil className="size-2.5 text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100" />
-                      ) : null}
+                      <Pencil className="size-3 text-muted-foreground/60 transition-colors group-hover:text-foreground" />
                     </div>
                   </div>
                 </button>

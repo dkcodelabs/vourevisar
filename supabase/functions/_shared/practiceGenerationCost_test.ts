@@ -16,6 +16,19 @@ Deno.test("practice generation cost includes billable Gemini thinking output", (
   }
 });
 
+Deno.test("practice generation cost supports gemini-3.5-flash standard rates", () => {
+  const rates = getPracticeGenerationRates("gemini-3.5-flash");
+  const estimate = estimatePracticeGenerationCost({
+    inputTokens: 1_000,
+    outputTokens: 9_000,
+    rates,
+  });
+
+  if (estimate !== 0.0228) {
+    throw new Error(`Estimativa inesperada para gemini-3.5-flash: ${estimate}`);
+  }
+});
+
 Deno.test("practice generation cost supports explicit rates for another model", () => {
   const rates = getPracticeGenerationRates("future-model", {
     inputUsdPerMillion: 1,

@@ -7,10 +7,12 @@ const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
 const AI_STATUS_UPDATED_EVENT = 'ai-status-updated';
 
 interface AIStatus {
-  status: 'active' | 'inactive' | 'error' | 'unknown';
+  status: 'active' | 'inactive' | 'error' | 'contingency' | 'unknown';
   lastCheck: string | null;
   errorMessage: string | null;
   modelName: string | null;
+  contingencyMode?: boolean;
+  warning?: string | null;
 }
 
 interface AIErrorLog {
@@ -42,12 +44,15 @@ export async function checkAIStatusDirect(silent = true): Promise<AIStatus> {
     }
     
     const model = data?.model || null;
+    const contingencyMode = Boolean(data?.contingencyMode);
 
     const newStatus: AIStatus = {
-      status: 'active',
+      status: contingencyMode ? 'contingency' : 'active',
       lastCheck: new Date().toISOString(),
       errorMessage: null,
-      modelName: model
+      modelName: model,
+      contingencyMode,
+      warning: data?.warning || null,
     };
     
     try {
@@ -137,6 +142,9 @@ function extractErrorMessage(error: unknown): string {
   const msg = err?.message || '';
   const status = err?.status || err?.cause?.status;
   
+  if (status === 402 || msg.includes('402') || msg.includes('prepayment') || msg.includes('credits are depleted') || msg.includes('AI_BILLING_DEPLETED')) {
+    return 'Créditos pré-pagos esgotados no Google AI Studio (Erro 402). Adicione créditos ao projeto vouRevisar para restabelecer a IA.';
+  }
   if (msg.includes('API key expired') || msg.includes('expired')) {
     return 'API key expirada. Renove no Google AI Studio.';
   }
@@ -169,6 +177,7 @@ function extractErrorCode(error: unknown): string {
   const msg = err?.message || '';
   const status = err?.status || err?.cause?.status;
   
+  if (status === 402 || msg.includes('402') || msg.includes('prepayment') || msg.includes('credits are depleted') || msg.includes('AI_BILLING_DEPLETED')) return 'AI_BILLING_DEPLETED';
   if (msg.includes('API key expired') || msg.includes('expired')) return 'API_KEY_EXPIRED';
   if (msg.includes('API_KEY_INVALID') || msg.includes('not valid')) return 'API_KEY_INVALID';
   if (msg.includes('API_KEY_DENIED') || msg.includes('DENIED')) return 'API_KEY_DENIED';

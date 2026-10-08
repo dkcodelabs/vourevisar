@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   Calendar,
+  CheckSquare,
   Loader2,
   NotebookPen,
   Plus,
@@ -22,8 +23,10 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import { StudyEmptyState } from '@/components/study/StudyEmptyState';
 import { DashboardDataIssueNotice } from '@/components/dashboard-decision/DashboardDataIssueNotice';
 import { DashboardCommandHero } from '@/components/dashboard-decision/DashboardCommandHero';
-import { DashboardPulseStrip } from '@/components/dashboard-decision/DashboardPulseStrip';
-import { DashboardUpcomingReviewsCard } from '@/components/dashboard-decision/DashboardUpcomingReviewsCard';
+import { DashboardMetricsBar } from '@/components/dashboard-decision/DashboardMetricsBar';
+import { DashboardSubjectPerformanceTable } from '@/components/dashboard-decision/DashboardSubjectPerformanceTable';
+import { DashboardConsistencyHeatmap } from '@/components/dashboard-decision/DashboardConsistencyHeatmap';
+import { DashboardWeeklyPlanningCard } from '@/components/dashboard-decision/DashboardWeeklyPlanningCard';
 import type {
   DashboardDecisionModel,
   DashboardNavigate,
@@ -39,7 +42,7 @@ const formatReminderDate = (date?: string | null) => {
   return format(parsedDate, 'dd/MM/yyyy', { locale: ptBR });
 };
 
-interface DashboardDecisionExperienceProps {
+export interface DashboardDecisionExperienceProps {
   model: DashboardDecisionModel;
   onNavigate: DashboardNavigate;
   onRetryDataIssue?: (source: DashboardDataIssueSource) => Promise<void>;
@@ -49,11 +52,13 @@ interface DashboardDecisionExperienceProps {
   onUpdateCycleName: (name: string) => Promise<void>;
   onUpdateExamDate?: (date: string | null) => Promise<void>;
   onUpdatePosition?: (position: string) => Promise<void>;
+  onUpdateWeeklyHoursTarget?: (targetHours: number) => Promise<void>;
   isAddingReminder: boolean;
   isDeletingReminder: boolean;
   isUpdatingCycleName: boolean;
   isUpdatingExamDate?: boolean;
   isUpdatingPosition?: boolean;
+  isUpdatingWeeklyHoursTarget?: boolean;
 }
 
 export const DashboardDecisionExperience = ({
@@ -66,11 +71,13 @@ export const DashboardDecisionExperience = ({
   onUpdateCycleName,
   onUpdateExamDate,
   onUpdatePosition,
+  onUpdateWeeklyHoursTarget,
   isAddingReminder,
   isDeletingReminder,
   isUpdatingCycleName,
   isUpdatingExamDate = false,
   isUpdatingPosition = false,
+  isUpdatingWeeklyHoursTarget = false,
 }: DashboardDecisionExperienceProps) => {
   const reduceMotion = useReducedMotion();
   if (model.isLoading) {
@@ -105,23 +112,41 @@ export const DashboardDecisionExperience = ({
         isUpdatingPosition={isUpdatingPosition}
       />
 
-      <DashboardPulseStrip model={model} onNavigate={onNavigate} onRetryPractice={() => onRetryDataIssue?.('practice') ?? Promise.resolve()} />
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)] lg:gap-5">
+        {/* Coluna da Esquerda (60%) */}
+        <div className="flex flex-col gap-4 sm:gap-5 min-w-0">
+          <DashboardMetricsBar
+            metrics={model.compactMetrics}
+            onNavigate={onNavigate}
+          />
+          <DashboardSubjectPerformanceTable
+            performance={model.subjectPerformance}
+            onNavigate={onNavigate}
+          />
+        </div>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.85fr)] lg:gap-5">
-        <DashboardUpcomingReviewsCard
-          upcoming={model.upcomingReviews}
-          onNavigate={onNavigate}
-        />
-        <RecentRemindersCard
-          reminders={model.reminders}
-          onAddReminder={onAddReminder}
-          onToggleReminder={onToggleReminder}
-          onDeleteReminder={onDeleteReminder}
-          isAdding={isAddingReminder}
-          isDeleting={isDeletingReminder}
-          isUnavailable={model.dataIssues.includes('reminders')}
-          onRetry={() => onRetryDataIssue?.('reminders') ?? Promise.resolve()}
-        />
+        {/* Coluna da Direita (40%) */}
+        <div className="flex flex-col gap-4 sm:gap-5 min-w-0">
+          <DashboardConsistencyHeatmap
+            heatmap={model.consistencyHeatmap}
+          />
+          <DashboardWeeklyPlanningCard
+            planning={model.weeklyPlanning}
+            onUpdateWeeklyGoal={onUpdateWeeklyHoursTarget}
+            isUpdatingGoal={isUpdatingWeeklyHoursTarget}
+            onNavigate={onNavigate}
+          />
+          <RecentRemindersCard
+            reminders={model.reminders}
+            onAddReminder={onAddReminder}
+            onToggleReminder={onToggleReminder}
+            onDeleteReminder={onDeleteReminder}
+            isAdding={isAddingReminder}
+            isDeleting={isDeletingReminder}
+            isUnavailable={model.dataIssues.includes('reminders')}
+            onRetry={() => onRetryDataIssue?.('reminders') ?? Promise.resolve()}
+          />
+        </div>
       </section>
     </motion.main>
   );
@@ -136,15 +161,21 @@ const DashboardDecisionSkeleton = () => (
       </div>
       <Skeleton className="h-12 w-48 rounded-2xl" />
     </div>
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-32 rounded-2xl" />
-    </div>
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.85fr)] lg:gap-5">
-      <Skeleton className="h-64 rounded-2xl" />
-      <Skeleton className="h-64 rounded-2xl" />
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)] lg:gap-5">
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+        </div>
+        <Skeleton className="h-72 rounded-2xl" />
+      </div>
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-48 rounded-2xl" />
+        <Skeleton className="h-56 rounded-2xl" />
+        <Skeleton className="h-48 rounded-2xl" />
+      </div>
     </div>
   </div>
 );
@@ -189,9 +220,21 @@ export const RecentRemindersCard = ({
 
   return (
     <>
-      <Card id="lembretes" className="dashboard-reminders-card overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_4px_24px_-8px_rgba(0,0,0,0.06)] dark:border-white/[0.10] dark:bg-gradient-to-b dark:from-[#1c1e26]/95 dark:via-[#181a22]/95 dark:to-[#13141b]/95 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-10px_rgba(0,0,0,0.6)]">
+      <Card id="lembretes" className="dashboard-reminders-card overflow-hidden rounded-2xl border bg-white border-border/70 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)] dark:bg-[#18191E] dark:border-white/[0.08] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-6px_rgba(0,0,0,0.5)]">
       <CardHeader className="flex-row items-center justify-between gap-3 px-4 pb-1.5 pt-4 sm:px-5">
-        <div><CardTitle className="text-sm font-extrabold text-foreground sm:text-base">Minhas tarefas</CardTitle><p className="mt-1 text-[10px] text-content-muted">Anotações rápidas para não perder o fio</p></div>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="grid size-6 place-items-center rounded-lg border border-emerald-500/25 bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-[#b7fb45] shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+              <CheckSquare className="size-3.5" aria-hidden="true" />
+            </span>
+            <CardTitle className="text-sm font-extrabold text-foreground sm:text-base">
+              Minhas tarefas
+            </CardTitle>
+          </div>
+          <p className="mt-1 text-[10px] text-content-muted">
+            Anotações rápidas para não perder o fio
+          </p>
+        </div>
         <Button
           variant="ghost"
           size="sm"

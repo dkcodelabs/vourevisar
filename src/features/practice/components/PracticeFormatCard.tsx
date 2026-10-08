@@ -84,9 +84,9 @@ export const PracticeFormatCard = ({
       disabled={disabled}
       onClick={() => onSelect(format)}
       className={cn(
-        "group relative flex min-h-[220px] flex-col rounded-2xl border bg-card p-3 text-left shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 motion-reduce:transition-none sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-55",
-        "hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_14px_28px_-22px_hsl(var(--primary)/0.55)] active:translate-y-0",
-        selected ? "border-primary bg-primary/[0.035] shadow-[0_0_0_1px_hsl(var(--primary)/0.22),0_16px_32px_-26px_hsl(var(--primary)/0.65)]" : "border-border",
+        "group relative flex min-h-[220px] flex-col rounded-2xl border bg-card p-3 text-left shadow-sm transition-[transform,border-color,box-shadow,background-color] duration-200 motion-reduce:transition-none sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-65",
+        "hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-[0_14px_28px_-22px_hsl(var(--primary)/0.55)] active:translate-y-0",
+        selected ? "border-primary bg-primary/[0.035] shadow-[0_0_0_1px_hsl(var(--primary)/0.22),0_16px_32px_-26px_hsl(var(--primary)/0.65)]" : "border-border bg-secondary/25 dark:border-white/[0.18] dark:bg-white/[0.025]",
       )}
     >
       <Preview format={format} />

@@ -91,17 +91,46 @@ describe("PracticeHome", () => {
     expect(screen.getByRole("button", { name: "Carregar edital no ciclo" })).toBeInTheDocument();
   });
 
-  it("aplica uma sugestão de questões com motivo separado e abre a sessão correta", async () => {
+  it("bloqueia o início até a matéria ser escolhida", () => {
+    renderPage();
+    expect(screen.getByRole("button", { name: "Escolha uma matéria" })).toBeDisabled();
+  });
+
+  it("mantém o compositor disponível quando a resposta ainda não traz recomendação", () => {
+    delete (mocks.overview as Partial<PracticeOverview>).dailyRecommendation;
+    renderPage();
+    expect(screen.getByRole("heading", { name: "Treino" })).toBeInTheDocument();
+  });
+
+  it("oferece toda a matéria como primeira opção de foco", async () => {
+    mocks.overview!.materialTopics = [];
+    renderPage();
+    fireEvent.change(screen.getByRole("combobox", { name: "Matéria" }), { target: { value: "subject-1" } });
+    expect(screen.getByRole("combobox", { name: /tópico/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Toda a matéria" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Usar toda a matéria" })).not.toBeInTheDocument();
+  });
+
+  it("mostra o resumo da sessão antes da escolha de quantidade", () => {
+    renderPage();
+    fireEvent.change(screen.getByRole("combobox", { name: "Matéria" }), { target: { value: "subject-1" } });
+
+    const summary = screen.getByText("Pronto para iniciar");
+    const quantity = screen.getByLabelText("Quantidade de itens");
+    expect(summary.compareDocumentPosition(quantity) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("mantém o treino livre visível até o aluno usar a sugestão de questões", async () => {
     applyQuestionRecommendation();
     mocks.build.mockResolvedValueOnce({ status: "ready", session: questionSession, reused: false });
     renderPage();
     expect(await screen.findByText("Sugestão de reforço")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Usar sugestão" })).toBeInTheDocument();
+    expect(screen.queryByText("Matéria:")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Usar sugestão" }));
     expect(screen.getByText("Matéria:")).toBeInTheDocument();
     expect(screen.getByText("Tópico:")).toBeInTheDocument();
-    expect(screen.getAllByText("Atos administrativos")).not.toHaveLength(0);
-    expect(screen.getByText("Motivo:")).toBeInTheDocument();
     expect(screen.getByText("Dificuldade registrada")).toBeInTheDocument();
-    expect(screen.getAllByText("6 questões prontas")).not.toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Iniciar 3 questões" }));
     await waitFor(() => expect(mocks.build).toHaveBeenCalledWith(expect.objectContaining({ mode: "questions", topicId: "topic-1", origin: "daily_recommendation", format: "questions", quantity: 3 })));
   });
@@ -113,7 +142,9 @@ describe("PracticeHome", () => {
     };
     mocks.build.mockResolvedValueOnce({ status: "ready", session: questionSession, reused: false });
     renderPage();
-    expect(await screen.findByText("Todas as matérias · fila do ciclo")).toBeInTheDocument();
+    expect(await screen.findByText("Revisão recomendada")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Usar sugestão" }));
+    expect(screen.getByText("Todas as matérias · fila do ciclo")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Revisar 2 flashcards" }));
     await waitFor(() => expect(mocks.build).toHaveBeenCalled());
     const [input] = mocks.build.mock.calls[0];
@@ -129,21 +160,17 @@ describe("PracticeHome", () => {
     };
     mocks.build.mockResolvedValueOnce({ status: "ready", session: questionSession, reused: false });
     renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Usar sugestão" }));
     fireEvent.click(await screen.findByRole("button", { name: "Praticar 3 flashcards" }));
     await waitFor(() => expect(mocks.build).toHaveBeenCalledWith(expect.objectContaining({ mode: "flashcards_due", flashcardPurpose: "new", format: "flashcards", origin: "manual", topicId: "topic-1" })));
   });
 
-  it("troca a sugestão por prática livre e monta o payload manual de flashcards", async () => {
+  it("permite ignorar a sugestão e montar uma prática livre de flashcards", async () => {
     applyQuestionRecommendation();
     mocks.build.mockResolvedValueOnce({ status: "ready", session: questionSession, reused: false });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Montar treino livre" }));
-    expect(screen.getByText("Você está montando um treino livre.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Ver sugestão de reforço" }));
-    expect(screen.getByText("Sugestão de reforço")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Montar treino livre" }));
+    expect(await screen.findByText("Sugestão de reforço")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("combobox", { name: "Matéria" }), { target: { value: "subject-1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Focar em um tópico" }));
     fireEvent.change(screen.getByRole("combobox", { name: /tópico/i }), { target: { value: "topic-1" } });
     fireEvent.click(screen.getByRole("button", { name: /Flashcards.*Recupere a resposta.*2 vencidos hoje/i }));
     fireEvent.click(screen.getByRole("button", { name: "Praticar 3 flashcards" }));
@@ -151,16 +178,39 @@ describe("PracticeHome", () => {
     expect(mocks.build.mock.calls[0][0]).not.toHaveProperty("subjectId");
   });
 
-  it("pede tópico antes de gerar e confirma geração para foco sem material", async () => {
+  it("concentra a orientação de geração no resumo final", async () => {
     mocks.overview!.materialTopics = [{ id: "topic-1", subjectId: "subject-1", subjectName: "Direito Administrativo", name: "Atos administrativos", questionCount: 0, flashcardCount: 0, dueFlashcardCount: 0, latestPackageCreatedAt: "2026-09-14T12:00:00.000Z", hasReadyPackage: false, isGenerating: false, nextReview: null, difficultyLevel: null, lastReviewedAt: null }];
     mocks.generate.mockResolvedValueOnce(undefined);
     renderPage();
     fireEvent.change(screen.getByRole("combobox", { name: "Matéria" }), { target: { value: "subject-1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Focar em um tópico" }));
     fireEvent.change(screen.getByRole("combobox", { name: /tópico/i }), { target: { value: "topic-1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Gerar material deste tópico" }));
-    expect(await screen.findByText("Gerar material deste tópico?")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Gerar material" }));
+    expect(await screen.findByText("Ainda não há material para este treino")).toBeInTheDocument();
+    expect(screen.queryByText("Não há itens prontos para este treino")).not.toBeInTheDocument();
+    expect(screen.queryByText("Prática livre — não altera o agendamento de repetição espaçada.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar material para treinar" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Gerar material para treinar" }));
     await waitFor(() => expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ topicId: "topic-1", trigger: "explicit" })));
+  });
+
+  it("abre a sessão automaticamente quando a geração termina", async () => {
+    mocks.overview!.materialTopics = [{ id: "topic-1", subjectId: "subject-1", subjectName: "Direito Administrativo", name: "Atos administrativos", questionCount: 0, flashcardCount: 0, availableQuestionCount: 0, availableFlashcardCount: 0, dueFlashcardCount: 0, latestPackageCreatedAt: null, hasReadyPackage: false, isGenerating: false, nextReview: null, difficultyLevel: null, lastReviewedAt: null }];
+    mocks.generate.mockImplementationOnce(async () => {
+      mocks.overview!.materialTopics = [{ ...mocks.overview!.materialTopics[0], questionCount: 6, flashcardCount: 4, availableQuestionCount: 6, availableFlashcardCount: 4, hasReadyPackage: true, isGenerating: false }];
+    });
+    mocks.build.mockResolvedValueOnce({ status: "ready", session: questionSession, reused: false });
+    renderPage();
+    fireEvent.change(screen.getByRole("combobox", { name: "Matéria" }), { target: { value: "subject-1" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /tópico/i }), { target: { value: "topic-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Gerar material para treinar" }));
+    await waitFor(() => expect(mocks.build).toHaveBeenCalledWith(expect.objectContaining({ topicId: "topic-1", format: "questions", quantity: 3 })));
+  });
+
+  it("oferece gerar mais material quando não restam itens inéditos", async () => {
+    mocks.overview!.materialTopics = [{ id: "topic-1", subjectId: "subject-1", subjectName: "Direito Administrativo", name: "Atos administrativos", questionCount: 6, flashcardCount: 4, availableQuestionCount: 0, availableFlashcardCount: 0, dueFlashcardCount: 0, latestPackageCreatedAt: "2026-09-14T12:00:00.000Z", hasReadyPackage: true, isGenerating: false, nextReview: null, difficultyLevel: null, lastReviewedAt: null }];
+    renderPage();
+    fireEvent.change(screen.getByRole("combobox", { name: "Matéria" }), { target: { value: "subject-1" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /tópico/i }), { target: { value: "topic-1" } });
+    expect(await screen.findByText("Você já praticou este lote")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar mais material" })).toBeInTheDocument();
   });
 });
