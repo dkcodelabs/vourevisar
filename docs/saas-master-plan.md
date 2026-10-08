@@ -22,8 +22,8 @@
 - [x] Incidência/cobrança por prova: recurso removido por decisão de produto e custo inviável; tabelas, colunas, serviços e Edge Function foram eliminados do caminho ativo.
 - [x] Banco: migrations aplicadas, índices de FKs e políticas RLS revisadas; não há função `SECURITY DEFINER` executável diretamente por aluno.
 - [x] Cobrança Stripe Live: catálogo, webhook, contrato versionado, arrependimento, portal, histórico e funções de billing publicados. O endpoint Live respondeu sem falhas na inspeção realizada em 2026-08-31.
-- [x] Release: lote pendente publicado na `main` pelo commit `902c1439`; o deploy Vercel `HLi5P43HFwRoaYfi6qMuwVwDXvnP` concluiu com sucesso em 2026-09-17 e `https://www.vourevisar.com.br/login` respondeu HTTP 200 servindo o novo showcase de autenticação. O lote também versionou os refinamentos visuais do ciclo e os dois guias de parceria em `output/docx/`; não houve alteração de migration ou Edge Function.
-- [x] Qualidade do corte: 913 testes em 232 arquivos, arquitetura, lint, typecheck, build e higiene do diff concluídos sem falha; o login foi inspecionado localmente em desktop/mobile e novamente renderizado no domínio oficial após o deploy.
+- [x] Release: publicado em produção na `main` pelo commit `26e69229` em 2026-10-08. Inclui redesenho do Painel (Heatmap de consistência, desempenho por matéria, planejamento semanal com navegação e métricas unboxed), melhorias de conversão no login/cadastro e evolução do Treino. Duas migrations aplicadas com sucesso no Supabase produção (`20261005110700_update_ai_default_model_to_gemini_3_5_flash.sql` e `20261007120000_add_weekly_study_hours_target.sql`). Cinco Edge Functions atualizadas e ativas no Supabase produção (`extract-edital`, `ai-handler`, `build-practice-session`, `generate-practice-package`, `get-practice-overview`).
+- [x] Qualidade do corte: 944 testes em 238 arquivos de teste, 52 testes Deno de Edge Functions, lint com 0 erros, typecheck, verificação de baseline de arquitetura e build Vite concluídos com 100% de sucesso antes da publicação.
 
 ## Ordem operacional atual
 
