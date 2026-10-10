@@ -18,7 +18,7 @@ import {
 } from '@/utils/examWeight';
 import type { AiSourceMode } from './AiSourceStep';
 import type { AiSubject, AiTopic } from './AiReviewStep';
-import type { AiEditalAnalysis } from './AiCargoSelectionStep';
+import type { AiEditalAnalysis, MissingContentSourceState } from './AiCargoSelectionStep';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -138,7 +138,7 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
     const [sourcePayload, setSourcePayload] = useState<DocumentPayload | null>(null);
     const [loadingPending, setLoadingPending] = useState(false);
     const [iaErrorMessage, setIaErrorMessage] = useState('');
-    const [missingContentSource, setMissingContentSource] = useState<{ message: string; originalFileCount: number } | null>(null);
+    const [missingContentSource, setMissingContentSource] = useState<MissingContentSourceState | null>(null);
     const [showIaDataEditor, setShowIaDataEditor] = useState(false);
     const [weightExtractionStatus, setWeightExtractionStatus] = useState<WeightExtractionStatus>('idle');
     const [weightBlockInfo, setWeightBlockInfo] = useState<ExtractedBlockWeight[]>([]);
@@ -447,8 +447,11 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
                 setAnalysisResult(storedAnalysis);
                 if (!restoredAiResult.length && !restoredSourcePayload?.inputText && !restoredSourcePayload?.pdfUrl && !restoredSourcePayload?.pdfPath) {
                     setMissingContentSource({
-                        message: 'Rascunho recuperado. Anexe o arquivo PDF do edital para extrair as disciplinas deste cargo.',
-                        originalFileCount: 1,
+                        title: 'Arquivo do edital necessário para continuar',
+                        message: 'Este rascunho veio de uma sessão anterior sem o arquivo em memória. Selecione o arquivo PDF do edital para extrair as disciplinas deste cargo.',
+                        originalFileCount: 0,
+                        actionLabel: 'Selecionar PDF do edital',
+                        isDraftRecovery: true,
                     });
                 } else {
                     setMissingContentSource(null);
@@ -474,20 +477,35 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
     };
 
     const discardPendingExtractionData = async () => {
-        if (!user) return;
-        try {
-            await supabase
-                .from('pending_ai_extractions')
-                .delete()
-                .eq('user_id', user.id);
-            setPendingExtraction(null);
-            setAiResult([]);
-            setAnalysisResult(null);
-            setSourcePayload(null);
-            setIaStage('input');
-        } catch (err) {
-            console.error('Erro ao descartar extração pendente:', err);
+        if (user) {
+            try {
+                await supabase
+                    .from('pending_ai_extractions')
+                    .delete()
+                    .eq('user_id', user.id);
+            } catch (err) {
+                console.error('Erro ao descartar extração pendente:', err);
+            }
         }
+        setPendingExtraction(null);
+        setAiResult([]);
+        setAnalysisResult(null);
+        setSourcePayload(null);
+        setPdfFiles([]);
+        setInputText('');
+        setIaOrigin('');
+        setIaPosition('');
+        setIaBanca('');
+        setIaYear('');
+        setExamDate('');
+        setIaEditalName('');
+        setSelectedCargoId('');
+        setSelectedCargoName('');
+        setMissingContentSource(null);
+        setShowOptionalContext(false);
+        setIaErrorMessage('');
+        setShowIaDataEditor(false);
+        setIaStage('input');
     };
 
     const extractSelectedPdfText = async (files: File[]): Promise<string> => {
@@ -504,15 +522,27 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const newFiles = Array.from(event.target.files || []);
         if (newFiles.length === 0) return;
-        const uniqueFiles = [...pdfFiles, ...newFiles.filter(f => !pdfFiles.some(pf => pf.name === f.name && pf.size === f.size))];
-        setPdfFiles(uniqueFiles);
+
+        const isRecovery = iaStage === 'selectCargo' && missingContentSource?.isDraftRecovery;
+        const combinedFiles = (iaStage === 'selectCargo' && pdfFiles.length > 0 && !isRecovery)
+            ? [...pdfFiles, ...newFiles]
+            : newFiles;
+
+        setPdfFiles(combinedFiles);
         setAiSourceMode('pdf');
         setSourcePayload(null);
         setAiResult([]);
         setIaErrorMessage('');
-        setMissingContentSource(null);
-        const extractedText = await extractSelectedPdfText(uniqueFiles);
+
+        if (iaStage === 'input') {
+            setMissingContentSource(null);
+        }
+
+        const extractedText = await extractSelectedPdfText(combinedFiles);
         setInputText(extractedText);
+        if (event.target) {
+            event.target.value = '';
+        }
     };
 
     const handleRemovePdf = async (index: number) => {
@@ -989,11 +1019,13 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
             setShowIaDataEditor(true);
             return;
         }
-        if (!selectedCargoId) {
+        const nonGenericCargos = (analysisResult.cargos || []).filter(c => !isGenericCargoName(c.name));
+        const effectiveCargoId = selectedCargoId || (nonGenericCargos.length === 1 ? nonGenericCargos[0].id : analysisResult.cargos[0]?.id || '');
+        if (!effectiveCargoId) {
             toastGate.notifyError('Selecione um cargo identificado no edital antes de extrair as disciplinas.', 'IA-CARGO-04');
             return;
         }
-        const selectedCargo = analysisResult.cargos.find(c => c.id === selectedCargoId);
+        const selectedCargo = analysisResult.cargos.find(c => c.id === effectiveCargoId);
         const confirmedCargoName = (iaPosition || selectedCargoName || selectedCargo?.name || '').trim();
         if (!confirmedCargoName) {
             toastGate.notifyError('Informe o cargo, área ou ênfase para a extração.', 'IA-CARGO-02');
@@ -1054,12 +1086,17 @@ export function useAiEditalExtraction(isOpen: boolean, activeTab: string) {
             if (!hasDocumentContent) {
                 setIaStage('selectCargo');
                 setMissingContentSource({
-                    message: 'Para extrair as disciplinas deste cargo, anexe novamente o arquivo PDF do edital abaixo.',
-                    originalFileCount: 1
+                    title: 'Arquivo do edital necessário para continuar',
+                    message: 'Este rascunho veio de uma sessão anterior sem o arquivo em memória. Selecione o arquivo PDF do edital para extrair as disciplinas deste cargo, ou descarte o rascunho abaixo para recomeçar.',
+                    originalFileCount: 0,
+                    actionLabel: 'Selecionar PDF do edital',
+                    isDraftRecovery: true,
                 });
                 toast.warning('Por favor, anexe o PDF do edital para extrair as disciplinas.');
                 return;
             }
+
+            setMissingContentSource(null);
 
             let finalSubjects: AiSubject[] | undefined = undefined;
 

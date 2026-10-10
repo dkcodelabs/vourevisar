@@ -187,9 +187,9 @@ export const ImportEditalModal: React.FC<ImportEditalModalProps> = ({
                 exam_date: examDate,
                 exam_board: iaBanca.trim() || analysisResult?.edital.banca || null
             };
-            onClose();
             await onImport(newSubjects, finalName, true, undefined, extraInfo, true);
             await discardPendingExtractionData();
+            onClose();
         } catch (error) {
             console.error('Erro ao salvar resultado da IA:', error);
             toastGate.notifyError('Erro ao salvar o edital importado.', 'SAVE-IA-01');
@@ -224,8 +224,8 @@ export const ImportEditalModal: React.FC<ImportEditalModalProps> = ({
 
             const extraInfo = { organ: origin, position, year, exam_date: exam_date || undefined, exam_board: board || null };
             await discardPendingExtractionData();
-            onClose();
             await onImport([], finalName, false, undefined, extraInfo); 
+            onClose();
             
             setManualOrigin('');
             setManualPosition('');
@@ -363,16 +363,6 @@ export const ImportEditalModal: React.FC<ImportEditalModalProps> = ({
                                 <span className="truncate whitespace-nowrap">{aiUsageSummary}</span>
                             </div>
                         )}
-                        {activeTab === 'ia' && iaStage === 'review' && pendingExtraction?.source === 'db' && (
-                            <button
-                                type="button"
-                                onClick={discardPendingExtractionData}
-                                className="flex h-8 items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 text-[10px] font-bold text-amber-500 transition-colors hover:bg-amber-500/15"
-                            >
-                                <Trash2 size={12} />
-                                Descartar
-                            </button>
-                        )}
                         <button
                             type="button"
                             onClick={handleCloseModal}
@@ -417,7 +407,7 @@ export const ImportEditalModal: React.FC<ImportEditalModalProps> = ({
                                 <Loader2 size={16} className="animate-spin text-content-muted" />
                                 <span className="text-[10px] text-content-muted font-medium">Carregando extração pendente...</span>
                             </div>
-                        ) : iaStage === 'input' && !pendingExtraction ? (
+                        ) : iaStage === 'input' ? (
                             <AiInputStep
                                 aiLimits={aiLimits}
                                 iaErrorMessage={iaErrorMessage}
@@ -489,23 +479,37 @@ export const ImportEditalModal: React.FC<ImportEditalModalProps> = ({
                         )}
 
                         {iaStage === 'selectCargo' && analysisResult && (
-                            <div className="sticky bottom-0 -mx-5 -mb-5 mt-4 px-6 py-3.5 bg-white/95 dark:bg-[#18181A]/95 backdrop-blur-md border-t border-border/70 dark:border-white/10 flex items-center justify-end gap-3 shadow-lg z-20">
-                                <button
-                                    type="button"
-                                    onClick={handleJourneySecondaryAction}
-                                    className="px-5 py-2.5 rounded-xl border border-border dark:border-white/10 text-xs font-bold text-content-muted hover:text-foreground hover:bg-secondary/50 transition-colors"
-                                >
-                                    Voltar
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleExtractSelectedCargo}
-                                    disabled={!selectedCargoId}
-                                    className="px-6 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
-                                >
-                                    <Sparkles size={14} />
-                                    Extrair Disciplinas
-                                </button>
+                            <div className="sticky bottom-0 -mx-5 -mb-5 mt-4 px-6 py-3.5 bg-white/95 dark:bg-[#18181A]/95 backdrop-blur-md border-t border-border/70 dark:border-white/10 flex items-center justify-between gap-3 shadow-lg z-20">
+                                <div>
+                                    {pendingExtraction?.source === 'db' && (
+                                        <button
+                                            type="button"
+                                            onClick={discardPendingExtractionData}
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-500/10 rounded-xl transition-colors"
+                                        >
+                                            <Trash2 size={13} aria-hidden="true" />
+                                            Descartar rascunho
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2.5">
+                                    <button
+                                        type="button"
+                                        onClick={handleJourneySecondaryAction}
+                                        className="px-5 py-2.5 rounded-xl border border-border dark:border-white/10 text-xs font-bold text-content-muted hover:text-foreground hover:bg-secondary/50 transition-colors"
+                                    >
+                                        Voltar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleExtractSelectedCargo}
+                                        disabled={!selectedCargoId && ((analysisResult.cargos || []).filter(c => !isGenericCargoName(c.name)).length !== 1)}
+                                        className="px-6 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                                    >
+                                        <Sparkles size={14} />
+                                        Confirmar Cargo
+                                    </button>
+                                </div>
                             </div>
                         )}
 
@@ -526,7 +530,10 @@ export const ImportEditalModal: React.FC<ImportEditalModalProps> = ({
                                 examWeightTotals={aiExamWeightTotals}
                                 isSaving={isSavingAi}
                                 onConfirmImport={handleSaveAiResult}
+                                onBackToCargo={handleJourneySecondaryAction}
                                 inlineMode={inlineMode}
+                                hasPendingDraft={pendingExtraction?.source === 'db'}
+                                onDiscardPending={discardPendingExtractionData}
                             />
                         )}
                     </div>

@@ -86,4 +86,66 @@ describe('AiReviewStep', () => {
     fireEvent.click(screen.getByRole('button', { name: /Importar edital/i }));
     expect(onConfirmImport).toHaveBeenCalled();
   });
+
+  it('exibe o botão Voltar ao cargo no rodapé e alerta com contraste adequado', () => {
+    const onBackToCargo = vi.fn();
+
+    render(
+      <AiReviewStep
+        origin="PC-SP"
+        onOriginChange={vi.fn()}
+        position="INVESTIGADOR"
+        onPositionChange={vi.fn()}
+        year="2026"
+        onExamDateChange={vi.fn()}
+        examDate="2026-12-01"
+        onYearChange={vi.fn()}
+        aiResult={mockAiResult}
+        onAiResultChange={vi.fn()}
+        weightExtractionStatus="not_found"
+        weightBlockInfo={[]}
+        examWeightTotals={{ totalQuestions: null, totalPoints: null }}
+        isSaving={false}
+        onConfirmImport={vi.fn()}
+        onBackToCargo={onBackToCargo}
+      />
+    );
+
+    expect(screen.getByText(/Peso por matéria não identificado/i)).toBeInTheDocument();
+    const backBtn = screen.getByRole('button', { name: /Voltar ao cargo/i });
+    expect(backBtn).toBeInTheDocument();
+    fireEvent.click(backBtn);
+    expect(onBackToCargo).toHaveBeenCalledOnce();
+  });
+
+  it('exibe botão Descartar rascunho no rodapé quando há rascunho ativo', () => {
+    const onDiscardPending = vi.fn();
+
+    render(
+      <AiReviewStep
+        origin="PC-MG"
+        onOriginChange={vi.fn()}
+        position="INVESTIGADOR"
+        onPositionChange={vi.fn()}
+        year="2024"
+        onExamDateChange={vi.fn()}
+        examDate=""
+        onYearChange={vi.fn()}
+        aiResult={mockAiResult}
+        onAiResultChange={vi.fn()}
+        weightExtractionStatus="idle"
+        weightBlockInfo={[]}
+        examWeightTotals={{ totalQuestions: null, totalPoints: null }}
+        isSaving={false}
+        onConfirmImport={vi.fn()}
+        hasPendingDraft={true}
+        onDiscardPending={onDiscardPending}
+      />
+    );
+
+    const discardBtn = screen.getByRole('button', { name: /Descartar rascunho/i });
+    expect(discardBtn).toBeInTheDocument();
+    fireEvent.click(discardBtn);
+    expect(onDiscardPending).toHaveBeenCalledOnce();
+  });
 });

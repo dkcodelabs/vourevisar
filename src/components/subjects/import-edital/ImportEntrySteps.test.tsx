@@ -66,15 +66,23 @@ describe('AiOptionalContext', () => {
 });
 
 describe('ImportJourneyProgress', () => {
-  it('substitui a troca de método pela etapa atual e permite retornar na etapa de cargo', () => {
+  it('exibe a etapa atual e não renderiza ação redundante na etapa de cargo', () => {
     const onSecondaryAction = vi.fn();
-    render(<ImportJourneyProgress stage="selectCargo" onSecondaryAction={onSecondaryAction} />);
+    const { rerender } = render(<ImportJourneyProgress stage="selectCargo" onSecondaryAction={onSecondaryAction} />);
 
     expect(screen.getByRole('list', { name: 'Progresso da importação' })).toBeInTheDocument();
     expect(screen.getByText('Cargo').closest('li')).toHaveAttribute('aria-current', 'step');
-    fireEvent.click(screen.getByRole('button', { name: 'Trocar documento' }));
-    expect(onSecondaryAction).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('tab', { name: 'Manual' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Trocar documento' })).not.toBeInTheDocument();
+
+    rerender(<ImportJourneyProgress stage="review" onSecondaryAction={onSecondaryAction} />);
+    expect(screen.getByText('Revisão').closest('li')).toHaveAttribute('aria-current', 'step');
+    expect(screen.queryByRole('button', { name: 'Voltar ao cargo' })).not.toBeInTheDocument();
+
+    rerender(<ImportJourneyProgress stage="analyzing" onSecondaryAction={onSecondaryAction} />);
+    expect(screen.queryByRole('button', { name: 'Cancelar análise' })).not.toBeInTheDocument();
+
+    rerender(<ImportJourneyProgress stage="extracting" onSecondaryAction={onSecondaryAction} />);
+    expect(screen.queryByRole('button', { name: 'Cancelar extração' })).not.toBeInTheDocument();
   });
 });
 

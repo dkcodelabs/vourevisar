@@ -344,16 +344,16 @@ export const AdminEditalSubjectsModal = ({
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="relative w-full max-w-5xl bg-white dark:bg-[#18181A] border border-zinc-200 dark:border-white/[0.08] rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
+                className="relative w-full max-w-5xl bg-card border border-border dark:border-white/[0.08] rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
             >
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
+                <div className="px-6 py-4 border-b border-border dark:border-white/10 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
                             <GraduationCap className="text-primary" size={18} />
                         </div>
                         <div className="min-w-0">
-                            <h2 className="text-sm font-black text-zinc-100 tracking-tight truncate uppercase">
+                            <h2 className="text-sm font-black text-foreground tracking-tight truncate uppercase">
                                 {edital.organ} • {edital.position} ({edital.year})
                             </h2>
                             <p className="text-[10px] font-bold text-primary uppercase tracking-widest mt-0.5">
@@ -361,14 +361,14 @@ export const AdminEditalSubjectsModal = ({
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-content-muted hover:text-zinc-100 shrink-0 ml-3">
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-secondary/60 hover:bg-secondary transition-colors text-content-muted hover:text-foreground dark:bg-white/5 dark:hover:bg-white/10 shrink-0 ml-3">
                         <X size={16} />
                     </button>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex items-center justify-between px-6 py-4 shrink-0 border-b border-white/5 bg-zinc-900/30">
-                    <div className="flex gap-2 bg-zinc-950/50 p-1.2 rounded-2xl border border-white/5 mx-auto">
+                <div className="flex items-center justify-between px-6 py-4 shrink-0 border-b border-border bg-secondary/30 dark:border-white/10 dark:bg-zinc-900/40">
+                    <div className="flex gap-2 bg-background dark:bg-zinc-950/50 p-1.5 rounded-2xl border border-border dark:border-white/10 mx-auto shadow-sm">
                         <button
                             onClick={() => setActiveTab('current')}
                             className={`px-6 py-2 rounded-xl text-[11px] font-bold transition-all tracking-wide flex items-center gap-2 ${activeTab === 'current' ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-primary hover:bg-primary/10'}`}
@@ -412,10 +412,10 @@ export const AdminEditalSubjectsModal = ({
                                         placeholder="Pesquisar matérias e tópicos..."
                                         value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
-                                        className="w-full h-9 bg-zinc-800/60 border border-white/5 rounded-xl pl-9 pr-9 text-xs outline-none focus:border-primary/30 transition-all"
+                                        className="w-full h-9 bg-background border border-border text-foreground rounded-xl pl-9 pr-9 text-xs outline-none focus:border-primary/50 transition-all dark:bg-zinc-800/60 dark:border-white/10"
                                     />
                                     {searchQuery && (
-                                        <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-zinc-100">
+                                        <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-foreground">
                                             <X size={13} />
                                         </button>
                                     )}
@@ -426,7 +426,7 @@ export const AdminEditalSubjectsModal = ({
                                         if (isAllExpanded) setExpandedIds([]);
                                         else setExpandedIds(filteredSubjects.map(s => s.id));
                                     }}
-                                    className="px-4 h-9 flex items-center justify-center gap-2 text-[10px] font-bold text-content-muted hover:text-zinc-100 bg-zinc-800/60 border border-white/5 rounded-xl transition-all uppercase tracking-widest whitespace-nowrap"
+                                    className="px-4 h-9 flex items-center justify-center gap-2 text-[10px] font-bold text-content-muted hover:text-foreground bg-secondary/60 hover:bg-secondary border border-border rounded-xl transition-all uppercase tracking-widest whitespace-nowrap dark:bg-zinc-800/60 dark:border-white/10 dark:hover:text-zinc-100"
                                 >
                                     {filteredSubjects.length > 0 && expandedIds.length === filteredSubjects.length ? (
                                         <>
@@ -443,7 +443,7 @@ export const AdminEditalSubjectsModal = ({
                             </div>
 
                             {/* Quick Add Subject */}
-                            <div className="glow-card p-3 rounded-2xl flex items-center gap-3 border border-white/5 bg-zinc-800/20 mt-2">
+                            <div className="p-3 rounded-2xl flex items-center gap-3 border border-border bg-card mt-2 dark:border-white/10 dark:bg-zinc-800/20">
                                 <div className="relative flex-1">
                                     <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={14} />
                                     <input
@@ -452,13 +452,13 @@ export const AdminEditalSubjectsModal = ({
                                         value={newSubjectName}
                                         onChange={e => setNewSubjectName(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
-                                        className="w-full h-9 bg-zinc-950/50 border border-white/5 rounded-xl pl-9 pr-3 text-xs outline-none focus:border-primary/30 transition-all font-medium"
+                                        className="w-full h-9 bg-background border border-border text-foreground rounded-xl pl-9 pr-3 text-xs outline-none focus:border-primary/50 transition-all font-medium dark:bg-zinc-950/50 dark:border-white/10"
                                     />
                                 </div>
                                 <button
                                     onClick={handleAddSubject}
                                     disabled={!newSubjectName.trim()}
-                                    className="px-6 h-9 bg-primary/20 hover:bg-primary text-primary hover:text-white font-black rounded-xl transition-all flex items-center gap-2 text-[10px] uppercase tracking-widest"
+                                    className="px-6 h-9 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white font-black rounded-xl transition-all flex items-center gap-2 text-[10px] uppercase tracking-widest shadow-sm"
                                 >
                                     ADICIONAR
                                 </button>
@@ -468,13 +468,13 @@ export const AdminEditalSubjectsModal = ({
                             <div className="space-y-3">
                                 {filteredSubjects.length === 0 ? (
                                     <div className="py-20 flex flex-col items-center justify-center text-center">
-                                        <div className="w-16 h-16 bg-zinc-800/50 rounded-full flex items-center justify-center mb-4">
+                                        <div className="w-16 h-16 bg-secondary dark:bg-zinc-800/50 rounded-full flex items-center justify-center mb-4">
                                             <Database className="text-content-muted/30" size={28} />
                                         </div>
-                                        <h3 className="text-base font-bold text-content-main mb-2">
+                                        <h3 className="text-base font-bold text-foreground mb-2">
                                             {searchQuery ? 'Nenhum resultado' : 'Edital sem conteúdo'}
                                         </h3>
-                                        <p className="text-xs text-content-muted/60 max-w-[280px] leading-relaxed">
+                                        <p className="text-xs text-content-muted max-w-[280px] leading-relaxed">
                                             {searchQuery 
                                                 ? `Não encontramos nada para "${searchQuery}". Tente outro termo.` 
                                                 : 'Este edital ainda não possui matérias cadastradas. Use as abas acima para adicionar conteúdo.'}
@@ -505,10 +505,10 @@ export const AdminEditalSubjectsModal = ({
                                                                         Excluir <strong>"{subject.name.toUpperCase()}"</strong> e todos os tópicos?
                                                                     </p>
                                                                 </div>
-                                                                <div className="flex items-center gap-2 shrink-0">
+                                                                 <div className="flex items-center gap-2 shrink-0">
                                                                     <button
                                                                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteSubjectId(null); }}
-                                                                        className="px-3 h-7 text-[10px] font-bold text-content-muted hover:text-zinc-100 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+                                                                        className="px-3 h-7 text-[10px] font-bold text-foreground hover:bg-secondary rounded-lg bg-secondary/70 transition-all dark:bg-white/5 dark:hover:bg-white/10 dark:text-zinc-300"
                                                                     >
                                                                         Cancelar
                                                                     </button>
@@ -531,8 +531,8 @@ export const AdminEditalSubjectsModal = ({
                                                 {/* ── Card da matéria ── */}
                                                 <div
                                                     onClick={() => !isPendingDelete && toggleExpand(subject.id)}
-                                                    className={`glow-card px-4 py-3 rounded-2xl flex items-center justify-between group hover:border-primary/20 transition-all cursor-pointer relative overflow-hidden mb-2
-                                                        ${isExpanded ? 'border-primary/30 bg-primary/5' : ''}
+                                                    className={`px-4 py-3 rounded-2xl flex items-center justify-between group hover:border-primary/40 transition-all cursor-pointer relative overflow-hidden mb-2 border border-border bg-card dark:border-white/10 dark:bg-zinc-900/40
+                                                        ${isExpanded ? 'border-primary/40 bg-primary/5 dark:bg-primary/5' : ''}
                                                         ${isPendingDelete ? 'border-red-500/30 opacity-70' : ''}`}
                                                 >
                                                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/40" />
@@ -551,14 +551,14 @@ export const AdminEditalSubjectsModal = ({
                                                                         onBlur={() => handleSaveEdit(subject.id)}
                                                                         onKeyDown={e => e.key === 'Enter' && handleSaveEdit(subject.id)}
                                                                         onClick={e => e.stopPropagation()}
-                                                                        className="bg-zinc-800 border-none px-2 rounded font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase min-w-[200px] outline-none"
+                                                                        className="bg-secondary dark:bg-zinc-800 border border-border dark:border-transparent px-2.5 py-0.5 rounded-lg font-bold text-foreground text-xs sm:text-sm tracking-tight uppercase min-w-[200px] outline-none focus:ring-1 focus:ring-primary"
                                                                     />
                                                                 ) : (
-                                                                    <span className="font-bold text-content-main text-xs sm:text-sm tracking-tight uppercase truncate max-w-[160px] sm:max-w-xs">
+                                                                    <span className="font-bold text-foreground text-xs sm:text-sm tracking-tight uppercase truncate max-w-[160px] sm:max-w-xs">
                                                                         {subject.name}
                                                                     </span>
                                                                 )}
-                                                                <span className="flex items-center gap-1 text-[10px] font-medium text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-white/5">
+                                                                <span className="flex items-center gap-1 text-[10px] font-medium text-content-muted bg-secondary px-2 py-0.5 rounded-md border border-border dark:text-zinc-400 dark:bg-zinc-900 dark:border-white/5">
                                                                     <div className="w-1.5 h-1.5 rounded-full bg-primary/80" />
                                                                     {subject.topics.length} {subject.topics.length === 1 ? 'tópico' : 'tópicos'}
                                                                 </span>
@@ -576,23 +576,23 @@ export const AdminEditalSubjectsModal = ({
                                                                                 type="color" 
                                                                                 value={subject.color || '#3b82f6'} 
                                                                                 onChange={(e) => handleUpdateSubjectColor(subject.id, e.target.value)}
-                                                                                className="w-5 h-5 rounded-full border border-white/10 cursor-pointer overflow-hidden p-0 bg-transparent transition-transform hover:scale-110"
+                                                                                className="w-5 h-5 rounded-full border border-border dark:border-white/10 cursor-pointer overflow-hidden p-0 bg-transparent transition-transform hover:scale-110"
                                                                             />
-                                                                            <div className="absolute left-1/2 -top-8 -translate-x-1/2 px-2 py-1 bg-zinc-800 border border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest text-white opacity-0 group-hover/color:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+                                                                            <div className="absolute left-1/2 -top-8 -translate-x-1/2 px-2 py-1 bg-zinc-900 border border-border text-white dark:bg-zinc-800 dark:border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest opacity-0 group-hover/color:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
                                                                                 Cor Temática
                                                                             </div>
                                                                         </div>
                                                                     </div>
 
-                                                                    <div className="flex items-center gap-1.5 h-6 bg-zinc-800/80 px-2 rounded-lg border border-white/5 relative group/priority">
+                                                                    <div className="flex items-center gap-1.5 h-6 bg-secondary dark:bg-zinc-800/80 px-2 rounded-lg border border-border dark:border-white/5 relative group/priority">
                                                                         <GraduationCap size={12} className="text-content-muted" />
                                                                         <input 
                                                                             type="number" 
                                                                             value={subject.priority || 0}
                                                                             onChange={(e) => handleUpdateSubjectPriority(subject.id, parseInt(e.target.value) || 0)}
-                                                                            className="w-8 bg-transparent text-[10px] font-black text-zinc-300 outline-none focus:text-primary transition-colors text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                            className="w-8 bg-transparent text-[10px] font-black text-foreground dark:text-zinc-300 outline-none focus:text-primary transition-colors text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                                         />
-                                                                        <div className="absolute left-1/2 -top-8 -translate-x-1/2 px-2 py-1 bg-zinc-800 border border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest text-white opacity-0 group-hover/priority:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+                                                                        <div className="absolute left-1/2 -top-8 -translate-x-1/2 px-2 py-1 bg-zinc-900 border border-border text-white dark:bg-zinc-800 dark:border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest opacity-0 group-hover/priority:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
                                                                             Prioridade
                                                                         </div>
                                                                     </div>
@@ -624,7 +624,7 @@ export const AdminEditalSubjectsModal = ({
                                                             <Trash2 size={16} />
                                                         </button>
 
-                                                        <div className="w-px h-4 bg-white/5 mx-0.5" />
+                                                        <div className="w-px h-4 bg-border dark:bg-white/10 mx-0.5" />
 
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); toggleExpand(subject.id); }}
@@ -653,12 +653,12 @@ export const AdminEditalSubjectsModal = ({
                                                                         value={newTopicTexts[subject.id] || ''}
                                                                         onChange={e => setNewTopicTexts(prev => ({ ...prev, [subject.id]: e.target.value }))}
                                                                         onKeyDown={e => e.key === 'Enter' && handleAddTopic(subject.id)}
-                                                                        className="flex-1 bg-zinc-950/50 border border-white/10 rounded-xl px-4 py-2 text-xs outline-none focus:border-primary/40 transition-all font-medium"
+                                                                        className="flex-1 bg-background border border-border text-foreground dark:bg-zinc-950/50 dark:border-white/10 rounded-xl px-4 py-2 text-xs outline-none focus:border-primary/40 transition-all font-medium"
                                                                     />
                                                                     <button
                                                                         onClick={() => handleAddTopic(subject.id)}
                                                                         disabled={!newTopicTexts[subject.id]?.trim()}
-                                                                        className="h-8 w-8 flex items-center justify-center bg-primary/20 hover:bg-primary text-primary hover:text-white rounded-lg transition-all disabled:opacity-30"
+                                                                        className="h-8 w-8 flex items-center justify-center bg-primary hover:bg-primary/90 text-white rounded-lg transition-all disabled:opacity-30"
                                                                     >
                                                                         <Plus size={16} />
                                                                     </button>
@@ -666,12 +666,12 @@ export const AdminEditalSubjectsModal = ({
 
                                                                 {subject.topics.map((topic, tIdx) => (
                                                                     <div key={topic.id} className="group/topic">
-                                                                        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/50 border border-white/5 transition-all">
+                                                                        <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/40 hover:bg-secondary/70 border border-border transition-all dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50 dark:border-white/5">
                                                                             <div className="flex items-center gap-3 min-w-0">
                                                                                 <span className="text-[10px] font-bold text-content-muted/40 shrink-0 w-4 tracking-tighter">
                                                                                     {tIdx + 1}.
                                                                                 </span>
-                                                                                <p className="text-xs text-content-main font-medium break-words py-1 leading-relaxed">
+                                                                                <p className="text-xs text-foreground font-medium break-words py-1 leading-relaxed">
                                                                                     {topic.name}
                                                                                 </p>
                                                                             </div>
@@ -706,7 +706,7 @@ export const AdminEditalSubjectsModal = ({
                                             value={inputText}
                                             onChange={(e) => setInputText(e.target.value)}
                                             placeholder="Cole aqui o texto do conteúdo programático (Ctrl+V)..."
-                                            className="w-full h-80 bg-zinc-800/30 border border-white/5 focus:border-primary/40 rounded-3xl p-6 text-sm font-medium text-content-main outline-none transition-all resize-none no-scrollbar shadow-inner"
+                                            className="w-full h-80 bg-background border border-border focus:border-primary/40 rounded-3xl p-6 text-sm font-medium text-foreground outline-none transition-all resize-none no-scrollbar shadow-inner dark:bg-zinc-800/30 dark:border-white/5"
                                         />
                                     </div>
                                     <button
@@ -725,7 +725,7 @@ export const AdminEditalSubjectsModal = ({
                                         <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse"></div>
                                         <Loader2 className="text-primary animate-spin relative" size={64} />
                                     </div>
-                                    <h3 className="text-2xl font-black text-content-main mb-2 tracking-tight">{processingMsg}</h3>
+                                    <h3 className="text-2xl font-black text-foreground mb-2 tracking-tight">{processingMsg}</h3>
                                     <p className="text-[10px] text-content-muted font-black uppercase tracking-[0.3em] animate-pulse">Este processo pode levar alguns segundos</p>
                                 </motion.div>
                             )}
@@ -733,15 +733,15 @@ export const AdminEditalSubjectsModal = ({
                             {iaStage === 'review' && (
                                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-xl font-black text-content-main tracking-tight">Revisar Estrutura Gerada</h3>
-                                        <button onClick={() => setIaStage('input')} className="flex items-center gap-2 px-6 py-2.5 text-[10px] font-black text-content-muted hover:text-primary transition-colors uppercase tracking-widest bg-white/5 rounded-full border border-white/5">
+                                        <h3 className="text-xl font-black text-foreground tracking-tight">Revisar Estrutura Gerada</h3>
+                                        <button onClick={() => setIaStage('input')} className="flex items-center gap-2 px-6 py-2.5 text-[10px] font-black text-content-muted hover:text-primary transition-colors uppercase tracking-widest bg-secondary hover:bg-secondary/80 rounded-full border border-border dark:bg-white/5 dark:border-white/5">
                                             <Undo2 size={14} /> Refazer
                                         </button>
                                     </div>
 
                                     <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2 no-scrollbar">
                                         {aiResult.map((subj, sIdx) => (
-                                            <div key={subj.id} className="p-6 rounded-[2rem] bg-zinc-800/20 border border-white/5">
+                                            <div key={subj.id} className="p-6 rounded-[2rem] bg-card border border-border dark:bg-zinc-800/20 dark:border-white/5">
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-4">
                                                         <input
@@ -762,7 +762,7 @@ export const AdminEditalSubjectsModal = ({
                                                                 newResult[sIdx].title = e.target.value;
                                                                 setAiResult(newResult);
                                                             }}
-                                                            className="bg-transparent border-none font-bold text-zinc-100 outline-none focus:text-primary transition-colors text-lg"
+                                                            className="bg-transparent border-none font-bold text-foreground outline-none focus:text-primary transition-colors text-lg"
                                                         />
                                                     </div>
                                                     <button
@@ -780,7 +780,7 @@ export const AdminEditalSubjectsModal = ({
                                                 {subj.expanded && (
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-9">
                                                         {subj.topics.map((topic, tIdx) => (
-                                                            <div key={tIdx} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-colors">
+                                                            <div key={tIdx} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-secondary/60 dark:hover:bg-white/5 transition-colors">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={topic.selected}
@@ -799,7 +799,7 @@ export const AdminEditalSubjectsModal = ({
                                                                         newResult[sIdx].topics[tIdx].name = e.target.value;
                                                                         setAiResult(newResult);
                                                                     }}
-                                                                    className="bg-transparent border-none text-xs text-zinc-300 outline-none focus:text-primary transition-all w-full"
+                                                                    className="bg-transparent border-none text-xs text-foreground dark:text-zinc-300 outline-none focus:text-primary transition-all w-full"
                                                                 />
                                                             </div>
                                                         ))}
@@ -809,7 +809,7 @@ export const AdminEditalSubjectsModal = ({
                                         ))}
                                     </div>
 
-                                    <div className="pt-6 border-t border-white/5 flex justify-center">
+                                    <div className="pt-6 border-t border-border dark:border-white/5 flex justify-center">
                                         <button
                                             onClick={handleConfirmIaImport}
                                             className="px-16 bg-emerald-500 hover:bg-emerald-600 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-emerald-500/20 transition-all active:scale-[0.98] text-xs uppercase tracking-[0.2em]"
@@ -822,17 +822,17 @@ export const AdminEditalSubjectsModal = ({
                         </div>
                     ) : (
                         <div className="py-20 flex flex-col items-center justify-center text-center space-y-6">
-                            <div className="w-24 h-24 bg-zinc-800/50 rounded-[2rem] flex items-center justify-center border border-white/5 border-dashed relative overflow-hidden group">
+                            <div className="w-24 h-24 bg-secondary dark:bg-zinc-800/50 rounded-[2rem] flex items-center justify-center border border-border dark:border-white/5 border-dashed relative overflow-hidden group">
                                 <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 <Plus size={40} className="text-content-muted group-hover:text-primary transition-colors" />
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-xl font-black text-content-main tracking-tight uppercase">Adicionar Manual</h3>
+                                <h3 className="text-xl font-black text-foreground tracking-tight uppercase">Adicionar Manual</h3>
                                 <p className="text-sm text-content-muted max-w-sm mx-auto font-medium">
                                     Em breve você poderá adicionar conteúdos complexos e tabelas de forma manual e estruturada.
                                 </p>
                             </div>
-                            <button disabled className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-content-muted uppercase tracking-widest cursor-not-allowed">
+                            <button disabled className="px-8 py-4 bg-secondary/50 border border-border dark:bg-white/5 dark:border-white/10 rounded-2xl text-[10px] font-black text-content-muted uppercase tracking-widest cursor-not-allowed">
                                 Funcionalidade em Desenvolvimento
                             </button>
                         </div>
@@ -840,7 +840,7 @@ export const AdminEditalSubjectsModal = ({
                 </div>
 
                 {/* Explicit Footer for Saving */}
-                <div className="px-8 py-5 border-t border-white/5 bg-zinc-900/50 flex items-center justify-between shrink-0">
+                <div className="px-8 py-5 border-t border-border bg-secondary/30 dark:border-white/10 dark:bg-zinc-900/50 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         {hasUnsavedChanges && (
                             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
@@ -860,7 +860,7 @@ export const AdminEditalSubjectsModal = ({
                         <button
                             onClick={() => handleSaveToDatabase(subjects, false)}
                             disabled={isSaving || !hasUnsavedChanges}
-                            className="px-6 h-11 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-100 font-bold rounded-2xl transition-all flex items-center gap-2 text-[11px] uppercase tracking-widest active:scale-[0.98] border border-white/5"
+                            className="px-6 h-11 bg-secondary hover:bg-secondary/80 text-foreground font-bold rounded-2xl transition-all flex items-center gap-2 text-[11px] uppercase tracking-widest active:scale-[0.98] border border-border dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-white/10"
                         >
                             {isSaving ? (
                                 <Loader2 className="animate-spin" size={16} />
@@ -872,7 +872,7 @@ export const AdminEditalSubjectsModal = ({
                         <button
                             onClick={() => handleSaveToDatabase(subjects, true)}
                             disabled={isSaving || !hasUnsavedChanges}
-                            className="px-8 h-11 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:bg-zinc-800 text-white font-black rounded-2xl transition-all shadow-xl shadow-primary/20 flex items-center gap-3 text-[11px] uppercase tracking-widest active:scale-[0.98]"
+                            className="px-8 h-11 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-black rounded-2xl transition-all shadow-xl shadow-primary/20 flex items-center gap-3 text-[11px] uppercase tracking-widest active:scale-[0.98]"
                         >
                             {isSaving ? (
                                 <Loader2 className="animate-spin" size={18} />

@@ -1,4 +1,4 @@
-import { ChevronDown, Info, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, Info, Loader2, Sparkles, CheckCircle2, ArrowLeft, Trash2 } from 'lucide-react';
 import {
   formatExamWeightInputValue,
   getSubjectExamWeightLine,
@@ -50,7 +50,10 @@ type AiReviewStepProps = {
   examWeightTotals: ExamWeightTotals;
   isSaving: boolean;
   onConfirmImport: () => Promise<void> | void;
+  onBackToCargo?: () => void;
   inlineMode?: boolean;
+  hasPendingDraft?: boolean;
+  onDiscardPending?: () => void;
 };
 
 export function AiReviewStep({
@@ -69,7 +72,10 @@ export function AiReviewStep({
   examWeightTotals,
   isSaving,
   onConfirmImport,
+  onBackToCargo,
   inlineMode = false,
+  hasPendingDraft = false,
+  onDiscardPending,
 }: AiReviewStepProps) {
   const selectedSubjectsCount = aiResult.filter((s) => s.selected).length;
   const selectedTopicsCount = aiResult.reduce(
@@ -156,13 +162,13 @@ export function AiReviewStep({
         <div className="mt-3 rounded-xl border border-primary/15 bg-card/80 p-4 dark:bg-zinc-900/45">
           {weightExtractionStatus !== 'idle' &&
             (weightExtractionStatus !== 'found' || weightBlockInfo.length > 0) && (
-              <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-amber-300">
+              <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 dark:border-amber-400/20 dark:bg-amber-500/10">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-amber-800 dark:text-amber-300">
                   {weightExtractionStatus === 'block_only' || weightBlockInfo.length > 0
                     ? 'Peso identificado por bloco'
                     : 'Peso por matéria não identificado'}
                 </p>
-                <p className="mt-1 text-xs leading-relaxed text-amber-200/90">
+                <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-200/90">
                   {weightExtractionStatus === 'block_only' || weightBlockInfo.length > 0
                     ? 'Quando o edital não divide o peso por disciplina, o sistema não distribui automaticamente. Você pode ajustar depois na edição do edital.'
                     : 'Você pode preencher manualmente agora ou ajustar depois na edição do edital.'}
@@ -170,52 +176,59 @@ export function AiReviewStep({
               </div>
             )}
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
-            <div className="space-y-1 sm:col-span-6">
-              <span className="block text-[9px] font-bold uppercase tracking-wider text-content-muted">
-                Concurso / Órgão
-              </span>
-              <input
-                type="text"
-                value={origin}
-                onChange={(e) => onOriginChange(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs font-bold uppercase text-foreground outline-none transition-colors focus:border-primary dark:border-white/10"
-              />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+            {/* Coluna A: Concurso e Cargo */}
+            <div className="space-y-3 md:col-span-9">
+              <div className="space-y-1">
+                <span className="block text-[9px] font-bold uppercase tracking-wider text-content-muted">
+                  Concurso / Órgão
+                </span>
+                <input
+                  type="text"
+                  value={origin}
+                  onChange={(e) => onOriginChange(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs font-bold uppercase text-foreground outline-none transition-colors focus:border-primary dark:border-white/10"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="block text-[9px] font-bold uppercase tracking-wider text-content-muted">
+                  Cargo
+                </span>
+                <input
+                  type="text"
+                  value={position}
+                  onChange={(e) => onPositionChange(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs font-bold uppercase text-foreground outline-none transition-colors focus:border-primary dark:border-white/10"
+                />
+              </div>
             </div>
-            <div className="space-y-1 sm:col-span-6">
-              <span className="block text-[9px] font-bold uppercase tracking-wider text-content-muted">
-                Cargo
-              </span>
-              <input
-                type="text"
-                value={position}
-                onChange={(e) => onPositionChange(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs font-bold uppercase text-foreground outline-none transition-colors focus:border-primary dark:border-white/10"
-              />
-            </div>
-            <div className="space-y-1 sm:col-span-3">
-              <span className="block text-[9px] font-bold uppercase tracking-wider text-content-muted">
-                Ano
-              </span>
-              <input
-                type="text"
-                value={year}
-                maxLength={4}
-                onChange={(e) => onYearChange(e.target.value.replace(/\D/g, ''))}
-                placeholder="AAAA"
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground outline-none transition-colors focus:border-primary dark:border-white/10"
-              />
-            </div>
-            <div className="space-y-1 sm:col-span-4">
-              <span className="block text-[9px] font-bold uppercase tracking-wider text-content-muted">
-                Data da Prova
-              </span>
-              <input
-                type="date"
-                value={examDate}
-                onChange={(e) => onExamDateChange(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground outline-none transition-colors focus:border-primary dark:border-white/10"
-              />
+
+            {/* Coluna B: Ano e Data da Prova (compactos e proporcionais) */}
+            <div className="space-y-3 md:col-span-3 flex flex-col items-start">
+              <div className="space-y-1 w-24 sm:w-28">
+                <span className="block text-[9px] font-bold uppercase tracking-wider text-content-muted">
+                  Ano
+                </span>
+                <input
+                  type="text"
+                  value={year}
+                  maxLength={4}
+                  onChange={(e) => onYearChange(e.target.value.replace(/\D/g, ''))}
+                  placeholder="AAAA"
+                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs font-bold text-center text-foreground outline-none transition-colors focus:border-primary dark:border-white/10"
+                />
+              </div>
+              <div className="space-y-1 w-36 sm:w-40">
+                <span className="block text-[9px] font-bold uppercase tracking-wider text-content-muted">
+                  Data da Prova
+                </span>
+                <input
+                  type="date"
+                  value={examDate}
+                  onChange={(e) => onExamDateChange(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs font-bold text-foreground outline-none transition-colors focus:border-primary dark:border-white/10"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -363,32 +376,60 @@ export function AiReviewStep({
 
       {/* ── Rodapé Fixo de Confirmação ── */}
       <div
-        className={`flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 backdrop-blur dark:border-white/10 dark:bg-zinc-900/90 sm:flex-row sm:items-center sm:justify-between ${
-          inlineMode ? 'sticky bottom-4 z-20 shadow-2xl shadow-black/20' : ''
+        className={`flex flex-col gap-3 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between z-20 ${
+          inlineMode
+            ? 'sticky bottom-4 rounded-2xl border border-border bg-card dark:border-white/10 dark:bg-zinc-900/90 shadow-2xl shadow-black/20'
+            : 'sticky bottom-0 -mx-5 -mb-5 px-6 py-3.5 bg-white/95 dark:bg-[#18181A]/95 border-t border-border/70 dark:border-white/10 shadow-lg'
         }`}
       >
-        <div className="text-xs text-content-muted">
-          Importando <strong className="text-foreground">{selectedSubjectsCount} matérias</strong> e{' '}
-          <strong className="text-foreground">{selectedTopicsCount} tópicos</strong>.
-        </div>
-        <button
-          type="button"
-          onClick={onConfirmImport}
-          disabled={selectedSubjectsCount === 0 || isSaving}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-              Salvando edital...
-            </>
-          ) : (
-            <>
-              <Sparkles size={16} aria-hidden="true" />
-              Importar edital
-            </>
+        <div className="flex flex-wrap items-center gap-3">
+          {hasPendingDraft && onDiscardPending && (
+            <button
+              type="button"
+              onClick={onDiscardPending}
+              disabled={isSaving}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-500/10 rounded-xl transition-colors disabled:opacity-40"
+            >
+              <Trash2 size={13} aria-hidden="true" />
+              Descartar rascunho
+            </button>
           )}
-        </button>
+          <div className="text-xs text-content-muted">
+            Importando <strong className="text-foreground">{selectedSubjectsCount} matérias</strong> e{' '}
+            <strong className="text-foreground">{selectedTopicsCount} tópicos</strong>.
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {onBackToCargo && (
+            <button
+              type="button"
+              onClick={onBackToCargo}
+              disabled={isSaving}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-secondary/60 px-4 text-xs font-bold text-foreground transition-all hover:bg-secondary hover:text-foreground dark:border-white/10 dark:bg-white/[0.05] dark:hover:bg-white/[0.1] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <ArrowLeft size={15} aria-hidden="true" />
+              Voltar ao cargo
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onConfirmImport}
+            disabled={selectedSubjectsCount === 0 || isSaving}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                Salvando edital...
+              </>
+            ) : (
+              <>
+                <Sparkles size={16} aria-hidden="true" />
+                Importar edital
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

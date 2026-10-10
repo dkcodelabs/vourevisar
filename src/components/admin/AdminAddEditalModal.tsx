@@ -103,10 +103,8 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
         await createPublicEdital(payload);
 
         toast.success('Edital importado pela IA e adicionado ao catálogo!');
-        setShowIaModal(false);
-        setMode(null);
+        resetAndClose();
         onSuccess();
-        onClose();
     };
 
     const handleSaveManual = async () => {
@@ -151,7 +149,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
         <>
             {/* ── Modal principal (picker + manual) ── */}
             <AnimatePresence>
-                {isOpen && !showIaModal && (
+                {isOpen && !showIaModal && mode !== 'ia' && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         {/* Overlay */}
                         <motion.div
@@ -398,10 +396,7 @@ export const AdminAddEditalModal = ({ isOpen, onClose, onSuccess }: AdminAddEdit
             {/* ── Modal de IA: reutiliza ImportEditalModal com onImport customizado ── */}
             <ImportEditalModal
                 isOpen={showIaModal}
-                onClose={() => {
-                    setShowIaModal(false);
-                    setMode(null);
-                }}
+                onClose={resetAndClose}
                 onImport={handleIaImport}
                 subjects={[]}
                 userEditais={[]}
